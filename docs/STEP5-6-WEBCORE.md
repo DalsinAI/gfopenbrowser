@@ -294,7 +294,7 @@ engine's link map.
    on one build. Map: grows by the client (`webfetch.c` is 249 lines).
    Needs the first half of step 5 in openamigaservice before it can be
    the default.
-5. **curl out** (patch 0075; written, not yet built). `platform/Curl.cmake` no longer included; the files that
+5. **curl out** (patch 0075; built and tested 31 October). `platform/Curl.cmake` no longer included; the files that
    stay are listed in `PlatformAmiga.cmake`; `CurlContext`, `CurlRequest`,
    `CurlRequestScheduler`, `CurlFormDataStream`, `CurlProxySettings`,
    `CurlSSLHandle` and `CurlSSLHandleAmiga` go, and `CurlMultipartHandle`
@@ -304,7 +304,8 @@ engine's link map.
    (the native transport decodes through the datatypes, openamigaservice
    #15). Map:
    `libcurl.a`, `libnghttp2.a` and the curl objects. Step 5 is done when
-   the map shows them gone.
+   the map shows them gone: they are (31 October, 0 bytes; the stripped
+   engine 62,602,356 bytes).
 
 ### Step 6, drawing
 

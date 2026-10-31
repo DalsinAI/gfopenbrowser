@@ -230,8 +230,27 @@ is done when its "done when" holds on the lab instance.
    unused WebSocket stream. Patches 0072 (the response types without curl)
    and 0073 (the openweb.fetch backend beside curl) are written, not yet
    built. Patch 0075 takes curl out: openweb.fetch does every load (no
-   `OB_NET`), and curl and nghttp2 leave the engine's link; written, not
-   yet built (the map before and after is still to see).
+   `OB_NET`), and curl and nghttp2 leave the engine's link. Built on
+   31 October (on main 0382210, with openamigaservice #15): libcurl.a,
+   libnghttp2.a and libpsl contribute 0 bytes to the engine's map (main
+   had 318 and 66 map lines of the first two), and the stripped engine is
+   62,602,356 bytes; the packaged jsimage engine is 43,819,252 bytes
+   (44,400,976 in the 31 October test package, before 0061 and 0062).
+   Compressed bodies are undone by gzip.datatype and brotli.datatype
+   through the stream class, which the package now carries with
+   z.library (184,404 bytes) and both Install routes put in place.
+   Without them, or with OS 3.2's own datatypes.library 47.3, pages come
+   uncompressed. The test pages pass on fresh lab copies of Instance-32 and
+   Instance-14, gzip (news.ycombinator.com) and br (www.gov.uk) pages
+   included. Timed against the 31 October test package (cold boots, taken
+   in turn, Instance-32 and Instance-14 copies): test1, the DOM page and
+   the DOM bench as before (2.50 against 2.50 s from launch to painted on
+   Instance-32), Wikipedia 0.1 to 0.3 s sooner. BBC News painted 0.3 to
+   0.7 s later than main in two sittings on Instance-32 (medians of
+   three) and 0.36 s later on Instance-14, but this build painted it in
+   8.10 s (median of five) in a third sitting, where main takes 7.9 to
+   8.1 s: within the network's spread so far. Reddit is too varied to
+   compare (45 to 99 requests a run, with or without curl).
 6. **Drawing on OpenGfx and OpenGPU.** Much of what a GraphicsContext
    needs already exists; reuse it, don't write it again (check of 22 October):
    - anti-aliased path fill and clip: openamigafont `of_raster_a8()` (A8
