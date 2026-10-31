@@ -7,7 +7,7 @@
 # os32compat_malloc.c) on threads, with tests/host's stand-in exec calls, and
 # MallocBench, its timings against libnix's malloc (here the host's). And the
 # engine's HTTP disk cache (src/webcore/ob_httpcache.c) in a scratch folder.
-# And the engine's OpenGPU stream writer (WebKit patch 0076) on
+# And the engine's OpenGPU stream writer (WebKit patches 0076 and 0077) on
 # openamigartg's CPU core, against a reference from stream.h's formulas.
 #
 #   OPENLAYOUT_SRC  an openamigalayout checkout (default ../openamigalayout)
@@ -57,9 +57,12 @@ python3 "$HERE/tools/patch-files.py" "$HERE/webkit/patches/0070-amiga-public-suf
     "$OUT/psl" PublicSuffixAmiga.c PublicSuffixAmiga.h
 "$CC" $FLAGS -I"$OUT/psl" "$OUT/psl/PublicSuffixAmiga.c" "$HERE/tests/test_public_suffixes.c" \
     -o "$OUT/test_public_suffixes"
-# the window's OpenGPU stream writer, which lives in WebKit patch 0076, on
-# openamigartg's CPU core (built as its tests/run.sh builds it)
+# the window's OpenGPU stream writer, which lives in WebKit patches 0076
+# and 0077 (paths), on openamigartg's CPU core (built as its tests/run.sh
+# builds it)
 python3 "$HERE/tools/patch-files.py" "$HERE/webkit/patches/0076-amiga-graphicscontext-opengpu.patch" \
+    "$OUT/opengpu" OpenGPUPaintAmiga.c OpenGPUPaintAmiga.h
+python3 "$HERE/tools/patch-files.py" "$HERE/webkit/patches/0077-amiga-opengpu-paths.patch" \
     "$OUT/opengpu" OpenGPUPaintAmiga.c OpenGPUPaintAmiga.h
 "$CC" $FLAGS -I"$OUT/opengpu" -I"$RTG/include" -I"$RTG/library/opengpu" "$OUT/opengpu/OpenGPUPaintAmiga.c" \
     "$RTG/library/opengpu/ogpu_core.c" "$HERE/tests/test_opengpu_paint.c" -lm -o "$OUT/test_opengpu_paint"

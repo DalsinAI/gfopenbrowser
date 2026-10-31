@@ -271,7 +271,9 @@ is done when its "done when" holds on the lab instance.
    paints the window through a GraphicsContext on OpenGPU: solid
    rectangles, `clearRect`, rectangle clips and pictures in one batch per
    paint, the rest handed to cairo and counted (`OB_PAINT=cairo` keeps
-   cairo alone); written, not yet built.
+   cairo alone); written, not yet built. Patch 0077 adds paths, strokes
+   and linear and radial gradients to it (`PATH_FILL` and `PATH_STROKE`);
+   written, not yet built.
 
    Still to write: anti-aliased strokes, even-odd fill, linear, radial and
    conic gradients, blur, the PDF/HSL blend modes, OpenGfx bitmaps deeper

@@ -342,6 +342,22 @@ experiment (`WEBCORE_PORT.md`).
    patterns, read from WebCore's own `Path` segments and `Gradient` stops,
    so `PathCairo` is not needed. Needs OpenGPU's rasteriser and v1.6
    strokes and gradients.
+   Patch 0077 (written, not yet built) does the paths, strokes and
+   gradients: `fillPath`, `strokePath`, `strokeRect`, `fillRoundedRect`,
+   `fillRectWithRoundedHole` and gradient fills through `PATH_FILL` and
+   `PATH_STROKE`, and rectangles of one colour off whole pixels or turned
+   as anti-aliased paths. Strokes take cairo's width, caps, joins, miter
+   limit and dashes from its context. Linear and radial gradients (an
+   elliptical one through its matrix) with pad, repeat and reflect, where
+   every stop has one alpha (pixman mixes stops unpremultiplied, OpenGPU
+   premultiplied: the same then). By source-over, source-atop,
+   destination-over, destination-out, xor and plus-lighter. Still cairo's:
+   clips to paths (next: A8 masks), patterns, conic gradients (cairo's
+   are a mesh), stops of different alphas, copy and clear on paths, paths
+   with anti-aliasing off, `drawLine`, `drawRect` and `drawEllipse`.
+   Tested on the host against the CPU core (`tests/test_opengpu_paint.c`,
+   a reference sampled 256 times a pixel; where a path crosses itself
+   inside a pixel the CPU core is within a quarter of it).
 4. **Text.** `drawGlyphs` as batched glyph runs from a glyph cache, with
    the glyph masks from step 3's OpenFont backend (or, if step 3 is not
    ready, from the FreeType face cairo-ft holds, as FreeType is still

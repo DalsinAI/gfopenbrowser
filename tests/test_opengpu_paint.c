@@ -1,11 +1,14 @@
 /*
  * The engine's GraphicsContextOpenGPU stream writer (WebKit patch 0076's
- * OpenGPUPaintAmiga.c) run on openamigartg's CPU core (ogpu_core.c), and
- * the pixels compared with a reference written here from stream.h's
- * Porter-Duff formulas and cairo's rules for each call: fills by every
- * operator WebKit uses, nested clips with save and restore, pictures with
- * alpha, global alpha, translate and scale, and the states and transforms
- * that must go to cairo (the call returns 0 and draws nothing).
+ * OpenGPUPaintAmiga.c, with 0077's paths) run on openamigartg's CPU core
+ * (ogpu_core.c), and the pixels compared with a reference written here
+ * from stream.h's Porter-Duff formulas and cairo's rules for each call:
+ * fills by every operator WebKit uses, nested clips with save and restore,
+ * pictures with alpha, global alpha, translate and scale, paths filled and
+ * stroked (caps, joins, miter limits, dashes, dots) with colours and
+ * linear and radial gradients against shapes sampled 256 times a pixel,
+ * and the states and transforms that must go to cairo (the call returns 0
+ * and draws nothing).
  *   test_opengpu_paint
  * MIT, Copyright (c) 2026 AmigaChrome Team.
  * SPDX-License-Identifier: MIT
@@ -290,19 +293,32 @@ static void handedOn(void)
     obgpu_flush(&G);
 }
 
+static void refRect(double x, double y, double w, double h, unsigned long argb, int pd);
+
 static void tFill(const char *what, double x, double y, double w, double h, unsigned long argb, int op)
 {
     struct mlevel *l = cur();
     double e[4];
-    int pd = pdOf(op), want = 1, px, py, r;
+    int pd = pdOf(op), want = 1, px, py, r, asPath = 0;
     r = obgpu_fill(&G, fx8(x), fx8(y), fx8(w), fx8(h), argb, op);
-    if (!mdrawable() || pd < 0 || !devRect(l, x, y, w, h, e) || !edgesWhole(l, e))
+    if (!mdrawable() || pd < 0)
         want = 0;
+    else if (!devRect(l, x, y, w, h, e) || !edgesWhole(l, e)) {
+        /* off whole pixels, or turned: a path, by the operators that leave the outside alone */
+        asPath = 1;
+        if (!(G.caps & OBGPU_CAN_PATH) || pd == OGPU_PD_CLEAR || pd == OGPU_PD_SRC)
+            want = 0;
+    }
     expectResult(what, r, want);
     if (!r)
         handedOn();
     if (!want)
         return;
+    if (asPath) {
+        if (w && h)
+            refRect(x, y, w, h, argb, pd);
+        return;
+    }
     for (py = 0; py < H; py++)
         for (px = 0; px < W; px++) {
             double cx = px + 0.5, cy = py + 0.5;
@@ -496,6 +512,700 @@ static void expectCount(const char *what, long got, long want)
         printf("FAIL %s: %ld, expected %ld\n", what, got, want);
         failures++;
     }
+}
+
+/* ---- paths: the reference ---------------------------------------------------------------- */
+
+/* A shape in the user's space, drawn through the model's transform: the
+ * union of filled contours (non-zero or even-odd), convex polygons and
+ * discs and capsules (the points within r of a segment). */
+#define REF_POINTS  8192
+#define REF_PIECES  1024
+static double refPt[REF_POINTS][2];
+static int refContourAt[REF_PIECES], refContours, refPoints, refEvenOdd;
+static int refConvexAt[REF_PIECES], refConvexN[REF_PIECES], refConvexes;
+static double refCap[REF_PIECES][5];
+static int refCaps, refCurved, refCrossing;
+
+static void refReset(int evenodd)
+{
+    refContours = refPoints = refConvexes = refCaps = refCurved = 0;
+    refEvenOdd = evenodd;
+}
+
+static int refPoint(double x, double y)
+{
+    if (refPoints >= REF_POINTS) {
+        printf("FAIL the reference: too many points\n");
+        exit(1);
+    }
+    refPt[refPoints][0] = x;
+    refPt[refPoints][1] = y;
+    return refPoints++;
+}
+
+static void refContourStart(void)
+{
+    refContourAt[refContours++] = refPoints;
+}
+
+static void refConvex(const double *p, int n)
+{
+    int i;
+    refConvexAt[refConvexes] = refPoints;
+    refConvexN[refConvexes++] = n;
+    for (i = 0; i < n; i++)
+        refPoint(p[2 * i], p[2 * i + 1]);
+}
+
+static void refCapsule(double x0, double y0, double x1, double y1, double r)
+{
+    refCap[refCaps][0] = x0; refCap[refCaps][1] = y0;
+    refCap[refCaps][2] = x1; refCap[refCaps][3] = y1;
+    refCap[refCaps++][4] = r;
+    refCurved = 1;
+}
+
+static int refInsideUser(double x, double y)
+{
+    int i, j, wind = 0;
+    for (i = 0; i < refContours; i++) {
+        int a = refContourAt[i], b = i + 1 < refContours ? refContourAt[i + 1] : refConvexes ? refConvexAt[0] : refPoints;
+        for (j = a; j < b; j++) {
+            const double *p = refPt[j], *q = refPt[j + 1 < b ? j + 1 : a];
+            if (p[1] <= y && q[1] > y && (q[0] - p[0]) * (y - p[1]) - (x - p[0]) * (q[1] - p[1]) > 0)
+                wind++;
+            else if (p[1] > y && q[1] <= y && (q[0] - p[0]) * (y - p[1]) - (x - p[0]) * (q[1] - p[1]) < 0)
+                wind--;
+        }
+    }
+    if (refEvenOdd ? (wind & 1) : wind != 0)
+        return 1;
+    for (i = 0; i < refConvexes; i++) {
+        int a = refConvexAt[i], n = refConvexN[i], pos = 0, neg = 0;
+        for (j = 0; j < n; j++) {
+            const double *p = refPt[a + j], *q = refPt[a + (j + 1) % n];
+            double c = (q[0] - p[0]) * (y - p[1]) - (x - p[0]) * (q[1] - p[1]);
+            pos += c > 0;
+            neg += c < 0;
+        }
+        if (!pos || !neg)
+            if (n >= 3)
+                return 1;
+    }
+    for (i = 0; i < refCaps; i++) {
+        const double *c = refCap[i];
+        double dx = c[2] - c[0], dy = c[3] - c[1], l2 = dx * dx + dy * dy, t = 0, ex, ey;
+        if (l2 > 0) {
+            t = ((x - c[0]) * dx + (y - c[1]) * dy) / l2;
+            t = t < 0 ? 0 : t > 1 ? 1 : t;
+        }
+        ex = x - (c[0] + t * dx);
+        ey = y - (c[1] + t * dy);
+        if (ex * ex + ey * ey <= c[4] * c[4])
+            return 1;
+    }
+    return 0;
+}
+
+static double refInv[6];
+
+static int refInside(double x, double y)
+{
+    double ux, uy;
+    devX(refInv, x, y, &ux, &uy);
+    return refInsideUser(ux, uy);
+}
+
+static void inverse(const double *m, double *inv)
+{
+    double det = m[0] * m[3] - m[1] * m[2];
+    inv[0] = m[3] / det; inv[1] = -m[1] / det; inv[2] = -m[2] / det; inv[3] = m[0] / det;
+    inv[4] = -(inv[0] * m[4] + inv[2] * m[5]);
+    inv[5] = -(inv[1] * m[4] + inv[3] * m[5]);
+}
+
+/* A pixel's coverage (0-255), 16 x 16 samples, and whether the shape's edge
+ * crosses it (then the area is only so near). */
+#define SS 16
+static int refCoverage(int px, int py, int *edge)
+{
+    int i, j, n = 0, first = refInside(px + 0.5 / SS, py + 0.5 / SS), differ = 0;
+    for (j = 0; j < SS; j++)
+        for (i = 0; i < SS; i++) {
+            int in = refInside(px + (i + 0.5) / SS, py + (j + 0.5) / SS);
+            n += in;
+            differ |= in != first;
+        }
+    for (i = 0; i <= SS && !differ; i++) {
+        differ |= refInside(px + (double)i / SS, py) != first || refInside(px + (double)i / SS, py + 1) != first
+            || refInside(px, py + (double)i / SS) != first || refInside(px + 1, py + (double)i / SS) != first;
+    }
+    *edge = differ;
+    return (n * 255 + SS * SS / 2) / (SS * SS);
+}
+
+/* ---- gradients: the reference ------------------------------------------------------------ */
+
+struct tgrad {
+    int kind, spread, stops;
+    double m[6];                /* its space to the user's */
+    double geo[6];
+    double offset[16];
+    unsigned long argb[16];
+};
+
+static double spreadT(int spread, double t)
+{
+    if (spread == OBGPU_REPEAT)
+        return t - floor(t);
+    if (spread == OBGPU_REFLECT) {
+        t = fmod(t, 2);
+        if (t < 0)
+            t += 2;
+        return t > 1 ? 2 - t : t;
+    }
+    return t < 0 ? 0 : t > 1 ? 1 : t;
+}
+
+/* The gradient's colour at a point of the target; 0 where there is no t. */
+static struct px gradAt(const struct tgrad *gr, double x, double y)
+{
+    double inv[6], ux, uy, gx, gy, t, gi[6];
+    struct px o = { 0, 0, 0, 0 };
+    int i;
+    devX(refInv, x, y, &ux, &uy);
+    inverse(gr->m, gi);
+    devX(gi, ux, uy, &gx, &gy);
+    (void)inv;
+    if (gr->kind == OBGPU_LINEAR) {
+        double dx = gr->geo[2] - gr->geo[0], dy = gr->geo[3] - gr->geo[1];
+        t = ((gx - gr->geo[0]) * dx + (gy - gr->geo[1]) * dy) / (dx * dx + dy * dy);
+    } else {
+        double cdx = gr->geo[3] - gr->geo[0], cdy = gr->geo[4] - gr->geo[1], dr = gr->geo[5] - gr->geo[2];
+        double pdx = gx - gr->geo[0], pdy = gy - gr->geo[1], r0 = gr->geo[2];
+        double a = cdx * cdx + cdy * cdy - dr * dr, b = pdx * cdx + pdy * cdy + r0 * dr, c = pdx * pdx + pdy * pdy - r0 * r0;
+        if (fabs(a) < 1e-9) {
+            if (fabs(b) < 1e-9)
+                return o;
+            t = c / (2 * b);
+            if (r0 + t * dr < 0)
+                return o;
+        } else {
+            double disc = b * b - a * c, t1, t2;
+            if (disc < 0)
+                return o;
+            t1 = (b + sqrt(disc)) / a;
+            t2 = (b - sqrt(disc)) / a;
+            if (t2 > t1) { double s = t1; t1 = t2; t2 = s; }
+            if (r0 + t1 * dr >= 0)
+                t = t1;
+            else if (r0 + t2 * dr >= 0)
+                t = t2;
+            else
+                return o;
+        }
+    }
+    t = spreadT(gr->spread, t);
+    if (t <= gr->offset[0])
+        return colour(gr->argb[0]);
+    for (i = 1; i < gr->stops; i++)
+        if (t < gr->offset[i] || i == gr->stops - 1) {
+            double f, span = gr->offset[i] - gr->offset[i - 1];
+            struct px a = colour(gr->argb[i - 1]), b = colour(gr->argb[i]);
+            if (t >= gr->offset[i])
+                return b;
+            f = span > 0 ? (t - gr->offset[i - 1]) / span : 1;
+            o.a = (int)floor(a.a + (b.a - a.a) * f + 0.5);
+            o.r = (int)floor(a.r + (b.r - a.r) * f + 0.5);
+            o.g = (int)floor(a.g + (b.g - a.g) * f + 0.5);
+            o.b = (int)floor(a.b + (b.b - a.b) * f + 0.5);
+            return o;
+        }
+    return colour(gr->argb[gr->stops - 1]);
+}
+
+static int maxDiff(struct px a, struct px b)
+{
+    int d = abs(a.a - b.a), v;
+    if ((v = abs(a.r - b.r)) > d) d = v;
+    if ((v = abs(a.g - b.g)) > d) d = v;
+    if ((v = abs(a.b - b.b)) > d) d = v;
+    return d;
+}
+
+/* The writer's gradient for a test one. */
+static unsigned long gradStops[32];
+static struct obgpu_gradient writerGradient(const struct tgrad *t)
+{
+    struct obgpu_gradient g;
+    int i;
+    g.kind = t->kind;
+    g.spread = t->spread;
+    g.m[0] = fx16(t->m[0]); g.m[1] = fx16(t->m[1]); g.m[2] = fx16(t->m[2]); g.m[3] = fx16(t->m[3]);
+    g.m[4] = fx8(t->m[4]); g.m[5] = fx8(t->m[5]);
+    for (i = 0; i < 6; i++)
+        g.geometry[i] = fx16(t->geo[i]);
+    for (i = 0; i < t->stops; i++) {
+        gradStops[2 * i] = (unsigned long)fx16(t->offset[i]);
+        gradStops[2 * i + 1] = t->argb[i];
+    }
+    g.stops = t->stops;
+    g.stop = gradStops;
+    return g;
+}
+
+/* The expected pixels of the reference shape painted with a colour or a
+ * gradient by an operator: each pixel inside the clip, its coverage times
+ * the paint, combined. */
+static void refPaint(unsigned long argb, const struct tgrad *gr, int pd)
+{
+    struct mlevel *l = cur();
+    double b[4] = { 1e9, 1e9, -1e9, -1e9 }, grow = 1, x, y;
+    int px, py, i;
+    inverse(l->m, refInv);
+    /* the shape's box on the target: only the pixels in it are sampled */
+    for (i = 0; i < refPoints + 2 * refCaps; i++) {
+        const double *q = i < refPoints ? refPt[i] : &refCap[(i - refPoints) / 2][(i - refPoints) % 2 * 2];
+        devX(l->m, q[0], q[1], &x, &y);
+        if (x < b[0]) b[0] = x;
+        if (y < b[1]) b[1] = y;
+        if (x > b[2]) b[2] = x;
+        if (y > b[3]) b[3] = y;
+        if (i >= refPoints)
+            grow = fmax(grow, 1 + refCap[(i - refPoints) / 2][4] * (fabs(l->m[0]) + fabs(l->m[1]) + fabs(l->m[2]) + fabs(l->m[3])));
+    }
+    for (py = 0; py < H; py++)
+        for (px = 0; px < W; px++) {
+            int edge, cov, t = 2;
+            struct px p;
+            if (px + 0.5 < l->cx0 || px + 0.5 > l->cx1 || py + 0.5 < l->cy0 || py + 0.5 > l->cy1)
+                continue;
+            if (px + 1 < b[0] - grow || px > b[2] + grow || py + 1 < b[1] - grow || py > b[3] + grow)
+                continue;
+            cov = refCoverage(px, py, &edge);
+            if (!cov && !edge)
+                continue;
+            if (gr) {
+                struct px c[5];
+                int k, d = 0;
+                c[0] = gradAt(gr, px + 0.5, py + 0.5);
+                c[1] = gradAt(gr, px + 0.25, py + 0.5);
+                c[2] = gradAt(gr, px + 0.75, py + 0.5);
+                c[3] = gradAt(gr, px + 0.5, py + 0.25);
+                c[4] = gradAt(gr, px + 0.5, py + 0.75);
+                for (k = 1; k < 5; k++)
+                    if (maxDiff(c[0], c[k]) > d)
+                        d = maxDiff(c[0], c[k]);
+                if (d > 24) {           /* a sharp change: either side */
+                    skip[py][px] = 1;
+                    continue;
+                }
+                p = c[0];
+                t = 3 + d;
+            } else
+                p = colour(argb);
+            /* the area near an edge: sampled here, and OpenGPU's curves cut within 1/16 pixel */
+            if (edge)
+                t += refCurved ? 22 : 10;
+            /* where a path crosses itself inside a pixel, OpenGPU's CPU core
+             * finds the winding per quarter of its height */
+            if (edge && refCrossing)
+                t += 64;
+            if (tol[py][px] < t)
+                tol[py][px] = (unsigned char)t;
+            store(&expect[py][px * 4], combine(pd, scale(p, cov), load(&expect[py][px * 4], 0)));
+        }
+}
+
+/* ---- paths: the calls, on the writer and the reference ----------------------------------- */
+
+/* The path as elements, in the user's space. */
+struct el { int v; double p[6]; };
+static struct el path[512];
+static int npath;
+
+static void pM(double x, double y) { path[npath].v = OGPU_PATH_MOVE; path[npath].p[0] = x; path[npath++].p[1] = y; }
+static void pL(double x, double y) { path[npath].v = OGPU_PATH_LINE; path[npath].p[0] = x; path[npath++].p[1] = y; }
+static void pQ(double x1, double y1, double x, double y)
+{
+    struct el *e = &path[npath++];
+    e->v = OGPU_PATH_QUAD; e->p[0] = x1; e->p[1] = y1; e->p[2] = x; e->p[3] = y;
+}
+static void pC(double x1, double y1, double x2, double y2, double x, double y)
+{
+    struct el *e = &path[npath++];
+    e->v = OGPU_PATH_CUBIC; e->p[0] = x1; e->p[1] = y1; e->p[2] = x2; e->p[3] = y2; e->p[4] = x; e->p[5] = y;
+}
+static void pZ(void) { path[npath++].v = OGPU_PATH_CLOSE; }
+
+static void pEllipse(double cx, double cy, double rx, double ry)
+{
+    const double k = 0.5522847498;
+    pM(cx + rx, cy);
+    pC(cx + rx, cy + k * ry, cx + k * rx, cy + ry, cx, cy + ry);
+    pC(cx - k * rx, cy + ry, cx - rx, cy + k * ry, cx - rx, cy);
+    pC(cx - rx, cy - k * ry, cx - k * rx, cy - ry, cx, cy - ry);
+    pC(cx + k * rx, cy - ry, cx + rx, cy - k * ry, cx + rx, cy);
+    pZ();
+}
+
+/* The path to the writer: begin's answer, and 0 if an element did not fit. */
+static int sendPath(int *fitted)
+{
+    int i, ok = 1;
+    if (!obgpu_path_begin(&G)) {
+        *fitted = 1;
+        return 0;
+    }
+    for (i = 0; i < npath; i++) {
+        const struct el *e = &path[i];
+        switch (e->v) {
+        case OGPU_PATH_MOVE: ok &= obgpu_path_move(&G, fx8(e->p[0]), fx8(e->p[1])); break;
+        case OGPU_PATH_LINE: ok &= obgpu_path_line(&G, fx8(e->p[0]), fx8(e->p[1])); break;
+        case OGPU_PATH_QUAD:
+            ok &= obgpu_path_quad(&G, fx8(e->p[0]), fx8(e->p[1]), fx8(e->p[2]), fx8(e->p[3]));
+            break;
+        case OGPU_PATH_CUBIC:
+            ok &= obgpu_path_cubic(&G, fx8(e->p[0]), fx8(e->p[1]), fx8(e->p[2]), fx8(e->p[3]), fx8(e->p[4]), fx8(e->p[5]));
+            break;
+        default: ok &= obgpu_path_close(&G); break;
+        }
+    }
+    *fitted = ok;
+    return 1;
+}
+
+/* The path's subpaths as polylines (curves cut into 64 lines), each closed
+ * or not, as the writer reads it: a line after a close starts where the
+ * closed subpath started. */
+#define MAXSUB 64
+static double poly[MAXSUB][1200][2];
+static int polyN[MAXSUB], polyClosed[MAXSUB], polyDrawn[MAXSUB], polys;
+
+static void polyAdd(double x, double y)
+{
+    poly[polys - 1][polyN[polys - 1]][0] = x;
+    poly[polys - 1][polyN[polys - 1]++][1] = y;
+}
+
+static void flatten(void)
+{
+    double cx = 0, cy = 0, sx = 0, sy = 0;
+    int i, k, closed = 0;
+    polys = 0;
+    for (i = 0; i < npath; i++) {
+        const struct el *e = &path[i];
+        if (e->v == OGPU_PATH_MOVE || ((closed || !polys) && e->v != OGPU_PATH_CLOSE)) {
+            if (e->v == OGPU_PATH_MOVE) {
+                sx = e->p[0];
+                sy = e->p[1];
+            }
+            polys++;
+            polyN[polys - 1] = 0;
+            polyClosed[polys - 1] = 0;
+            polyDrawn[polys - 1] = 0;
+            cx = sx;
+            cy = sy;
+            polyAdd(cx, cy);
+            closed = 0;
+            if (e->v == OGPU_PATH_MOVE)
+                continue;
+        }
+        polyDrawn[polys - 1] = 1;
+        switch (e->v) {
+        case OGPU_PATH_LINE:
+            cx = e->p[0]; cy = e->p[1];
+            polyAdd(cx, cy);
+            break;
+        case OGPU_PATH_QUAD:
+            refCurved = 1;
+            for (k = 1; k <= 64; k++) {
+                double t = k / 64.0, u = 1 - t;
+                polyAdd(u * u * cx + 2 * u * t * e->p[0] + t * t * e->p[2], u * u * cy + 2 * u * t * e->p[1] + t * t * e->p[3]);
+            }
+            cx = e->p[2]; cy = e->p[3];
+            break;
+        case OGPU_PATH_CUBIC:
+            refCurved = 1;
+            for (k = 1; k <= 64; k++) {
+                double t = k / 64.0, u = 1 - t;
+                polyAdd(u * u * u * cx + 3 * u * u * t * e->p[0] + 3 * u * t * t * e->p[2] + t * t * t * e->p[4],
+                    u * u * u * cy + 3 * u * u * t * e->p[1] + 3 * u * t * t * e->p[3] + t * t * t * e->p[5]);
+            }
+            cx = e->p[4]; cy = e->p[5];
+            break;
+        case OGPU_PATH_CLOSE:
+            if (polys)
+                polyClosed[polys - 1] = 1;
+            closed = 1;
+            cx = sx; cy = sy;
+            break;
+        }
+    }
+}
+
+/* The reference of the path filled. */
+static void refFillPath(int evenodd)
+{
+    int s, i;
+    refReset(evenodd);
+    flatten();
+    for (s = 0; s < polys; s++) {
+        refContourStart();
+        for (i = 0; i < polyN[s]; i++)
+            refPoint(poly[s][i][0], poly[s][i][1]);
+    }
+}
+
+/* The reference of the path stroked: each piece's segments as quads, its
+ * joins and caps; dashes cut the subpaths into pieces first. */
+struct tstroke { double width; int cap, join; double miter; int dashes; double dash[8]; double offset; };
+
+static void quadOf(const double *a, const double *b, double hw, double ext0, double ext1)
+{
+    double dx = b[0] - a[0], dy = b[1] - a[1], l = sqrt(dx * dx + dy * dy), nx, ny, ux, uy, q[8];
+    if (l <= 0)
+        return;
+    ux = dx / l; uy = dy / l;
+    nx = -uy * hw; ny = ux * hw;
+    q[0] = a[0] - ux * ext0 + nx; q[1] = a[1] - uy * ext0 + ny;
+    q[2] = b[0] + ux * ext1 + nx; q[3] = b[1] + uy * ext1 + ny;
+    q[4] = b[0] + ux * ext1 - nx; q[5] = b[1] + uy * ext1 - ny;
+    q[6] = a[0] - ux * ext0 - nx; q[7] = a[1] - uy * ext0 - ny;
+    refConvex(q, 4);
+}
+
+static void joinAt(const double *a, const double *v, const double *b, const struct tstroke *s)
+{
+    double hw = s->width / 2, d0x = v[0] - a[0], d0y = v[1] - a[1], d1x = b[0] - v[0], d1y = b[1] - v[1];
+    double l0 = sqrt(d0x * d0x + d0y * d0y), l1 = sqrt(d1x * d1x + d1y * d1y), cross, side, n0x, n0y, n1x, n1y, t[8];
+    if (l0 <= 0 || l1 <= 0)
+        return;
+    d0x /= l0; d0y /= l0; d1x /= l1; d1y /= l1;
+    if (s->join == OBGPU_JOIN_ROUND) {
+        refCapsule(v[0], v[1], v[0], v[1], hw);
+        return;
+    }
+    cross = d0x * d1y - d0y * d1x;
+    if (fabs(cross) < 1e-12)
+        return;
+    side = cross > 0 ? -1 : 1;      /* the outer side's normal */
+    n0x = -d0y * hw * side; n0y = d0x * hw * side;
+    n1x = -d1y * hw * side; n1y = d1x * hw * side;
+    t[0] = v[0]; t[1] = v[1];
+    t[2] = v[0] + n0x; t[3] = v[1] + n0y;
+    if (s->join == OBGPU_JOIN_MITER) {
+        double cosT = -(d0x * d1x + d0y * d1y), sinHalf = sqrt((1 - cosT) / 2);
+        if (sinHalf > 0 && 1 / sinHalf <= s->miter) {
+            /* the tip: where the two outer edges meet */
+            double mx = n0x + n1x, my = n0y + n1y, ml = sqrt(mx * mx + my * my), len = hw / sinHalf;
+            t[4] = v[0] + mx / ml * len; t[5] = v[1] + my / ml * len;
+            t[6] = v[0] + n1x; t[7] = v[1] + n1y;
+            refConvex(t, 4);
+            return;
+        }
+    }
+    t[4] = v[0] + n1x; t[5] = v[1] + n1y;
+    refConvex(t, 3);
+}
+
+/* A piece: an open or closed polyline. */
+static void strokePiece(double (*p)[2], int n, int closed, const struct tstroke *s)
+{
+    double hw = s->width / 2;
+    int i, one = 1;
+    for (i = 1; i < n; i++)
+        one &= p[i][0] == p[0][0] && p[i][1] == p[0][1];
+    if (one) {
+        /* as cairo: a dot, or a square along x */
+        if (s->cap == OBGPU_CAP_ROUND)
+            refCapsule(p[0][0], p[0][1], p[0][0], p[0][1], hw);
+        else if (s->cap == OBGPU_CAP_SQUARE) {
+            double q[8];
+            q[0] = p[0][0] - hw; q[1] = p[0][1] - hw; q[2] = p[0][0] + hw; q[3] = p[0][1] - hw;
+            q[4] = p[0][0] + hw; q[5] = p[0][1] + hw; q[6] = p[0][0] - hw; q[7] = p[0][1] + hw;
+            refConvex(q, 4);
+        }
+        return;
+    }
+    for (i = 0; i + 1 < n; i++) {
+        double e0 = 0, e1 = 0;
+        if (!closed && s->cap == OBGPU_CAP_SQUARE) {
+            e0 = i == 0 ? hw : 0;
+            e1 = i + 2 == n ? hw : 0;
+        }
+        quadOf(p[i], p[i + 1], hw, e0, e1);
+    }
+    if (closed) {
+        quadOf(p[n - 1], p[0], hw, 0, 0);
+        joinAt(p[n - 1], p[0], p[1], s);
+        joinAt(p[n - 2], p[n - 1], p[0], s);
+    }
+    for (i = 1; i + 1 < n; i++)
+        joinAt(p[i - 1], p[i], p[i + 1], s);
+    if (!closed && s->cap == OBGPU_CAP_ROUND) {
+        refCapsule(p[0][0], p[0][1], p[0][0], p[0][1], hw);
+        refCapsule(p[n - 1][0], p[n - 1][1], p[n - 1][0], p[n - 1][1], hw);
+    }
+}
+
+/* Dashing: the piece being cut, and a closed subpath's first piece. */
+static double piece[1200][2], firstPiece[1200][2];
+static int npiece, nfirst;
+
+static void pieceAdd(double (*p)[2], int *n, double x, double y)
+{
+    if (*n && p[*n - 1][0] == x && p[*n - 1][1] == y)
+        return;
+    p[*n][0] = x;
+    p[*n][1] = y;
+    ++*n;
+}
+
+static void refStrokePath(const struct tstroke *s)
+{
+    int sp, i;
+    refReset(0);
+    flatten();
+    for (sp = 0; sp < polys; sp++) {
+        double (*p)[2] = poly[sp];
+        int n = polyN[sp], closed = polyClosed[sp], di = 0, on = 1, count, startOn, cut = 0;
+        double total = 0, off, rem;
+        if (!polyDrawn[sp])
+            continue;           /* a move alone: nothing */
+        if (closed && n > 1 && p[n - 1][0] == p[0][0] && p[n - 1][1] == p[0][1])
+            n--;
+        if (!s->dashes) {
+            strokePiece(p, n, closed, s);
+            continue;
+        }
+        /* an odd count used twice; the pattern from the offset */
+        count = s->dashes & 1 ? 2 * s->dashes : s->dashes;
+        for (i = 0; i < count; i++)
+            total += s->dash[i % s->dashes];
+        off = fmod(s->offset, total);
+        if (off < 0)
+            off += total;
+        while (off > 0 && off >= s->dash[di % s->dashes]) {    /* cairo's: a first dash of no length stays */
+            off -= s->dash[di % s->dashes];
+            di = (di + 1) % count;
+            on ^= 1;
+        }
+        rem = s->dash[di % s->dashes] - off;
+        startOn = on;
+        npiece = nfirst = 0;
+        if (on)
+            pieceAdd(piece, &npiece, p[0][0], p[0][1]);
+        for (i = 0; i < n - 1 + closed; i++) {
+            const double *a = p[i], *b = p[(i + 1) % n];
+            double dx = b[0] - a[0], dy = b[1] - a[1], l = sqrt(dx * dx + dy * dy), at = 0;
+            while (l - at >= rem) {
+                double x, y;
+                at += rem;
+                x = a[0] + dx * at / l;
+                y = a[1] + dy * at / l;
+                if (on) {
+                    pieceAdd(piece, &npiece, x, y);
+                    if (closed && startOn && !cut) {
+                        memcpy(firstPiece, piece, sizeof piece[0] * (size_t)npiece);
+                        nfirst = npiece;
+                    } else
+                        strokePiece(piece, npiece, 0, s);
+                    npiece = 0;
+                } else {
+                    npiece = 0;
+                    pieceAdd(piece, &npiece, x, y);
+                }
+                cut = 1;
+                on ^= 1;
+                di = (di + 1) % count;
+                rem = s->dash[di % s->dashes];
+            }
+            rem -= l - at;
+            if (on)
+                pieceAdd(piece, &npiece, b[0], b[1]);
+        }
+        if (closed && startOn && !cut) {
+            strokePiece(p, n, 1, s);            /* one dash all the way round */
+            continue;
+        }
+        if (on && npiece && closed && startOn) {
+            for (i = 0; i < nfirst; i++)        /* the last piece runs on into the first */
+                pieceAdd(piece, &npiece, firstPiece[i][0], firstPiece[i][1]);
+            strokePiece(piece, npiece, 0, s);
+            continue;
+        }
+        if (on && npiece)
+            strokePiece(piece, npiece, 0, s);
+        if (nfirst)
+            strokePiece(firstPiece, nfirst, 0, s);
+    }
+}
+
+/* want: as pathDraw decides. */
+static int pathWanted(int op, const struct tgrad *gr)
+{
+    int pd = pdOf(op);
+    (void)gr;
+    return mdrawable() && (G.caps & OBGPU_CAN_PATH) && pd >= 0 && pd != OGPU_PD_CLEAR && pd != OGPU_PD_SRC;
+}
+
+static void tPathFill(const char *what, int evenodd, unsigned long argb, const struct tgrad *gr, int op, int want)
+{
+    struct obgpu_gradient wg;
+    int fitted, r;
+    if (gr)
+        wg = writerGradient(gr);
+    sendPath(&fitted);
+    r = obgpu_fill_path(&G, argb, gr ? &wg : 0, evenodd, op);
+    if (want < 0)
+        want = pathWanted(op, gr) && fitted;
+    expectResult(what, r, want);
+    if (!r)
+        handedOn();
+    if (!want)
+        return;
+    refFillPath(evenodd);
+    refPaint(argb, gr, pdOf(op));
+}
+
+static void tPathStroke(const char *what, const struct tstroke *s, unsigned long argb, const struct tgrad *gr, int op, int want)
+{
+    struct obgpu_gradient wg;
+    struct obgpu_stroke ws;
+    long dash[8];
+    int fitted, r, i;
+    if (gr)
+        wg = writerGradient(gr);
+    ws.width = fx16(s->width);
+    ws.cap = s->cap;
+    ws.join = s->join;
+    ws.miter = fx16(s->miter);
+    ws.dashes = s->dashes;
+    for (i = 0; i < s->dashes; i++)
+        dash[i] = fx16(s->dash[i]);
+    ws.dash = dash;
+    ws.dash_offset = fx16(s->offset);
+    sendPath(&fitted);
+    r = obgpu_stroke_path(&G, argb, gr ? &wg : 0, &ws, op);
+    if (want < 0)
+        want = pathWanted(op, gr) && fitted;
+    expectResult(what, r, want);
+    if (!r)
+        handedOn();
+    if (!want || s->width <= 0)
+        return;
+    refStrokePath(s);
+    refPaint(argb, gr, pdOf(op));
+}
+
+static void refRect(double x, double y, double w, double h, unsigned long argb, int pd)
+{
+    npath = 0;
+    pM(x, y); pL(x + w, y); pL(x + w, y + h); pL(x, y + h); pZ();
+    refFillPath(0);
+    refPaint(argb, 0, pd);
 }
 
 /* ---- the tests ---------------------------------------------------------------------------- */
@@ -760,6 +1470,466 @@ static void testBatches(void)
     coreErrors = 0;
 }
 
+static void testPathFills(void)
+{
+    static const int pathOps[6] = {
+        OBGPU_OP_SOURCE_OVER, OBGPU_OP_SOURCE_ATOP, OBGPU_OP_DESTINATION_OVER, OBGPU_OP_DESTINATION_OUT, OBGPU_OP_XOR,
+        OBGPU_OP_PLUS_LIGHTER
+    };
+    char what[64];
+    int i, rule;
+    long before;
+    reset(OBGPU_CAN_PD | OBGPU_CAN_PATH, 4096, 1024);
+    /* a five-pointed star crosses itself: its middle is in by non-zero, out by even-odd */
+    for (rule = 0; rule < 2; rule++) {
+        npath = 0;
+        pM(20 + rule * 48, 2);
+        pL(31.7 + rule * 48, 37.5);
+        pL(1.5 + rule * 48, 15.5);
+        pL(38.5 + rule * 48, 15.5);
+        pL(8.3 + rule * 48, 37.5);
+        pZ();
+        refCrossing = 1;
+        tPathFill(rule ? "a star, even-odd" : "a star, non-zero", rule, 0xFF3060C0UL, 0, OBGPU_OP_SOURCE_OVER, -1);
+        refCrossing = 0;
+    }
+    /* curves: an ellipse of cubics, a quadratic lens, a ring of two circles */
+    npath = 0;
+    pEllipse(20.3, 50.2, 15.6, 9.1);
+    tPathFill("an ellipse", 0, 0xC0806000UL, 0, OBGPU_OP_SOURCE_OVER, -1);
+    npath = 0;
+    pM(45, 44);
+    pQ(55, 30, 65, 44);
+    pQ(55, 58, 45, 44);
+    tPathFill("a quadratic lens, left open", 0, 0x80008080UL, 0, OBGPU_OP_SOURCE_OVER, -1);
+    npath = 0;
+    pEllipse(82, 48, 12, 12);
+    pEllipse(82, 48, 6, 6);
+    tPathFill("a ring, even-odd", 1, 0xFF00A000UL, 0, OBGPU_OP_SOURCE_OVER, -1);
+    verify("paths filled");
+    /* every operator: those that leave the outside alone drawn, the others cairo's */
+    for (i = 0; i < 14; i++) {
+        sprintf(what, "a triangle by op %d", allOps[i]);
+        npath = 0;
+        pM(3 + i * 6.5, 3.25);
+        pL(8.75 + i * 6.5, 20);
+        pL(1 + i * 6.5, 28.5);
+        tPathFill(what, 0, 0xA0602040UL, 0, allOps[i], -1);
+    }
+    for (i = 0; i < 6; i++) {
+        sprintf(what, "a circle by op %d", pathOps[i]);
+        npath = 0;
+        pEllipse(8 + i * 15, 46, 6.5, 6.5);
+        tPathFill(what, 0, i & 1 ? 0xFFFFFFFFUL : 0x60301020UL, 0, pathOps[i], -1);
+    }
+    verify("paths by every operator");
+    /* nothing to draw: a transparent colour, an empty path, a path of moves */
+    submitted = 0;
+    before = (long)counts.draws;
+    npath = 0;
+    pEllipse(40, 30, 20, 20);
+    tPathFill("a transparent colour", 0, 0, 0, OBGPU_OP_SOURCE_OVER, 1);
+    npath = 0;
+    tPathFill("an empty path", 0, 0xFF000000UL, 0, OBGPU_OP_SOURCE_OVER, 1);
+    npath = 0;
+    pM(10, 10);
+    pM(30, 30);
+    tPathFill("moves only", 0, 0xFF000000UL, 0, OBGPU_OP_SOURCE_OVER, 1);
+    verify("paths with nothing to draw");
+    expectCount("nothing to draw: draws", (long)counts.draws - before, 0);
+}
+
+static void testPathStates(void)
+{
+    char what[64];
+    int i;
+    reset(OBGPU_CAN_PD | OBGPU_CAN_PATH, 4096, 1024);
+    /* under transforms: scaled, turned, flipped */
+    tSave();
+    tMatrix(2, 0, 0, 1.5, 3.5, 1.25);
+    npath = 0;
+    pEllipse(8, 8, 6, 6);
+    tPathFill("a scaled circle", 0, 0xFFC02020UL, 0, OBGPU_OP_SOURCE_OVER, -1);
+    tMatrix(0.8660254, 0.5, -0.5, 0.8660254, 60, 2);
+    npath = 0;
+    pM(0, 0); pL(24, 0); pL(24, 12); pL(0, 12); pZ();
+    tPathFill("a turned rectangle", 0, 0x80204080UL, 0, OBGPU_OP_SOURCE_OVER, -1);
+    tMatrix(-1, 0, 0, 1, 40, 30);
+    npath = 0;
+    pM(2, 2); pC(30, 0, 0, 30, 20, 20); pZ();
+    tPathFill("a flipped loop", 1, 0xFF008000UL, 0, OBGPU_OP_SOURCE_OVER, -1);
+    tRestore();
+    verify("paths under transforms");
+    /* clips: inside a rectangle clip; an empty clip; clips only cairo has */
+    tSave();
+    tClip(10, 10, 30, 20);
+    npath = 0;
+    pEllipse(25, 20, 20, 15);
+    tPathFill("an ellipse in a clip", 0, 0xFF808000UL, 0, OBGPU_OP_SOURCE_OVER, -1);
+    tSave();
+    tClip(60, 0, 10, 10);
+    npath = 0;
+    pEllipse(25, 20, 20, 15);
+    tPathFill("in an empty clip", 0, 0xFF000000UL, 0, OBGPU_OP_SOURCE_OVER, 1);
+    tRestore();
+    tSave();
+    obgpu_clip_other(&G);
+    cur()->other = 1;
+    npath = 0;
+    pEllipse(25, 20, 5, 5);
+    tPathFill("under a clip path", 0, 0xFF000000UL, 0, OBGPU_OP_SOURCE_OVER, -1);
+    tRestore();
+    tSave();
+    obgpu_group(&G);
+    cur()->group = 1;
+    tPathFill("in a layer", 0, 0xFF000000UL, 0, OBGPU_OP_SOURCE_OVER, -1);
+    tRestore();
+    tSave();
+    tBadMatrix();
+    tPathFill("under a transform out of range", 0, 0xFF000000UL, 0, OBGPU_OP_SOURCE_OVER, -1);
+    tRestore();
+    tRestore();
+    /* a translation PATH_FILL's matrix can't take */
+    tSave();
+    tMatrix(1, 0, 0, 1, 20000, 0);
+    npath = 0;
+    pEllipse(-19980, 20, 5, 5);
+    tPathFill("translated too far for the matrix", 0, 0xFF000000UL, 0, OBGPU_OP_SOURCE_OVER, 0);
+    tRestore();
+    verify("paths under clips and states");
+    /* rectangles off whole pixels, or turned, are paths now */
+    for (i = 0; i < 4; i++) {
+        sprintf(what, "a rectangle off whole pixels %d", i);
+        tFill(what, 3.25 + i * 20, 4.5, 12.6, 7.3 + i, i & 1 ? 0xFF2080A0UL : 0x80402010UL,
+            i == 3 ? OBGPU_OP_PLUS_LIGHTER : OBGPU_OP_SOURCE_OVER);
+    }
+    tFill("copy off whole pixels: cairo's", 10.5, 30, 10, 10, 0xFF000000UL, OBGPU_OP_COPY);
+    tFill("clear off whole pixels: cairo's", 30.5, 30, 10, 10, 0, OBGPU_OP_CLEAR);
+    tSave();
+    tMatrix(0.7071068, 0.7071068, -0.7071068, 0.7071068, 70, 20);
+    tFill("a turned rectangle", 0, 0, 14, 14, 0xFF4040C0UL, OBGPU_OP_SOURCE_OVER);
+    tRestore();
+    verify("rectangles as paths");
+    /* without PATH_FILL or work memory: cairo's */
+    reset(OBGPU_CAN_PD, 4096, 1024);
+    npath = 0;
+    pEllipse(20, 20, 10, 10);
+    tPathFill("no PATH_FILL", 0, 0xFF000000UL, 0, OBGPU_OP_SOURCE_OVER, 0);
+    tFill("a fractional rectangle without PATH_FILL", 3.5, 3.5, 5, 5, 0xFF000000UL, OBGPU_OP_SOURCE_OVER);
+    reset(OBGPU_CAN_PD | OBGPU_CAN_PATH, 4096, 1024);
+    obgpu_work(&G, 0, 0);
+    tPathFill("no work memory", 0, 0xFF000000UL, 0, OBGPU_OP_SOURCE_OVER, 0);
+    verify("paths without PATH_FILL");
+}
+
+static void testStrokes(void)
+{
+    struct tstroke s;
+    char what[80];
+    int cap, join;
+    reset(OBGPU_CAN_PD | OBGPU_CAN_PATH, 4096, 1024);
+    memset(&s, 0, sizeof s);
+    s.miter = 10;
+    /* each cap on a slanted line */
+    for (cap = 0; cap < 3; cap++) {
+        s.width = 5.5;
+        s.cap = cap;
+        sprintf(what, "a line with cap %d", cap);
+        npath = 0;
+        pM(8 + cap * 30, 6.3);
+        pL(24.5 + cap * 30, 20);
+        tPathStroke(what, &s, 0xFF103070UL, 0, OBGPU_OP_SOURCE_OVER, -1);
+    }
+    /* each join on a zigzag, open, butt caps */
+    for (join = 0; join < 3; join++) {
+        s.width = 4;
+        s.cap = OBGPU_CAP_BUTT;
+        s.join = join;
+        sprintf(what, "a zigzag with join %d", join);
+        npath = 0;
+        pM(6 + join * 30, 58);
+        pL(14 + join * 30, 30);
+        pL(20 + join * 30, 52);
+        pL(28 + join * 30, 36);
+        tPathStroke(what, &s, 0xC0602000UL, 0, OBGPU_OP_SOURCE_OVER, -1);
+    }
+    verify("caps and joins");
+    /* closed: a rectangle and a triangle, every join; a sharp V past the miter limit */
+    for (join = 0; join < 3; join++) {
+        s.width = 3;
+        s.join = join;
+        sprintf(what, "a closed rectangle with join %d", join);
+        npath = 0;
+        pM(5 + join * 30, 5); pL(25 + join * 30, 5); pL(25 + join * 30, 22); pL(5 + join * 30, 22); pZ();
+        tPathStroke(what, &s, 0xFF008040UL, 0, OBGPU_OP_SOURCE_OVER, -1);
+        sprintf(what, "a closed triangle with join %d", join);
+        npath = 0;
+        pM(8 + join * 30, 30); pL(26 + join * 30, 36); pL(12 + join * 30, 46); pZ();
+        tPathStroke(what, &s, 0x80800040UL, 0, OBGPU_OP_SOURCE_OVER, -1);
+    }
+    s.width = 3;
+    s.join = OBGPU_JOIN_MITER;
+    s.miter = 4;
+    npath = 0;
+    pM(10, 62); pL(20, 50); pL(30, 62);
+    tPathStroke("a wide V within the miter limit", &s, 0xFF000000UL, 0, OBGPU_OP_SOURCE_OVER, -1);
+    npath = 0;
+    pM(50, 62); pL(56, 50); pL(62, 62);
+    tPathStroke("a sharp V past the miter limit", &s, 0xFF000000UL, 0, OBGPU_OP_SOURCE_OVER, -1);
+    s.miter = 10;
+    verify("closed strokes and the miter limit");
+    /* a stroke under a scale: the width scales; a round curve */
+    tSave();
+    tMatrix(2, 0, 0, 2, 1, 1);
+    s.width = 1.5;
+    s.cap = OBGPU_CAP_SQUARE;
+    s.join = OBGPU_JOIN_BEVEL;
+    npath = 0;
+    pM(4, 4); pL(20, 4); pL(12, 14);
+    tPathStroke("scaled", &s, 0xFF404040UL, 0, OBGPU_OP_SOURCE_OVER, -1);
+    tRestore();
+    s.width = 2.5;
+    s.cap = OBGPU_CAP_ROUND;
+    s.join = OBGPU_JOIN_ROUND;
+    npath = 0;
+    pM(50, 40); pC(60, 10, 80, 60, 90, 30);
+    tPathStroke("a round curve", &s, 0xA0A00000UL, 0, OBGPU_OP_SOURCE_OVER, -1);
+    verify("strokes scaled and curved");
+    /* subpaths that never leave their start: cairo's dots and squares along x */
+    s.width = 4;
+    s.cap = OBGPU_CAP_ROUND;
+    npath = 0;
+    pM(10, 10); pL(10, 10);
+    pM(20, 10); pZ();
+    pM(30, 10); pL(30, 10); pC(30, 10, 30, 10, 30, 10);
+    pM(40, 10);
+    pM(50, 10); pL(50, 10); pZ();
+    tPathStroke("round caps on subpaths of one point", &s, 0xFF000080UL, 0, OBGPU_OP_SOURCE_OVER, -1);
+    s.cap = OBGPU_CAP_SQUARE;
+    npath = 0;
+    pM(10.5, 30); pL(10.5, 30);
+    pM(25, 30.5); pZ();
+    tPathStroke("square caps on subpaths of one point", &s, 0xFF008000UL, 0, OBGPU_OP_SOURCE_OVER, -1);
+    s.cap = OBGPU_CAP_BUTT;
+    npath = 0;
+    pM(60, 30); pL(60, 30);
+    tPathStroke("butt caps on a subpath of one point: nothing", &s, 0xFF800000UL, 0, OBGPU_OP_SOURCE_OVER, -1);
+    verify("subpaths of one point");
+    /* no width: nothing; operators cairo bounds by coverage: cairo's */
+    s.width = 0;
+    npath = 0;
+    pM(5, 5); pL(50, 50);
+    tPathStroke("no width", &s, 0xFF000000UL, 0, OBGPU_OP_SOURCE_OVER, 1);
+    s.width = 2;
+    tPathStroke("a stroke by copy", &s, 0xFF000000UL, 0, OBGPU_OP_COPY, 0);
+    verify("strokes with nothing to draw");
+}
+
+static void testDashes(void)
+{
+    struct tstroke s;
+    reset(OBGPU_CAN_PD | OBGPU_CAN_PATH, 4096, 1024);
+    memset(&s, 0, sizeof s);
+    s.miter = 10;
+    /* WebKit's dashed and dotted borders, and canvas's patterns */
+    s.width = 3;
+    s.cap = OBGPU_CAP_BUTT;
+    s.dashes = 2; s.dash[0] = 9; s.dash[1] = 6;
+    npath = 0;
+    pM(2, 4.5); pL(90, 4.5);
+    tPathStroke("dashes", &s, 0xFF202080UL, 0, OBGPU_OP_SOURCE_OVER, -1);
+    s.offset = 4.5;
+    npath = 0;
+    pM(2, 12.5); pL(90, 12.5);
+    tPathStroke("dashes from an offset", &s, 0xFF202080UL, 0, OBGPU_OP_SOURCE_OVER, -1);
+    s.offset = -7;
+    npath = 0;
+    pM(2, 20.5); pL(90, 20.5);
+    tPathStroke("dashes from a negative offset", &s, 0xFF202080UL, 0, OBGPU_OP_SOURCE_OVER, -1);
+    s.offset = 0;
+    s.dashes = 3; s.dash[0] = 8; s.dash[1] = 3; s.dash[2] = 2;
+    npath = 0;
+    pM(2, 28.5); pL(90, 28.5);
+    tPathStroke("an odd count of dashes", &s, 0xFF208020UL, 0, OBGPU_OP_SOURCE_OVER, -1);
+    s.cap = OBGPU_CAP_ROUND;
+    s.dashes = 2; s.dash[0] = 0; s.dash[1] = 6;
+    npath = 0;
+    pM(4, 37); pL(90, 37);
+    tPathStroke("dots: dashes of no length, round", &s, 0xFF800000UL, 0, OBGPU_OP_SOURCE_OVER, -1);
+    s.cap = OBGPU_CAP_SQUARE;
+    s.dashes = 2; s.dash[0] = 5; s.dash[1] = 7;
+    npath = 0;
+    pM(4, 45.5); pL(40, 45.5); pL(40, 62);
+    tPathStroke("square-capped dashes round a corner", &s, 0xC0400040UL, 0, OBGPU_OP_SOURCE_OVER, -1);
+    s.cap = OBGPU_CAP_BUTT;
+    s.join = OBGPU_JOIN_MITER;
+    s.dashes = 2; s.dash[0] = 14; s.dash[1] = 4;
+    s.offset = 3;
+    npath = 0;
+    pM(50, 44); pL(90, 44); pL(90, 62); pL(50, 62); pZ();
+    tPathStroke("a dashed closed rectangle, on at both ends", &s, 0xFF006060UL, 0, OBGPU_OP_SOURCE_OVER, -1);
+    verify("dashes");
+}
+
+static void testGradients(void)
+{
+    struct tgrad gr;
+    char what[64];
+    int spread;
+    reset(OBGPU_CAN_PD | OBGPU_CAN_PATH, 4096, 1024);
+    memset(&gr, 0, sizeof gr);
+    gr.m[0] = gr.m[3] = 1;
+    /* linear, by each spread, across rectangles */
+    for (spread = 0; spread < 3; spread++) {
+        gr.kind = OBGPU_LINEAR;
+        gr.spread = spread;
+        gr.geo[0] = 10; gr.geo[1] = 0; gr.geo[2] = 30; gr.geo[3] = 6;
+        gr.stops = 3;
+        gr.offset[0] = 0; gr.argb[0] = 0xFFFF0000UL;
+        gr.offset[1] = 0.4; gr.argb[1] = 0xFF00FF00UL;
+        gr.offset[2] = 1; gr.argb[2] = 0xFF0000FFUL;
+        sprintf(what, "linear, spread %d", spread);
+        npath = 0;
+        pM(0, spread * 10); pL(W, spread * 10); pL(W, spread * 10 + 9); pL(0, spread * 10 + 9); pZ();
+        tPathFill(what, 0, 0, &gr, OBGPU_OP_SOURCE_OVER, -1);
+    }
+    /* translucent stops, and a sharp change */
+    gr.spread = OBGPU_PAD;
+    gr.stops = 4;
+    gr.offset[0] = 0; gr.argb[0] = 0x80800000UL;
+    gr.offset[1] = 0.5; gr.argb[1] = 0x80008000UL;
+    gr.offset[2] = 0.5; gr.argb[2] = 0x80000080UL;
+    gr.offset[3] = 1; gr.argb[3] = 0x80808080UL;
+    npath = 0;
+    pEllipse(48, 36, 40, 5);
+    tPathFill("translucent stops with a sharp change", 0, 0, &gr, OBGPU_OP_SOURCE_OVER, -1);
+    verify("linear gradients");
+    /* radial: two circles, a focus inside, a cone; under a transform and its own matrix */
+    for (spread = 0; spread < 3; spread++) {
+        gr.kind = OBGPU_RADIAL;
+        gr.spread = spread;
+        gr.geo[0] = 16 + spread * 32; gr.geo[1] = 16; gr.geo[2] = 0;
+        gr.geo[3] = 16 + spread * 32; gr.geo[4] = 16; gr.geo[5] = 9;
+        gr.stops = 2;
+        gr.offset[0] = 0; gr.argb[0] = 0xFFFFFF00UL;
+        gr.offset[1] = 1; gr.argb[1] = 0xFF0000A0UL;
+        sprintf(what, "radial, spread %d", spread);
+        npath = 0;
+        pM(spread * 32, 0); pL(spread * 32 + 32, 0); pL(spread * 32 + 32, 32); pL(spread * 32, 32); pZ();
+        tPathFill(what, 0, 0, &gr, OBGPU_OP_SOURCE_OVER, -1);
+    }
+    gr.spread = OBGPU_PAD;
+    gr.geo[0] = 12; gr.geo[1] = 44; gr.geo[2] = 2; gr.geo[3] = 18; gr.geo[4] = 48; gr.geo[5] = 14;
+    npath = 0;
+    pM(0, 33); pL(32, 33); pL(32, 64); pL(0, 64); pZ();
+    tPathFill("radial, the focus off centre", 0, 0, &gr, OBGPU_OP_SOURCE_OVER, -1);
+    gr.geo[0] = 40; gr.geo[1] = 48; gr.geo[2] = 2; gr.geo[3] = 56; gr.geo[4] = 48; gr.geo[5] = 6;
+    npath = 0;
+    pM(33, 33); pL(64, 33); pL(64, 64); pL(33, 64); pZ();
+    tPathFill("radial, a cone (no t outside it)", 0, 0, &gr, OBGPU_OP_SOURCE_OVER, -1);
+    tSave();
+    tMatrix(1.5, 0, 0, 1, 66, 33);
+    gr.m[0] = 1; gr.m[1] = 0; gr.m[2] = 0; gr.m[3] = 0.5; gr.m[4] = 0; gr.m[5] = 15;
+    gr.geo[0] = 10; gr.geo[1] = 2; gr.geo[2] = 0; gr.geo[3] = 10; gr.geo[4] = 2; gr.geo[5] = 18;
+    npath = 0;
+    pM(0, 0); pL(20, 0); pL(20, 31); pL(0, 31); pZ();
+    tPathFill("radial, scaled, with its own matrix", 0, 0, &gr, OBGPU_OP_SOURCE_OVER, -1);
+    tRestore();
+    verify("radial gradients");
+    /* linear, turned, with its own matrix moved and turned */
+    tSave();
+    tMatrix(0.8660254, 0.5, -0.5, 0.8660254, 40, 2);
+    gr.kind = OBGPU_LINEAR;
+    gr.spread = OBGPU_REFLECT;
+    gr.m[0] = 0.5; gr.m[1] = -0.8660254; gr.m[2] = 0.8660254; gr.m[3] = 0.5; gr.m[4] = 6; gr.m[5] = 14;
+    gr.geo[0] = 0; gr.geo[1] = 0; gr.geo[2] = 7; gr.geo[3] = 3;
+    gr.stops = 2;
+    gr.offset[0] = 0; gr.argb[0] = 0xFF00C0C0UL;
+    gr.offset[1] = 1; gr.argb[1] = 0xFFC00060UL;
+    npath = 0;
+    pM(0, 0); pL(36, 0); pL(36, 30); pL(0, 30); pZ();
+    tPathFill("linear, turned, its matrix moved and turned", 0, 0, &gr, OBGPU_OP_SOURCE_OVER, -1);
+    tRestore();
+    verify("gradients turned");
+    /* a stroke with a gradient; gradients the writer refuses */
+    memset(&gr, 0, sizeof gr);
+    gr.m[0] = gr.m[3] = 1;
+    gr.kind = OBGPU_LINEAR;
+    gr.geo[0] = 0; gr.geo[1] = 0; gr.geo[2] = W; gr.geo[3] = H;
+    gr.stops = 2;
+    gr.offset[0] = 0; gr.argb[0] = 0xFF000000UL;
+    gr.offset[1] = 1; gr.argb[1] = 0xFFFFFFFFUL;
+    {
+        struct tstroke s;
+        memset(&s, 0, sizeof s);
+        s.width = 4;
+        s.miter = 10;
+        s.cap = OBGPU_CAP_ROUND;
+        s.join = OBGPU_JOIN_ROUND;
+        npath = 0;
+        pM(6, 6); pL(90, 30); pL(10, 58);
+        tPathStroke("a stroke with a gradient", &s, 0, &gr, OBGPU_OP_SOURCE_OVER, -1);
+    }
+    gr.offset[1] = -0.5;
+    npath = 0;
+    pEllipse(48, 32, 10, 10);
+    tPathFill("stops out of order", 0, 0, &gr, OBGPU_OP_SOURCE_OVER, 0);
+    gr.offset[1] = 1;
+    gr.kind = 3;
+    tPathFill("a conic gradient", 0, 0, &gr, OBGPU_OP_SOURCE_OVER, 0);
+    gr.kind = OBGPU_LINEAR;
+    gr.stops = 0;
+    tPathFill("no stops", 0, 0, &gr, OBGPU_OP_SOURCE_OVER, 0);
+    verify("gradients on strokes, and refused");
+}
+
+static void testPathBatches(void)
+{
+    char what[64];
+    int i, fitted;
+    long before;
+    /* short scratch: the batch before a path goes when the path needs the room */
+    reset(OBGPU_CAN_PD | OBGPU_CAN_PATH, 4096, 160);
+    for (i = 0; i < 12; i++) {
+        sprintf(what, "ellipse %d, short scratch", i);
+        npath = 0;
+        pEllipse(8 + (i % 6) * 16, 12 + (i / 6) * 30, 7, 9);
+        tPathFill(what, 0, i & 1 ? 0x80FF0000UL : 0xFF0040FFUL, 0, OBGPU_OP_SOURCE_OVER, -1);
+    }
+    verify("paths with short scratch");
+    checks++;
+    if (submitted < 3) {
+        printf("FAIL paths with short scratch: %ld batches\n", submitted);
+        failures++;
+    }
+    /* a short stream */
+    reset(OBGPU_CAN_PD | OBGPU_CAN_PATH, 64, 1024);
+    for (i = 0; i < 10; i++) {
+        sprintf(what, "triangle %d of a short stream", i);
+        npath = 0;
+        pM(2 + i * 9, 10); pL(10 + i * 9, 12); pL(5 + i * 9, 40.5);
+        tPathFill(what, 0, 0xFF000000UL | (unsigned long)i * 0x101010UL, 0, OBGPU_OP_SOURCE_OVER, -1);
+    }
+    verify("paths in a short stream");
+    /* a path larger than all of scratch: cairo's, and the next one drawn */
+    reset(OBGPU_CAN_PD | OBGPU_CAN_PATH, 4096, 160);
+    tFill("a fill before", 0, 0, 10, 10, 0xFF808080UL, OBGPU_OP_COPY);
+    npath = 0;
+    for (i = 0; i < 60; i++)
+        pL(10 + (i & 7) * 4, 2 + i);
+    before = submitted;
+    sendPath(&fitted);
+    expectResult("too large: an element refused", fitted, 0);
+    expectResult("too large: cairo's", obgpu_fill_path(&G, 0xFF000000UL, 0, 0, OBGPU_OP_SOURCE_OVER), 0);
+    handedOn();
+    expectCount("too large: scratch given back", G.scratch_used, 0);
+    expectCount("too large: the fill before sent", submitted - before, 1);
+    npath = 0;
+    pEllipse(60, 30, 10, 10);
+    tPathFill("after a path too large", 0, 0xFF00FF00UL, 0, OBGPU_OP_SOURCE_OVER, -1);
+    verify("a path too large");
+}
+
 int main(void)
 {
     int i;
@@ -769,6 +1939,12 @@ int main(void)
     testDepth();
     testImages();
     testBatches();
+    testPathFills();
+    testPathStates();
+    testStrokes();
+    testDashes();
+    testGradients();
+    testPathBatches();
     for (i = 0; i < OBGPU_KINDS; i++)
         if (!obgpu_kind_name(i)[0])
             failures++;

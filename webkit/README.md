@@ -422,6 +422,20 @@ The patches, in order:
   `OpenGPULibraryAmiga.c` opens the library at run time through
   openamigartg's inline calls, so nothing more is linked. Both C files
   need openamigartg's headers.
+- `0077-amiga-opengpu-paths.patch`: `GraphicsContextOpenGPU` draws
+  `fillPath`, `strokePath`, `strokeRect`, `fillRoundedRect`,
+  `fillRectWithRoundedHole` and gradient fills itself, through
+  `PATH_FILL` and `PATH_STROKE` (stream v1.6), and rectangles of one
+  colour off whole pixels or turned as anti-aliased paths. Paths are read
+  from WebCore's `Path` elements; strokes take cairo's width, caps, joins,
+  miter limit and dashes from its context; linear and radial gradients
+  (pad, repeat, reflect) where every stop has one alpha. By source-over,
+  source-atop, destination-over, destination-out, xor and plus-lighter.
+  Clips to paths, patterns, conic gradients, stops of different alphas,
+  copy and clear on paths and paths without anti-aliasing stay cairo's.
+  Scratch grows to 16 KB; a path larger goes to cairo. Tested on the host
+  (`tests/test_opengpu_paint.c`; `tools/patch-files.py` applies 0077 to
+  0076's files).
 - `0090-amiga-text-openfont.patch`: text on openfont.library 1.3
   (`USE_OPENFONT`) in place of FreeType, fontconfig and HarfBuzz, which are
   no longer found or linked. Families are matched with OpenFont's

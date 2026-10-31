@@ -72,7 +72,7 @@ jobs:
     # HTML Lite, CSS Lite, the address resolver, weblayout's calls,
     # OpenMail's HTML-to-text converter, the engine's malloc and its HTTP
     # disk cache with the host's compiler, and the engine's OpenGPU stream
-    # writer (WebKit patch 0076) on openamigartg's CPU core
+    # writer (WebKit patches 0076 and 0077) on openamigartg's CPU core
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
