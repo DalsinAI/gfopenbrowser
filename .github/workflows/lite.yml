@@ -23,6 +23,7 @@ on:
       - 'data/public-suffixes'
       - 'tools/patch-files.py'
       - 'webkit/patches/0070-*'
+      - 'webkit/patches/0076-*'
       - 'tools/obfetch.c'
       - 'tools/mallocbench.c'
       - 'stove/compat/os32compat_malloc.c'
@@ -47,6 +48,7 @@ on:
       - 'data/public-suffixes'
       - 'tools/patch-files.py'
       - 'webkit/patches/0070-*'
+      - 'webkit/patches/0076-*'
       - 'tools/obfetch.c'
       - 'tools/mallocbench.c'
       - 'stove/compat/os32compat_malloc.c'
@@ -61,6 +63,7 @@ on:
 env:
   OPENLAYOUT_REF: ce9f92de37463c9333bf5793b35a6b37ea27614e   # openamigalayout master: openlayout.library 2.0
   OPENSDK_REF: e75b5ffae42b6c446ec11cb195b919151e56529c      # openamigasdk main, as openamigacurl
+  OPENAMIGARTG_REF: fa6085055ed514de6a4b9cc8da5d68b57b451919 # openamigartg main: OpenGPU 0.18, stream v1.6
   TC_URL: https://github.com/DalsinAI/openamigagcc/releases/download/v16.2.0-open3/openamigagcc-16.2.0-open3-x86_64-linux.tar.xz
   TC_SHA256: 9fcc136ab59e3bb5b91d2764d0bf290b709d72d7380be4ce0cdf005edf8eff21
 
@@ -68,7 +71,8 @@ jobs:
   host:
     # HTML Lite, CSS Lite, the address resolver, weblayout's calls,
     # OpenMail's HTML-to-text converter, the engine's malloc and its HTTP
-    # disk cache with the host's compiler
+    # disk cache with the host's compiler, and the engine's OpenGPU stream
+    # writer (WebKit patch 0076) on openamigartg's CPU core
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -77,10 +81,15 @@ jobs:
           repository: DalsinAI/openamigalayout
           ref: ${{ env.OPENLAYOUT_REF }}
           path: openamigalayout
+      - uses: actions/checkout@v4
+        with:
+          repository: DalsinAI/openamigartg
+          ref: ${{ env.OPENAMIGARTG_REF }}
+          path: openamigartg
       - name: Host tests
-        run: OPENLAYOUT_SRC=openamigalayout tests/run-host-tests.sh
+        run: OPENLAYOUT_SRC=openamigalayout OPENAMIGARTG_SRC=openamigartg tests/run-host-tests.sh
       - name: Host tests with AddressSanitizer and UBSan
-        run: OPENLAYOUT_SRC=openamigalayout SANITIZE=1 OUT=build/host-asan tests/run-host-tests.sh
+        run: OPENLAYOUT_SRC=openamigalayout OPENAMIGARTG_SRC=openamigartg SANITIZE=1 OUT=build/host-asan tests/run-host-tests.sh
 
   amiga:
     # OpenBrowser, obfetch and the Amiga test programs for the 68040 with its FPU
