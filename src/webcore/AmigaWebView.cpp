@@ -29,6 +29,7 @@
 #include <WebCore/FrameLoadRequest.h>
 #include <WebCore/FrameLoader.h>
 #include <WebCore/GraphicsContextCairo.h>
+#include <WebCore/GraphicsContextOpenGPU.h>
 #include <WebCore/LocalFrame.h>
 #include <WebCore/LocalFrameInlines.h>
 #include <WebCore/LocalFrameLoaderClient.h>
@@ -45,6 +46,7 @@
 #include <WebCore/SubstituteData.h>
 #include <WebCore/TrustedFonts.h>
 #include <cairo.h>
+#include <stdio.h>
 #include <wtf/TZoneMallocInlines.h>
 #include <wtf/text/CString.h>
 
@@ -273,8 +275,7 @@ bool WebView::paint(unsigned char* argb, int stride, const IntRect& rect, bool l
     }
     cairo_surface_t* surface = cairo_image_surface_create_for_data(argb + area.y() * stride + area.x() * 4,
         CAIRO_FORMAT_ARGB32, area.width(), area.height(), stride);
-    {
-        GraphicsContextCairo context(surface);
+    auto paintWith = [&](GraphicsContext& context) {
         // Scaled pictures with the cheapest filter: a 68k has no time for more.
         context.setImageInterpolationQuality(InterpolationQuality::Low);
         context.translate(-area.x(), -area.y());
@@ -282,10 +283,46 @@ bool WebView::paint(unsigned char* argb, int stride, const IntRect& rect, bool l
             context.fillRect(area, Color::white);
         if (view)
             view->paint(context, area);
+    };
+    // Through OpenGPU, where it can draw the call, unless OB_PAINT=cairo
+    // (or no opengpu.library); the context draws the last batch as it goes.
+    if (GraphicsContextOpenGPU::isWanted()) {
+        GraphicsContextOpenGPU context(surface, &m_paintCounts);
+        paintWith(context);
+    } else {
+        GraphicsContextCairo context(surface);
+        paintWith(context);
     }
     cairo_surface_flush(surface);
     cairo_surface_destroy(surface);
     return true;
+}
+
+int WebView::takePaintReport(char* buffer, int size)
+{
+    int used = 0;
+    if (buffer && size > 0) {
+        buffer[0] = 0;
+        if (!GraphicsContextOpenGPU::isWanted())
+            used = snprintf(buffer, size, " paint_gpu=0");
+        else {
+            unsigned long handed = 0;
+            for (auto calls : m_paintCounts.handed)
+                handed += calls;
+            used = snprintf(buffer, size, " paint_gpu=1 gpu_draws=%lu gpu_flushes=%lu cairo_calls=%lu",
+                m_paintCounts.draws, m_paintCounts.flushes, handed);
+            for (int kind = 0; kind < OBGPU_KINDS && used >= 0 && used < size; kind++) {
+                if (m_paintCounts.handed[kind])
+                    used += snprintf(buffer + used, size - used, " cairo_%s=%lu", obgpu_kind_name(kind), m_paintCounts.handed[kind]);
+            }
+        }
+        if (used < 0)
+            used = 0;
+        if (used >= size)
+            used = size - 1;
+    }
+    m_paintCounts = { };
+    return used;
 }
 
 // The display-list experiment (5 October 2026): paint the area as today,

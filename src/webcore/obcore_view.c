@@ -24,7 +24,9 @@
  * stack that lie in our code, as offsets for the link map.
  *
  * At the end it prints one OBVIEW_BENCH line of timings and memory for
- * tools/bench (see docs/BENCHMARKS.md and the block marked "Benchmark").
+ * tools/bench (see docs/BENCHMARKS.md and the block marked "Benchmark"),
+ * with how long the page took to paint and what painted it (OpenGPU's draws
+ * and batches and the calls cairo drew, ob_webview_paint_report()).
  *
  * MIT, Copyright (c) 2026 AmigaChrome Team.
  */
@@ -237,6 +239,8 @@ static long benchInit = -1, benchLoad = -1, benchCommit = -1, benchFirstLoaded =
     benchLoadDone = -1, benchLastResource = -1, benchPainted = -1, benchLastSample = -1000;
 static long benchRequests, benchLoaded, benchFailed;
 static unsigned long availStart, availReady, availMin, availPainted, largestStart;
+static long benchPaintMs = -1;
+static char benchPainters[256];
 
 static long benchNow(void)
 {
@@ -261,10 +265,11 @@ static void benchReport(unsigned long bytes)
 {
     printf("OBVIEW_BENCH init_ms=%ld load_ms=%ld commit_ms=%ld first_loaded_ms=%ld first_invalidate_ms=%ld"
         " load_done_ms=%ld last_resource_ms=%ld painted_ms=%ld end_ms=%ld requests=%ld loaded=%ld failed=%ld bytes=%lu"
-        " avail_start=%lu avail_ready=%lu avail_min=%lu avail_painted=%lu avail_end=%lu largest_start=%lu\n",
+        " avail_start=%lu avail_ready=%lu avail_min=%lu avail_painted=%lu avail_end=%lu largest_start=%lu"
+        " paint_ms=%ld%s\n",
         benchInit, benchLoad, benchCommit, benchFirstLoaded, benchFirstInvalidate, benchLoadDone, benchLastResource,
         benchPainted, benchNow(), benchRequests, benchLoaded, benchFailed, bytes, availStart, availReady, availMin,
-        availPainted, (unsigned long)AvailMem(MEMF_ANY), largestStart);
+        availPainted, (unsigned long)AvailMem(MEMF_ANY), largestStart, benchPaintMs, benchPainters);
     fflush(stdout);
 }
 
@@ -647,8 +652,12 @@ static int viewMain(int argc, char **argv)
         reportDisplayList(view, width, height, png);
     pixels = calloc((size_t)width * height, 4);
     if (pixels) {
+        long paintStart = benchNow();
+        ob_webview_paint_report(view, NULL, 0);
         ob_webview_paint(view, pixels, width * 4, 0, 0, width, height);
         benchPainted = benchNow();
+        benchPaintMs = benchPainted - paintStart;
+        ob_webview_paint_report(view, benchPainters, sizeof benchPainters);
         benchSample(1);
         availPainted = AvailMem(MEMF_ANY);
         printf("OBVIEW_PAINTED %dx%d\n", width, height);

@@ -7,8 +7,11 @@
 # os32compat_malloc.c) on threads, with tests/host's stand-in exec calls, and
 # MallocBench, its timings against libnix's malloc (here the host's). And the
 # engine's HTTP disk cache (src/webcore/ob_httpcache.c) in a scratch folder.
+# And the engine's OpenGPU stream writer (WebKit patch 0076) on
+# openamigartg's CPU core, against a reference from stream.h's formulas.
 #
 #   OPENLAYOUT_SRC  an openamigalayout checkout (default ../openamigalayout)
+#   OPENAMIGARTG_SRC an openamigartg checkout (default ../openamigartg)
 #   HOST_CC         the compiler (default cc)
 #   SANITIZE        1: with AddressSanitizer and UBSan
 #
@@ -16,6 +19,7 @@
 set -eu
 HERE=$(CDPATH= cd -- "$(dirname -- "$0")/.." && pwd)
 OL=${OPENLAYOUT_SRC:-"$HERE/../openamigalayout"}
+RTG=${OPENAMIGARTG_SRC:-"$HERE/../openamigartg"}
 CC=${HOST_CC:-cc}
 OUT=${OUT:-"$HERE/build/host-tests"}
 WL="$HERE/src/weblayout"
@@ -53,6 +57,12 @@ python3 "$HERE/tools/patch-files.py" "$HERE/webkit/patches/0070-amiga-public-suf
     "$OUT/psl" PublicSuffixAmiga.c PublicSuffixAmiga.h
 "$CC" $FLAGS -I"$OUT/psl" "$OUT/psl/PublicSuffixAmiga.c" "$HERE/tests/test_public_suffixes.c" \
     -o "$OUT/test_public_suffixes"
+# the window's OpenGPU stream writer, which lives in WebKit patch 0076, on
+# openamigartg's CPU core (built as its tests/run.sh builds it)
+python3 "$HERE/tools/patch-files.py" "$HERE/webkit/patches/0076-amiga-graphicscontext-opengpu.patch" \
+    "$OUT/opengpu" OpenGPUPaintAmiga.c OpenGPUPaintAmiga.h
+"$CC" $FLAGS -I"$OUT/opengpu" -I"$RTG/include" -I"$RTG/library/opengpu" "$OUT/opengpu/OpenGPUPaintAmiga.c" \
+    "$RTG/library/opengpu/ogpu_core.c" "$HERE/tests/test_opengpu_paint.c" -lm -o "$OUT/test_opengpu_paint"
 "$OUT/test_wl_html" > "$OUT/test_wl_html.log" || { cat "$OUT/test_wl_html.log"; exit 1; }
 tail -1 "$OUT/test_wl_html.log"
 "$OUT/test_wl_css"
@@ -63,6 +73,7 @@ tail -1 "$OUT/test_wl_html.log"
 rm -rf "$OUT/httpcache"
 "$OUT/test_ob_httpcache" "$OUT/httpcache"
 "$OUT/test_public_suffixes" "$HERE/data/public-suffixes" "$HERE/tests/public-suffix-cases.txt"
+"$OUT/test_opengpu_paint"
 # fewer operations under the sanitizers, which are slower
 R=200000
 [ "${SANITIZE:-0}" = 1 ] && R=50000

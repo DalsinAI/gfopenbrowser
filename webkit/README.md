@@ -408,6 +408,20 @@ The patches, in order:
   transport decodes through stream.datatype, gzip.datatype and
   brotli.datatype (needs openamigaservice #15). `OpenWebFetchAmiga.c` needs
   openamigaservice's headers; there is no build without them.
+- `0076-amiga-graphicscontext-opengpu.patch`: the window is painted through
+  `GraphicsContextOpenGPU` (`platform/graphics/amiga`), which
+  `AmigaWebView::paint()` uses unless the Shell variable `OB_PAINT=cairo`
+  is set or opengpu.library is missing or has no `COMPOSITE_PD`. Solid
+  rectangles, `clearRect`, rectangle clips on whole pixels and pictures go
+  into one OpenGPU batch per paint (`FILL`, `COMPOSITE_PD`, and a
+  `PATH_FILL` with the picture as a pattern when it is scaled or turned);
+  every other call goes to a `GraphicsContextCairo` on the same pixels and
+  state, after the batch is drawn, and is counted by kind. The stream is
+  written by `OpenGPUPaintAmiga.c`, plain C tested on the host against
+  openamigartg's CPU core (`tests/test_opengpu_paint.c`);
+  `OpenGPULibraryAmiga.c` opens the library at run time through
+  openamigartg's inline calls, so nothing more is linked. Both C files
+  need openamigartg's headers.
 - `0090-amiga-text-openfont.patch`: text on openfont.library 1.3
   (`USE_OPENFONT`) in place of FreeType, fontconfig and HarfBuzz, which are
   no longer found or linked. Families are matched with OpenFont's

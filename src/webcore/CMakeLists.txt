@@ -116,6 +116,24 @@ set_property(SOURCE "${OB_OPENSERVICE_DIR}/src/wfnet_amiga.c" "${OB_OPENSERVICE_
 set_property(SOURCE "${WEBCORE_DIR}/platform/network/amiga/OpenWebFetchAmiga.c" TARGET_DIRECTORY WebCore APPEND PROPERTY
     INCLUDE_DIRECTORIES "${OB_OPENSERVICE_DIR}/include")
 
+# opengpu.library's stream and inline calls (DalsinAI/openamigartg, checked
+# out beside this repository, or OPENAMIGARTG_DIR): the window is painted
+# through OpenGPU (WebKit patch 0076), which the engine opens at run time.
+# Headers only: nothing is linked.
+set(OB_OPENAMIGARTG_DIR "$ENV{OPENAMIGARTG_DIR}")
+if (NOT EXISTS "${OB_OPENAMIGARTG_DIR}/include/opengpu/stream.h")
+    set(OB_OPENAMIGARTG_DIR "${CMAKE_CURRENT_SOURCE_DIR}/../../../openamigartg")
+endif ()
+if (NOT EXISTS "${OB_OPENAMIGARTG_DIR}/include/opengpu/stream.h" OR NOT EXISTS "${OB_OPENAMIGARTG_DIR}/include/inline/opengpu.h")
+    message(FATAL_ERROR "openamigartg not found at ${OB_OPENAMIGARTG_DIR}: the engine paints through "
+        "opengpu.library (include/opengpu/stream.h, include/inline/opengpu.h). Check out "
+        "DalsinAI/openamigartg beside this repository, or set OPENAMIGARTG_DIR.")
+endif ()
+set_property(DIRECTORY APPEND PROPERTY CMAKE_CONFIGURE_DEPENDS "${OB_OPENAMIGARTG_DIR}/include/opengpu/stream.h")
+set_property(SOURCE "${WEBCORE_DIR}/platform/graphics/amiga/OpenGPUPaintAmiga.c"
+    "${WEBCORE_DIR}/platform/graphics/amiga/OpenGPULibraryAmiga.c" TARGET_DIRECTORY WebCore APPEND PROPERTY
+    INCLUDE_DIRECTORIES "${OB_OPENAMIGARTG_DIR}/include")
+
 set(OB_FRAMEWORKS
     JavaScriptCore
     PAL

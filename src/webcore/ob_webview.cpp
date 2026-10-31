@@ -309,6 +309,11 @@ int ob_webview_paint_laid_out(OBWebView* handle, unsigned char* argb, int stride
     return handle->view->paint(argb, stride, IntRect(x, y, width, height), false);
 }
 
+int ob_webview_paint_report(OBWebView* handle, char* buffer, int size)
+{
+    return handle->view->takePaintReport(buffer, size);
+}
+
 int ob_webview_rendering_pending(OBWebView* handle)
 {
     return handle->view->renderingUpdatePending();

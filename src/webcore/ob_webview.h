@@ -116,6 +116,13 @@ int ob_webview_dirty_rects(OBWebView *view, int *rects, int max);
 /* As ob_webview_paint(), without laying the page out first: where layout is
  * still due it paints nothing, keeps the area changed and returns 0. */
 int ob_webview_paint_laid_out(OBWebView *view, unsigned char *argb, int stride, int x, int y, int width, int height);
+/* What painted the view since the last call, as OBVIEW_BENCH words:
+ * " paint_gpu=0" with cairo alone (OB_PAINT=cairo, or no opengpu.library);
+ * else " paint_gpu=1 gpu_draws=N gpu_flushes=N cairo_calls=N" and the calls
+ * cairo drew by kind (" cairo_glyphs=N" and so on, only those with any).
+ * Cut to fit size; returns its length. The counts start again from 0; a
+ * size of 0 only does that. */
+int ob_webview_paint_report(OBWebView *view, char *buffer, int size);
 /* 1 while a rendering update (style and layout) is waiting to run. */
 int ob_webview_rendering_pending(OBWebView *view);
 

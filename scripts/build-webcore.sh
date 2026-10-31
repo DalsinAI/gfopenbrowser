@@ -56,6 +56,11 @@
 #                   opendatatypes' checkout: the stream class's header, for
 #                   the native transport's decoding (required)
 #                   (default ../opendatatypes beside this repository)
+#   OPENAMIGARTG_DIR
+#                   openamigartg's checkout: opengpu.library's stream and
+#                   inline calls, for painting the window through OpenGPU
+#                   (WebKit patch 0076; headers only, required)
+#                   (default ../openamigartg beside this repository)
 #
 # No Ruby: WebKit's Ruby generators run as Python ports (patches 0019 and
 # 0021), with the python3 CMake finds.
@@ -205,12 +210,23 @@ openservice_dir() {
     fi
 }
 
+# openamigartg's checkout, as src/webcore/CMakeLists.txt finds it.
+openamigartg_dir() {
+    if [ -n "${OPENAMIGARTG_DIR:-}" ] && [ -f "$OPENAMIGARTG_DIR/include/opengpu/stream.h" ]; then
+        echo "$OPENAMIGARTG_DIR"
+    else
+        echo "$ROOT/../openamigartg"
+    fi
+}
+
 need_sources() {
     : "${WEBKIT_SOURCE:?set WEBKIT_SOURCE to the patched WebKit tree}"
     : "${OAB_DEPS:?set OAB_DEPS to the folder with icu78-m68k-amigaos and m68k-amigaos}"
     [ -d "$WEBKIT_SOURCE/Source/WebCore" ] || die "WebKit source with Source/WebCore missing: $WEBKIT_SOURCE"
     [ -f "$(openservice_dir)/include/openweb/webfetch.h" ] ||
         die "openamigaservice missing at $(openservice_dir): the engine's network is openweb.fetch (set OPENSERVICE_DIR)"
+    [ -f "$(openamigartg_dir)/include/inline/opengpu.h" ] ||
+        die "openamigartg missing at $(openamigartg_dir): the window is painted through opengpu.library (set OPENAMIGARTG_DIR)"
     export OAB_DEPS
 }
 
@@ -291,6 +307,9 @@ engine_inputs() {
     # openweb.fetch's client API, which WebCore's OpenWebFetchAmiga.c is
     # built against (src/webcore/CMakeLists.txt finds the checkout the same way).
     echo "openweb-headers $(tree_hash "$(openservice_dir)/include/openweb")"
+    # opengpu.library's stream and calls, for OpenGPUPaintAmiga.c and
+    # OpenGPULibraryAmiga.c (patch 0076).
+    echo "opengpu-headers $(tree_hash "$(openamigartg_dir)/include/opengpu") $(sha256 < "$(openamigartg_dir)/include/inline/opengpu.h")"
     echo "options $(engine_options | sha256)"
 }
 

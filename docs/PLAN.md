@@ -267,7 +267,11 @@ is done when its "done when" holds on the lab instance.
    Done so far: PNG encoding through the PNG datatype's write (DTM_WRITE,
    patch 0074; openpng.datatype writes from 47.4); OpenGPU 0.18's stream v1.6 (openamigartg #109) has
    anti-aliased path fill (non-zero and even-odd), strokes, gradients,
-   image patterns, blur and the blend modes, on its CPU core.
+   image patterns, blur and the blend modes, on its CPU core. Patch 0076
+   paints the window through a GraphicsContext on OpenGPU: solid
+   rectangles, `clearRect`, rectangle clips and pictures in one batch per
+   paint, the rest handed to cairo and counted (`OB_PAINT=cairo` keeps
+   cairo alone); written, not yet built.
 
    Still to write: anti-aliased strokes, even-odd fill, linear, radial and
    conic gradients, blur, the PDF/HSL blend modes, OpenGfx bitmaps deeper
