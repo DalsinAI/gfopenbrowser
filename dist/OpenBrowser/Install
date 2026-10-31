@@ -18,6 +18,11 @@
 ;  - LIBS:json.library (the engine's JSON.parse needs it),
 ;    LIBS:unicode.library (its Unicode calls, when the package carries it)
 ;    and S:OpenTLS/ca-bundle.pem when missing;
+;  - for compressed pages, LIBS:z.library 53.12 and
+;    SYS:Classes/DataTypes/stream.datatype, gzip.datatype and
+;    brotli.datatype 47.1 or newer, with the same rules as OpenTLS
+;    (renamed .before-20261031 when older), and DEVS:DataTypes/GZip and
+;    Brotli when missing;
 ;  - LOCALE:Unicode/icudt78b.dat, as the Installer does: when missing, or
 ;    one of another size, which is renamed icudt78b.dat.before-20261023b,
 ;    when LOCALE: has room for it and 2,000,000 bytes more; when Info gives
@@ -140,6 +145,143 @@ If EXISTS Libs/unicode.library
     EndIf
     Echo "Installed LIBS:unicode.library"
   EndIf
+EndIf
+
+; Compressed pages: openweb.fetch's native transport decodes gzip and br
+; through the datatypes stream class. LIBS:z.library 53.12 (gzip.datatype
+; opens it) and SYS:Classes/DataTypes/stream.datatype, gzip.datatype and
+; brotli.datatype 47.1 or newer: a missing one goes in; an older one is
+; renamed .before-20261031 and the drawer's goes in; one whose version
+; cannot be read is kept. DEVS:DataTypes/GZip and Brotli go in when missing.
+; Without them pages still load, uncompressed.
+If NOT EXISTS SYS:Classes/DataTypes
+  MakeDir SYS:Classes/DataTypes >NIL:
+EndIf
+
+Version LIBS:z.library 53 12 >NIL:
+Set vrc $RC
+If $vrc EQ 0 VAL
+  Echo "LIBS:z.library is new enough, kept"
+  Skip zlibdone
+EndIf
+If $vrc GE 10 VAL
+  If EXISTS LIBS:z.library
+    Echo "LIBS:z.library is there; its version cannot be read from the Shell, so it is kept (Install-OpenBrowser checks it)"
+    Skip zlibdone
+  EndIf
+Else
+  Rename LIBS:z.library LIBS:z.library.before-20261031
+  If WARN
+    Echo "Could not rename the old LIBS:z.library"
+    Quit 20
+  EndIf
+  Echo "Kept the old LIBS:z.library as z.library.before-20261031"
+EndIf
+Copy Libs/z.library LIBS: QUIET
+If WARN
+  Echo "Could not copy z.library to LIBS:"
+  Quit 20
+EndIf
+Echo "Installed LIBS:z.library"
+Lab zlibdone
+
+Version SYS:Classes/DataTypes/stream.datatype 47 1 >NIL:
+Set vrc $RC
+If $vrc EQ 0 VAL
+  Echo "SYS:Classes/DataTypes/stream.datatype is new enough, kept"
+  Skip streamdone
+EndIf
+If $vrc GE 10 VAL
+  If EXISTS SYS:Classes/DataTypes/stream.datatype
+    Echo "SYS:Classes/DataTypes/stream.datatype is there; its version cannot be read from the Shell, so it is kept (Install-OpenBrowser checks it)"
+    Skip streamdone
+  EndIf
+Else
+  Rename SYS:Classes/DataTypes/stream.datatype SYS:Classes/DataTypes/stream.datatype.before-20261031
+  If WARN
+    Echo "Could not rename the old SYS:Classes/DataTypes/stream.datatype"
+    Quit 20
+  EndIf
+  Echo "Kept the old SYS:Classes/DataTypes/stream.datatype as stream.datatype.before-20261031"
+EndIf
+Copy Classes/DataTypes/stream.datatype SYS:Classes/DataTypes/ QUIET
+If WARN
+  Echo "Could not copy stream.datatype to SYS:Classes/DataTypes/"
+  Quit 20
+EndIf
+Echo "Installed SYS:Classes/DataTypes/stream.datatype"
+Lab streamdone
+
+Version SYS:Classes/DataTypes/gzip.datatype 47 1 >NIL:
+Set vrc $RC
+If $vrc EQ 0 VAL
+  Echo "SYS:Classes/DataTypes/gzip.datatype is new enough, kept"
+  Skip gzipdone
+EndIf
+If $vrc GE 10 VAL
+  If EXISTS SYS:Classes/DataTypes/gzip.datatype
+    Echo "SYS:Classes/DataTypes/gzip.datatype is there; its version cannot be read from the Shell, so it is kept (Install-OpenBrowser checks it)"
+    Skip gzipdone
+  EndIf
+Else
+  Rename SYS:Classes/DataTypes/gzip.datatype SYS:Classes/DataTypes/gzip.datatype.before-20261031
+  If WARN
+    Echo "Could not rename the old SYS:Classes/DataTypes/gzip.datatype"
+    Quit 20
+  EndIf
+  Echo "Kept the old SYS:Classes/DataTypes/gzip.datatype as gzip.datatype.before-20261031"
+EndIf
+Copy Classes/DataTypes/gzip.datatype SYS:Classes/DataTypes/ QUIET
+If WARN
+  Echo "Could not copy gzip.datatype to SYS:Classes/DataTypes/"
+  Quit 20
+EndIf
+Echo "Installed SYS:Classes/DataTypes/gzip.datatype"
+Lab gzipdone
+
+Version SYS:Classes/DataTypes/brotli.datatype 47 1 >NIL:
+Set vrc $RC
+If $vrc EQ 0 VAL
+  Echo "SYS:Classes/DataTypes/brotli.datatype is new enough, kept"
+  Skip brotlidone
+EndIf
+If $vrc GE 10 VAL
+  If EXISTS SYS:Classes/DataTypes/brotli.datatype
+    Echo "SYS:Classes/DataTypes/brotli.datatype is there; its version cannot be read from the Shell, so it is kept (Install-OpenBrowser checks it)"
+    Skip brotlidone
+  EndIf
+Else
+  Rename SYS:Classes/DataTypes/brotli.datatype SYS:Classes/DataTypes/brotli.datatype.before-20261031
+  If WARN
+    Echo "Could not rename the old SYS:Classes/DataTypes/brotli.datatype"
+    Quit 20
+  EndIf
+  Echo "Kept the old SYS:Classes/DataTypes/brotli.datatype as brotli.datatype.before-20261031"
+EndIf
+Copy Classes/DataTypes/brotli.datatype SYS:Classes/DataTypes/ QUIET
+If WARN
+  Echo "Could not copy brotli.datatype to SYS:Classes/DataTypes/"
+  Quit 20
+EndIf
+Echo "Installed SYS:Classes/DataTypes/brotli.datatype"
+Lab brotlidone
+
+If NOT EXISTS DEVS:DataTypes/GZip
+  Copy Devs/DataTypes/GZip DEVS:DataTypes/ QUIET
+  If WARN
+    Echo "Could not copy the GZip descriptor to DEVS:DataTypes"
+    Quit 20
+  EndIf
+  Echo "Installed DEVS:DataTypes/GZip"
+EndIf
+
+If NOT EXISTS DEVS:DataTypes/Brotli
+  Copy Devs/DataTypes/Brotli DEVS:DataTypes/ QUIET
+  If WARN
+    Echo "Could not copy the Brotli descriptor to DEVS:DataTypes"
+    Quit 20
+  EndIf
+  Echo "Installed DEVS:DataTypes/Brotli"
 EndIf
 
 If NOT EXISTS S:OpenTLS/ca-bundle.pem
