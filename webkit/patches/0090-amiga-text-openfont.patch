@@ -1,4 +1,4 @@
-From cbd5bb4a4f9642984433a0606827c873e94d0053 Mon Sep 17 00:00:00 2001
+From 3e59b516753c0efe628d111f22d7f949a46fe524 Mon Sep 17 00:00:00 2001
 From: SacredTrees <121399723+SacredTrees@users.noreply.github.com>
 Date: Fri, 23 Oct 2026 04:59:39 +0000
 Subject: [PATCH] WebCore: text on openfont.library on the Amiga
@@ -58,8 +58,8 @@ CAIRO_FONTS=user).
  .../openfont/SimpleFontDataOpenFont.cpp       | 194 ++++++++
  .../rendering/style/RenderStyleConstants.h    |   2 +-
  Source/cmake/FindOpenFont.cmake               |  88 ++++
- Source/cmake/OptionsAmiga.cmake               |  15 +-
- 21 files changed, 2209 insertions(+), 17 deletions(-)
+ Source/cmake/OptionsAmiga.cmake               |  19 +-
+ 21 files changed, 2211 insertions(+), 19 deletions(-)
  create mode 100644 Source/WebCore/platform/OpenFont.cmake
  create mode 100644 Source/WebCore/platform/graphics/openfont/ComplexTextControllerOpenFont.cpp
  create mode 100644 Source/WebCore/platform/graphics/openfont/FontCacheOpenFont.cpp
@@ -74,17 +74,16 @@ CAIRO_FONTS=user).
  create mode 100644 Source/cmake/FindOpenFont.cmake
 
 diff --git a/Source/WebCore/PlatformAmiga.cmake b/Source/WebCore/PlatformAmiga.cmake
-index 7a8b83a94ea..ff84b13586f 100644
+index b315e7ab109..9364804511f 100644
 --- a/Source/WebCore/PlatformAmiga.cmake
 +++ b/Source/WebCore/PlatformAmiga.cmake
-@@ -1,6 +1,6 @@
+@@ -1,5 +1,5 @@
  include(platform/Cairo.cmake)
- include(platform/Curl.cmake)
 -include(platform/FreeType.cmake)
 +include(platform/OpenFont.cmake)
  
- # TLS is curl's own business: curl is built on OpenTLS (opentls.library,
- # openamigacurl), and WebCore links no OpenSSL. The curl files that hand
+ # The network is openweb.fetch (platform/network/amiga), not curl:
+ # platform/Curl.cmake is not included, so no curl, nghttp2, OpenSSL or
 diff --git a/Source/WebCore/platform/OpenFont.cmake b/Source/WebCore/platform/OpenFont.cmake
 new file mode 100644
 index 00000000000..98076aff201
@@ -2514,22 +2513,26 @@ index 00000000000..5d981ac944d
 +
 +mark_as_advanced(OpenFont_INCLUDE_DIR)
 diff --git a/Source/cmake/OptionsAmiga.cmake b/Source/cmake/OptionsAmiga.cmake
-index 66562bed729..60a0bd3e1ea 100644
+index 1d9cf9394b3..dc7de9d384f 100644
 --- a/Source/cmake/OptionsAmiga.cmake
 +++ b/Source/cmake/OptionsAmiga.cmake
-@@ -1,6 +1,6 @@
+@@ -1,8 +1,8 @@
  # The Amiga port: WebCore in one process, for AmigaOS 3.2 (68020 + FPU).
 -# Drawing is Cairo's image surface, text is FreeType + HarfBuzz + fontconfig,
--# the network is curl on OpenTLS. There is no WebKit (multi-process) layer:
+-# the network is openweb.fetch (openamigaservice: a services card, a Cradle,
+-# or this Amiga's own TCP/IP and OpenTLS). There is no WebKit
+-# (multi-process) layer: the embedding layer (page clients, loader
 +# Drawing is Cairo's image surface, text is OpenFont (openfont.library: fonts,
-+# shaping and the font index), the network is curl on OpenTLS. There is no WebKit (multi-process) layer:
- # the embedding layer (page clients, loader strategy) belongs to the browser.
++# shaping and the font index), the network is openweb.fetch (openamigaservice:
++# a services card, a Cradle, or this Amiga's own TCP/IP and OpenTLS). There is
++# no WebKit (multi-process) layer: the embedding layer (page clients, loader
+ # strategy) belongs to the browser.
  
  if (CMAKE_SYSTEM_NAME MATCHES "^(AROS|AmigaOS)$")
-@@ -31,9 +31,7 @@ find_package(ICU 70.1 REQUIRED COMPONENTS data i18n uc)
+@@ -32,9 +32,7 @@ find_package(ICU 70.1 REQUIRED COMPONENTS data i18n uc)
+ 
  if (ENABLE_WEBCORE)
      find_package(Cairo 1.16.0 REQUIRED)
-     find_package(CURL 7.85.0 REQUIRED)
 -    find_package(Fontconfig 2.13.0 REQUIRED)
 -    find_package(Freetype 2.9.0 REQUIRED)
 -    find_package(HarfBuzz 2.7.4 REQUIRED COMPONENTS ICU)
@@ -2537,9 +2540,9 @@ index 66562bed729..60a0bd3e1ea 100644
      find_package(OXP 0.1 REQUIRED)
      find_package(SQLite3 3.23.1 REQUIRED)
      if (NOT TARGET SQLite3::SQLite3) # CMake < 4.3
-@@ -107,8 +105,11 @@ SET_AND_EXPOSE_TO_BUILD(WTF_DEFAULT_EVENT_LOOP 0)
- # Set even when only JavaScriptCore is built, so cmakeconfig.h stays the same.
- SET_AND_EXPOSE_TO_BUILD(USE_CAIRO ON)
+@@ -111,8 +109,11 @@ SET_AND_EXPOSE_TO_BUILD(USE_CAIRO ON)
+ # ResourceResponse, the cookie database), which call no curl; curl itself
+ # is not built (PlatformAmiga.cmake).
  SET_AND_EXPOSE_TO_BUILD(USE_CURL ON)
 -SET_AND_EXPOSE_TO_BUILD(USE_FREETYPE ON)
 -SET_AND_EXPOSE_TO_BUILD(USE_HARFBUZZ ON)
@@ -2548,9 +2551,9 @@ index 66562bed729..60a0bd3e1ea 100644
 +SET_AND_EXPOSE_TO_BUILD(USE_FREETYPE OFF)
 +SET_AND_EXPOSE_TO_BUILD(USE_HARFBUZZ OFF)
 +SET_AND_EXPOSE_TO_BUILD(USE_OPENFONT ON)
- # No OpenSSL: curl does TLS through OpenTLS (opentls.library), which WebCore
- # does not see. WebCrypto has no backend (crypto/amiga/CryptoAmiga.cpp).
- SET_AND_EXPOSE_TO_BUILD(USE_OPENSSL OFF)
+ # No OpenSSL: TLS is openweb.fetch's (OpenTLS, opentls.library, on the
+ # Amiga), which WebCore does not see. WebCrypto has no backend
+ # (crypto/amiga/CryptoAmiga.cpp).
 -- 
 2.43.0
 

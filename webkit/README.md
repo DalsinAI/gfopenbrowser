@@ -59,9 +59,10 @@ The patches, in order:
   ever, so a program that had made one never exited. The generic run loop
   keeps a list on AmigaOS, and `amigaStopAllRunLoops()` stops them all.
 - `0010-amiga-fetch-proxy-experiment.patch`: the host-fetch experiment.
-  With the Shell variable `OB_FETCH_PROXY` set (see
-  `scripts/ob-fetch-proxy.py`), requests go to a proxy on another PC, which
-  makes the TLS connections. Off unless the variable is set.
+  With the Shell variable `OB_FETCH_PROXY` set (`scripts/ob-fetch-proxy.py`,
+  removed with 0075), requests go to a proxy on another PC, which makes the
+  TLS connections. Off unless the variable is set. It is in `CurlContext.cpp`,
+  which 0075 no longer builds; openweb.fetch's card does the same job.
 - `0019-jsc-generators-in-python.patch`: JavaScriptCore builds without
   Ruby. offlineasm (front end and the M68K back end), the bytecode generator
   and GeneratePreferences run as Python 3 ports (standard library only), in
@@ -379,7 +380,7 @@ The patches, in order:
   glue (`OpenWebFetchAmiga.c`); `FormData` bodies go through `wf_send`.
   `ResourceHandleAmiga.cpp` keeps redirects, cookies and the HTTP cache for
   both. The Shell variable `OB_NET` picks it (`SetEnv OB_NET openweb`);
-  curl is the default. Basic and Digest credentials go in the URL; proxies
+  curl is the default (until 0075, which makes it the only backend). Basic and Digest credentials go in the URL; proxies
   are the transport's. Bodies are decoded only when the transport decodes
   (the card); the native transport sends `Accept-Encoding: identity` until
   the datatypes stream decodes. Needs openamigaservice with the
@@ -391,6 +392,22 @@ The patches, in order:
   and WebCore no longer finds or links libpng. Without a PNG datatype that
   writes, the picture is not encoded. `obcore-dump` writes its page PNG the
   same way.
+- `0075-amiga-no-curl.patch`: curl out. openweb.fetch does every load
+  (`OB_NET` is gone): `ResourceHandleAmiga.cpp` loses the curl delegate and
+  keeps redirects, cookies, the HTTP cache, `file:` and synchronous loads.
+  `platform/Curl.cmake` is not included; `PlatformAmiga.cmake` lists the
+  curl folder's files that stay (the network types, `CookieJarDB`,
+  `CookieUtil`, the empty DNS queue), whose curl parts are left out on
+  `PLATFORM(AMIGA)`; `USE(CURL)` stays on to pick those types. `CurlContext`
+  (with 0010), `CurlRequest`, `CurlRequestScheduler`, `CurlFormDataStream`,
+  `CurlMultipartHandle`, `CurlProxySettings`, `CurlSSLHandle` and
+  `CurlSSLHandleAmiga.cpp` are not built (19 files, 4,057 lines), and curl
+  and nghttp2 are no longer found or linked. `multipart/x-mixed-replace`
+  arrives as one body. Every load asks for `WF_DECODE`, so pages come
+  compressed as with curl: the card's host decodes, and the native
+  transport decodes through stream.datatype, gzip.datatype and
+  brotli.datatype (needs openamigaservice #15). `OpenWebFetchAmiga.c` needs
+  openamigaservice's headers; there is no build without them.
 - `0090-amiga-text-openfont.patch`: text on openfont.library 1.3
   (`USE_OPENFONT`) in place of FreeType, fontconfig and HarfBuzz, which are
   no longer found or linked. Families are matched with OpenFont's

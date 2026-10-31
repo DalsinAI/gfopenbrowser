@@ -1,8 +1,8 @@
 /*
- * Library bases that the static libraries call through: curl reaches
- * bsdsocket.library through SocketBase. Each task that uses the network
- * opens its own (see the network code); programs without a network leave it
- * empty. (curl keeps its own opentls.library base.)
+ * Library bases that the static libraries call through. SocketBase was
+ * curl's; since WebKit patch 0075 nothing in the programs calls through it
+ * (openweb.fetch's native transport keeps its own bsdsocket.library base),
+ * and it stays defined and empty so that no library's own copy comes in.
  * MIT, Copyright (c) 2026 AmigaChrome Team.
  */
 #include <exec/libraries.h>

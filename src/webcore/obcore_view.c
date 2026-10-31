@@ -592,7 +592,7 @@ static int viewMain(int argc, char **argv)
     }
 
     if (isURL ? !ob_webcore_init_with_network(":memory:") : !ob_webcore_init()) {
-        printf("OBVIEW_FAIL init%s\n", isURL ? " (bsdsocket.library or AmiSSL)" : "");
+        printf("OBVIEW_FAIL init\n");
         return 20;
     }
     sinceStart();

@@ -1,0 +1,1214 @@
+From 71474166aa0d3aef7be433e9c439b034cbad8b32 Mon Sep 17 00:00:00 2001
+From: SacredTrees <121399723+SacredTrees@users.noreply.github.com>
+Date: Fri, 23 Oct 2026 08:39:22 +0000
+Subject: [PATCH] WebCore: curl out, every load through openweb.fetch on the
+ Amiga
+
+openweb.fetch is the only network backend: ResourceHandleAmiga.cpp loses
+the curl delegate and the OB_NET switch, and every http and https load
+goes through WebFetchAmiga.cpp. The cookies, redirects, the HTTP cache
+hook, file: URLs and synchronous loads stay as they were.
+
+platform/Curl.cmake is no longer included. PlatformAmiga.cmake lists the
+files of the curl folder that stay, none of which calls curl: the network
+types (ResourceError, ResourceResponse, AuthenticationChallenge,
+ResourceRequest, ProtectionSpace, CertificateInfo), the cookie database
+(CookieJarDB, CookieUtil) and the empty DNS queue. USE(CURL) stays on, as
+it picks those types; their curl constructors and curl's error, HTTP
+version and auth codes are left out on PLATFORM(AMIGA). CurlContext (with
+patch 0010's OB_FETCH_PROXY experiment), CurlRequest,
+CurlRequestScheduler, CurlFormDataStream, CurlMultipartHandle,
+CurlProxySettings, CurlSSLHandle and amiga/CurlSSLHandleAmiga.cpp are no
+longer built: 19 files, 4,057 lines. multipart/x-mixed-replace is not
+split into parts any more, as openweb.fetch's loads never were: such a
+response arrives as one body.
+
+Every load asks for WF_DECODE, on the card and natively alike, so pages
+come compressed as they did with curl: the card's host undoes gzip,
+deflate and br, and the native transport does it through the datatypes
+(stream.datatype with gzip.datatype and brotli.datatype; openamigaservice
+#15), offering in Accept-Encoding only what it can undo. The request no
+longer asks the native transport for identity.
+
+OpenWebFetchAmiga.c needs openamigaservice's client headers: the stubs
+for a build without them are gone, with obwf_available() and
+obwf_net_decodes(). curl is no longer found or linked, and nghttp2 with
+it.
+
+Team 3
+---
+ Source/WebCore/PlatformAmiga.cmake            |  69 ++++++-----
+ .../WebCore/platform/network/ResourceHandle.h |   1 -
+ .../platform/network/ResourceHandleInternal.h |   8 +-
+ .../platform/network/amiga/AmigaNetwork.h     |   6 +-
+ .../network/amiga/CurlSSLHandleAmiga.cpp      |  42 -------
+ .../network/amiga/OpenWebFetchAmiga.c         | 109 +-----------------
+ .../network/amiga/OpenWebFetchAmiga.h         |  21 ++--
+ .../network/amiga/ResourceHandleAmiga.cpp     | 100 ++--------------
+ .../platform/network/amiga/WebFetchAmiga.cpp  |  74 +++++++-----
+ .../platform/network/amiga/WebFetchAmiga.h    |  18 +--
+ .../network/curl/AuthenticationChallenge.h    |  10 +-
+ .../curl/AuthenticationChallengeCurl.cpp      |  25 ++--
+ .../network/curl/CertificateInfoCurl.cpp      |   2 +-
+ .../platform/network/curl/ResourceError.h     |   7 +-
+ .../network/curl/ResourceErrorCurl.cpp        |  50 +-------
+ .../platform/network/curl/ResourceResponse.h  |   7 +-
+ .../network/curl/ResourceResponseCurl.cpp     |  35 +-----
+ Source/cmake/OptionsAmiga.cmake               |  15 ++-
+ 18 files changed, 167 insertions(+), 432 deletions(-)
+ delete mode 100644 Source/WebCore/platform/network/amiga/CurlSSLHandleAmiga.cpp
+
+diff --git a/Source/WebCore/PlatformAmiga.cmake b/Source/WebCore/PlatformAmiga.cmake
+index 01c2c7fa2a5..333147a1ec2 100644
+--- a/Source/WebCore/PlatformAmiga.cmake
++++ b/Source/WebCore/PlatformAmiga.cmake
+@@ -1,43 +1,41 @@
+ include(platform/Cairo.cmake)
+-include(platform/Curl.cmake)
+ include(platform/FreeType.cmake)
+ 
+-# TLS is curl's own business: curl is built on OpenTLS (opentls.library,
+-# openamigacurl), and WebCore links no OpenSSL. The curl files that hand
+-# curl's OpenSSL objects to OpenSSL (the certificate chain collector and its
+-# helpers) are left out, and the curl code that calls them is compiled out
+-# with USE(OPENSSL) off.
+-list(REMOVE_ITEM WebCore_SOURCES
+-    platform/network/curl/CurlSSLVerifier.cpp
+-    platform/network/curl/OpenSSLHelper.cpp
+-)
+-list(REMOVE_ITEM WebCore_PRIVATE_FRAMEWORK_HEADERS
+-    platform/network/curl/CurlSSLVerifier.h
+-    platform/network/curl/OpenSSLHelper.h
+-)
+-list(REMOVE_ITEM WebCore_LIBRARIES
+-    OpenSSL::SSL
++# The network is openweb.fetch (platform/network/amiga), not curl:
++# platform/Curl.cmake is not included, so no curl, nghttp2, OpenSSL or
++# libpsl is linked. These files of the curl folder stay: the network types
++# (USE(CURL) picks them, through this include folder), the cookie
++# database and the certificate summary, none of which calls curl.
++# Public suffixes come from our own reader of Mozilla's list
++# (PublicSuffixAmiga.c), not from PublicSuffixStoreCurl.cpp and libpsl.
++# multipart/x-mixed-replace is not split into parts (CurlMultipartHandle
++# is gone with CurlRequest): such a response arrives as one body.
++list(APPEND WebCore_PRIVATE_INCLUDE_DIRECTORIES
++    "${WEBCORE_DIR}/platform/network/curl"
+ )
+ 
+-# Public suffixes (cookies, sites, document.domain) come from Mozilla's list
+-# in PROGDIR:Network/public-suffixes, read by our own lookup
+-# (PublicSuffixAmiga.c), not from libpsl.
+-list(REMOVE_ITEM WebCore_SOURCES
+-    platform/network/curl/PublicSuffixStoreCurl.cpp
++list(APPEND WebCore_SOURCES
++    platform/network/curl/AuthenticationChallengeCurl.cpp
++    platform/network/curl/CertificateInfoCurl.cpp
++    platform/network/curl/CookieJarDB.cpp
++    platform/network/curl/CookieUtil.cpp
++    platform/network/curl/DNSResolveQueueCurl.cpp
++    platform/network/curl/ProtectionSpaceCurl.cpp
++    platform/network/curl/ResourceErrorCurl.cpp
++    platform/network/curl/ResourceRequestCurl.cpp
++    platform/network/curl/ResourceResponseCurl.cpp
+ )
+ 
+-# curl's WebSocket stream (CurlStream, CurlStreamScheduler) is unused: the
+-# port gives pages no WebSocket channel over curl (EmptySocketProvider).
+-list(REMOVE_ITEM WebCore_SOURCES
+-    platform/network/curl/CurlStream.cpp
+-    platform/network/curl/CurlStreamScheduler.cpp
+-)
+-list(REMOVE_ITEM WebCore_PRIVATE_FRAMEWORK_HEADERS
+-    platform/network/curl/CurlStream.h
+-    platform/network/curl/CurlStreamScheduler.h
+-)
+-list(REMOVE_ITEM WebCore_LIBRARIES
+-    LibPSL::LibPSL
++list(APPEND WebCore_PRIVATE_FRAMEWORK_HEADERS
++    platform/network/curl/AuthenticationChallenge.h
++    platform/network/curl/CertificateInfo.h
++    platform/network/curl/CookieJarDB.h
++    platform/network/curl/CookieUtil.h
++    platform/network/curl/DNSResolveQueueCurl.h
++    platform/network/curl/ProtectionSpaceCurl.h
++    platform/network/curl/ResourceError.h
++    platform/network/curl/ResourceRequest.h
++    platform/network/curl/ResourceResponse.h
+ )
+ 
+ # Form controls and scrollbars are drawn by the Adwaita theme, which paints
+@@ -184,14 +182,13 @@ list(APPEND WebCore_SOURCES
+     platform/image-decoders/amiga/DatatypesImageDecoder.cpp
+     platform/image-decoders/cairo/ImageBackingStoreCairo.cpp
+ 
+-    platform/network/amiga/CurlSSLHandleAmiga.cpp
+     platform/network/amiga/NetworkStateNotifierAmiga.cpp
+     platform/network/amiga/PublicSuffixAmiga.c
+     platform/network/amiga/PublicSuffixStoreAmiga.cpp
+ 
+-    # Loads through openweb.fetch beside curl (OB_NET=openweb). The browser's
++    # Every http and https load goes through openweb.fetch. The browser's
+     # build gives OpenWebFetchAmiga.c openamigaservice's client headers and
+-    # links its client; without them the file builds empty and curl loads.
++    # links its client (src/webcore/CMakeLists.txt), and stops without them.
+     platform/network/amiga/OpenWebFetchAmiga.c
+     platform/network/amiga/WebFetchAmiga.cpp
+ 
+diff --git a/Source/WebCore/platform/network/ResourceHandle.h b/Source/WebCore/platform/network/ResourceHandle.h
+index 3514199b585..54a2cbc120b 100644
+--- a/Source/WebCore/platform/network/ResourceHandle.h
++++ b/Source/WebCore/platform/network/ResourceHandle.h
+@@ -192,7 +192,6 @@ private:
+ 
+     bool start();
+ #if PLATFORM(AMIGA)
+-    friend class ResourceHandleCurlDelegate;
+     friend class AmigaWebFetch;
+     void amigaStartRequest(ResourceRequest&&);
+     void amigaLoadFile();
+diff --git a/Source/WebCore/platform/network/ResourceHandleInternal.h b/Source/WebCore/platform/network/ResourceHandleInternal.h
+index d6f47b32eaf..dc88d7b7b5d 100644
+--- a/Source/WebCore/platform/network/ResourceHandleInternal.h
++++ b/Source/WebCore/platform/network/ResourceHandleInternal.h
+@@ -49,8 +49,6 @@ typedef const struct __CFURLStorageSession* CFURLStorageSessionRef;
+ #if PLATFORM(AMIGA)
+ #include "amiga/AmigaNetwork.h"
+ #include "amiga/WebFetchAmiga.h"
+-#include "CurlRequest.h"
+-#include "CurlRequestClient.h"
+ #endif
+ 
+ namespace WebCore {
+@@ -107,11 +105,7 @@ public:
+     WeakObjCPtr<NSURLAuthenticationChallenge> m_currentMacChallenge;
+ #endif
+ #if PLATFORM(AMIGA)
+-    RefPtr<CurlRequest> m_curlRequest;
+-    // A ResourceHandleCurlDelegate (ResourceHandleAmiga.cpp), kept by its base
+-    // so this header needs no complete type for it.
+-    RefPtr<CurlRequestClient> m_curlDelegate;
+-    // The request when it goes through openweb.fetch (OB_NET=openweb).
++    // The request on openweb.fetch (WebFetchAmiga.cpp).
+     RefPtr<AmigaWebFetch> m_webFetch;
+     // The disk cache's part in the current request (AmigaNetwork.h).
+     std::unique_ptr<AmigaHttpCacheRequest> m_httpCache;
+diff --git a/Source/WebCore/platform/network/amiga/AmigaNetwork.h b/Source/WebCore/platform/network/amiga/AmigaNetwork.h
+index 19db7881cd6..2ea8b6c0627 100644
+--- a/Source/WebCore/platform/network/amiga/AmigaNetwork.h
++++ b/Source/WebCore/platform/network/amiga/AmigaNetwork.h
+@@ -46,9 +46,9 @@ struct AmigaCookieHooks {
+ 
+ WEBCORE_EXPORT void setAmigaCookieHooks(AmigaCookieHooks&&);
+ 
+-// The network thread's start and end. On AmigaOS each task opens its own
+-// bsdsocket.library and joins AmiSSL itself, so the browser does that in
+-// these two functions, which run on the network thread.
++// The network thread's start and end, for the browser to set the thread up
++// (its priority); they run on the network thread. openweb.fetch's native
++// transport opens its own bsdsocket.library and opentls.library there.
+ struct AmigaNetworkThreadHooks {
+     void (*started)() { nullptr };
+     void (*finished)() { nullptr };
+diff --git a/Source/WebCore/platform/network/amiga/CurlSSLHandleAmiga.cpp b/Source/WebCore/platform/network/amiga/CurlSSLHandleAmiga.cpp
+deleted file mode 100644
+index 272901cc409..00000000000
+--- a/Source/WebCore/platform/network/amiga/CurlSSLHandleAmiga.cpp
++++ /dev/null
+@@ -1,42 +0,0 @@
+-/*
+- * Copyright (C) 2026 AmigaChrome Team.
+- *
+- * Redistribution and use in source and binary forms, with or without
+- * modification, are permitted provided that the following conditions
+- * are met:
+- * 1. Redistributions of source code must retain the above copyright
+- *    notice, this list of conditions and the following disclaimer.
+- * 2. Redistributions in binary form must reproduce the above copyright
+- *    notice, this list of conditions and the following disclaimer in the
+- *    documentation and/or other materials provided with the distribution.
+- *
+- * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS ``AS IS''
+- * AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO,
+- * THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR
+- * PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDERS OR
+- * CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL,
+- * EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO,
+- * PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS;
+- * OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY,
+- * WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR
+- * OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF
+- * ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+- */
+-
+-#include "config.h"
+-#include "CurlSSLHandle.h"
+-
+-namespace WebCore {
+-
+-// curl does TLS through OpenTLS (opentls.library), which checks certificates
+-// against its own store (S:OpenTLS/ca-bundle.pem and ENVARC:OpenTLS/certs/)
+-// when no CA file is given, so none is set here: a CA file would replace that
+-// store. OpenTLS also picks the cipher suites and key exchange itself,
+-// preferring suites that are cheap on a 68k without AES instructions, and
+-// curl's OpenTLS backend takes no cipher or curve lists (curl refuses a
+-// cipher list with CURLE_NOT_BUILT_IN), so none are set either.
+-void CurlSSLHandle::platformInitialize()
+-{
+-}
+-
+-} // namespace WebCore
+diff --git a/Source/WebCore/platform/network/amiga/OpenWebFetchAmiga.c b/Source/WebCore/platform/network/amiga/OpenWebFetchAmiga.c
+index c7d9d7265c0..55eccd34c8f 100644
+--- a/Source/WebCore/platform/network/amiga/OpenWebFetchAmiga.c
++++ b/Source/WebCore/platform/network/amiga/OpenWebFetchAmiga.c
+@@ -13,14 +13,8 @@
+ 
+ #include "OpenWebFetchAmiga.h"
+ 
+-#if defined(__has_include)
+-#if __has_include(<openweb/webfetch.h>)
+-#define OBWF_TRANSPORT 1
+-#endif
+-#endif
+-
+-#ifdef OBWF_TRANSPORT
+-
++/* openweb/webfetch.h is openamigaservice's: the browser's build gives its
++ * include folder, and stops when the checkout is missing. */
+ #include <string.h>
+ #include <exec/types.h>
+ #include <exec/memory.h>
+@@ -68,11 +62,6 @@ static unsigned long error_of(LONG status)
+     return WF_E_HOST;
+ }
+ 
+-int obwf_available(void)
+-{
+-    return 1;
+-}
+-
+ OBWFNet *obwf_net_new(void)
+ {
+     OBWFNet *n = AllocVec(sizeof *n, MEMF_ANY | MEMF_CLEAR);
+@@ -97,14 +86,6 @@ void obwf_net_free(OBWFNet *n)
+     FreeVec(n);
+ }
+ 
+-int obwf_net_decodes(OBWFNet *n)
+-{
+-    /* The card's host library decodes; the native transport hands coded
+-     * bodies to the datatypes' hook, which is empty until stream.datatype
+-     * is there, and then sends them as they came. */
+-    return n->open && n->s.where != WF_WHERE_NATIVE;
+-}
+-
+ void obwf_net_wait(OBWFNet *n, unsigned long ms)
+ {
+     ULONG mask = 1UL << n->bit;
+@@ -148,7 +129,8 @@ OBWFFetch *obwf_fetch_new(OBWFNet *n, const char *request, unsigned long length,
+     }
+     status = wf_open(&n->s, request, length, flags, bodyLength, timeout, part, partLength, &f->fetch);
+     if (status != OSERR_OK) {
+-        *error = error_of(status);
++        /* The native transport says busy (WFN_BUSY) with OSERR_HOST's number. */
++        *error = status == OSERR_HOST ? OBWF_BUSY : error_of(status);
+         obwf_fetch_free(f);
+         return NULL;
+     }
+@@ -281,86 +263,3 @@ void obwf_fetch_free(OBWFFetch *f)
+         FreeVec(f->buf[1]);
+     FreeVec(f);
+ }
+-
+-#else /* no openweb.fetch client in this build */
+-
+-int obwf_available(void)
+-{
+-    return 0;
+-}
+-
+-OBWFNet *obwf_net_new(void)
+-{
+-    return 0;
+-}
+-
+-void obwf_net_free(OBWFNet *n)
+-{
+-    (void)n;
+-}
+-
+-int obwf_net_decodes(OBWFNet *n)
+-{
+-    (void)n;
+-    return 0;
+-}
+-
+-void obwf_net_wait(OBWFNet *n, unsigned long ms)
+-{
+-    (void)n;
+-    (void)ms;
+-}
+-
+-void obwf_net_wake(OBWFNet *n)
+-{
+-    (void)n;
+-}
+-
+-OBWFFetch *obwf_fetch_new(OBWFNet *n, const char *request, unsigned long length, int decode, int hasBody,
+-                          unsigned long bodyLength, const void *part, unsigned long partLength,
+-                          unsigned long timeout, unsigned long *error)
+-{
+-    (void)n;
+-    (void)request;
+-    (void)length;
+-    (void)decode;
+-    (void)hasBody;
+-    (void)bodyLength;
+-    (void)part;
+-    (void)partLength;
+-    (void)timeout;
+-    *error = 9;
+-    return 0;
+-}
+-
+-int obwf_fetch_send(OBWFFetch *f, const void *data, unsigned long length, int last)
+-{
+-    (void)f;
+-    (void)data;
+-    (void)length;
+-    (void)last;
+-    return -1;
+-}
+-
+-int obwf_fetch_head(OBWFFetch *f, OBWFHead *head)
+-{
+-    (void)f;
+-    head->error = 9;
+-    return -1;
+-}
+-
+-long obwf_fetch_read(OBWFFetch *f, const void **data, int *end, unsigned long *error)
+-{
+-    (void)f;
+-    *data = 0;
+-    *end = 1;
+-    *error = 9;
+-    return 0;
+-}
+-
+-void obwf_fetch_free(OBWFFetch *f)
+-{
+-    (void)f;
+-}
+-
+-#endif
+diff --git a/Source/WebCore/platform/network/amiga/OpenWebFetchAmiga.h b/Source/WebCore/platform/network/amiga/OpenWebFetchAmiga.h
+index 06076e21e81..52edbbc7217 100644
+--- a/Source/WebCore/platform/network/amiga/OpenWebFetchAmiga.h
++++ b/Source/WebCore/platform/network/amiga/OpenWebFetchAmiga.h
+@@ -6,8 +6,7 @@
+  * headers and their macros stay out of WebCore's C++.
+  *
+  * Every call but obwf_net_wake runs on the one task that called
+- * obwf_net_new. A build without openamigaservice's headers has no
+- * transport: obwf_available() is 0 and obwf_net_new answers NULL.
++ * obwf_net_new.
+  * MIT, Copyright (c) 2026 AmigaChrome Team.
+  * SPDX-License-Identifier: MIT
+  */
+@@ -35,26 +34,28 @@ typedef struct {
+     unsigned long infoLength;
+ } OBWFHead;
+ 
+-/* 1 when the engine was built with openamigaservice's client. */
+-int obwf_available(void);
+-
+ /* Opens openweb.fetch (the card, a Cradle, or this Amiga's own TCP/IP
+  * and OpenTLS) and a signal to wake the task with. NULL when there is no
+  * transport or no signal; without a service every fetch fails. */
+ OBWFNet *obwf_net_new(void);
+ void obwf_net_free(OBWFNet *);
+-/* 1 when the transport undoes gzip, deflate and br itself (WF_DECODE). */
+-int obwf_net_decodes(OBWFNet *);
+ /* Sleeps until a fetch may have moved on, for at most ms (on the card,
+  * until an answer comes back), or until obwf_net_wake. */
+ void obwf_net_wait(OBWFNet *, unsigned long ms);
+ /* From any task. */
+ void obwf_net_wake(OBWFNet *);
+ 
++/* *error from obwf_fetch_new when every place for a fetch is taken (the
++ * native transport's 128, or the card's): start it again once one ends. */
++#define OBWF_BUSY 0x100UL
++
+ /* Starts a fetch: request is "METHOD URL\n" and "Name: value\n" lines.
+- * With hasBody, bodyLength is the body's whole length and part (partLength
+- * bytes, maybe 0) its first part. timeout in seconds (0: 30). NULL with
+- * *error (openweb.fetch's) when it could not start. */
++ * decode asks for WF_DECODE: gzip, deflate and br undone by the transport
++ * (the card's host, or the datatypes natively), which then picks
++ * Accept-Encoding itself. With hasBody, bodyLength is the body's whole
++ * length and part (partLength bytes, maybe 0) its first part. timeout in
++ * seconds (0: 30). NULL with *error (openweb.fetch's, or OBWF_BUSY) when
++ * it could not start. */
+ OBWFFetch *obwf_fetch_new(OBWFNet *, const char *request, unsigned long length, int decode, int hasBody,
+                           unsigned long bodyLength, const void *part, unsigned long partLength,
+                           unsigned long timeout, unsigned long *error);
+diff --git a/Source/WebCore/platform/network/amiga/ResourceHandleAmiga.cpp b/Source/WebCore/platform/network/amiga/ResourceHandleAmiga.cpp
+index 74c994b310e..d80db2962a1 100644
+--- a/Source/WebCore/platform/network/amiga/ResourceHandleAmiga.cpp
++++ b/Source/WebCore/platform/network/amiga/ResourceHandleAmiga.cpp
+@@ -24,20 +24,14 @@
+  */
+ 
+ // ResourceHandle for the single-process Amiga port: http and https through
+-// WebCore's curl backend (CurlRequest), or through openweb.fetch
+-// (WebFetchAmiga.cpp) with the Shell variable OB_NET=openweb; local files
+-// read directly. The redirect, cookie and HTTP cache handling is the same
+-// for both, and follows WebKit's NetworkDataTaskCurl.
++// openweb.fetch (WebFetchAmiga.cpp), local files read directly. The
++// redirect, cookie and HTTP cache handling is the port's own, and follows
++// WebKit's NetworkDataTaskCurl.
+ 
+ #include "config.h"
+ #include "ResourceHandle.h"
+ 
+ #include "AmigaNetwork.h"
+-#include "CurlContext.h"
+-#include "CurlRequest.h"
+-#include "CurlRequestClient.h"
+-#include "CurlRequestScheduler.h"
+-#include "CurlResponse.h"
+ #include "HTTPParsers.h"
+ #include "MIMETypeRegistry.h"
+ #include "OriginAccessPatterns.h"
+@@ -49,6 +43,7 @@
+ #include "SecurityOrigin.h"
+ #include "SharedBuffer.h"
+ #include <wtf/FileSystem.h>
++#include <wtf/NeverDestroyed.h>
+ #include <wtf/RunLoop.h>
+ #include <wtf/text/MakeString.h>
+ 
+@@ -98,68 +93,10 @@ void amigaNetworkThreadFinished()
+ void stopAmigaNetwork()
+ {
+     AmigaWebFetch::stopThread();
+-    if (!AmigaWebFetch::isWanted())
+-        CurlContext::singleton().scheduler().stopThread();
+ }
+ 
+-// Receives CurlRequest's callbacks (on the main thread) for one handle.
+-class ResourceHandleCurlDelegate final : public CurlRequestClient, public RefCounted<ResourceHandleCurlDelegate> {
+-public:
+-    static Ref<ResourceHandleCurlDelegate> create(ResourceHandle& handle) { return adoptRef(*new ResourceHandleCurlDelegate(handle)); }
+-
+-    void ref() const final { RefCounted::ref(); }
+-    void deref() const final { RefCounted::deref(); }
+-
+-    void releaseHandle() { m_handle = nullptr; }
+-
+-    void curlDidSendData(CurlRequest&, unsigned long long sent, unsigned long long total) final
+-    {
+-        if (RefPtr handle = m_handle; handle && handle->client())
+-            handle->client()->didSendData(handle.get(), sent, total);
+-    }
+-
+-    void curlDidReceiveResponse(CurlRequest& request, CurlResponse&& curlResponse) final
+-    {
+-        RefPtr handle = m_handle;
+-        if (!handle)
+-            return;
+-        ResourceResponse response(curlResponse);
+-        handle->amigaDidReceiveResponse(request.resourceRequest(), curlResponse.headers, WTF::move(response));
+-    }
+-
+-    void curlDidReceiveData(CurlRequest&, Ref<SharedBuffer>&& buffer) final
+-    {
+-        if (RefPtr handle = m_handle)
+-            handle->amigaDidReceiveData(WTF::move(buffer));
+-    }
+-
+-    void curlDidComplete(CurlRequest&, NetworkLoadMetrics&& metrics) final
+-    {
+-        if (RefPtr handle = m_handle)
+-            handle->amigaDidFinish(metrics);
+-    }
+-
+-    void curlDidFailWithError(CurlRequest&, ResourceError&& error, CertificateInfo&&) final
+-    {
+-        if (RefPtr handle = m_handle)
+-            handle->amigaDidFail(error);
+-    }
+-
+-private:
+-    explicit ResourceHandleCurlDelegate(ResourceHandle& handle)
+-        : m_handle(&handle)
+-    {
+-    }
+-
+-    ResourceHandle* m_handle;
+-};
+-
+ ResourceHandleInternal::~ResourceHandleInternal()
+ {
+-    if (m_curlDelegate)
+-        static_cast<ResourceHandleCurlDelegate&>(*m_curlDelegate).releaseHandle();
+-    if (m_curlRequest)
+-        m_curlRequest->invalidateClient();
+     if (m_webFetch)
+         m_webFetch->cancel();
+ }
+@@ -185,21 +122,10 @@ void ResourceHandle::amigaStartRequest(ResourceRequest&& request)
+         amigaLoadFromHttpCache();
+         return;
+     }
+-    if (AmigaWebFetch::isWanted()) {
+-        // The URL's credentials go to its own server only, not to another
+-        // one a redirect leads to.
+-        bool sameServer = protocolHostAndPortAreEqual(request.url(), d->m_firstRequest.url());
+-        d->m_webFetch = AmigaWebFetch::start(*this, request, sameServer ? d->m_user : String(), sameServer ? d->m_password : String());
+-        return;
+-    }
+-    if (!d->m_curlDelegate)
+-        d->m_curlDelegate = ResourceHandleCurlDelegate::create(*this);
+-    d->m_curlRequest = CurlRequest::create(request, *d->m_curlDelegate);
+-    if (!d->m_user.isEmpty() || !d->m_password.isEmpty()) {
+-        d->m_curlRequest->setUserPass(d->m_user, d->m_password);
+-        d->m_curlRequest->setAuthenticationScheme(ProtectionSpace::AuthenticationScheme::HTTPBasic);
+-    }
+-    d->m_curlRequest->resume();
++    // The URL's credentials go to its own server only, not to another one a
++    // redirect leads to.
++    bool sameServer = protocolHostAndPortAreEqual(request.url(), d->m_firstRequest.url());
++    d->m_webFetch = AmigaWebFetch::start(*this, request, sameServer ? d->m_user : String(), sameServer ? d->m_password : String());
+ }
+ 
+ // A file: URL's path in AmigaDOS form. URL::fileSystemPath() is the URL's
+@@ -228,8 +154,8 @@ static String amigaFileSystemPath(const URL& url)
+     return makeString(StringView { path }.left(slash), ':', StringView { path }.substring(slash + 1));
+ }
+ 
+-// file: URLs: curl is built for http and https only, so files are read here
+-// and handed over from the run loop, as a network load would be.
++// file: URLs: openweb.fetch is for http and https only, so files are read
++// here and handed over from the run loop, as a network load would be.
+ void ResourceHandle::amigaLoadFile()
+ {
+     auto url = d->m_firstRequest.url();
+@@ -306,8 +232,6 @@ void ResourceHandle::cancel()
+ 
+ void ResourceHandle::amigaCancelRequest()
+ {
+-    if (d->m_curlRequest)
+-        d->m_curlRequest->cancel();
+     if (auto webFetch = std::exchange(d->m_webFetch, nullptr))
+         webFetch->cancel();
+ }
+@@ -442,15 +366,13 @@ void ResourceHandle::amigaDidReceiveResponse(const ResourceRequest& sentRequest,
+     }
+ 
+     client()->didReceiveResponseAsync(this, WTF::move(response), [protectedThis = Ref { *this }] {
+-        if (auto& curlRequest = protectedThis->d->m_curlRequest)
+-            curlRequest->completeDidReceiveResponse();
+         if (auto& webFetch = protectedThis->d->m_webFetch)
+             webFetch->continueAfterResponse();
+     });
+ }
+ 
+ // Synchronous loads (synchronous XMLHttpRequest): run the request and spin the
+-// run loop until it ends. Both backends call back through the main run loop.
++// run loop until it ends. openweb.fetch calls back through the main run loop.
+ namespace {
+ class SynchronousClient final : public ResourceHandleClient {
+ public:
+diff --git a/Source/WebCore/platform/network/amiga/WebFetchAmiga.cpp b/Source/WebCore/platform/network/amiga/WebFetchAmiga.cpp
+index 8a4f2b65df1..84bac26d882 100644
+--- a/Source/WebCore/platform/network/amiga/WebFetchAmiga.cpp
++++ b/Source/WebCore/platform/network/amiga/WebFetchAmiga.cpp
+@@ -9,11 +9,15 @@
+  * SEND, then the head, then, once the client has taken the response, the
+  * body. Between turns it sleeps in wf_wait() on the network and on a
+  * signal the main thread sends it. Everything the client hears goes to it
+- * through the main thread's run loop, in order, as curl's thread does.
++ * through the main thread's run loop, in order.
+  *
+- * Compressed bodies: the card's host undoes them (WF_DECODE). The native
+- * transport leaves that to the datatypes' stream classes, which are not
+- * there yet, so on it the request asks for "Accept-Encoding: identity".
++ * Compressed bodies: every load asks for WF_DECODE, so pages come
++ * compressed, as they did with curl, and the transport undoes gzip,
++ * deflate and br and offers in Accept-Encoding only what it can undo. The
++ * card's host decodes them itself; the native transport has no
++ * decompression code of its own and decodes through the datatypes:
++ * stream.datatype with gzip.datatype (gzip, deflate) and brotli.datatype
++ * (br). Without those it asks for identity, and the body comes as sent.
+  * MIT, Copyright (c) 2026 AmigaChrome Team.
+  * SPDX-License-Identifier: MIT
+  */
+@@ -29,7 +33,6 @@
+ #include "ResourceHandleClient.h"
+ #include "ResourceResponse.h"
+ #include "SharedBuffer.h"
+-#include <stdlib.h>
+ #include <string.h>
+ #include <string_view>
+ #include <wtf/FileSystem.h>
+@@ -110,15 +113,21 @@ static void runFetchThread()
+             for (auto& fetch : std::exchange(thread.incoming, { }))
+                 active.append(WTF::move(fetch));
+         }
++        bool more = false;
+         for (size_t i = 0; i < active.size();) {
+             if (active[i]->step(net)) {
++                more |= active[i]->hasMore();
+                 ++i;
+                 continue;
+             }
+             active[i]->close();
+             active.removeAt(i);
++            more = true;                // a load waiting for a place may start now
+         }
+-        obwf_net_wait(net, 1000);
++        // A load with more body waiting goes on at once: the wait ends early
++        // only for a socket or a wake, and the bytes may already be in
++        // openweb.fetch's buffers, so a large body came a turn a second.
++        obwf_net_wait(net, more ? 0 : 1000);
+     }
+ 
+     for (auto& fetch : active)
+@@ -166,17 +175,8 @@ void AmigaWebFetch::stopThread()
+ 
+ // ---- one load: the main thread ----
+ 
+-bool AmigaWebFetch::isWanted()
+-{
+-    static const bool wanted = [] {
+-        const char* value = getenv("OB_NET");
+-        return obwf_available() && value && equalLettersIgnoringASCIICase(String::fromLatin1(value), "openweb"_s);
+-    }();
+-    return wanted;
+-}
+-
+ // "METHOD URL" and the headers, one a line. Accept-Encoding is the
+-// network thread's, as it depends on the transport.
++// transport's: it offers what it can undo (WF_DECODE).
+ static Vector<char> requestText(const ResourceRequest& request, const String& user, const String& password)
+ {
+     URL url = request.url();
+@@ -197,7 +197,7 @@ static Vector<char> requestText(const ResourceRequest& request, const String& us
+         text.append(header.key, ": "_s, header.value, '\n');
+     }
+     if (!hasLanguage) {
+-        // As curl's requests had it (CurlRequest::appendAcceptLanguageHeaderIfNeeded).
++        // As WebKit's curl requests had it (CurlRequest::appendAcceptLanguageHeaderIfNeeded).
+         auto languages = userPreferredLanguages();
+         if (!languages.isEmpty()) {
+             text.append("Accept-Language: "_s);
+@@ -299,8 +299,7 @@ void AmigaWebFetch::close()
+     m_body = nullptr;
+ }
+ 
+-// The next part of the body into m_part (CurlFormDataStream's job): false
+-// when it could not be read.
++// The next part of the body into m_part: false when it could not be read.
+ bool AmigaWebFetch::readPart()
+ {
+     size_t room = static_cast<size_t>(std::min<uint64_t>(partSize, m_bodyLeft));
+@@ -376,18 +375,29 @@ bool AmigaWebFetch::sendBody()
+ 
+ bool AmigaWebFetch::open(OBWFNet* net)
+ {
+-    static constexpr char identity[] = "Accept-Encoding: identity\n";
+-    bool decode = obwf_net_decodes(net);
+-    if (!decode)
+-        m_requestText.append(std::span<const char> { identity, sizeof identity - 1 });
+-    m_requestText.append('\0');
+-
+-    m_bodyLeft = m_body ? m_bodyLength : 0;
+-    if (m_bodyLeft && !readPart())
+-        return fail(static_cast<unsigned long>(ResourceError::AmigaCode::UploadFailed));
++    // WF_DECODE always: the card's host or the datatypes undo the body.
++    static constexpr bool decode = true;
++    if (!m_prepared) {
++        m_prepared = true;
++        m_requestText.append('\0');
++        m_bodyLeft = m_body ? m_bodyLength : 0;
++        if (m_bodyLeft && !readPart())
++            return fail(static_cast<unsigned long>(ResourceError::AmigaCode::UploadFailed));
++    }
+     unsigned long error = 0;
+     m_fetch = obwf_fetch_new(net, m_requestText.span().data(), m_requestText.size() - 1, decode, m_hasBody,
+         static_cast<unsigned long>(m_bodyLength), m_part.span().data(), m_part.size(), m_timeout, &error);
++    if (!m_fetch && error == OBWF_BUSY) {
++        // Every place for a fetch is taken (a page with more loads under way
++        // than the transport keeps): the load waits for one to end, as long
++        // as its timeout, instead of failing.
++        auto now = MonotonicTime::now();
++        if (!m_busySince)
++            m_busySince = now;
++        if (now - m_busySince < Seconds(m_timeout))
++            return true;
++        error = errorHost;
++    }
+     m_requestText.clear();
+     if (!m_fetch)
+         return fail(error);
+@@ -422,7 +432,9 @@ static AmigaResponseHead responseHead(const OBWFHead& head)
+ 
+ bool AmigaWebFetch::readBody()
+ {
+-    // A few parts at a time, so that every load moves on.
++    // A few parts at a time, so that every load moves on; m_more when all
++    // eight brought bytes, so the thread comes back without waiting.
++    m_more = false;
+     for (unsigned i = 0; i < 8; ++i) {
+         const void* data = nullptr;
+         int end = 0;
+@@ -452,6 +464,8 @@ bool AmigaWebFetch::readBody()
+         }
+         if (got <= 0)
+             break;
++        if (i == 7)
++            m_more = true;
+     }
+     return true;
+ }
+@@ -464,6 +478,8 @@ bool AmigaWebFetch::step(OBWFNet* net)
+     case State::Start:
+         if (!open(net))
+             return false;
++        if (!m_fetch)
++            return true;                // waiting for a free place
+         [[fallthrough]];
+     case State::Head: {
+         if (m_bodyLeft && !sendBody())
+diff --git a/Source/WebCore/platform/network/amiga/WebFetchAmiga.h b/Source/WebCore/platform/network/amiga/WebFetchAmiga.h
+index e22d1d7166c..25d4f37e073 100644
+--- a/Source/WebCore/platform/network/amiga/WebFetchAmiga.h
++++ b/Source/WebCore/platform/network/amiga/WebFetchAmiga.h
+@@ -1,9 +1,8 @@
+ /*
+- * One load on openweb.fetch (WebFetchAmiga.cpp): the second backend of
+- * ResourceHandleAmiga.cpp beside curl, picked with the Shell variable
+- * OB_NET (curl, the default, or openweb). ResourceHandleAmiga.cpp keeps
+- * the cookies, redirects and the HTTP cache for both; this is only the
+- * request on the wire, run from one network thread.
++ * One load on openweb.fetch (WebFetchAmiga.cpp), the network backend of
++ * ResourceHandleAmiga.cpp, which keeps the cookies, redirects and the HTTP
++ * cache; this is only the request on the wire, run from one network
++ * thread.
+  * MIT, Copyright (c) 2026 AmigaChrome Team.
+  * SPDX-License-Identifier: MIT
+  */
+@@ -13,6 +12,7 @@
+ #include "OpenWebFetchAmiga.h"
+ #include "ResourceRequest.h"
+ #include <atomic>
++#include <wtf/MonotonicTime.h>
+ #include <wtf/FileHandle.h>
+ #include <wtf/ThreadSafeRefCounted.h>
+ #include <wtf/Vector.h>
+@@ -25,8 +25,6 @@ struct AmigaResponseHead;
+ 
+ class AmigaWebFetch final : public ThreadSafeRefCounted<AmigaWebFetch, WTF::DestructionThread::Main> {
+ public:
+-    // OB_NET=openweb (read once), in an engine built with openweb.fetch.
+-    static bool isWanted();
+     // On the main thread: request goes out for handle, which hears of it
+     // through its amigaDid... calls. user and password, when given, go in
+     // the URL, for the transport to answer a 401 with (Basic or Digest).
+@@ -44,6 +42,9 @@ public:
+     // On the network thread: moves the load on, false once it has ended;
+     // then close() frees its fetch.
+     bool step(OBWFNet*);
++    // After step(): the load had more body to read than one turn takes, so
++    // the thread goes round again without waiting.
++    bool hasMore() const { return m_more; }
+     void close();
+     void failWithoutNetwork();
+ 
+@@ -79,6 +80,9 @@ private:
+     State m_state { State::Start };
+     OBWFFetch* m_fetch { nullptr };
+     uint64_t m_bodyLeft { 0 };
++    bool m_more { false };
++    bool m_prepared { false };          // request text ended and the body's first part read
++    MonotonicTime m_busySince;          // when every fetch place was first found taken
+     Vector<uint8_t> m_part;
+     size_t m_element { 0 };
+     size_t m_offset { 0 };
+diff --git a/Source/WebCore/platform/network/curl/AuthenticationChallenge.h b/Source/WebCore/platform/network/curl/AuthenticationChallenge.h
+index a1d80254f2a..f238eb98735 100644
+--- a/Source/WebCore/platform/network/curl/AuthenticationChallenge.h
++++ b/Source/WebCore/platform/network/curl/AuthenticationChallenge.h
+@@ -31,7 +31,9 @@
+ 
+ namespace WebCore {
+ 
++#if !PLATFORM(AMIGA)
+ class CurlResponse;
++#endif
+ 
+ class AuthenticationChallenge final : public AuthenticationChallengeBase {
+ public:
+@@ -44,12 +46,13 @@ public:
+     {
+     }
+ 
+-    WEBCORE_EXPORT AuthenticationChallenge(const CurlResponse&, unsigned, const ResourceResponse&);
+ #if PLATFORM(AMIGA)
+     // A 401 or 407 from a plain response head (AmigaResponseHead): the
+     // scheme is the strongest the server's challenge offers. proxyURL is
+     // the proxy that asked, for a 407.
+     WEBCORE_EXPORT AuthenticationChallenge(const ResourceResponse&, unsigned previousFailureCount, const URL& proxyURL = { });
++#else
++    WEBCORE_EXPORT AuthenticationChallenge(const CurlResponse&, unsigned, const ResourceResponse&);
+ #endif
+     WEBCORE_EXPORT AuthenticationChallenge(const URL&, const CertificateInfo&, const ResourceError&);
+ 
+@@ -57,14 +60,15 @@ public:
+ 
+ private:
+     ProtectionSpace::ServerType protectionSpaceServerTypeFromURI(const URL&, bool isForProxy);
+-    ProtectionSpace protectionSpaceForPasswordBased(const CurlResponse&, const ResourceResponse&);
+ #if PLATFORM(AMIGA)
+     ProtectionSpace protectionSpaceForPasswordBased(const ResourceResponse&, const URL& proxyURL, ProtectionSpace::AuthenticationScheme);
+     ProtectionSpace::AuthenticationScheme authenticationSchemeFromHeader(const ResourceResponse&);
++#else
++    ProtectionSpace protectionSpaceForPasswordBased(const CurlResponse&, const ResourceResponse&);
++    ProtectionSpace::AuthenticationScheme authenticationSchemeFromCurlAuth(long);
+ #endif
+     ProtectionSpace protectionSpaceForServerTrust(const URL&, const CertificateInfo&);
+     std::optional<uint16_t> determineProxyPort(const URL&);
+-    ProtectionSpace::AuthenticationScheme authenticationSchemeFromCurlAuth(long);
+     String parseRealm(const ResourceResponse&);
+     void removeLeadingAndTrailingQuotes(String&);
+ };
+diff --git a/Source/WebCore/platform/network/curl/AuthenticationChallengeCurl.cpp b/Source/WebCore/platform/network/curl/AuthenticationChallengeCurl.cpp
+index ae2ee366648..785769f0a9c 100644
+--- a/Source/WebCore/platform/network/curl/AuthenticationChallengeCurl.cpp
++++ b/Source/WebCore/platform/network/curl/AuthenticationChallengeCurl.cpp
+@@ -28,22 +28,32 @@
+ 
+ #if USE(CURL)
+ 
++#if PLATFORM(AMIGA)
++#include <wtf/NeverDestroyed.h>
++#else
+ #include "CurlContext.h"
+ #include "CurlResponse.h"
++#endif
+ #include "ResourceError.h"
+ 
+ namespace WebCore {
+ 
+-AuthenticationChallenge::AuthenticationChallenge(const CurlResponse& curlResponse, unsigned previousFailureCount, const ResourceResponse& response)
+-    : AuthenticationChallengeBase(protectionSpaceForPasswordBased(curlResponse, response), Credential(), previousFailureCount, response, ResourceError())
++#if PLATFORM(AMIGA)
++// As CurlProxySettings.cpp has it, which the Amiga port does not build.
++static bool protocolIsInSocksFamily(const URL& url)
+ {
++    return url.protocolIs("socks4"_s) || url.protocolIs("socks4a"_s) || url.protocolIs("socks5"_s) || url.protocolIs("socks5h"_s);
+ }
+ 
+-#if PLATFORM(AMIGA)
+ AuthenticationChallenge::AuthenticationChallenge(const ResourceResponse& response, unsigned previousFailureCount, const URL& proxyURL)
+     : AuthenticationChallengeBase(protectionSpaceForPasswordBased(response, proxyURL, authenticationSchemeFromHeader(response)), Credential(), previousFailureCount, response, ResourceError())
+ {
+ }
++#else
++AuthenticationChallenge::AuthenticationChallenge(const CurlResponse& curlResponse, unsigned previousFailureCount, const ResourceResponse& response)
++    : AuthenticationChallengeBase(protectionSpaceForPasswordBased(curlResponse, response), Credential(), previousFailureCount, response, ResourceError())
++{
++}
+ #endif
+ 
+ AuthenticationChallenge::AuthenticationChallenge(const URL& url, const CertificateInfo& certificateInfo, const ResourceError& resourceError)
+@@ -62,12 +72,9 @@ ProtectionSpace::ServerType AuthenticationChallenge::protectionSpaceServerTypeFr
+     return isForProxy ? ProtectionSpace::ServerType::ProxyHTTP : ProtectionSpace::ServerType::HTTP;
+ }
+ 
++#if !PLATFORM(AMIGA)
+ ProtectionSpace AuthenticationChallenge::protectionSpaceForPasswordBased(const CurlResponse& curlResponse, const ResourceResponse& response)
+ {
+-#if PLATFORM(AMIGA)
+-    auto isProxyAuth = response.isProxyAuthenticationRequired();
+-    return protectionSpaceForPasswordBased(response, curlResponse.proxyUrl, authenticationSchemeFromCurlAuth(isProxyAuth ? curlResponse.availableProxyAuth : curlResponse.availableHttpAuth));
+-#else
+     if (!response.isUnauthorized() && !response.isProxyAuthenticationRequired())
+         return ProtectionSpace();
+ 
+@@ -78,8 +85,8 @@ ProtectionSpace AuthenticationChallenge::protectionSpaceForPasswordBased(const C
+     auto authenticationScheme = authenticationSchemeFromCurlAuth(isProxyAuth ? curlResponse.availableProxyAuth : curlResponse.availableHttpAuth);
+ 
+     return ProtectionSpace(url.host().toString(), static_cast<int>(port.value_or(0)), serverType, parseRealm(response), authenticationScheme);
+-#endif
+ }
++#endif
+ 
+ #if PLATFORM(AMIGA)
+ ProtectionSpace AuthenticationChallenge::protectionSpaceForPasswordBased(const ResourceResponse& response, const URL& proxyURL, ProtectionSpace::AuthenticationScheme authenticationScheme)
+@@ -144,6 +151,7 @@ std::optional<uint16_t> AuthenticationChallenge::determineProxyPort(const URL& u
+     return std::nullopt;
+ }
+ 
++#if !PLATFORM(AMIGA)
+ ProtectionSpace::AuthenticationScheme AuthenticationChallenge::authenticationSchemeFromCurlAuth(long curlAuth)
+ {
+     if (curlAuth & CURLAUTH_NTLM)
+@@ -156,6 +164,7 @@ ProtectionSpace::AuthenticationScheme AuthenticationChallenge::authenticationSch
+         return ProtectionSpace::AuthenticationScheme::HTTPBasic;
+     return ProtectionSpace::AuthenticationScheme::Unknown;
+ }
++#endif
+ 
+ String AuthenticationChallenge::parseRealm(const ResourceResponse& response)
+ {
+diff --git a/Source/WebCore/platform/network/curl/CertificateInfoCurl.cpp b/Source/WebCore/platform/network/curl/CertificateInfoCurl.cpp
+index 8e6e0b286d4..c59b12b6ef9 100644
+--- a/Source/WebCore/platform/network/curl/CertificateInfoCurl.cpp
++++ b/Source/WebCore/platform/network/curl/CertificateInfoCurl.cpp
+@@ -55,7 +55,7 @@ String CertificateInfo::verificationErrorDescription() const
+ #if USE(OPENSSL)
+     return String::fromLatin1(X509_verify_cert_error_string(m_verificationError));
+ #else
+-    // curl's verify result is its TLS backend's own number.
++    // The verify result is the TLS library's own number.
+     return makeString("TLS certificate error "_s, m_verificationError);
+ #endif
+ }
+diff --git a/Source/WebCore/platform/network/curl/ResourceError.h b/Source/WebCore/platform/network/curl/ResourceError.h
+index 3710652a0b7..111e6416639 100644
+--- a/Source/WebCore/platform/network/curl/ResourceError.h
++++ b/Source/WebCore/platform/network/curl/ResourceError.h
+@@ -53,13 +53,10 @@ public:
+     WEBCORE_EXPORT static ResourceError fromIPCData(std::optional<IPCData>&&);
+     WEBCORE_EXPORT std::optional<IPCData> ipcData() const;
+ 
+-    WEBCORE_EXPORT ResourceError(int curlCode, const URL& failingURL, Type = Type::General);
+-
+ #if PLATFORM(AMIGA)
+     // The Amiga's own errors (domain "AmigaNetworkErrorDomain"): 1 to 9 are
+     // openweb.fetch's (docs/OPENWEB_FETCH.md in openamigaservice), the rest
+-    // the network layer's own. curl's codes come into this domain as well,
+-    // with curl's words, while curl is linked.
++    // the network layer's own.
+     enum class AmigaCode : int {
+         DNS = 1,
+         Connect,
+@@ -76,6 +73,8 @@ public:
+         UploadFailed,
+     };
+     WEBCORE_EXPORT ResourceError(AmigaCode, const URL& failingURL, const String& description = { }, Type = Type::General);
++#else
++    WEBCORE_EXPORT ResourceError(int curlCode, const URL& failingURL, Type = Type::General);
+ #endif
+ 
+     WEBCORE_EXPORT bool isCertificationVerificationError() const;
+diff --git a/Source/WebCore/platform/network/curl/ResourceErrorCurl.cpp b/Source/WebCore/platform/network/curl/ResourceErrorCurl.cpp
+index 4c44321da38..8023197cfbc 100644
+--- a/Source/WebCore/platform/network/curl/ResourceErrorCurl.cpp
++++ b/Source/WebCore/platform/network/curl/ResourceErrorCurl.cpp
+@@ -28,7 +28,11 @@
+ 
+ #if USE(CURL)
+ 
++#if PLATFORM(AMIGA)
++#include <wtf/NeverDestroyed.h>
++#else
+ #include "CurlContext.h"
++#endif
+ 
+ namespace WebCore {
+ 
+@@ -68,56 +72,10 @@ static ASCIILiteral amigaErrorDescription(ResourceError::AmigaCode code)
+     return "The load failed."_s;
+ }
+ 
+-// curl's codes in the Amiga's domain, while curl is linked.
+-static ResourceError::AmigaCode amigaCodeForCurl(int curlCode)
+-{
+-    using Code = ResourceError::AmigaCode;
+-    switch (curlCode) {
+-    case CURLE_COULDNT_RESOLVE_HOST:
+-    case CURLE_COULDNT_RESOLVE_PROXY:
+-        return Code::DNS;
+-    case CURLE_COULDNT_CONNECT:
+-        return Code::Connect;
+-    case CURLE_SSL_CONNECT_ERROR:
+-    case CURLE_SSL_CERTPROBLEM:
+-    case CURLE_SSL_CIPHER:
+-        return Code::TLS;
+-    case CURLE_PEER_FAILED_VERIFICATION:
+-        return Code::CertificateNotTrusted;
+-    case CURLE_OPERATION_TIMEDOUT:
+-        return Code::Timeout;
+-    case CURLE_ABORTED_BY_CALLBACK:
+-        return Code::Cancelled;
+-    case CURLE_SEND_ERROR:
+-    case CURLE_RECV_ERROR:
+-    case CURLE_PARTIAL_FILE:
+-    case CURLE_GOT_NOTHING:
+-        return Code::Closed;
+-    case CURLE_BAD_CONTENT_ENCODING:
+-        return Code::Decode;
+-    case CURLE_OUT_OF_MEMORY:
+-    case CURLE_FAILED_INIT:
+-        return Code::Host;
+-    case CURLE_TOO_MANY_REDIRECTS:
+-        return Code::TooManyRedirects;
+-    case CURLE_FILE_COULDNT_READ_FILE:
+-        return Code::RedirectToFile;
+-    case CURLE_READ_ERROR:
+-        return Code::UploadFailed;
+-    default:
+-        return Code::Protocol;
+-    }
+-}
+-
+ ResourceError::ResourceError(AmigaCode code, const URL& failingURL, const String& description, Type type)
+     : ResourceErrorBase(amigaErrorDomain(), static_cast<int>(code), failingURL, description.isEmpty() ? String { amigaErrorDescription(code) } : description, type, IsSanitized::No)
+ {
+ }
+-
+-ResourceError::ResourceError(int curlCode, const URL& failingURL, Type type)
+-    : ResourceError(amigaCodeForCurl(curlCode), failingURL, CurlHandle::errorDescription(static_cast<CURLcode>(curlCode)), type)
+-{
+-}
+ #else
+ ResourceError::ResourceError(int curlCode, const URL& failingURL, Type type)
+     : ResourceErrorBase(curlErrorDomain(), curlCode, failingURL, CurlHandle::errorDescription(static_cast<CURLcode>(curlCode)), type, IsSanitized::No)
+diff --git a/Source/WebCore/platform/network/curl/ResourceResponse.h b/Source/WebCore/platform/network/curl/ResourceResponse.h
+index 140c57fd190..7786b56d272 100644
+--- a/Source/WebCore/platform/network/curl/ResourceResponse.h
++++ b/Source/WebCore/platform/network/curl/ResourceResponse.h
+@@ -31,8 +31,6 @@
+ 
+ namespace WebCore {
+ 
+-class CurlResponse;
+-
+ #if PLATFORM(AMIGA)
+ // A response head as any transport gives it, without curl's types: the
+ // URL, the status, the HTTP version times ten (10, 11, 20; 0 when not
+@@ -45,6 +43,8 @@ struct AmigaResponseHead {
+     long long expectedContentLength { 0 };
+     Vector<String> headers;
+ };
++#else
++class CurlResponse;
+ #endif
+ 
+ class ResourceResponse : public ResourceResponseBase {
+@@ -64,9 +64,10 @@ public:
+     {
+     }
+ 
+-    WEBCORE_EXPORT ResourceResponse(CurlResponse&);
+ #if PLATFORM(AMIGA)
+     WEBCORE_EXPORT explicit ResourceResponse(const AmigaResponseHead&);
++#else
++    WEBCORE_EXPORT ResourceResponse(CurlResponse&);
+ #endif
+ 
+     bool isMovedPermanently() const { return httpStatusCode() == httpStatus301MovedPermanently; };
+diff --git a/Source/WebCore/platform/network/curl/ResourceResponseCurl.cpp b/Source/WebCore/platform/network/curl/ResourceResponseCurl.cpp
+index d5f913098e7..7109e391d02 100644
+--- a/Source/WebCore/platform/network/curl/ResourceResponseCurl.cpp
++++ b/Source/WebCore/platform/network/curl/ResourceResponseCurl.cpp
+@@ -28,8 +28,10 @@
+ #if USE(CURL)
+ #include "ResourceResponse.h"
+ 
++#if !PLATFORM(AMIGA)
+ #include "CurlContext.h"
+ #include "CurlResponse.h"
++#endif
+ #include "HTTPParsers.h"
+ #include <array>
+ 
+@@ -80,39 +82,6 @@ static bool isAppendableHeader(const String &key)
+ }
+ 
+ #if PLATFORM(AMIGA)
+-static unsigned httpVersionTimesTen(long curlVersion)
+-{
+-    switch (curlVersion) {
+-    case CURL_HTTP_VERSION_1_0:
+-        return 10;
+-    case CURL_HTTP_VERSION_1_1:
+-        return 11;
+-    case CURL_HTTP_VERSION_2_0:
+-        return 20;
+-    case CURL_HTTP_VERSION_3:
+-        return 30;
+-    default:
+-        return 0;
+-    }
+-}
+-
+-static AmigaResponseHead headFromCurl(const CurlResponse& response)
+-{
+-    AmigaResponseHead head;
+-    head.url = response.url;
+-    head.statusCode = response.statusCode ? response.statusCode : response.httpConnectCode;
+-    head.httpVersion = httpVersionTimesTen(response.httpVersion);
+-    head.expectedContentLength = response.expectedContentLength;
+-    head.headers = response.headers;
+-    return head;
+-}
+-
+-ResourceResponse::ResourceResponse(CurlResponse& response)
+-    : ResourceResponse(headFromCurl(response))
+-{
+-    setCertificateInfo(WTF::move(response.certificateInfo));
+-}
+-
+ ResourceResponse::ResourceResponse(const AmigaResponseHead& head)
+     : ResourceResponseBase()
+ {
+diff --git a/Source/cmake/OptionsAmiga.cmake b/Source/cmake/OptionsAmiga.cmake
+index e2fdb64f052..4f7cb853b8f 100644
+--- a/Source/cmake/OptionsAmiga.cmake
++++ b/Source/cmake/OptionsAmiga.cmake
+@@ -1,7 +1,9 @@
+ # The Amiga port: WebCore in one process, for AmigaOS 3.2 (68020 + FPU).
+ # Drawing is Cairo's image surface, text is FreeType + HarfBuzz + fontconfig,
+-# the network is curl on OpenTLS. There is no WebKit (multi-process) layer:
+-# the embedding layer (page clients, loader strategy) belongs to the browser.
++# the network is openweb.fetch (openamigaservice: a services card, a Cradle,
++# or this Amiga's own TCP/IP and OpenTLS). There is no WebKit
++# (multi-process) layer: the embedding layer (page clients, loader
++# strategy) belongs to the browser.
+ 
+ if (CMAKE_SYSTEM_NAME MATCHES "^(AROS|AmigaOS)$")
+     set(CMAKE_DL_LIBS "")
+@@ -30,7 +32,6 @@ find_package(ICU 70.1 REQUIRED COMPONENTS data i18n uc)
+ 
+ if (ENABLE_WEBCORE)
+     find_package(Cairo 1.16.0 REQUIRED)
+-    find_package(CURL 7.85.0 REQUIRED)
+     find_package(Fontconfig 2.13.0 REQUIRED)
+     find_package(Freetype 2.9.0 REQUIRED)
+     find_package(HarfBuzz 2.7.4 REQUIRED COMPONENTS ICU)
+@@ -119,11 +120,15 @@ SET_AND_EXPOSE_TO_BUILD(WTF_DEFAULT_EVENT_LOOP 0)
+ 
+ # Set even when only JavaScriptCore is built, so cmakeconfig.h stays the same.
+ SET_AND_EXPOSE_TO_BUILD(USE_CAIRO ON)
++# USE_CURL picks the network types in platform/network/curl (ResourceError,
++# ResourceResponse, the cookie database), which call no curl; curl itself
++# is not built (PlatformAmiga.cmake).
+ SET_AND_EXPOSE_TO_BUILD(USE_CURL ON)
+ SET_AND_EXPOSE_TO_BUILD(USE_FREETYPE ON)
+ SET_AND_EXPOSE_TO_BUILD(USE_HARFBUZZ ON)
+-# No OpenSSL: curl does TLS through OpenTLS (opentls.library), which WebCore
+-# does not see. WebCrypto has no backend (crypto/amiga/CryptoAmiga.cpp).
++# No OpenSSL: TLS is openweb.fetch's (OpenTLS, opentls.library, on the
++# Amiga), which WebCore does not see. WebCrypto has no backend
++# (crypto/amiga/CryptoAmiga.cpp).
+ SET_AND_EXPOSE_TO_BUILD(USE_OPENSSL OFF)
+ SET_AND_EXPOSE_TO_BUILD(USE_THEME_ADWAITA ON)
+ # XML through OXP (DalsinAI/openamigaxml), not libxml2: XMLDocumentParserOXP.cpp
+-- 
+2.43.0
+

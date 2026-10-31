@@ -1,7 +1,8 @@
 /*
  * OpenBrowser: WebCore's loader strategy with the network. Subresources are
- * queued per host and started through ResourceHandle (curl), at most a few
- * at a time for each host; local files and data: addresses start at once.
+ * queued per host and started through ResourceHandle (openweb.fetch), at
+ * most a few at a time for each host; local files and data: addresses start
+ * at once.
  *
  * Adapted from WebKitLegacy's WebResourceLoadScheduler, which is under the
  * GNU Library General Public License, version 2 or later:
@@ -65,11 +66,10 @@ using namespace WebCore;
 
 static constexpr auto errorDomain = "OpenBrowser"_s;
 
-// Requests handed to curl at once for one host, as desktop browsers do. This
-// is not the number of connections: curl opens at most two per host and four
-// in all (WebKit patches 0004 and 0007), since TLS handshakes made side by
-// side on a 68k slow each other down; over HTTP/2 the requests are streams on
-// one connection, and over HTTP/1.1 the rest wait in curl for a free one.
+// Requests handed to the network at once for one host, as desktop browsers
+// do. openweb.fetch keeps up to six connections per host (its native
+// transport also speaks HTTP/2, where the requests are streams on one
+// connection).
 static constexpr unsigned maxRequestsInFlightPerHost = 6;
 static constexpr unsigned maxRequestsInFlightForNonHTTPProtocols = 20;
 

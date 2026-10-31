@@ -49,8 +49,8 @@ enum { OB_MOUSE_MOVE, OB_MOUSE_DOWN, OB_MOUSE_UP };
 
 /* Once per program, on the main task, before any view. 0 on failure.
  * ob_webcore_init() loads nothing from the network; the _with_network form
- * opens bsdsocket.library and AmiSSL and keeps cookies in cookieDatabase
- * (an AmigaDOS name, or ":memory:"). */
+ * loads through openweb.fetch and keeps cookies in cookieDatabase (an
+ * AmigaDOS name, or ":memory:"). */
 int ob_webcore_init(void);
 int ob_webcore_init_with_network(const char *cookieDatabase);
 void ob_webcore_shutdown(void);
@@ -59,7 +59,8 @@ void ob_webcore_shutdown(void);
 void ob_webcore_stop_threads(void);
 
 /* TLS sessions kept across runs (on the main task, with the network up):
- * load returns how many came back. */
+ * load returns how many came back. openweb.fetch keeps none yet, so load
+ * returns 0 and save writes nothing. */
 int ob_webview_load_tls_sessions(const char *path);
 void ob_webview_save_tls_sessions(const char *path);
 

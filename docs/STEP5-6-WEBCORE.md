@@ -287,20 +287,24 @@ engine's link map.
 3. **The types without curl** (patch 0072). `ResourceError` with its own domain,
    `ResourceResponse` and `AuthenticationChallenge` built from a plain
    response head. curl still does the work. Map: nothing; this is what makes 4 and 5 small.
-4. **The openweb.fetch backend beside curl** (patch 0073; `OB_NET=openweb`). The request half of
+4. **The openweb.fetch backend beside curl** (patch 0073; `OB_NET=openweb` until patch 0075). The request half of
    `ResourceHandleAmiga.cpp` on `wf_*` (asynchronous, as above), with
    `CurlFormDataStream`'s job done by a `FormData` reader feeding
    `wf_send()`. A switch picks curl or openweb.fetch, so both are measured
    on one build. Map: grows by the client (`webfetch.c` is 249 lines).
    Needs the first half of step 5 in openamigaservice before it can be
    the default.
-5. **curl out.** `platform/Curl.cmake` no longer included; the files that
+5. **curl out** (patch 0075; written, not yet built). `platform/Curl.cmake` no longer included; the files that
    stay are listed in `PlatformAmiga.cmake`; `CurlContext`, `CurlRequest`,
    `CurlRequestScheduler`, `CurlFormDataStream`, `CurlProxySettings`,
    `CurlSSLHandle` and `CurlSSLHandleAmiga` go, and `CurlMultipartHandle`
-   goes or its parser moves. `AmigaNetworkSetup.c` loses curl's thread
-   setup if the transport no longer needs bsdsocket.library. Map:
-   `libcurl.a`, `libnghttp2.a` and the curl objects. Step 5 is done.
+   goes too (`multipart/x-mixed-replace` arrives as one body, as it did on
+   patch 0073's backend). `AmigaNetworkSetup.c` opens no bsdsocket.library:
+   the native transport opens its own. Every load asks for `WF_DECODE`
+   (the native transport decodes through the datatypes, openamigaservice
+   #15). Map:
+   `libcurl.a`, `libnghttp2.a` and the curl objects. Step 5 is done when
+   the map shows them gone.
 
 ### Step 6, drawing
 
