@@ -5,7 +5,7 @@
 #include <proto/openlayout.h>
 
 #ifdef WL_LIBRARY
-/* weblayout.library opens openlayout.library in its LibOpen */
+/* weblayout.library opens gfopenlayout.library in its LibOpen */
 int wl_openlayout_open(void)
 {
     return OpenLayoutBase != NULL;

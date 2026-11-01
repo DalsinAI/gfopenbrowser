@@ -5,7 +5,7 @@
     are implemented independently from newlib to be able to use optimized
     assembler functions despite using the Microsoft x86_64 ABI. */
 -#if defined (_LDBL_EQ_DBL) || defined (__CYGWIN__)
-+#if defined (_LDBL_EQ_DBL) || defined (__CYGWIN__) || defined (__amigaos__) /* AmigaChrome: long double math via double, in libos32compat */
++#if defined (_LDBL_EQ_DBL) || defined (__CYGWIN__) || defined (__amigaos__) /* AmiCradle: long double math via double, in libos32compat */
  /* Reentrant ANSI C functions.  */
  #ifndef __math_68881
  extern __stdargs long double atanl (long double);

@@ -1,7 +1,7 @@
 #ifndef LIBRARIES_JSON_H
 #define LIBRARIES_JSON_H
 /*
- * libraries/json.h: json.library, OpenJSON.
+ * libraries/json.h: json.library, GFOpenJSON.
  * Copyright (c) 2026 AmigaChrome Team. MIT.
  *
  * json.library parses JSON text (RFC 8259) into one flat block of memory,

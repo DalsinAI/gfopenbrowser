@@ -1,5 +1,5 @@
 /*
- * OpenBrowser: WebCore's platform strategies for the headless programs.
+ * GFOpenBrowser: WebCore's platform strategies for the headless programs.
  * The loader refuses every subresource load (the headless dump has no
  * network yet); the browser itself replaces this with a network loader.
  * MIT, Copyright (c) 2026 AmigaChrome Team.
@@ -18,11 +18,11 @@
 #include <wtf/CompletionHandler.h>
 #include <wtf/NeverDestroyed.h>
 
-namespace OpenBrowser {
+namespace GFOpenBrowser {
 
 using namespace WebCore;
 
-static constexpr auto errorDomain = "OpenBrowser"_s;
+static constexpr auto errorDomain = "GFOpenBrowser"_s;
 
 class OfflineLoaderStrategy final : public LoaderStrategy {
 public:
@@ -122,4 +122,4 @@ void initializePlatformStrategies(LoaderStrategy* loader)
     setPlatformStrategies(&platformStrategies.get());
 }
 
-} // namespace OpenBrowser
+} // namespace GFOpenBrowser

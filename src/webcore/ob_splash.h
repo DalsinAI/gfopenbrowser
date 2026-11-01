@@ -1,7 +1,7 @@
 /*
- * OpenBrowser's title window, shared by the launcher (ob_launcher.c, the
- * small OpenBrowser program the icon starts) and the browser itself
- * (WebBrowserEngine's window; OpenBrowser.engine). The launcher opens the window and a public message
+ * GFOpenBrowser's title window, shared by the launcher (ob_launcher.c, the
+ * small GFOpenBrowser program the icon starts) and the browser itself
+ * (WebBrowserEngine's window; GFOpenBrowser.engine). The launcher opens the window and a public message
  * port; the browser sends it what it is doing, and asks it to close when its
  * own window is open.
  * MIT, Copyright (c) 2026 AmigaChrome Team.
@@ -11,7 +11,7 @@
 
 #include <exec/ports.h>
 
-#define OB_SPLASH_PORT "OPENBROWSER.SPLASH"
+#define OB_SPLASH_PORT "GFOPENBROWSER.SPLASH"
 
 /* percent: 0 to 100 for the bar, OB_SPLASH_CLOSE to close the window. */
 #define OB_SPLASH_CLOSE (-1)

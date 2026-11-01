@@ -1,4 +1,4 @@
-/* OpenJSON's core: json.library's work in lean C++, no Amiga headers.
+/* GFOpenJSON's core: json.library's work in lean C++, no Amiga headers.
  * Copyright (c) 2026 AmigaChrome Team. MIT.
  *
  * Our own code, written from RFC 8259 (JSON), RFC 6901 (JSON Pointer),

@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-# OpenBrowser (DalsinAI/openamigabrowser)
+# GFOpenBrowser (DalsinAI/openamigabrowser)
 # Copyright (c) 2026 The AmigaChrome Team. MIT licence, see LICENSE.
 """Reference pictures of the benchmark pages for compare.py, from headless
 Chromium on Linux at the same viewport as the Amiga run (800x600 unless

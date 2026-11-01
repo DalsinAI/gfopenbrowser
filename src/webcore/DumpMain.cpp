@@ -73,7 +73,7 @@ static int dumpMain(int argc, char** argv)
     WTF::initializeMainThread();
     initializeCommonAtomStrings();
     populateJITOperations();
-    OpenBrowser::initializePlatformStrategies();
+    GFOpenBrowser::initializePlatformStrategies();
     std::printf("OBCORE_INIT\n");
     std::fflush(stdout);
 

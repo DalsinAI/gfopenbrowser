@@ -12,7 +12,7 @@
 static int image_fetch_main(int argc, char **argv)
 {
     const char *url = argc > 1 ? argv[1] : "https://www.gstatic.com/webp/gallery/1.webp";
-    const char *path = "T:OpenBrowser-image-fetch.webp";
+    const char *path = "T:GFOpenBrowser-image-fetch.webp";
     char err[200];
     ob_response resp;
     struct Screen *screen = NULL;

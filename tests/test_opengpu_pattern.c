@@ -6,9 +6,9 @@
  * GradientCairo's conic mesh, pixman's gradients):
  *  - patterns: the same pixels away from the shape's edges, which each
  *    rasteriser anti-aliases (bilinear sampling within a bound);
- *  - conic gradients: cairo draws WebKit's mesh of Bezier sectors, OpenGPU
+ *  - conic gradients: cairo draws WebKit's mesh of Bezier sectors, GFOpenGPU
  *    the angle itself, so within a bound;
- *  - stops of different alphas: OpenGPU mixes them premultiplied (CSS),
+ *  - stops of different alphas: GFOpenGPU mixes them premultiplied (CSS),
  *    pixman unpremultiplied: checked against the premultiplied mix worked
  *    out here, and the difference from cairo printed; stops of one alpha
  *    against cairo.
@@ -626,7 +626,7 @@ int main(void)
         compare("linear, stops of one alpha (0.8)", 0, 1);
         begin(all);
         bothGradientRect(OBGPU_LINEAR, geo, 3, mixedAlpha, 8, 4, 80, 56, 1);
-        compare("linear, alphas 1, 0.1, 0.6: OpenGPU's mix against pixman's", 0, 255);
+        compare("linear, alphas 1, 0.1, 0.6: GFOpenGPU's mix against pixman's", 0, 255);
         premultipliedCheck("linear, alphas 1, 0.1, 0.6", 8, 88, 3, mixedAlpha, 4, 60, 2);
     }
 

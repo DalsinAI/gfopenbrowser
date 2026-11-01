@@ -1,4 +1,4 @@
-/* OpenJSON: json.library, JSON (RFC 8259) for native programs.
+/* GFOpenJSON: json.library, JSON (RFC 8259) for native programs.
  * Copyright (c) 2026 AmigaChrome Team. MIT.
  *
  * The work is done in json_core.cpp (lean C++, no Amiga headers), tested
@@ -53,9 +53,9 @@ struct ExecBase *SysBase;
 int start(void) { return -1; }
 
 static const char lib_name[] = JSONNAME;
-static const char lib_id[] = "json.library 1.0 (22.10.2026) OpenJSON, AmigaChrome Team\r\n";
+static const char lib_id[] = "json.library 1.0 (22.10.2026) GFOpenJSON, AmiCradle Team\r\n";
 static const char lib_ver[] __attribute__((used)) =
-    "\0$VER: json.library 1.0 (22.10.2026) OpenJSON, AmigaChrome Team";
+    "\0$VER: json.library 1.0 (22.10.2026) GFOpenJSON, AmiCradle Team";
 
 /* ---- What the core asks of Exec ------------------------------------------ */
 

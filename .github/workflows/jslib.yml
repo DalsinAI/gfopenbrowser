@@ -1,7 +1,7 @@
 name: javascript.library
 
 # javascript.library (src/jslib): the library and the JS command built for
-# the 68040 with the OpenAmigaGCC release and OpenNDK, the vector table and
+# the 68040 with the GFOpenAmigaGCC release and GFOpenNDK, the vector table and
 # the SDK headers checked against the SFD, and the engine's AmigaOS layer
 # compiled. The engine itself needs a JavaScriptCore build
 # (scripts/build-javascript-engine.sh); its core is tested under qemu-m68k

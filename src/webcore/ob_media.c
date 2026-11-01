@@ -1,7 +1,7 @@
 /*
- * OpenBrowser: page pictures decoded by media.decode/1 (openamigaservice
+ * GFOpenBrowser: page pictures decoded by media.decode/1 (openamigaservice
  * docs/MEDIA_DECODE.md) on a board in this machine or a paired Cradle,
- * through openservice.device. WebCore's datatypes decoder asks this first
+ * through gfopenservice.device. WebCore's datatypes decoder asks this first
  * (obdt_set_service_decoder); anything it cannot do goes to the datatypes
  * as before. With a decoder set, WebCore also hands SVG pictures here as
  * bitmaps instead of drawing them itself, which takes minutes on a 68k.

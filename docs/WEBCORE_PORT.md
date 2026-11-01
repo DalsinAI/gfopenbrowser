@@ -10,7 +10,7 @@ rediscover them.
 ## The port
 
 WebKit's own ports split work over several processes (WebKit2), and
-WebKitLegacy, the single-process API, is Mac-only now. OpenBrowser is a new
+WebKitLegacy, the single-process API, is Mac-only now. GFOpenBrowser is a new
 **`PORT=Amiga`** build of WebCore in one process, with its own small embedding
 layer, the way MorphOS's and Haiku's browsers did it:
 
@@ -19,7 +19,7 @@ layer, the way MorphOS's and Haiku's browsers did it:
 | Drawing | cairo image surfaces with pixman | Proven on big-endian CPUs; Skia refuses to build for them |
 | Text | FreeType, HarfBuzz and fontconfig | WebCore's Cairo backend uses all three |
 | Fonts | Liberation and DejaVu, in `PROGDIR:Fonts` | Free licences; Liberation has the metrics of Arial, Times and Courier |
-| Network | openweb.fetch (openamigaservice): a services card, a Cradle, or the Amiga's own TCP/IP with OpenTLS and HTTP/2 | `ResourceHandleAmiga.cpp` handles cookies and redirects; libcurl on OpenTLS did the loads until WebKit patch 0075 (AmiSSL 5 until 19 October 2026) |
+| Network | openweb.fetch (openamigaservice): a services card, a Cradle, or the Amiga's own TCP/IP with GFOpenTLS and HTTP/2 | `ResourceHandleAmiga.cpp` handles cookies and redirects; libcurl on GFOpenTLS did the loads until WebKit patch 0075 (AmiSSL 5 until 19 October 2026) |
 | Images | the system's datatypes | Our rule: the formats are the ones the user has datatypes for |
 | JavaScript | JavaScriptCore's C-loop interpreter | No JIT on 68k |
 
@@ -56,10 +56,10 @@ WebCore's "this struct must stay this size" checks see a smaller struct. They
 accept smaller-or-equal on 68k.
 
 **TLS without OpenSSL.** Since 19 October 2026 (WebKit patch 0022) curl does
-TLS through OpenTLS (openamigacurl's OpenTLS backend opens opentls.library
+TLS through GFOpenTLS (openamigacurl's GFOpenTLS backend opens gfopentls.library
 itself) and WebCore links no OpenSSL: `USE(OPENSSL)` is off, curl's
 OpenSSL-only files are left out, and no cipher list, curve list or CA file is
-set (OpenTLS picks its own suites and reads `S:OpenTLS/ca-bundle.pem`).
+set (GFOpenTLS picks its own suites and reads `S:GFOpenTLS/ca-bundle.pem`).
 Responses carry no certificate details, and WebCrypto offers the SHA digests
 only. Before that the engine called AmiSSL from C++, built with
 `PROTO_AMISSL_H` so calls went through AmiSSL's stub library, and each task
@@ -138,19 +138,19 @@ and its own 20 GB cache, so an unchanged file comes from the cache (6.5 s
 of compiling becomes 0.02 s), and a rebuild that touches files without
 changing them costs little.
 
-**Engine and browser builds.** OpenBrowser's own code (src/webcore) builds
+**Engine and browser builds.** GFOpenBrowser's own code (src/webcore) builds
 as the library OBCore and the programs, separately from WebKit's
-libraries: `build-webcore.sh build-browser` compiles only OpenBrowser's
+libraries: `build-webcore.sh build-browser` compiles only GFOpenBrowser's
 files and relinks, and `build-engine` does nothing unless the engine's
 fingerprint (the WebKit tree, compiler, libraries' headers and options) has
 changed. Measured on the build PC with the Makefile generator, 5 October
 2026: a build with nothing to do takes under a second; one changed
-OpenBrowser file 13 to 14 s (one compile, then OBCore and OpenBrowser
+GFOpenBrowser file 13 to 14 s (one compile, then OBCore and GFOpenBrowser
 linked); one changed WebCore file 13 s for the engine and 13 s to relink
-OpenBrowser. Linking the 116 MB program is most of that time.
+GFOpenBrowser. Linking the 116 MB program is most of that time.
 
 With Ninja (5 October 2026, same machine): nothing to do, 3 s for
-`build-webcore.sh all`; one changed OpenBrowser file 39 s (17 s when ccache
+`build-webcore.sh all`; one changed GFOpenBrowser file 39 s (17 s when ccache
 has it); one changed WebCore file 10 s, then 15 s to relink; a new file in
 `PlatformAmiga.cmake` 10 s, compiling only that file; and with every object
 removed (`clean-engine --yes`), all of WebKit and the programs again in
@@ -188,7 +188,7 @@ each program with the winners of its own map and its own folded archives
 in `BUILD/lib-folded/`, so ninja's archives and build state stay as they
 are; `build-webcore.sh fold` folds the programs ninja has linked since,
 `WebBrowserEngine` among them. Stripped sizes, `OB_OPTIMIZE=js`:
-OpenBrowser.engine 89,680,744 to 83,729,556 bytes (5.95 MB less),
+GFOpenBrowser.engine 89,680,744 to 83,729,556 bytes (5.95 MB less),
 obcore-view 89,672,156 to 83,720,968, obcore-dump 89,448,836 to 83,525,236,
 WebBrowserEngine 89,683,216 to 83,732,028; about a minute per program on
 the build PC. The real fix belongs in ld (`amiga_collect()` keeping only the
@@ -213,7 +213,7 @@ internal compiler error (`change_address_1`, emit-rtl.cc:2315) on
 JavaScriptCore's `bytecode/CodeBlock.cpp` at -O2 with -mpcrel; its unified
 bundle is built with `-mno-pcrel -fno-PIC` (`scripts/cmake/ob-pcrel.cmake`),
 the only file of the engine that is. Stripped and folded,
-OpenBrowser.engine goes from 78,371,520 to 75,787,212 bytes (82,757,480 to
+GFOpenBrowser.engine goes from 78,371,520 to 75,787,212 bytes (82,757,480 to
 79,893,600 before folding): relocations 1,494,434 to 630,158, code
 72,220,512 to 72,922,500 bytes, and three hunks to one. `OB_PCREL` is on by
 default since 23 October 2026, when a clean build of main with it passed
@@ -229,7 +229,7 @@ they are.
 
 **No volume requesters.** A program that asks AmigaDOS for a name that is
 not mounted gets a "Please insert volume" requester, and waits until someone
-answers it. OpenBrowser's programs set `pr_WindowPtr` to -1 at start, so
+answers it. GFOpenBrowser's programs set `pr_WindowPtr` to -1 at start, so
 such a name just fails.
 
 **TLS handshakes take seconds.** On the test instance's emulated 68k a TLS
@@ -266,7 +266,7 @@ variables of the Shell that started the program (`Set`), not global ones
 
 ## Speed on a 68k
 
-Measured on the test instance (AmigaChrome's AC090, a 68040 with FPU, 256 MB),
+Measured on the test instance (AmiCradle's AC090, a 68040 with FPU, 256 MB),
 4 October 2026:
 
 | Step | Time | What it is |
@@ -289,7 +289,7 @@ What is done about it:
   33 MB to under 13 MB, and the program from 122 MB to 101 MB.
 - **Fewer rendering updates while a page loads.** WebCore asks for a
   rendering update (style and layout of the whole page) after each piece of a
-  page arrives. Until the page has loaded, OpenBrowser lets one through at
+  page arrives. Until the page has loaded, GFOpenBrowser lets one through at
   most every second, or every twice as long as the last one took.
 - **The window paints what is laid out, no faster than WebCore renders**
   (20 October 2026; the gain is still to be measured). Painting no longer
@@ -319,7 +319,7 @@ What is done about it:
 - **Two connections per host** (`0007` in `webkit/`), and the C-loop
   interpreter built with `-O2` while the rest is built for size.
 
-**Infinity on AmigaChrome's AC090 FPU (fixed in AmigaChrome 0.30.0).** On
+**Infinity on AmiCradle's AC090 FPU (fixed in AmiCradle 0.30.0).** On
 older AC090 builds an infinity compared unequal to itself. WTF's hash tables
 mark empty double keys with +infinity, so a table keyed by a double never
 found an empty slot and looped: www.bbc.co.uk stopped in
@@ -329,21 +329,21 @@ Real 68881, 68882 and 68040 FPUs were never affected.
 
 **A title window while it starts (5 October 2026).** The browser is about
 100 MB, and loading it from disk took 10 seconds or more with nothing on the
-screen. `OpenBrowser` is now a small launcher (`ob_launcher.c`): it opens a
-title window at once, loads `OpenBrowser.engine` with `InternalLoadSeg()`
+screen. `GFOpenBrowser` is now a small launcher (`ob_launcher.c`): it opens a
+title window at once, loads `GFOpenBrowser.engine` with `InternalLoadSeg()`
 and a progress bar that follows the bytes read, then runs it in its own
 process with `RunCommand()`, so the browser keeps the launcher's icon, tool
 types, Shell arguments and `PROGDIR:`. Started from Workbench, the launcher
 puts a copy of its Workbench message on its own port for the engine's
 start-up code. The engine reports its steps to the title window through the
-public port `OPENBROWSER.SPLASH` (`ob_splash.h`) and closes it when its own
+public port `GFOPENBROWSER.SPLASH` (`ob_splash.h`) and closes it when its own
 window is open; started directly, without the launcher, it simply finds no
 port. Once the window is open, the status line names each file being
 fetched, since one can take seconds (a secure connection to a new site,
 about ten).
 
 **One engine (0.8.2 test, 23 October 2026).** The package used to carry two
-76 MB engines with the same window: `OpenBrowser.engine`, which the launcher
+76 MB engines with the same window: `GFOpenBrowser.engine`, which the launcher
 loaded itself, and `Libs/WebBrowser/WebBrowserEngine`, which
 webbrowser.library starts (`ob_browser_engine.c` is `ob_browser.c` built
 with `OB_BROWSER_IN_ENGINE`), with the fonts, fontconfig, blocklist and ICU
@@ -353,7 +353,7 @@ data twice. The launcher now only asks webbrowser.library for the window
 or else the drawer's `PROGDIR:Libs/WebBrowser/WebBrowserEngine`. The
 engine's files go once, in `Libs/WebBrowser/`, its `PROGDIR:`. The title
 window is unchanged; the engine reports to it as before.
-`OpenBrowser.engine` is still a target (`build-webcore.sh
+`GFOpenBrowser.engine` is still a target (`build-webcore.sh
 build-window-engine`) for tests that run the window directly.
 
 ## Experiments, 5 October 2026
@@ -378,7 +378,7 @@ host) would cut painting by 4 to 25 times.
 **Fetching through the PC.** With `OB_FETCH_PROXY` set (patch 0010,
 `scripts/ob-fetch-proxy.py`; both gone with curl in patch 0075, where
 openweb.fetch's card does this job), another PC makes the connections and
-the TLS handshakes. AmigaChrome does not let an instance reach the PC it
+the TLS handshakes. AmiCradle does not let an instance reach the PC it
 runs on, so the proxy ran on a second PC on the LAN. example.com took 38 s from the
 Shell command with TLS on the 68k and 27 s through the proxy: each new https
 site costs the 68k about 10 seconds of TLS. Wikipedia's Amiga article

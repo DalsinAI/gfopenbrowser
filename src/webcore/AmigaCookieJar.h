@@ -1,5 +1,5 @@
 /*
- * OpenBrowser: the cookie jar. Cookies live in one SQLite database
+ * GFOpenBrowser: the cookie jar. Cookies live in one SQLite database
  * (WebCore's CookieJarDB), shared by document.cookie and the network loader.
  * MIT, Copyright (c) 2026 AmigaChrome Team.
  */
@@ -9,7 +9,7 @@
 #include <WebCore/CookieJarDB.h>
 #include <wtf/UniqueRef.h>
 
-namespace OpenBrowser {
+namespace GFOpenBrowser {
 
 class AmigaCookieJar final : public WebCore::CookieJar {
 public:
@@ -41,4 +41,4 @@ private:
     mutable UniqueRef<WebCore::CookieJarDB> m_database;
 };
 
-} // namespace OpenBrowser
+} // namespace GFOpenBrowser

@@ -1,12 +1,12 @@
 #!/bin/sh
-# OpenBrowser (DalsinAI/openamigabrowser)
+# GFOpenBrowser (DalsinAI/openamigabrowser)
 # Copyright (c) 2026 AmigaChrome Team. MIT licence, see LICENSE.
 #
 # JavaScriptEngine, the program behind javascript.library (src/jslib): the
 # engine core (jsl_core.cpp, on JavaScriptCore's C interface; jsl_cache.cpp,
 # the saved translations, on its private one), its AmigaOS
 # layer and its main, linked the way the jsc shell is, with the same
-# JavaScriptCore build. Hard float, -O2 (the OpenBrowser stack's exception).
+# JavaScriptCore build. Hard float, -O2 (the GFOpenBrowser stack's exception).
 #
 # The engine the browser ships is built with the browser instead
 # (scripts/build-webcore.sh build-javascript): its JavaScriptCore is then
@@ -17,14 +17,14 @@
 # runs jsc's own link command with them in jsc.cpp's place.
 #
 #   WEBKIT_BUILD   the build-jsc.sh build folder        (required)
-#   OS32_GCC16     stove root (prefix/, compat/)       (default ~/AmigaChrome/stoves/os32-gcc16)
+#   OS32_GCC16     stove root (prefix/, compat/)       (default ~/AmiCradle/stoves/os32-gcc16)
 #   OUT            where JavaScriptEngine goes          (default $WEBKIT_BUILD/bin)
 #
 # MIT, Copyright (c) 2026 AmigaChrome Team.
 set -eu
 HERE=$(CDPATH= cd -- "$(dirname -- "$0")/.." && pwd)
 : "${WEBKIT_BUILD:?set WEBKIT_BUILD to the build-jsc.sh build folder}"
-STOVE=${OS32_GCC16:-"$HOME/AmigaChrome/stoves/os32-gcc16"}
+STOVE=${OS32_GCC16:-"$HOME/AmiCradle/stoves/os32-gcc16"}
 OUT=${OUT:-"$WEBKIT_BUILD/bin"}
 LIB="$HERE/src/jslib"
 SHELLDIR="$WEBKIT_BUILD/Source/JavaScriptCore/shell"

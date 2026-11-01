@@ -522,7 +522,7 @@ int atexit(void (*fn)(void))
 }
 
 /* ICU's built-in data: none. Its data is the file unicode_lib.c loads, so
- * this is an empty common-data block (as OpenBrowser's ob_icustub.c), which
+ * this is an empty common-data block (as GFOpenBrowser's ob_icustub.c), which
  * ICU searches and finds nothing in. */
 #include <unicode/udata.h>
 #include <unicode/utypes.h>

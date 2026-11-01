@@ -1,8 +1,8 @@
 /*
- * obfetch: fetch an address with OpenBrowser's engine and print it as text,
+ * obfetch: fetch an address with GFOpenBrowser's engine and print it as text,
  * for testing from a Shell.   obfetch <address>...
  *
- * OpenBrowser. MIT, Copyright (c) 2026 AmigaChrome Team.
+ * GFOpenBrowser. MIT, Copyright (c) 2026 AmigaChrome Team.
  */
 #include <stdio.h>
 #include <stdlib.h>

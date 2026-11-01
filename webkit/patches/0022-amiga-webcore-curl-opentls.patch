@@ -3,7 +3,7 @@ From: SacredTrees <121399723+SacredTrees@users.noreply.github.com>
 Date: Mon, 19 Oct 2026 20:16:23 +0000
 Subject: [PATCH] WebCore (Amiga): curl on OpenTLS, no OpenSSL in the engine
 
-curl does TLS through OpenTLS (opentls.library, openamigacurl), so the
+curl does TLS through OpenTLS (gfopentls.library, openamigacurl), so the
 Amiga port no longer finds or links OpenSSL (AmiSSL): USE(OPENSSL) is off,
 platform/OpenSSL.cmake is not included, and curl's OpenSSL-only files
 (CurlSSLVerifier, OpenSSLHelper) are left out of the build.
@@ -46,7 +46,7 @@ index ed29f822..be2f0fc1 100644
 -# than the inline library-call macros, which C++ such as ::BIO_new() cannot
 -# use. The browser opens AmiSSL (InitAmiSSL) in each task that uses it.
 -add_definitions(-DPROTO_AMISSL_H=1)
-+# TLS is curl's own business: curl is built on OpenTLS (opentls.library,
++# TLS is curl's own business: curl is built on OpenTLS (gfopentls.library,
 +# openamigacurl), and WebCore links no OpenSSL. The curl files that hand
 +# curl's OpenSSL objects to OpenSSL (the certificate chain collector and its
 +# helpers) are left out, and the curl code that calls them is compiled out
@@ -508,7 +508,7 @@ index bc431cad..272901cc 100644
 -// key exchange offers X25519 and P-256 only: some servers (login.live.com)
 -// pick P-384 when it is offered, and its arithmetic takes a 68020 several
 -// seconds longer, which counts against the server's handshake timeout.
-+// curl does TLS through OpenTLS (opentls.library), which checks certificates
++// curl does TLS through OpenTLS (gfopentls.library), which checks certificates
 +// against its own store (S:OpenTLS/ca-bundle.pem and ENVARC:OpenTLS/certs/)
 +// when no CA file is given, so none is set here: a CA file would replace that
 +// store. OpenTLS also picks the cipher suites and key exchange itself,
@@ -753,7 +753,7 @@ index 5defbaf1..420b9570 100644
  SET_AND_EXPOSE_TO_BUILD(USE_FREETYPE ON)
  SET_AND_EXPOSE_TO_BUILD(USE_HARFBUZZ ON)
 -SET_AND_EXPOSE_TO_BUILD(USE_OPENSSL ON)
-+# No OpenSSL: curl does TLS through OpenTLS (opentls.library), which WebCore
++# No OpenSSL: curl does TLS through OpenTLS (gfopentls.library), which WebCore
 +# does not see. WebCrypto has no backend (crypto/amiga/CryptoAmiga.cpp).
 +SET_AND_EXPOSE_TO_BUILD(USE_OPENSSL OFF)
  SET_AND_EXPOSE_TO_BUILD(USE_THEME_ADWAITA ON)

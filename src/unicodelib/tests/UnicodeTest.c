@@ -1,7 +1,7 @@
 /* UnicodeTest: unicode.library's self-test on the Amiga.
  * Copyright (c) 2026 AmigaChrome Team. MIT.
  *
- * Linked as OpenBrowser's engine is in library mode: ICU's headers, and
+ * Linked as GFOpenBrowser's engine is in library mode: ICU's headers, and
  * ul_stubs.s and ul_client.c in place of ICU's libraries, so every ICU
  * call below goes through the library's table.
  *

@@ -1,5 +1,5 @@
 /*
- * OpenBrowser: the engine's HTTP disk cache (see ob_httpcache.h).
+ * GFOpenBrowser: the engine's HTTP disk cache (see ob_httpcache.h).
  *
  * The folder holds one file per entry, named by the 64-bit FNV-1a hash of
  * its address in 16 hexadecimal digits:

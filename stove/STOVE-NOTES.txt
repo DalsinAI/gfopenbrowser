@@ -1,6 +1,6 @@
 os32-gcc16: GCC 16.2 for AmigaOS 3.x (bebbo amiga-gcc, branch amiga16.2)
 =======================================================================
-OpenBrowser. Copyright (c) 2026 AmigaChrome Team. MIT licence for these notes.
+GFOpenBrowser. Copyright (c) 2026 AmigaChrome Team. MIT licence for these notes.
 
 Programs it builds are AmigaOS 3.x hunk executables linked with libnix.
 WebKit/JavaScriptCore needs C++23, which GCC 6.5 cannot do.

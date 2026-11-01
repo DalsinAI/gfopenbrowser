@@ -6,7 +6,7 @@ Subject: [PATCH] WebCore: PNG out through the PNG datatype's write, not libpng
 canvas toDataURL and toBlob (platformEncodeData) hand cairo's pixels to
 obdt_encode_png() in DatatypesDecode.c, which saves them the way any
 program saves a picture: the premultiplication is undone (RGB24 is written
-opaque), a picture object of a PNG datatype (openpng.datatype first, then
+opaque), a picture object of a PNG datatype (gfopenpng.datatype first, then
 png.datatype) gets them with PDTM_WRITEPIXELARRAY, and SaveDTObjectA()
 writes it with DTM_WRITE and DTWM_RAW to a file in T:, which is read back.
 Nothing in the browser writes PNG itself, and no datatype's own method is
@@ -33,7 +33,7 @@ index 08474367213..7a8b83a94ea 100644
  
 -# libpng only writes PNG (Cairo's encoder, for canvas.toDataURL); reading
 -# pictures is the datatypes' job. libamiga has DoMethod().
-+# PNG is written by openpng.datatype (ImageUtilitiesCairo.cpp, canvas
++# PNG is written by gfopenpng.datatype (ImageUtilitiesCairo.cpp, canvas
 +# toDataURL and toBlob) and read by the datatypes too: no libpng. libamiga
 +# has DoMethod().
  list(APPEND WebCore_LIBRARIES
@@ -277,7 +277,7 @@ index 007cef22584..ddc940dea00 100644
  
 +/* PNG out (canvas toDataURL and toBlob, obcore-dump) through the system's
 + * datatypes: a PNG datatype's DTM_WRITE (DTWM_RAW), as SaveDTObjectA()
-+ * does, openpng.datatype first, then png.datatype. width * height pixels of
++ * does, gfopenpng.datatype first, then png.datatype. width * height pixels of
 + * 4 bytes, alpha, red, green, blue, rows stride bytes apart; flags
 + * OBDT_PNG_PREMULTIPLIED when the colour is premultiplied, OBDT_PNG_OPAQUE
 + * to ignore alpha (an RGB file). 1 and the file in *data (free it with

@@ -1,26 +1,26 @@
-; Install: OpenBrowser 0.8.4 test (1.11.2026), the Shell route.
+; Install: GFOpenBrowser 0.8.4 test (1.11.2026), the Shell route.
 ; MIT, Copyright (c) 2026 AmigaChrome Team.
-; The Installer (Install-OpenBrowser, beside this drawer) does the same with
+; The Installer (Install-GFOpenBrowser, beside this drawer) does the same with
 ; questions. Run this from the drawer, where it stays:
 ;     CD <this drawer>
 ;     Execute Install
-; Then reboot (or quit OpenBrowser first) and start OpenBrowser here.
+; Then reboot (or quit GFOpenBrowser first) and start GFOpenBrowser here.
 ;
 ; What it does; every step is checked, and it stops at the first failure:
-;  - LIBS:opentls.library 1.2 or newer and LIBS:opencrypto.library 2.1 or
+;  - LIBS:gfopentls.library 1.2 or newer and LIBS:gfopencrypto.library 2.1 or
 ;    newer: a missing one goes in; one Version shows to be older is renamed
 ;    .before-20261101 and the drawer's goes in; one whose version cannot be
 ;    read (not loaded, no $VER in the file) is kept: the Installer reads
 ;    the RomTag and checks it;
-;  - LIBS:openfont.library 1.4 or newer (the engine draws its text with
+;  - LIBS:gfopenfont.library 1.4 or newer (the engine draws its text with
 ;    it): missing, it goes in; older, it is renamed .before-20261101 and
 ;    the drawer's goes in; unreadable, it is kept, as above;
 ;  - LIBS:json.library (the engine's JSON.parse needs it),
 ;    LIBS:unicode.library (its Unicode calls, when the package carries it)
-;    and S:OpenTLS/ca-bundle.pem when missing;
+;    and S:GFOpenTLS/ca-bundle.pem when missing;
 ;  - for compressed pages, LIBS:z.library 53.12 and
 ;    SYS:Classes/DataTypes/stream.datatype, gzip.datatype and
-;    brotli.datatype 47.1 or newer, with the same rules as OpenTLS
+;    brotli.datatype 47.1 or newer, with the same rules as GFOpenTLS
 ;    (renamed .before-20261101 when older), and DEVS:DataTypes/GZip and
 ;    Brotli when missing;
 ;  - LOCALE:Unicode/icudt78b.dat, as the Installer does: when missing, or
@@ -35,95 +35,95 @@
 ;    one, otherwise this drawer's: an older LIBS:WebBrowser/WebBrowserEngine
 ;    (the engine, or the two-line script 0.8.0 and 0.8.1 test wrote there)
 ;    is renamed WebBrowserEngine.before-20261101;
-;  - an OpenBrowser.engine left in this drawer by an older version (unpacked
-;    over it) is renamed OpenBrowser.engine.before-20261101: the launcher
+;  - a GFOpenBrowser.engine left in this drawer by an older version (unpacked
+;    over it) is renamed GFOpenBrowser.engine.before-20261101: the launcher
 ;    no longer runs it.
 ; Nothing is deleted.
 FailAt 21
 If NOT EXISTS Libs/WebBrowser/WebBrowserEngine
-  Echo "Run Install from the OpenBrowser drawer:  CD <the drawer>  then  Execute Install"
+  Echo "Run Install from the GFOpenBrowser drawer:  CD <the drawer>  then  Execute Install"
   Quit 20
 EndIf
 
-Version opentls.library 1 2 >NIL:
+Version gfopentls.library 1 2 >NIL:
 Set vrc $RC
 If $vrc EQ 0 VAL
-  Echo "LIBS:opentls.library is new enough, kept"
+  Echo "LIBS:gfopentls.library is new enough, kept"
   Skip tlsdone
 EndIf
 If $vrc GE 10 VAL
   ; no version to read: not loaded, and the file has no $VER
-  If EXISTS LIBS:opentls.library
-    Echo "LIBS:opentls.library is there; its version cannot be read from the Shell, so it is kept (Install-OpenBrowser checks it)"
+  If EXISTS LIBS:gfopentls.library
+    Echo "LIBS:gfopentls.library is there; its version cannot be read from the Shell, so it is kept (Install-GFOpenBrowser checks it)"
     Skip tlsdone
   EndIf
 Else
-  Rename LIBS:opentls.library LIBS:opentls.library.before-20261101
+  Rename LIBS:gfopentls.library LIBS:gfopentls.library.before-20261101
   If WARN
-    Echo "Could not rename the old LIBS:opentls.library; nothing changed."
+    Echo "Could not rename the old LIBS:gfopentls.library; nothing changed."
     Quit 20
   EndIf
 EndIf
-Copy Libs/opentls.library LIBS: QUIET
+Copy Libs/gfopentls.library LIBS: QUIET
 If WARN
-  Echo "Could not copy opentls.library to LIBS: (is LIBS: full or write-protected?)"
+  Echo "Could not copy gfopentls.library to LIBS: (is LIBS: full or write-protected?)"
   Quit 20
 EndIf
-Echo "Installed LIBS:opentls.library"
+Echo "Installed LIBS:gfopentls.library"
 Lab tlsdone
 
-Version opencrypto.library 2 1 >NIL:
+Version gfopencrypto.library 2 1 >NIL:
 Set vrc $RC
 If $vrc EQ 0 VAL
-  Echo "LIBS:opencrypto.library is new enough, kept"
+  Echo "LIBS:gfopencrypto.library is new enough, kept"
   Skip cryptodone
 EndIf
 If $vrc GE 10 VAL
   ; no version to read: not loaded, and the file has no $VER
-  If EXISTS LIBS:opencrypto.library
-    Echo "LIBS:opencrypto.library is there; its version cannot be read from the Shell, so it is kept (Install-OpenBrowser checks it)"
+  If EXISTS LIBS:gfopencrypto.library
+    Echo "LIBS:gfopencrypto.library is there; its version cannot be read from the Shell, so it is kept (Install-GFOpenBrowser checks it)"
     Skip cryptodone
   EndIf
 Else
-  Rename LIBS:opencrypto.library LIBS:opencrypto.library.before-20261101
+  Rename LIBS:gfopencrypto.library LIBS:gfopencrypto.library.before-20261101
   If WARN
-    Echo "Could not rename the old LIBS:opencrypto.library; nothing changed."
+    Echo "Could not rename the old LIBS:gfopencrypto.library; nothing changed."
     Quit 20
   EndIf
 EndIf
-Copy Libs/opencrypto.library LIBS: QUIET
+Copy Libs/gfopencrypto.library LIBS: QUIET
 If WARN
-  Echo "Could not copy opencrypto.library to LIBS: (is LIBS: full or write-protected?)"
+  Echo "Could not copy gfopencrypto.library to LIBS: (is LIBS: full or write-protected?)"
   Quit 20
 EndIf
-Echo "Installed LIBS:opencrypto.library"
+Echo "Installed LIBS:gfopencrypto.library"
 Lab cryptodone
 
-Version openfont.library 1 4 >NIL:
+Version gfopenfont.library 1 4 >NIL:
 Set vrc $RC
 If $vrc EQ 0 VAL
-  Echo "LIBS:openfont.library is new enough, kept"
+  Echo "LIBS:gfopenfont.library is new enough, kept"
   Skip fontdone
 EndIf
 If $vrc GE 10 VAL
   ; no version to read: not loaded, and the file has no $VER
-  If EXISTS LIBS:openfont.library
-    Echo "LIBS:openfont.library is there; its version cannot be read from the Shell, so it is kept (Install-OpenBrowser checks it)"
+  If EXISTS LIBS:gfopenfont.library
+    Echo "LIBS:gfopenfont.library is there; its version cannot be read from the Shell, so it is kept (Install-GFOpenBrowser checks it)"
     Skip fontdone
   EndIf
 Else
-  Rename LIBS:openfont.library LIBS:openfont.library.before-20261101
+  Rename LIBS:gfopenfont.library LIBS:gfopenfont.library.before-20261101
   If WARN
-    Echo "Could not rename the old LIBS:openfont.library; nothing changed."
+    Echo "Could not rename the old LIBS:gfopenfont.library; nothing changed."
     Quit 20
   EndIf
 EndIf
-Copy Libs/openfont.library LIBS: QUIET
+Copy Libs/gfopenfont.library LIBS: QUIET
 If WARN
-  Echo "Could not copy openfont.library to LIBS: (is LIBS: full or write-protected?)"
+  Echo "Could not copy gfopenfont.library to LIBS: (is LIBS: full or write-protected?)"
   Quit 20
 EndIf
-Echo "Installed LIBS:openfont.library"
+Echo "Installed LIBS:gfopenfont.library"
 Lab fontdone
 
 If NOT EXISTS LIBS:json.library
@@ -166,7 +166,7 @@ If $vrc EQ 0 VAL
 EndIf
 If $vrc GE 10 VAL
   If EXISTS LIBS:z.library
-    Echo "LIBS:z.library is there; its version cannot be read from the Shell, so it is kept (Install-OpenBrowser checks it)"
+    Echo "LIBS:z.library is there; its version cannot be read from the Shell, so it is kept (Install-GFOpenBrowser checks it)"
     Skip zlibdone
   EndIf
 Else
@@ -193,7 +193,7 @@ If $vrc EQ 0 VAL
 EndIf
 If $vrc GE 10 VAL
   If EXISTS SYS:Classes/DataTypes/stream.datatype
-    Echo "SYS:Classes/DataTypes/stream.datatype is there; its version cannot be read from the Shell, so it is kept (Install-OpenBrowser checks it)"
+    Echo "SYS:Classes/DataTypes/stream.datatype is there; its version cannot be read from the Shell, so it is kept (Install-GFOpenBrowser checks it)"
     Skip streamdone
   EndIf
 Else
@@ -220,7 +220,7 @@ If $vrc EQ 0 VAL
 EndIf
 If $vrc GE 10 VAL
   If EXISTS SYS:Classes/DataTypes/gzip.datatype
-    Echo "SYS:Classes/DataTypes/gzip.datatype is there; its version cannot be read from the Shell, so it is kept (Install-OpenBrowser checks it)"
+    Echo "SYS:Classes/DataTypes/gzip.datatype is there; its version cannot be read from the Shell, so it is kept (Install-GFOpenBrowser checks it)"
     Skip gzipdone
   EndIf
 Else
@@ -247,7 +247,7 @@ If $vrc EQ 0 VAL
 EndIf
 If $vrc GE 10 VAL
   If EXISTS SYS:Classes/DataTypes/brotli.datatype
-    Echo "SYS:Classes/DataTypes/brotli.datatype is there; its version cannot be read from the Shell, so it is kept (Install-OpenBrowser checks it)"
+    Echo "SYS:Classes/DataTypes/brotli.datatype is there; its version cannot be read from the Shell, so it is kept (Install-GFOpenBrowser checks it)"
     Skip brotlidone
   EndIf
 Else
@@ -284,14 +284,14 @@ If NOT EXISTS DEVS:DataTypes/Brotli
   Echo "Installed DEVS:DataTypes/Brotli"
 EndIf
 
-If NOT EXISTS S:OpenTLS/ca-bundle.pem
-  MakeDir S:OpenTLS >NIL:
-  Copy S/OpenTLS/#? S:OpenTLS/ QUIET
+If NOT EXISTS S:GFOpenTLS/ca-bundle.pem
+  MakeDir S:GFOpenTLS >NIL:
+  Copy S/GFOpenTLS/#? S:GFOpenTLS/ QUIET
   If WARN
-    Echo "Could not copy the certificates to S:OpenTLS"
+    Echo "Could not copy the certificates to S:GFOpenTLS"
     Quit 20
   EndIf
-  Echo "Installed S:OpenTLS/ca-bundle.pem (the certificates for https)"
+  Echo "Installed S:GFOpenTLS/ca-bundle.pem (the certificates for https)"
 EndIf
 
 ; the Unicode data in LOCALE:Unicode/, for every program that reads it (the
@@ -416,18 +416,18 @@ If EXISTS LIBS:WebBrowser/WebBrowserEngine
 EndIf
 Echo "webbrowser.library runs the engine in this drawer"
 
-If EXISTS OpenBrowser.engine
-  If NOT EXISTS OpenBrowser.engine.before-20261101
-    Rename OpenBrowser.engine OpenBrowser.engine.before-20261101
+If EXISTS GFOpenBrowser.engine
+  If NOT EXISTS GFOpenBrowser.engine.before-20261101
+    Rename GFOpenBrowser.engine GFOpenBrowser.engine.before-20261101
     If WARN
-      Echo "Could not rename the old OpenBrowser.engine in this drawer"
+      Echo "Could not rename the old GFOpenBrowser.engine in this drawer"
       Quit 20
     EndIf
-    Echo "Kept an older version's OpenBrowser.engine as OpenBrowser.engine.before-20261101 (no longer used)"
+    Echo "Kept an older version's GFOpenBrowser.engine as GFOpenBrowser.engine.before-20261101 (no longer used)"
   EndIf
 EndIf
 
 If NOT EXISTS LIBS:bsdsocket.library
-  Echo "No LIBS:bsdsocket.library: turn networking on for this instance in Cradle, or install OpenSocket from OpenUp."
+  Echo "No LIBS:bsdsocket.library: turn networking on for this instance in Cradle, or install GFOpenSocket from GFOpenUp."
 EndIf
-Echo "Done. Reboot, then start OpenBrowser from this drawer."
+Echo "Done. Reboot, then start GFOpenBrowser from this drawer."

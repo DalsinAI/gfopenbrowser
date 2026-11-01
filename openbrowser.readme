@@ -1,15 +1,15 @@
 Short:        WebKit web browser for AmigaOS 3.2 (68040+FPU)
-Author:       AmigaChrome Team
+Author:       AmiCradle Team
 Uploader:     UPLOADER-PLACEHOLDER
 Type:         comm/www
 Version:      0.8.4
 Architecture: m68k-amigaos >= 3.2
 Distribution: Aminet
 
-OpenBrowser is a web browser for AmigaOS 3.2 built on WebKit: WebCore lays
+GFOpenBrowser is a web browser for AmigaOS 3.2 built on WebKit: WebCore lays
 out and draws real web pages, and JavaScriptCore runs their JavaScript with
 the Team's 68k template JIT. Pages are fetched with HTTP/2 and https
-(OpenTLS), pictures are decoded by the system's datatypes, and pages seen
+(GFOpenTLS), pictures are decoded by the system's datatypes, and pages seen
 before load from a disk cache.
 
 This is a test version (0.8.4 test, 1 November 2026). Things will still go
@@ -17,23 +17,23 @@ wrong; reports are welcome.
 
 Installing
 ----------
-Double-click Install-OpenBrowser (the Installer). It checks for AmigaOS 3.2
-and a 68040 or 68060 with its FPU, asks where the OpenBrowser drawer goes
+Double-click Install-GFOpenBrowser (the Installer). It checks for AmigaOS 3.2
+and a 68040 or 68060 with its FPU, asks where the GFOpenBrowser drawer goes
 (about 90 MB; Work: rather than System:), and adds only what is missing or
-too old: opentls.library 1.2+, opencrypto.library 2.1+, json.library, and
-the certificates in S:OpenTLS. The browser has one engine,
+too old: gfopentls.library 1.2+, gfopencrypto.library 2.1+, json.library, and
+the certificates in S:GFOpenTLS. The browser has one engine,
 Libs/WebBrowser/WebBrowserEngine in the drawer, which webbrowser.library
 starts; it stays there. An older LIBS:WebBrowser/WebBrowserEngine (the
 engine, or the small script 0.8.0 and 0.8.1 test put there) is kept as
-WebBrowserEngine.before-20261101, and an older version's OpenBrowser.engine
-in the drawer as OpenBrowser.engine.before-20261101. Nothing is deleted. Novice, Intermediate and
+WebBrowserEngine.before-20261101, and an older version's GFOpenBrowser.engine
+in the drawer as GFOpenBrowser.engine.before-20261101. Nothing is deleted. Novice, Intermediate and
 Expert levels, pretend mode and the log all work.
 
-From a Shell instead: CD into the OpenBrowser drawer and type
+From a Shell instead: CD into the GFOpenBrowser drawer and type
 Execute Install.
 
-Reboot after installing, then double-click OpenBrowser. It also runs from
-the drawer as unpacked, before installing, when json.library, OpenTLS and
+Reboot after installing, then double-click GFOpenBrowser. It also runs from
+the drawer as unpacked, before installing, when json.library, GFOpenTLS and
 the certificates are already on the Amiga.
 
 Requirements
@@ -41,19 +41,19 @@ Requirements
 - AmigaOS 3.2 or newer
 - a 68040 or 68060 with its FPU (hard float; not an LC or EC CPU)
 - about 120 MB of free Fast RAM
-- a TCP/IP stack with bsdsocket.library (OpenSocket or another)
+- a TCP/IP stack with bsdsocket.library (GFOpenSocket or another)
 
 Undo
 ----
-Delete the OpenBrowser drawer (or, if it was installed over an older one,
+Delete the GFOpenBrowser drawer (or, if it was installed over an older one,
 rename the *.before-20261101 files in it back). Rename
 LIBS:WebBrowser/WebBrowserEngine.before-20261101, if there is one, back to
 WebBrowserEngine. Libraries kept as *.before-20261101 in LIBS: can be
 renamed back the same way. The Installer's
-log in the drawer (Install-OpenBrowser.log, or install_log_file when the
+log in the drawer (Install-GFOpenBrowser.log, or install_log_file when the
 Installer is started from a Shell without LOGFILE), lists everything it did.
 
-Licences: OpenBrowser's own parts are MIT, Copyright (c) 2026 AmigaChrome
+Licences: GFOpenBrowser's own parts are MIT, Copyright (c) 2026 AmigaChrome
 Team. WebKit is LGPL-2/BSD and ICU is under the Unicode licence; see
 THIRD_PARTY_NOTICES.md. If you base work on this, please say what it is
 based on.

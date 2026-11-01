@@ -1,11 +1,11 @@
-name: OpenBrowser Lite
+name: GFOpenBrowser Lite
 
-# OpenBrowser Lite and weblayout (src/ob_*.c, src/weblayout, OpenMail's
+# GFOpenBrowser Lite and weblayout (src/ob_*.c, src/weblayout, GFOpenMail's
 # network layer), the engine's malloc (stove/compat/os32compat_malloc.c) and
 # its HTTP disk cache (src/webcore/ob_httpcache.c), and its public suffix
 # lookup (WebKit patch 0070):
-# the host tests, and the 68040 build with the OpenAmigaGCC
-# release and OpenNDK, pinned as openamigacurl's CI pins them; and
+# the host tests, and the 68040 build with the GFOpenAmigaGCC
+# release and GFOpenNDK, pinned as openamigacurl's CI pins them; and
 # weblayout.library with its test program.
 on:
   push:
@@ -61,17 +61,17 @@ on:
   workflow_dispatch:
 
 env:
-  OPENLAYOUT_REF: ce9f92de37463c9333bf5793b35a6b37ea27614e   # openamigalayout master: openlayout.library 2.0
+  OPENLAYOUT_REF: ce9f92de37463c9333bf5793b35a6b37ea27614e   # openamigalayout master: gfopenlayout.library 2.0
   OPENSDK_REF: e75b5ffae42b6c446ec11cb195b919151e56529c      # openamigasdk main, as openamigacurl
-  OPENAMIGARTG_REF: b5e2e453fa23a5a0ec84321a412f6f33fbc4bbf5 # openamigartg main: OpenGPU 0.23, stream v1.8 (#157)
+  OPENAMIGARTG_REF: b5e2e453fa23a5a0ec84321a412f6f33fbc4bbf5 # openamigartg main: GFOpenGPU 0.23, stream v1.8 (#157)
   TC_URL: https://github.com/DalsinAI/openamigagcc/releases/download/v16.2.0-open3/openamigagcc-16.2.0-open3-x86_64-linux.tar.xz
   TC_SHA256: 9fcc136ab59e3bb5b91d2764d0bf290b709d72d7380be4ce0cdf005edf8eff21
 
 jobs:
   host:
     # HTML Lite, CSS Lite, the address resolver, weblayout's calls,
-    # OpenMail's HTML-to-text converter, the engine's malloc and its HTTP
-    # disk cache with the host's compiler, and the engine's OpenGPU stream
+    # GFOpenMail's HTML-to-text converter, the engine's malloc and its HTTP
+    # disk cache with the host's compiler, and the engine's GFOpenGPU stream
     # writer (WebKit patches 0076, 0077 and 0078) on openamigartg's CPU core
     runs-on: ubuntu-latest
     steps:
@@ -86,7 +86,7 @@ jobs:
           repository: DalsinAI/openamigartg
           ref: ${{ env.OPENAMIGARTG_REF }}
           path: openamigartg
-      - name: cairo for the OpenGPU clip test's reference (0078)
+      - name: cairo for the GFOpenGPU clip test's reference (0078)
         run: sudo apt-get update && sudo apt-get install -y libcairo2-dev
       - name: Host tests
         run: OPENLAYOUT_SRC=openamigalayout OPENAMIGARTG_SRC=openamigartg tests/run-host-tests.sh
@@ -94,7 +94,7 @@ jobs:
         run: OPENLAYOUT_SRC=openamigalayout OPENAMIGARTG_SRC=openamigartg SANITIZE=1 OUT=build/host-asan tests/run-host-tests.sh
 
   amiga:
-    # OpenBrowser, obfetch and the Amiga test programs for the 68040 with its FPU
+    # GFOpenBrowser, obfetch and the Amiga test programs for the 68040 with its FPU
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -114,26 +114,26 @@ jobs:
           curl -fsSL -o tc/tc.tar.xz "$TC_URL"
           echo "$TC_SHA256  tc/tc.tar.xz" | sha256sum -c -
           tar xf tc/tc.tar.xz -C tc
-      - name: 68040 build (OpenLayout built in)
+      - name: 68040 build (GFOpenLayout built in)
         run: |
           TOOLCHAIN_DIR=tc/openamigagcc-16.2.0-open3-x86_64-linux \
           NDK_INCLUDE=$PWD/openamigasdk/OpenNDK/Include_H \
           OPENLAYOUT_SRC=$PWD/openamigalayout TESTS=1 \
           scripts/build-openbrowser.sh build/os3
-      - name: 68040 build (resident openlayout.library)
+      - name: 68040 build (resident gfopenlayout.library)
         run: |
           TOOLCHAIN_DIR=tc/openamigagcc-16.2.0-open3-x86_64-linux \
           NDK_INCLUDE=$PWD/openamigasdk/OpenNDK/Include_H \
           OPENLAYOUT_SRC=$PWD/openamigalayout OPENLAYOUT=library \
           scripts/build-openbrowser.sh build/os3-library
       - name: 68040 build (weblayout.library and WebLayoutLibTest)
-        # also checks src/weblayout/library/sdk against the SFD with OpenSDK's ndkgen.py
+        # also checks src/weblayout/library/sdk against the SFD with GFOpenSDK's ndkgen.py
         run: |
           TOOLCHAIN_DIR=tc/openamigagcc-16.2.0-open3-x86_64-linux \
           NDK_INCLUDE=$PWD/openamigasdk/OpenNDK/Include_H \
           OPENLAYOUT_SRC=$PWD/openamigalayout OPENSDK_SRC=$PWD/openamigasdk \
           scripts/build-weblayout-library.sh build/weblayout-library
-      - name: 68040 build (OpenBrowserLite on weblayout.library)
+      - name: 68040 build (GFOpenBrowserLite on weblayout.library)
         run: |
           TOOLCHAIN_DIR=tc/openamigagcc-16.2.0-open3-x86_64-linux \
           NDK_INCLUDE=$PWD/openamigasdk/OpenNDK/Include_H \
@@ -143,7 +143,7 @@ jobs:
         run: |
           D=tc/openamigagcc-16.2.0-open3-x86_64-linux/bin
           L=build/weblayout-library/weblayout.library
-          for f in $L build/weblayout-library/tests/WebLayoutLibTest build/os3-weblayout/OpenBrowserLite; do
+          for f in $L build/weblayout-library/tests/WebLayoutLibTest build/os3-weblayout/GFOpenBrowserLite; do
             $D/m68k-amigaos-objdump -f "$f" | grep -q 'file format amiga' || { echo "$f is not an Amiga executable"; exit 1; }
           done
           # nothing left to resolve, and no C library in it
@@ -156,18 +156,18 @@ jobs:
           echo "globals: $G"
           [ "$G" = "_DataTypesBase _GfxBase _LayersBase _OpenLayoutBase _SysBase " ] || { echo "weblayout.library has other globals"; exit 1; }
           strings $L | grep '^\$VER: weblayout.library 1\.'
-          strings $L | grep -q '^weblayout.library 1\.0 .*The AmigaChrome Team'
-          strings build/os3-weblayout/OpenBrowserLite | grep -q '^weblayout.library$'
+          strings $L | grep -q '^weblayout.library 1\.0 .*The AmiCradle Team'
+          strings build/os3-weblayout/GFOpenBrowserLite | grep -q '^weblayout.library$'
           sha256sum $L build/weblayout-library/tests/WebLayoutLibTest
       - name: Check the programs
         run: |
           D=tc/openamigagcc-16.2.0-open3-x86_64-linux/bin
-          for f in build/os3/OpenBrowserLite build/os3/obfetch build/os3/tests/* build/os3-library/OpenBrowserLite; do
+          for f in build/os3/GFOpenBrowserLite build/os3/obfetch build/os3/tests/* build/os3-library/GFOpenBrowserLite; do
             $D/m68k-amigaos-objdump -f "$f" | grep -q 'file format amiga' || { echo "$f is not an Amiga executable"; exit 1; }
           done
-          strings build/os3/OpenBrowserLite | grep '^\$VER: OpenBrowserLite 0\.4\.' 
-          if strings build/os3/OpenBrowserLite | grep -i amissl; then echo "AmiSSL is still named in OpenBrowser"; exit 1; fi
-          sha256sum build/os3/OpenBrowserLite build/os3/obfetch
+          strings build/os3/GFOpenBrowserLite | grep '^\$VER: GFOpenBrowserLite 0\.4\.' 
+          if strings build/os3/GFOpenBrowserLite | grep -i amissl; then echo "AmiSSL is still named in GFOpenBrowser"; exit 1; fi
+          sha256sum build/os3/GFOpenBrowserLite build/os3/obfetch
       - name: Install the LhA packer
         # jlha-utils packs (jlha, also as lha); lhasa reads, to check the archive
         run: |
@@ -176,17 +176,17 @@ jobs:
       - name: Release archive
         run: |
           scripts/package-lite.sh build/os3 build/package
-          lhasa t build/package/OpenBrowserLite-*.lha
-          lhasa v build/package/OpenBrowserLite-*.lha
-          echo "### OpenBrowser Lite release archive" >> "$GITHUB_STEP_SUMMARY"
+          lhasa t build/package/GFOpenBrowserLite-*.lha
+          lhasa v build/package/GFOpenBrowserLite-*.lha
+          echo "### GFOpenBrowser Lite release archive" >> "$GITHUB_STEP_SUMMARY"
           echo '```' >> "$GITHUB_STEP_SUMMARY"
-          cat build/package/OpenBrowserLite-*.lha.sha256 >> "$GITHUB_STEP_SUMMARY"
+          cat build/package/GFOpenBrowserLite-*.lha.sha256 >> "$GITHUB_STEP_SUMMARY"
           echo '```' >> "$GITHUB_STEP_SUMMARY"
       - uses: actions/upload-artifact@v4
         with:
           name: openbrowser-lite-68040
           path: |
-            build/os3/OpenBrowserLite
+            build/os3/GFOpenBrowserLite
             build/os3/obfetch
             build/os3/tests/
           retention-days: 14
@@ -196,13 +196,13 @@ jobs:
           path: |
             build/weblayout-library/weblayout.library
             build/weblayout-library/tests/WebLayoutLibTest
-            build/os3-weblayout/OpenBrowserLite
+            build/os3-weblayout/GFOpenBrowserLite
           retention-days: 14
       - uses: actions/upload-artifact@v4
         with:
           name: openbrowser-lite-release
           path: |
-            build/package/OpenBrowserLite-*.lha
-            build/package/OpenBrowserLite-*.lha.sha256
-            build/package/OpenBrowserLite-*.readme
+            build/package/GFOpenBrowserLite-*.lha
+            build/package/GFOpenBrowserLite-*.lha.sha256
+            build/package/GFOpenBrowserLite-*.readme
           retention-days: 30

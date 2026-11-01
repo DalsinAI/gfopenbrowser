@@ -1,24 +1,24 @@
 #!/bin/sh
-# OpenBrowser (DalsinAI/openamigabrowser)
+# GFOpenBrowser (DalsinAI/openamigabrowser)
 # Copyright (c) 2026 AmigaChrome Team. MIT licence, see LICENSE.
 #
-# OpenBrowser's drawer and archive, ready to copy to an Amiga and install
-# with its own Install script (dist/OpenBrowser/Install).
+# GFOpenBrowser's drawer and archive, ready to copy to an Amiga and install
+# with its own Install script (dist/GFOpenBrowser/Install).
 #
 #   package-browser.sh OUT_DIR
 #
 # Environment:
 #   WEBKIT_BUILD   the WebCore build folder (scripts/build-webcore.sh); its
-#                  bin/ holds OpenBrowser (the launcher) and WebBrowserEngine
+#                  bin/ holds GFOpenBrowser (the launcher) and WebBrowserEngine
 #                  (build-browser)
 #   OS32_GCC16     the os32-gcc16 stove (for m68k-amigaos-strip)
 #   OAB_DEPS       the dependency folder; ICU's data file comes from
 #                  icu78-m68k-amigaos/share/icudt78b.dat (ICU_DATA overrides)
 #   OB_FONTS       the Liberation and DejaVu .ttf files
-#   OPENTLS_LIBS   folder with opentls.library and opencrypto.library
+#   OPENTLS_LIBS   folder with gfopentls.library and gfopencrypto.library
 #                  (openamigatls build)
 #   CA_BUNDLE      folder with ca-bundle.pem and ca-bundle.LICENSE
-#                  (openamigatls; S:OpenTLS/ on an installed system)
+#                  (openamigatls; S:GFOpenTLS/ on an installed system)
 #   WEBBROWSER_LIB webbrowser.library 1.1 or newer (default
 #                  src/webbrowser/bin/, where src/webbrowser/build-library.sh
 #                  puts it). Required: the launcher opens the browser through
@@ -26,8 +26,8 @@
 #   JSON_LIB       json.library (default build/json-library/, scripts/build-json-library.sh);
 #                  the Installer puts it in LIBS:. Required: the engine's
 #                  JSON.parse parses through it (WebKit patch 0058)
-#   OPENFONT_LIB   openfont.library 1.4 or newer (openamigafont's
-#                  build/amiga/openfont.library); the Installer puts it in
+#   OPENFONT_LIB   gfopenfont.library 1.4 or newer (openamigafont's
+#                  build/amiga/gfopenfont.library); the Installer puts it in
 #                  LIBS:. Required: the engine draws and shapes all its text
 #                  with it (WebKit patch 0090)
 #   UNICODE_LIB    unicode.library (default WEBKIT_BUILD/unicode-library/,
@@ -41,7 +41,7 @@
 #                  native transport decodes compressed pages through them
 #                  (WebKit patch 0075); the Installer puts them in
 #                  SYS:Classes/DataTypes and DEVS:DataTypes
-#   ZLIB_LIB       z.library 53.12 or newer (OpenZlib), which gzip.datatype
+#   ZLIB_LIB       z.library 53.12 or newer (GFOpenZlib), which gzip.datatype
 #                  opens. Required; the Installer puts it in LIBS:
 #   OB_JSIMAGE     1 (the default when the WebCore build has one): the engine
 #                  is the jsimage client (build-webcore.sh jsimage), which
@@ -52,29 +52,29 @@
 #                  Libs/JavaScript/JavaScriptEngine, C/JS and
 #                  Libs/json.library, which the Installer offers
 #
-# OUT_DIR/OpenBrowser/            the drawer: OpenBrowser (the launcher),
-#                                 Libs/ (webbrowser.library, OpenTLS,
-#                                 json.library, openfont.library,
+# OUT_DIR/GFOpenBrowser/            the drawer: GFOpenBrowser (the launcher),
+#                                 Libs/ (webbrowser.library, GFOpenTLS,
+#                                 json.library, gfopenfont.library,
 #                                 unicode.library, z.library and WebBrowser/: the engine with Fonts/,
 #                                 blocklist, Unicode/ and Network/, and
 #                                 with a jsimage engine JavaScript/
 #                                 JavaScriptEngine),
 #                                 Classes/DataTypes/ and Devs/DataTypes/
-#                                 (stream, gzip and brotli), S/OpenTLS/,
+#                                 (stream, gzip and brotli), S/GFOpenTLS/,
 #                                 Install, icons and readme
-# OUT_DIR/OpenBrowser.info        the drawer's icon
-# OUT_DIR/Install-OpenBrowser     the Installer script (SYS:System/Installer),
-# OUT_DIR/Install-OpenBrowser.info  and its icon: double-click to install
+# OUT_DIR/GFOpenBrowser.info        the drawer's icon
+# OUT_DIR/Install-GFOpenBrowser     the Installer script (SYS:System/Installer),
+# OUT_DIR/Install-GFOpenBrowser.info  and its icon: double-click to install
 # OUT_DIR/Extras/                 when EXTRAS is set
 # OUT_DIR.lha                     the archive, beside OUT_DIR
 #
 # One engine: WebBrowserEngine, which webbrowser.library starts and which has
-# OpenBrowser's window. The library runs LIBS:WebBrowser/WebBrowserEngine
+# GFOpenBrowser's window. The library runs LIBS:WebBrowser/WebBrowserEngine
 # when there is one, otherwise the drawer's Libs/WebBrowser/WebBrowserEngine
 # (PROGDIR: of the launcher); Install keeps the engine in the drawer and
 # renames an older LIBS:WebBrowser/WebBrowserEngine. The engine reads its
 # files from its own drawer (PROGDIR: of the engine, Libs/WebBrowser):
-# Fonts/ (drawn by openfont.library), blocklist, the Public Suffix List (Network/
+# Fonts/ (drawn by gfopenfont.library), blocklist, the Public Suffix List (Network/
 # public-suffixes, WebKit patch 0070) and ICU's data (OB_ICU_DATA=file) from
 # LOCALE:Unicode/ or else Unicode/, so the drawer carries one copy of each
 # there; the Installer also puts the ICU data in LOCALE:Unicode/.
@@ -87,14 +87,14 @@ ICU_DATA=${ICU_DATA:-"${OAB_DEPS:?set OAB_DEPS or ICU_DATA}/icu78-m68k-amigaos/s
 STRIP="$OS32_GCC16/prefix/bin/m68k-amigaos-strip"
 BIN="$WEBKIT_BUILD/bin"
 WBLIB=${WEBBROWSER_LIB:-"$HERE/src/webbrowser/bin/webbrowser.library"}
-for f in "$BIN/OpenBrowser" "$BIN/WebBrowserEngine" "$ICU_DATA" "$WBLIB" \
-         "$OPENTLS_LIBS/opentls.library" "$OPENTLS_LIBS/opencrypto.library" "$CA_BUNDLE/ca-bundle.pem"; do
+for f in "$BIN/GFOpenBrowser" "$BIN/WebBrowserEngine" "$ICU_DATA" "$WBLIB" \
+         "$OPENTLS_LIBS/gfopentls.library" "$OPENTLS_LIBS/gfopencrypto.library" "$CA_BUNDLE/ca-bundle.pem"; do
     [ -f "$f" ] || { echo "missing: $f" >&2; exit 1; }
 done
 rm -rf "$OUT"; mkdir -p "$OUT"
-D="$OUT/OpenBrowser"; E="$D/Libs/WebBrowser"
-mkdir -p "$D/S/OpenTLS" "$E/Fonts" "$E/Unicode"
-"$STRIP" -o "$D/OpenBrowser" "$BIN/OpenBrowser"
+D="$OUT/GFOpenBrowser"; E="$D/Libs/WebBrowser"
+mkdir -p "$D/S/GFOpenTLS" "$E/Fonts" "$E/Unicode"
+"$STRIP" -o "$D/GFOpenBrowser" "$BIN/GFOpenBrowser"
 # The jsimage client is a relink of bin/WebBrowserEngine: older than it, it
 # is from an earlier build
 JSI="$WEBKIT_BUILD/jsimage"
@@ -121,13 +121,13 @@ cp "$ICU_DATA" "$E/Unicode/icudt78b.dat"
 # PROGDIR:Network/public-suffixes
 mkdir -p "$E/Network"
 cp "$HERE/data/public-suffixes" "$E/Network/"
-cp "$OPENTLS_LIBS/opentls.library" "$OPENTLS_LIBS/opencrypto.library" "$D/Libs/"
+cp "$OPENTLS_LIBS/gfopentls.library" "$OPENTLS_LIBS/gfopencrypto.library" "$D/Libs/"
 JSONLIB=${JSON_LIB:-"$HERE/build/json-library/json.library"}
 [ -f "$JSONLIB" ] || { echo "package-browser.sh: no $JSONLIB (scripts/build-json-library.sh); the engine's JSON.parse needs it" >&2; exit 2; }
 cp "$JSONLIB" "$D/Libs/"
-OPENFONTLIB=${OPENFONT_LIB:?set OPENFONT_LIB to openfont.library 1.4 (openamigafont); the engine draws its text with it}
+OPENFONTLIB=${OPENFONT_LIB:?set OPENFONT_LIB to gfopenfont.library 1.4 (openamigafont); the engine draws its text with it}
 [ -f "$OPENFONTLIB" ] || { echo "package-browser.sh: no $OPENFONTLIB" >&2; exit 2; }
-cp "$OPENFONTLIB" "$D/Libs/openfont.library"
+cp "$OPENFONTLIB" "$D/Libs/gfopenfont.library"
 # unicode.library, when the engine was built on it (OB_ICU_DATA=library):
 # ICU's code, shared; the Installer puts it in LIBS:, and the engine also
 # finds the drawer's Libs/ copy
@@ -141,7 +141,7 @@ fi
 # z.library, brotli.datatype); the Installer puts them in SYS:Classes/DataTypes,
 # DEVS:DataTypes and LIBS:
 DTDIR=${DATATYPES_DIR:?set DATATYPES_DIR to the datatypes stream class build (opendatatypes Datatypes/stream/build.sh PREFIX); compressed pages are decoded through it}
-ZLIBLIB=${ZLIB_LIB:?set ZLIB_LIB to z.library 53.12 (OpenZlib); gzip.datatype needs it}
+ZLIBLIB=${ZLIB_LIB:?set ZLIB_LIB to z.library 53.12 (GFOpenZlib); gzip.datatype needs it}
 for f in "$DTDIR/Classes/DataTypes/stream.datatype" "$DTDIR/Classes/DataTypes/gzip.datatype" \
          "$DTDIR/Classes/DataTypes/brotli.datatype" "$DTDIR/Devs/DataTypes/GZip" "$DTDIR/Devs/DataTypes/Brotli" "$ZLIBLIB"; do
     [ -f "$f" ] || { echo "package-browser.sh: no $f" >&2; exit 2; }
@@ -151,14 +151,14 @@ cp "$DTDIR/Classes/DataTypes/stream.datatype" "$DTDIR/Classes/DataTypes/gzip.dat
    "$DTDIR/Classes/DataTypes/brotli.datatype" "$D/Classes/DataTypes/"
 cp "$DTDIR/Devs/DataTypes/GZip" "$DTDIR/Devs/DataTypes/Brotli" "$D/Devs/DataTypes/"
 cp "$ZLIBLIB" "$D/Libs/z.library"
-cp "$CA_BUNDLE/ca-bundle.pem" "$D/S/OpenTLS/"
-[ -f "$CA_BUNDLE/ca-bundle.LICENSE" ] && cp "$CA_BUNDLE/ca-bundle.LICENSE" "$D/S/OpenTLS/"
-cp "$HERE/dist/OpenBrowser/Install" "$D/Install"
-cp "$HERE/icons/OpenBrowser.info" "$OUT/OpenBrowser.info"
-cp "$HERE/dist/Install-OpenBrowser" "$HERE/dist/Install-OpenBrowser.info" "$OUT/"
+cp "$CA_BUNDLE/ca-bundle.pem" "$D/S/GFOpenTLS/"
+[ -f "$CA_BUNDLE/ca-bundle.LICENSE" ] && cp "$CA_BUNDLE/ca-bundle.LICENSE" "$D/S/GFOpenTLS/"
+cp "$HERE/dist/GFOpenBrowser/Install" "$D/Install"
+cp "$HERE/icons/GFOpenBrowser.info" "$OUT/GFOpenBrowser.info"
+cp "$HERE/dist/Install-GFOpenBrowser" "$HERE/dist/Install-GFOpenBrowser.info" "$OUT/"
 if [ -n "${EXTRAS:-}" ]; then cp -R "$EXTRAS" "$OUT/Extras"; fi
-cp "$HERE/icons/OpenBrowser/OpenBrowser.info" "$HERE/icons/OpenBrowser/OpenBrowser.readme.info" "$D/"
-cp "$HERE/openbrowser.readme" "$D/OpenBrowser.readme"
+cp "$HERE/icons/GFOpenBrowser/GFOpenBrowser.info" "$HERE/icons/GFOpenBrowser/GFOpenBrowser.readme.info" "$D/"
+cp "$HERE/openbrowser.readme" "$D/GFOpenBrowser.readme"
 cp "$HERE/THIRD_PARTY_NOTICES.md" "$HERE/LICENSE" "$D/"
 if command -v jlha >/dev/null 2>&1; then
     (cd "$(dirname "$OUT")" && rm -f "$(basename "$OUT").lha" && jlha ao2q "$(basename "$OUT").lha" "$(basename "$OUT")" >/dev/null)

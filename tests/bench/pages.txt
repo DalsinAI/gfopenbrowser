@@ -1,4 +1,4 @@
-# OpenBrowser benchmark pages (tools/bench, docs/BENCHMARKS.md).
+# GFOpenBrowser benchmark pages (tools/bench, docs/BENCHMARKS.md).
 # MIT, Copyright (c) 2026 The AmigaChrome Team.
 #
 # One page per line:  id  set  target  [option=value ...]
@@ -13,7 +13,7 @@
 #                    (default 2); 0 waits until no timer is due, for pages
 #                    that work on timers after their load (Acid3)
 #           text=1   also print the page's text (OBVIEW_TEXT; Acid3's score)
-#           lite=0   do not run OpenBrowser Lite's obfetch on it
+#           lite=0   do not run GFOpenBrowser Lite's obfetch on it
 #
 # Live pages change from day to day: compare runs from the same day, or
 # look at trends over several runs, never one live number on its own.

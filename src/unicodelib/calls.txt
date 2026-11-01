@@ -3,7 +3,7 @@
 # name, U_ICU_VERSION_SUFFIX _78 added). Append only: never reorder or remove
 # a line, programs built earlier index the table by position.
 #
-# 1-248: what OpenBrowser's engine and JavaScriptEngine call (WebCore,
+# 1-248: what GFOpenBrowser's engine and JavaScriptEngine call (WebCore,
 # JavaScriptCore, WTF, PAL, OBCore; nm -u of the 0.8.1 build, 23 Oct 2026).
 ubidi_close
 ubidi_getBaseDirection
@@ -269,5 +269,5 @@ uscript_getShortName
 # back through the program's stub, which goes round to the library's own.
 UCNV_FROM_U_CALLBACK_ESCAPE
 UCNV_TO_U_CALLBACK_SUBSTITUTE
-# The OpenFont text path (ComplexTextControllerOpenFont.cpp, 23 Oct).
+# The GFOpenFont text path (ComplexTextControllerOpenFont.cpp, 23 Oct).
 uscript_isRightToLeft

@@ -30,7 +30,7 @@
 #include <proto/dos.h>
 #include <proto/javascript.h>
 
-static const char version[] __attribute__((used)) = "$VER: JS 1.0 (22.10.2026) AmigaChrome Team";
+static const char version[] __attribute__((used)) = "$VER: JS 1.0 (22.10.2026) AmiCradle Team";
 
 struct Library *JavaScriptBase;
 

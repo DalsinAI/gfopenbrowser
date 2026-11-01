@@ -1,6 +1,6 @@
 /*
  * weblayout: the calls of weblayout.h, over HTML Lite, CSS Lite,
- * OpenLayout, the painter and the picture loader.
+ * GFOpenLayout, the painter and the picture loader.
  * MIT, Copyright (c) 2026 AmigaChrome Team.
  */
 #include "weblayout.h"
@@ -32,7 +32,7 @@ struct WLDocument {
     char *css;                      /* the stylesheets added, one after another */
     ULONG css_len;
     BOOL css_changed;
-    wl_html_result page;            /* page.document is the OpenLayout tree */
+    wl_html_result page;            /* page.document is the GFOpenLayout tree */
     BOOL laid_out;
     char url[WL_URL_MAX];           /* WL_GetResource's and WL_HitLink's answer */
     /* The title and the stylesheets' addresses are the page's own, made

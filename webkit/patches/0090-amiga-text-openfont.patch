@@ -1,9 +1,9 @@
 From 3e59b516753c0efe628d111f22d7f949a46fe524 Mon Sep 17 00:00:00 2001
 From: SacredTrees <121399723+SacredTrees@users.noreply.github.com>
 Date: Fri, 23 Oct 2026 04:59:39 +0000
-Subject: [PATCH] WebCore: text on openfont.library on the Amiga
+Subject: [PATCH] WebCore: text on gfopenfont.library on the Amiga
 
-PORT=Amiga draws and shapes text with openfont.library 1.3 (USE_OPENFONT)
+PORT=Amiga draws and shapes text with gfopenfont.library 1.3 (USE_OPENFONT)
 in place of FreeType, fontconfig and HarfBuzz, which are no longer found
 or linked.
 
@@ -25,13 +25,13 @@ or linked.
   runs are itemised by script with ICU and shaped with OF_ShapeUTF16,
   with the CSS font features.
 - Emoji in fonts that keep them as PNG images (CBDT, sbix) are drawn
-  through cairo's colour glyph callback: openfont.library 1.4 decodes the
+  through cairo's colour glyph callback: gfopenfont.library 1.4 decodes the
   strike nearest the size through the PNG datatype (OF_GlyphColorBitmap),
   so neither FreeType nor libpng is needed for them. With 1.3 those glyphs
   are blank.
 - Calls on faces take OpenFontFace::lock(), as FreeType ports take
   cairoFontLock().
-- LIBS:openfont.library (version 1, revision 3 or newer) is opened once,
+- LIBS:gfopenfont.library (version 1, revision 3 or newer) is opened once,
   or the one in the program's drawer (PROGDIR:Libs/) when LIBS: has none
   or an older one; PROGDIR:Fonts is added to its font folders.
 
@@ -90,7 +90,7 @@ index 00000000000..98076aff201
 --- /dev/null
 +++ b/Source/WebCore/platform/OpenFont.cmake
 @@ -0,0 +1,35 @@
-+# Text on openfont.library (USE_OPENFONT): faces, metrics, glyph pages,
++# Text on gfopenfont.library (USE_OPENFONT): faces, metrics, glyph pages,
 +# web fonts and shaping, in place of FreeType, fontconfig and HarfBuzz.
 +# Glyphs are drawn through cairo user fonts that fill OpenFont's outlines.
 +list(APPEND WebCore_PRIVATE_INCLUDE_DIRECTORIES
@@ -689,7 +689,7 @@ index 00000000000..4514306a3d1
 +
 +    // No serif face and no alias of it: any face at all.
 +    RefPtr face = OpenFontFace::defaultFace(openFontWeight(fontDescription.weight()), !!fontDescription.fontStyleSlope());
-+    // This could be reached due to no fonts installed, or no openfont.library.
++    // This could be reached due to no fonts installed, or no gfopenfont.library.
 +    RELEASE_ASSERT(face);
 +    return fontForPlatformData(FontPlatformData(face.releaseNonNull(), fontDescription.usedSize(), false, false, fontDescription.orientation()));
 +}
@@ -1411,7 +1411,7 @@ index 00000000000..6dc2eeac758
 +    return CAIRO_STATUS_SUCCESS;
 +}
 +
-+// Emoji in fonts that keep them as PNG images (CBDT, sbix): openfont.library
++// Emoji in fonts that keep them as PNG images (CBDT, sbix): gfopenfont.library
 +// decodes the strike nearest the scaled font's size through the PNG
 +// datatype, and the image is painted in em units, as the outline would be.
 +// Other glyphs (and every glyph of other fonts) go to renderGlyph.
@@ -1712,7 +1712,7 @@ index 00000000000..a0ccb78433c
 +
 +class FloatRect;
 +
-+// One face of openfont.library, as WebCore's fonts use it: opened once and
++// One face of gfopenfont.library, as WebCore's fonts use it: opened once and
 +// kept at a pixel size equal to its units per em, so the library's 26.6
 +// values are font units times 64 and every CSS size is a scale of them.
 +// Glyphs are drawn through a cairo user font face whose callbacks fill the
@@ -2072,7 +2072,7 @@ index 00000000000..7bc9039e341
 + * ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 + */
 +
-+/* openfont.library for WebCore's fonts (USE(OPENFONT)): finding faces,
++/* gfopenfont.library for WebCore's fonts (USE(OPENFONT)): finding faces,
 + * their tables and outlines, and shaping. Plain C, so that AmigaOS headers
 + * and their macros stay out of WebCore's C++. Each call takes the library's
 + * lock; calls that read files (finding a face) need a process. */
@@ -2087,10 +2087,10 @@ index 00000000000..7bc9039e341
 +extern "C" {
 +#endif
 +
-+/* A face of openfont.library: opaque. */
++/* A face of gfopenfont.library: opaque. */
 +struct OFFace;
 +
-+/* 1 when openfont.library 1.3 (revision 3, the layout calls) or newer is
++/* 1 when gfopenfont.library 1.3 (revision 3, the layout calls) or newer is
 + * open; the first call opens it. */
 +int obof_available(void);
 +
@@ -2135,7 +2135,7 @@ index 00000000000..7bc9039e341
 +int obof_glyph_extents(struct OFFace*, uint32_t glyph, int32_t box[4]);
 +
 +/* A colour glyph (an emoji) from a font with PNG images (CBDT or sbix),
-+ * decoded by openfont.library 1.4 through the PNG datatype: pixels are
++ * decoded by gfopenfont.library 1.4 through the PNG datatype: pixels are
 + * 0xAARRGGBB, not premultiplied; left and top place the image's top-left
 + * corner from the pen, y up, in the strike's pixels (ppem). 0 when the
 + * glyph has none, or the library is older than 1.4. */
@@ -2451,7 +2451,7 @@ index 00000000000..5d981ac944d
 +FindOpenFont
 +------------
 +
-+Find the SDK of openfont.library (DalsinAI/openamigafont, ``sdk/Include_H``):
++Find the SDK of gfopenfont.library (DalsinAI/openamigafont, ``sdk/Include_H``):
 +``libraries/openfont.h``, ``proto/openfont.h`` and the inline calls. The
 +library itself is opened at run time, so there is nothing to link.
 +
@@ -2522,7 +2522,7 @@ index 1d9cf9394b3..dc7de9d384f 100644
 -# the network is openweb.fetch (openamigaservice: a services card, a Cradle,
 -# or this Amiga's own TCP/IP and OpenTLS). There is no WebKit
 -# (multi-process) layer: the embedding layer (page clients, loader
-+# Drawing is Cairo's image surface, text is OpenFont (openfont.library: fonts,
++# Drawing is Cairo's image surface, text is OpenFont (gfopenfont.library: fonts,
 +# shaping and the font index), the network is openweb.fetch (openamigaservice:
 +# a services card, a Cradle, or this Amiga's own TCP/IP and OpenTLS). There is
 +# no WebKit (multi-process) layer: the embedding layer (page clients, loader
@@ -2546,12 +2546,12 @@ index 1d9cf9394b3..dc7de9d384f 100644
  SET_AND_EXPOSE_TO_BUILD(USE_CURL ON)
 -SET_AND_EXPOSE_TO_BUILD(USE_FREETYPE ON)
 -SET_AND_EXPOSE_TO_BUILD(USE_HARFBUZZ ON)
-+# Text on openfont.library (DalsinAI/openamigafont) in place of FreeType,
++# Text on gfopenfont.library (DalsinAI/openamigafont) in place of FreeType,
 +# HarfBuzz and fontconfig: platform/OpenFont.cmake.
 +SET_AND_EXPOSE_TO_BUILD(USE_FREETYPE OFF)
 +SET_AND_EXPOSE_TO_BUILD(USE_HARFBUZZ OFF)
 +SET_AND_EXPOSE_TO_BUILD(USE_OPENFONT ON)
- # No OpenSSL: TLS is openweb.fetch's (OpenTLS, opentls.library, on the
+ # No OpenSSL: TLS is openweb.fetch's (OpenTLS, gfopentls.library, on the
  # Amiga), which WebCore does not see. WebCrypto has no backend
  # (crypto/amiga/CryptoAmiga.cpp).
 -- 

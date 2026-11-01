@@ -1,11 +1,11 @@
-# Test pages for OpenBrowser's page layer
+# Test pages for GFOpenBrowser's page layer
 
-Pages for `obcore-view`, which runs OpenBrowser's page layer (WebCore with
+Pages for `obcore-view`, which runs GFOpenBrowser's page layer (WebCore with
 JavaScript, the DOM and timers) without a window and prints what the page
 does: `OBVIEW_TITLE`, `OBVIEW_ALERT`, `OBVIEW_CONSOLE` and so on. Copy the
 pages and `obcore-view` to the Amiga and run it from a Shell, with the
-fonts in `PROGDIR:Fonts` and openfont.library 1.4 in `LIBS:` (or
-`PROGDIR:Libs`) as for OpenBrowser itself.
+fonts in `PROGDIR:Fonts` and gfopenfont.library 1.4 in `LIBS:` (or
+`PROGDIR:Libs`) as for GFOpenBrowser itself.
 
 | Page | Command | What it shows | Result on AmigaOS 3.2.3, 4 October 2026 |
 | --- | --- | --- | --- |
@@ -21,7 +21,7 @@ patch 0030, XML through OXP. Their commands and expected results are in
 `../xml-oxp/README.md`.
 
 `obcore-view -input` clicks at (30, 35), types `someone@example.com` with
-Intuition raw key codes, as OpenBrowser's window does, then clicks at
+Intuition raw key codes, as GFOpenBrowser's window does, then clicks at
 (30, 110). `-wait seconds` changes how long it lets a page load (120 by
 default), and `-url` loads an address from the network instead of a file.
 `-dl` also paints through WebKit's display list and prints `OBVIEW_DL`

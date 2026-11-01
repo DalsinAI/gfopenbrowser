@@ -1,4 +1,4 @@
-/* OpenBrowser (DalsinAI/openamigabrowser). Copyright (c) 2026 AmigaChrome Team. MIT licence, see LICENSE. */
+/* GFOpenBrowser (DalsinAI/openamigabrowser). Copyright (c) 2026 AmigaChrome Team. MIT licence, see LICENSE. */
 /* MallocBench: the engine's allocator (stove/compat/os32compat_malloc.c)
  * against the one it replaced (libnix's malloc behind a 12-byte header, kept
  * here) and libnix's malloc alone, on sizes as WebKit asks for them.

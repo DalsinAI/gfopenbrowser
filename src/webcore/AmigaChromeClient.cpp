@@ -1,5 +1,5 @@
 /*
- * OpenBrowser: WebCore's chrome client (see AmigaChromeClient.h).
+ * GFOpenBrowser: WebCore's chrome client (see AmigaChromeClient.h).
  * MIT, Copyright (c) 2026 AmigaChrome Team.
  */
 #include "config.h"
@@ -29,7 +29,7 @@
 #include <WebCore/WindowFeatures.h>
 #include <wtf/TZoneMallocInlines.h>
 
-namespace OpenBrowser {
+namespace GFOpenBrowser {
 
 using namespace WebCore;
 
@@ -196,4 +196,4 @@ UniqueRef<ChromeClient> createChromeClient(WebView& view)
     return makeUniqueRef<AmigaChromeClient>(view);
 }
 
-} // namespace OpenBrowser
+} // namespace GFOpenBrowser

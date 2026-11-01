@@ -1,4 +1,4 @@
-# OpenBrowser (DalsinAI/openamigabrowser)
+# GFOpenBrowser (DalsinAI/openamigabrowser)
 # Copyright (c) 2026 AmigaChrome Team. MIT licence, see LICENSE.
 #
 # WebKit JSCOnly cross toolchain for AmigaOS 3.2.x with the os32-gcc16 stove
@@ -9,7 +9,7 @@
 if (DEFINED ENV{OS32_GCC16})
     set(AC_OS32_STOVE "$ENV{OS32_GCC16}")
 else ()
-    set(AC_OS32_STOVE "$ENV{HOME}/AmigaChrome/stoves/os32-gcc16")
+    set(AC_OS32_STOVE "$ENV{HOME}/AmiCradle/stoves/os32-gcc16")
 endif ()
 if (DEFINED ENV{OAB_DEPS})
     set(AC_OAB_DEPS "$ENV{OAB_DEPS}")

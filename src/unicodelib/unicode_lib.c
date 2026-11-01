@@ -2,7 +2,7 @@
  * Copyright (c) 2026 AmigaChrome Team. MIT.
  *
  * ICU 78's code and data, loaded once and shared, in place of a copy of
- * ICU inside each program (OpenBrowser's engine carried 3.4 MB of ICU
+ * ICU inside each program (GFOpenBrowser's engine carried 3.4 MB of ICU
  * code and read 4.6 MB of ICU data at every start).
  *
  * The library has one call, UnicodeTable(count): the first time it is
@@ -52,16 +52,16 @@ struct DosLibrary *DOSBase;
 extern void *const ul_table[UL_CALLS];
 
 static const char lib_name[] = "unicode.library";
-static const char lib_id[] = "unicode.library 1.0 (23.10.2026) ICU " U_ICU_VERSION ", AmigaChrome Team\r\n";
+static const char lib_id[] = "unicode.library 1.0 (23.10.2026) ICU " U_ICU_VERSION ", AmiCradle Team\r\n";
 static const char lib_ver[] __attribute__((used)) =
-    "\0$VER: unicode.library 1.0 (23.10.2026) ICU " U_ICU_VERSION ", AmigaChrome Team";
+    "\0$VER: unicode.library 1.0 (23.10.2026) ICU " U_ICU_VERSION ", AmiCradle Team";
 
 /* ---- ICU's data -------------------------------------------------------------- */
 
 #define DATA_FILE U_ICUDATA_NAME ".dat"
 
 /* LOCALE:Unicode/ for everyone, LIBS:Unicode/ beside the library, and the
- * calling program's own Unicode/ drawer, where OpenBrowser keeps it. */
+ * calling program's own Unicode/ drawer, where GFOpenBrowser keeps it. */
 static const char *const dataFolders[] = {
     "LOCALE:Unicode/",
     "LIBS:Unicode/",

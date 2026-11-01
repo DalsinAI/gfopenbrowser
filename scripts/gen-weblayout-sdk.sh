@@ -1,8 +1,8 @@
 #!/bin/sh
 # weblayout.library's SDK files (src/weblayout/library/sdk: FD, clib/,
 # inline/, pragmas/, proto/ and the LVO equates) from weblayout_lib.sfd,
-# with OpenSDK's generator (DalsinAI/openamigasdk OpenNDK/tools/ndkgen.py),
-# as OpenNDK makes its own. Edit the SFD, then run this.
+# with GFOpenSDK's generator (DalsinAI/openamigasdk OpenNDK/tools/ndkgen.py),
+# as GFOpenNDK makes its own. Edit the SFD, then run this.
 #
 #   OPENSDK_SRC   an openamigasdk checkout (default ../openamigasdk)
 #

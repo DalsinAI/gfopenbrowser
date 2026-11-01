@@ -67,7 +67,7 @@ index 01c2c7fa2a5..333147a1ec2 100644
 -include(platform/Curl.cmake)
  include(platform/FreeType.cmake)
  
--# TLS is curl's own business: curl is built on OpenTLS (opentls.library,
+-# TLS is curl's own business: curl is built on OpenTLS (gfopentls.library,
 -# openamigacurl), and WebCore links no OpenSSL. The curl files that hand
 -# curl's OpenSSL objects to OpenSSL (the certificate chain collector and its
 -# helpers) are left out, and the curl code that calls them is compiled out
@@ -205,7 +205,7 @@ index 19db7881cd6..2ea8b6c0627 100644
 -// these two functions, which run on the network thread.
 +// The network thread's start and end, for the browser to set the thread up
 +// (its priority); they run on the network thread. openweb.fetch's native
-+// transport opens its own bsdsocket.library and opentls.library there.
++// transport opens its own bsdsocket.library and gfopentls.library there.
  struct AmigaNetworkThreadHooks {
      void (*started)() { nullptr };
      void (*finished)() { nullptr };
@@ -245,7 +245,7 @@ index 272901cc409..00000000000
 -
 -namespace WebCore {
 -
--// curl does TLS through OpenTLS (opentls.library), which checks certificates
+-// curl does TLS through OpenTLS (gfopentls.library), which checks certificates
 -// against its own store (S:OpenTLS/ca-bundle.pem and ENVARC:OpenTLS/certs/)
 -// when no CA file is given, so none is set here: a CA file would replace that
 -// store. OpenTLS also picks the cipher suites and key exchange itself,
@@ -1201,9 +1201,9 @@ index e2fdb64f052..4f7cb853b8f 100644
  SET_AND_EXPOSE_TO_BUILD(USE_CURL ON)
  SET_AND_EXPOSE_TO_BUILD(USE_FREETYPE ON)
  SET_AND_EXPOSE_TO_BUILD(USE_HARFBUZZ ON)
--# No OpenSSL: curl does TLS through OpenTLS (opentls.library), which WebCore
+-# No OpenSSL: curl does TLS through OpenTLS (gfopentls.library), which WebCore
 -# does not see. WebCrypto has no backend (crypto/amiga/CryptoAmiga.cpp).
-+# No OpenSSL: TLS is openweb.fetch's (OpenTLS, opentls.library, on the
++# No OpenSSL: TLS is openweb.fetch's (OpenTLS, gfopentls.library, on the
 +# Amiga), which WebCore does not see. WebCrypto has no backend
 +# (crypto/amiga/CryptoAmiga.cpp).
  SET_AND_EXPOSE_TO_BUILD(USE_OPENSSL OFF)

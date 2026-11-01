@@ -1,4 +1,4 @@
-// OpenBrowser "real page" JavaScript benchmark. Each part mimics work that
+// GFOpenBrowser "real page" JavaScript benchmark. Each part mimics work that
 // web pages and their frameworks do, without needing a DOM.
 // MIT, Copyright (c) 2026 The AmigaChrome Team.
 if (typeof print === "undefined") var print = console.log;

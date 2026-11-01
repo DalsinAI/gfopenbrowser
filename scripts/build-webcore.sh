@@ -1,23 +1,23 @@
 #!/bin/sh
-# OpenBrowser (DalsinAI/openamigabrowser)
+# GFOpenBrowser (DalsinAI/openamigabrowser)
 # Copyright (c) 2026 AmigaChrome Team. MIT licence, see LICENSE.
 #
-# Build WebCore (PORT=Amiga) and OpenBrowser's WebCore programs for AmigaOS
+# Build WebCore (PORT=Amiga) and GFOpenBrowser's WebCore programs for AmigaOS
 # 3.2.x (68040, FPU) with the os32-gcc16 stove. The build has two halves:
 #
 #   the engine   WebKit's WebCore, JavaScriptCore, WTF, PAL and bmalloc.
 #                Built only when an input in its fingerprint changes: the
 #                WebKit tree and its patches, the compiler, the headers of
-#                ICU, the OpenAmiga libraries and openweb.fetch, the build
+#                ICU, the GFOpenAmiga libraries and openweb.fetch, the build
 #                options.
-#   the browser  OpenBrowser's own code (src/webcore): the page layer library
+#   the browser  GFOpenBrowser's own code (src/webcore): the page layer library
 #                OBCore and the programs
 #                  WebBrowserEngine  the browser: the one engine behind
 #                                webbrowser.library (src/webbrowser), with
-#                                OpenBrowser's window
-#                  OpenBrowser   the launcher: a title window, then it asks
+#                                GFOpenBrowser's window
+#                  GFOpenBrowser   the launcher: a title window, then it asks
 #                                webbrowser.library for a browser window
-#                  OpenBrowser.engine  the same window as a program of its
+#                  GFOpenBrowser.engine  the same window as a program of its
 #                                own (build-window-engine; not packaged)
 #                  obcore-view   the page layer without a window (tests)
 #                  obcore-dump   a local page's render tree, and a PNG of it
@@ -30,23 +30,23 @@
 #   WEBKIT_SOURCE   patched WebKit tree                          (required)
 #   WEBKIT_BUILD    build folder                 (default ./build/Amiga)
 #   OS32_GCC16      stove root (prefix/, compat/)
-#                   (default ~/AmigaChrome/stoves/os32-gcc16)
+#                   (default ~/AmiCradle/stoves/os32-gcc16)
 #   OAB_DEPS        folder holding icu78-m68k-amigaos/ (scripts/build-icu.sh)
-#                   and m68k-amigaos/, the libraries from the OpenAmiga ports
+#                   and m68k-amigaos/, the libraries from the GFOpenAmiga ports
 #                   (cairo and pixman, SQLite, zlib, libpng) in one
-#                   prefix, with the openfont.library 1.4 SDK
+#                   prefix, with the gfopenfont.library 1.4 SDK
 #                   (openamigafont's sdk/Include_H in its include/) and
 #                   OXP, the XML parser (openamigaxml's oxp/build-amiga.sh with
 #                   OUT set to that prefix; WebKit patch 0030). Its cairo is
 #                   built without FreeType (openamigacairo's build.sh with
 #                   CAIRO_FONTS=user): text is drawn and shaped with
-#                   openfont.library (WebKit patch 0090), and FreeType,
+#                   gfopenfont.library (WebKit patch 0090), and FreeType,
 #                   HarfBuzz, fontconfig and Expat are not used.
 #                   No curl or nghttp2: the network is openweb.fetch (WebKit
 #                   patch 0075). At run time the Amiga needs, without a
 #                   services card or a Cradle, a TCP/IP stack,
-#                   opentls.library 1.2 or newer in LIBS: and its CA bundle
-#                   in S:OpenTLS/ca-bundle.pem for https://, and
+#                   gfopentls.library 1.2 or newer in LIBS: and its CA bundle
+#                   in S:GFOpenTLS/ca-bundle.pem for https://, and
 #                   stream.datatype, gzip.datatype and brotli.datatype for
 #                   compressed pages.
 #   OPENSERVICE_DIR openamigaservice's checkout: openweb.fetch's client and
@@ -57,8 +57,8 @@
 #                   the native transport's decoding (required)
 #                   (default ../opendatatypes beside this repository)
 #   OPENAMIGARTG_DIR
-#                   openamigartg's checkout: opengpu.library's stream and
-#                   inline calls, for painting the window through OpenGPU
+#                   openamigartg's checkout: gfopengpu.library's stream and
+#                   inline calls, for painting the window through GFOpenGPU
 #                   (WebKit patch 0076; headers only, required)
 #                   (default ../openamigartg beside this repository)
 #
@@ -122,7 +122,7 @@
 #                   Unset, configure-engine and the builds make it in
 #                   BUILD/unicode-library (again when src/unicodelib or
 #                   ICU's libraries change), which needs NDK_INCLUDE.
-#   NDK_INCLUDE     OpenNDK's Include_H, for building unicode.library
+#   NDK_INCLUDE     GFOpenNDK's Include_H, for building unicode.library
 #   OB_CCACHE       the ccache program, or "none"  (default: ccache on PATH)
 #   OB_CCACHE_DIR   ccache's folder for this build
 #                   (default ~/.cache/ccache-openbrowser)
@@ -137,7 +137,7 @@
 #                   (test-browser)
 #   OB_FONTS        folder holding the TrueType fonts the engine draws with
 #                   (the Liberation and DejaVu .ttf files); test-browser copies
-#                   them to Fonts/, which the engine adds to openfont.library's
+#                   them to Fonts/, which the engine adds to gfopenfont.library's
 #                   folders as PROGDIR:Fonts.
 #                   The engine stops at its first page without them.
 #
@@ -146,9 +146,9 @@
 #                        set the compiler cache (which recompiles nothing)
 #   build-bindings       generate WebCore's derived sources, one job at a time
 #   build-engine         build the engine, if its fingerprint has changed
-#   build-browser        build OBCore, WebBrowserEngine and the OpenBrowser
+#   build-browser        build OBCore, WebBrowserEngine and the GFOpenBrowser
 #                        launcher only
-#   build-window-engine  build OpenBrowser.engine, the browser window as a
+#   build-window-engine  build GFOpenBrowser.engine, the browser window as a
 #                        program of its own, without webbrowser.library (for
 #                        tests that run it directly; the package does not
 #                        carry it)
@@ -166,7 +166,7 @@
 #                        javascript.library (src/jslib), on this folder's
 #                        JavaScriptCore, and fold it like the browser
 #   fold [PROGRAM...]    fold and link again the programs ninja has linked
-#                        since they were last folded (OpenBrowser.engine,
+#                        since they were last folded (GFOpenBrowser.engine,
 #                        obcore-view, obcore-dump, WebBrowserEngine,
 #                        JavaScriptEngine; or the ones named). build-browser,
 #                        build-window-engine, build-tests and
@@ -194,7 +194,7 @@ MODE=${1:-all}
 die() { echo "ERROR: $*" >&2; exit 2; }
 
 BUILD=${WEBKIT_BUILD:-"$PWD/build/Amiga"}
-GCC16=${OS32_GCC16:-"$HOME/AmigaChrome/stoves/os32-gcc16"}
+GCC16=${OS32_GCC16:-"$HOME/AmiCradle/stoves/os32-gcc16"}
 CCACHE=${OB_CCACHE:-$(command -v ccache || echo none)}
 CCACHE_FOLDER=${OB_CCACHE_DIR:-"$HOME/.cache/ccache-openbrowser"}
 CCACHE_SIZE=${OB_CCACHE_SIZE:-20G}
@@ -226,7 +226,7 @@ need_sources() {
     [ -f "$(openservice_dir)/include/openweb/webfetch.h" ] ||
         die "openamigaservice missing at $(openservice_dir): the engine's network is openweb.fetch (set OPENSERVICE_DIR)"
     [ -f "$(openamigartg_dir)/include/inline/opengpu.h" ] ||
-        die "openamigartg missing at $(openamigartg_dir): the window is painted through opengpu.library (set OPENAMIGARTG_DIR)"
+        die "openamigartg missing at $(openamigartg_dir): the window is painted through gfopengpu.library (set OPENAMIGARTG_DIR)"
     export OAB_DEPS
 }
 
@@ -307,7 +307,7 @@ engine_inputs() {
     # openweb.fetch's client API, which WebCore's OpenWebFetchAmiga.c is
     # built against (src/webcore/CMakeLists.txt finds the checkout the same way).
     echo "openweb-headers $(tree_hash "$(openservice_dir)/include/openweb")"
-    # opengpu.library's stream and calls, for OpenGPUPaintAmiga.c and
+    # gfopengpu.library's stream and calls, for OpenGPUPaintAmiga.c and
     # OpenGPULibraryAmiga.c (patch 0076).
     echo "opengpu-headers $(tree_hash "$(openamigartg_dir)/include/opengpu") $(sha256 < "$(openamigartg_dir)/include/inline/opengpu.h")"
     echo "options $(engine_options | sha256)"
@@ -325,7 +325,7 @@ engine_built() {
     done
 }
 
-# A launcher that runs the compiler through ccache with OpenBrowser's own
+# A launcher that runs the compiler through ccache with GFOpenBrowser's own
 # cache and the settings WebCore's precompiled header needs: without
 # pch_defines and time_macros, ccache gives up on every WebCore file.
 write_launcher() {
@@ -399,7 +399,7 @@ unicode_library() {
     stamp="$(tree_hash "$ROOT/src/unicodelib") $(sha256 < "$ROOT/scripts/build-unicode-library.sh")"
     stamp="$stamp $(cat "$icu/lib/libicuuc.a" "$icu/lib/libicui18n.a" "$icu/share/icudt78b.dat" | sha256)"
     if [ "$(cat "$out/stamp" 2>/dev/null)" != "$stamp" ]; then
-        [ -n "${NDK_INCLUDE:-}" ] || die "unicode.library needs NDK_INCLUDE (OpenNDK's Include_H), or set OB_ICU_DIR, or OB_ICU_DATA=file"
+        [ -n "${NDK_INCLUDE:-}" ] || die "unicode.library needs NDK_INCLUDE (GFOpenNDK's Include_H), or set OB_ICU_DIR, or OB_ICU_DATA=file"
         STOVE="$GCC16" NDK_INCLUDE="$NDK_INCLUDE" OAB_DEPS="$OAB_DEPS" \
             sh "$ROOT/scripts/build-unicode-library.sh" "$out" || die "scripts/build-unicode-library.sh failed"
         echo "$stamp" > "$out/stamp"
@@ -544,7 +544,7 @@ build_engine() {
     build_bindings
     run_build engine "$JOBS" WebCore
     {
-        echo "OpenBrowser engine, built $(date -u +%Y-%m-%dT%H:%M:%SZ)"
+        echo "GFOpenBrowser engine, built $(date -u +%Y-%m-%dT%H:%M:%SZ)"
         echo "fingerprint $NOW"
         engine_inputs
         echo "patches $(cat "$ROOT"/webkit/patches/*.patch | sha256) ($(cd "$ROOT/webkit/patches" && ls *.patch | tr '\n' ' '))"
@@ -591,7 +591,7 @@ browser_build() {
 # only the one the name resolved to. hunkfold rewrites copies of the
 # archives so that only the copy the plain link used still defines each
 # name; linked again, --gc-sections drops the others.
-FOLD_PROGRAMS="OpenBrowser.engine obcore-view obcore-dump WebBrowserEngine JavaScriptEngine"
+FOLD_PROGRAMS="GFOpenBrowser.engine obcore-view obcore-dump WebBrowserEngine JavaScriptEngine"
 
 links_with_gc() {
     sed -n 's/^CMAKE_EXE_LINKER_FLAGS:[A-Z]*=//p' "$BUILD/CMakeCache.txt" 2>/dev/null | grep -q -- --gc-sections
@@ -709,16 +709,16 @@ fold_programs() {
 build_browser() {
     browser_build browser OBCore WebBrowserEngine OpenBrowserLauncher
     if fold_wanted; then fold_programs WebBrowserEngine; fi
-    ls -l "$BUILD/bin/OpenBrowser" "$BUILD/bin/WebBrowserEngine"
+    ls -l "$BUILD/bin/GFOpenBrowser" "$BUILD/bin/WebBrowserEngine"
 }
 
-# OpenBrowser.engine: the same browser window as a program of its own, which
+# GFOpenBrowser.engine: the same browser window as a program of its own, which
 # runs without webbrowser.library. Not in the package (WebBrowserEngine is
 # the one engine there); kept for tests that run the window directly.
 build_window_engine() {
     browser_build window-engine OBCore OpenBrowser
-    if fold_wanted; then fold_programs OpenBrowser.engine; fi
-    ls -l "$BUILD/bin/OpenBrowser.engine"
+    if fold_wanted; then fold_programs GFOpenBrowser.engine; fi
+    ls -l "$BUILD/bin/GFOpenBrowser.engine"
 }
 
 # JavaScriptEngine on the browser's JavaScriptCore; javascript.library and
@@ -732,7 +732,7 @@ build_javascript() {
 }
 
 # program_map NAME: the -Map file NAME's link writes (named after its
-# CMake target: bin/OpenBrowser.map for bin/OpenBrowser.engine)
+# CMake target: bin/OpenBrowser.map for bin/GFOpenBrowser.engine)
 program_map() {
     pm_cmd=$(cd "$BUILD" && ninja -t commands -s "bin/$1") || die "no link command for bin/$1"
     pm_map=$(printf '%s\n' "$pm_cmd" | sed -n 's/.*-Wl,-Map=\([^ ]*\).*/\1/p')
@@ -811,7 +811,7 @@ build_jsimage() {
     # 1. the clients as they link today (folded), and the client's first code
     targets=JSImageClient
     for prog; do
-        case "$prog" in OpenBrowser.engine) targets="$targets OBCore OpenBrowser" ;; *) targets="$targets $prog" ;; esac
+        case "$prog" in GFOpenBrowser.engine) targets="$targets OBCore OpenBrowser" ;; *) targets="$targets $prog" ;; esac
     done
     browser_build jsimage-clients $targets
     if fold_wanted; then fold_programs "$@"; fi
@@ -882,8 +882,8 @@ test_browser() {
         "$strip" -o "$OB_TEST_DIR/$program" "$BUILD/bin/$program"
     done
     # the window as a program of its own, when build-window-engine made it
-    if [ -f "$BUILD/bin/OpenBrowser.engine" ]; then
-        "$strip" -o "$OB_TEST_DIR/OpenBrowser.engine" "$BUILD/bin/OpenBrowser.engine"
+    if [ -f "$BUILD/bin/GFOpenBrowser.engine" ]; then
+        "$strip" -o "$OB_TEST_DIR/GFOpenBrowser.engine" "$BUILD/bin/GFOpenBrowser.engine"
     fi
     cp "$ROOT"/tests/pages/*.html "$OB_TEST_DIR/pages/"
     cp "$ROOT/src/webcore/blocklist" "$OB_TEST_DIR/"
@@ -897,7 +897,7 @@ test_browser() {
         cp "$(dirname "$(cache_value OB_UNICODE_DIR)")/unicode.library" "$OB_TEST_DIR/Libs/"
     fi
     {
-        echo "; OpenBrowser's test pages through obcore-view, staged by"
+        echo "; GFOpenBrowser's test pages through obcore-view, staged by"
         echo "; scripts/build-webcore.sh test-browser. From this drawer:"
         echo "; \"Execute OBTests\"; the results go to OBTests.log"
         echo "; (expected results: tests/pages/README.md)."
@@ -922,7 +922,7 @@ clean_browser() {
         "$BUILD"/OpenBrowser/CMakeFiles/OpenBrowserLauncher.dir "$BUILD"/OpenBrowser/CMakeFiles/WebBrowserEngine.dir \
         "$BUILD"/OpenBrowser/CMakeFiles/obcore-view.dir "$BUILD"/OpenBrowser/CMakeFiles/obcore-dump.dir \
         "$BUILD"/OpenBrowser/CMakeFiles/JavaScriptEngine.dir
-    rm -f "$BUILD"/lib/libOBCore.a "$BUILD"/bin/OpenBrowser "$BUILD"/bin/OpenBrowser.engine "$BUILD"/bin/WebBrowserEngine \
+    rm -f "$BUILD"/lib/libOBCore.a "$BUILD"/bin/GFOpenBrowser "$BUILD"/bin/GFOpenBrowser.engine "$BUILD"/bin/WebBrowserEngine \
         "$BUILD"/bin/obcore-view "$BUILD"/bin/obcore-dump "$BUILD"/bin/*.plain.map \
         "$BUILD"/bin/JavaScriptEngine "$BUILD"/bin/JavaScriptEngine.stripped
     rm -rf "$BUILD"/lib-folded

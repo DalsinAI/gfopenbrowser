@@ -4,7 +4,7 @@
 """Writes the files a WebKit patch adds whole into a folder, for the host
 tests of code that lives only in a patch (such as 0070's public suffix
 lookup), or applies a later patch's changes to files already written there
-(such as 0077's to 0076's OpenGPU writer).
+(such as 0077's to 0076's GFOpenGPU writer).
 
     tools/patch-files.py PATCH OUT_DIR NAME...
 

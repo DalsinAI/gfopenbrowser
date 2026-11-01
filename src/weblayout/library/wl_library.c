@@ -44,7 +44,7 @@ int start(void) { return -1; }
 
 static const char lib_name[] = "weblayout.library";
 static const char lib_id[] =
-    "weblayout.library 1.0 (20.10.2026) OpenBrowser Lite 0.4.1, The AmigaChrome Team\r\n";
+    "weblayout.library 1.0 (20.10.2026) GFOpenBrowser Lite 0.4.1, The AmiCradle Team\r\n";
 static const char lib_ver[] __attribute__((used)) =
     "$VER: weblayout.library 1.0 (20.10.2026)";
 

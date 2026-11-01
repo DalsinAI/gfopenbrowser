@@ -1,5 +1,5 @@
 /*
- * OpenBrowser: one web page in a view: WebCore's Page with OpenBrowser's
+ * GFOpenBrowser: one web page in a view: WebCore's Page with GFOpenBrowser's
  * clients, loading, painting into a 32-bit ARGB buffer, and input. The
  * Amiga window around it talks to it through ob_webview.h.
  * MIT, Copyright (c) 2026 AmigaChrome Team.
@@ -25,7 +25,7 @@ class Page;
 class ResourceError;
 }
 
-namespace OpenBrowser {
+namespace GFOpenBrowser {
 
 class AmigaBackForwardList;
 
@@ -110,7 +110,7 @@ private:
     bool m_loading { false };
     bool m_liteMode { false };
     unsigned long long m_bytesReceived { 0 };
-    obgpu_counts m_paintCounts { }; // OpenGPU's draws and batches, and the calls cairo drew
+    obgpu_counts m_paintCounts { }; // GFOpenGPU's draws and batches, and the calls cairo drew
 };
 
-} // namespace OpenBrowser
+} // namespace GFOpenBrowser

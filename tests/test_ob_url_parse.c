@@ -1,4 +1,4 @@
-/* OpenBrowser Lite's address parser (src/ob_http.c, ob_url_parse) on the
+/* GFOpenBrowser Lite's address parser (src/ob_http.c, ob_url_parse) on the
  * host: tests/run-host-tests.sh. The network calls are never reached here.
  * MIT, Copyright (c) 2026 AmigaChrome Team. */
 #include "ob_http.h"

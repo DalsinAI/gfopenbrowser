@@ -1,4 +1,4 @@
-// The AmigaChrome Team. JIT correctness check: output must match with JSC_useM68KTemplateJIT=1 and without.
+// The AmiCradle Team. JIT correctness check: output must match with JSC_useM68KTemplateJIT=1 and without.
 var out = [];
 function log(x) { out.push(String(x)); }
 function t1() { var s = 0; for (var i = -50; i < 50; i++) { s += i * i - (i >> 1) + (i % 7) - (i / 3); } return s; }

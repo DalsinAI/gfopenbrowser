@@ -1,12 +1,12 @@
-; $VER: Install-OpenBrowser 0.8.4 (1.11.2026)
-; OpenBrowser's Installer script (SYS:System/Installer). Run it from its icon
-; beside the OpenBrowser drawer; from a Shell, "Execute Install" in the drawer
+; $VER: Install-GFOpenBrowser 0.8.4 (1.11.2026)
+; GFOpenBrowser's Installer script (SYS:System/Installer). Run it from its icon
+; beside the GFOpenBrowser drawer; from a Shell, "Execute Install" in the drawer
 ; does the same without questions. Nothing is deleted: a file it would
 ; replace is renamed, and the closing message says how to undo.
 ; MIT, Copyright (c) 2026 AmigaChrome Team.
 
 (set #version "0.8.4 test (1.11.2026)")
-(set @app-name "OpenBrowser")
+(set @app-name "GFOpenBrowser")
 (set #stamp "20261101")
 (set #backup (cat "LIBS:WebBrowser/WebBrowserEngine.before-" #stamp))
 ; the drawer as unpacked is about 87 MB: the one engine (WebBrowserEngine,
@@ -14,15 +14,15 @@
 (set #need 95000000)
 
 (if (< (/ (getversion) 65536) 47)
-    (abort "OpenBrowser needs AmigaOS 3.2 or later. This Amiga has an older version."))
+    (abort "GFOpenBrowser needs AmigaOS 3.2 or later. This Amiga has an older version."))
 (if (or (= (database "fpu") "NOFPU")
         (not (or (= (database "cpu") "68040") (= (database "cpu") "68060"))))
-    (abort "OpenBrowser needs a 68040 or 68060 with its FPU (not an LC or EC CPU)."))
-(if (not (exists "OpenBrowser/Libs/WebBrowser/WebBrowserEngine"))
-    (abort "Start Install-OpenBrowser from its icon, beside the OpenBrowser drawer it came with."))
+    (abort "GFOpenBrowser needs a 68040 or 68060 with its FPU (not an LC or EC CPU)."))
+(if (not (exists "GFOpenBrowser/Libs/WebBrowser/WebBrowserEngine"))
+    (abort "Start Install-GFOpenBrowser from its icon, beside the GFOpenBrowser drawer it came with."))
 
 (welcome
-    (cat "This installs OpenBrowser " #version ": a WebKit web browser for "
+    (cat "This installs GFOpenBrowser " #version ": a WebKit web browser for "
          "AmigaOS 3.2, with its 68k JavaScript JIT."))
 
 ; Where the drawer goes. Not System: by default: the drawer is large, and a
@@ -31,20 +31,20 @@
     (if (exists "Work:" (noreq)) "Work:" "SYS:Utilities"))
 (set #where
     (askdir
-        (prompt "Where should the OpenBrowser drawer go? It needs about 90 MB.")
+        (prompt "Where should the GFOpenBrowser drawer go? It needs about 90 MB.")
         (help (cat "The drawer holds the browser and everything it uses. It can go on any "
                    "disk with room; Work: or another data partition is best. Putting it on "
                    "System: (SYS:) can fill that disk."))
         (default #where)))
-(set #dest (tackon #where "OpenBrowser"))
+(set #dest (tackon #where "GFOpenBrowser"))
 (if (< (getdiskspace #where) #need)
-    (abort (cat #where " has " (/ (getdiskspace #where) 1048576) " MB free, and OpenBrowser needs about "
+    (abort (cat #where " has " (/ (getdiskspace #where) 1048576) " MB free, and GFOpenBrowser needs about "
                 (/ #need 1048576) " MB. Choose another place, or make room, and run the Installer again.")))
 
 ; The extras: libraries other programs can use. Not needed by the browser.
 (set #extras
     (askoptions
-        (prompt "Also install these? OpenBrowser does not need them.")
+        (prompt "Also install these? GFOpenBrowser does not need them.")
         (help (cat "javascript.library runs JavaScript for any program; it puts about 38 MB "
                    "in LIBS:JavaScript. JS runs a script from the Shell."))
         (choices "javascript.library and JS (about 38 MB in LIBS:)")
@@ -52,73 +52,73 @@
 
 ; 1. The drawer and its icon. Over an older version's drawer: its engines
 ;    are renamed .before-<stamp> first (kept, not overwritten); 0.8.0 and
-;    0.8.1 test had OpenBrowser.engine beside the launcher as well, which
+;    0.8.1 test had GFOpenBrowser.engine beside the launcher as well, which
 ;    the launcher no longer runs.
 (set #renamed-drawer "")
-(set #old-engine (tackon #dest "OpenBrowser.engine"))
+(set #old-engine (tackon #dest "GFOpenBrowser.engine"))
 (if (and (exists #old-engine) (not (exists (cat #old-engine ".before-" #stamp))))
     (
         (if (= 0 (rename #old-engine (cat #old-engine ".before-" #stamp)))
             (abort (cat "Could not rename " #old-engine ". Nothing was changed.")))
-        (set #renamed-drawer (cat #renamed-drawer " OpenBrowser.engine"))))
+        (set #renamed-drawer (cat #renamed-drawer " GFOpenBrowser.engine"))))
 ; the older drawer's WebBrowserEngine, unless it is this one (run again)
 (set #old-engine (tackon #dest "Libs/WebBrowser/WebBrowserEngine"))
 (if (and (exists #old-engine)
-         (<> (getsize #old-engine) (getsize "OpenBrowser/Libs/WebBrowser/WebBrowserEngine"))
+         (<> (getsize #old-engine) (getsize "GFOpenBrowser/Libs/WebBrowser/WebBrowserEngine"))
          (not (exists (cat #old-engine ".before-" #stamp))))
     (
         (if (= 0 (rename #old-engine (cat #old-engine ".before-" #stamp)))
             (abort (cat "Could not rename " #old-engine ". Nothing was changed.")))
         (set #renamed-drawer (cat #renamed-drawer " Libs/WebBrowser/WebBrowserEngine"))))
 (copyfiles
-    (prompt "Copying the OpenBrowser drawer")
+    (prompt "Copying the GFOpenBrowser drawer")
     (help @copyfiles-help)
-    (source "OpenBrowser")
+    (source "GFOpenBrowser")
     (dest #dest)
     (all))
-(if (exists "OpenBrowser.info")
-    (copyfiles (source "OpenBrowser.info") (dest #where) (nogauge)))
+(if (exists "GFOpenBrowser.info")
+    (copyfiles (source "GFOpenBrowser.info") (dest #where) (nogauge)))
 
-; 2. https: OpenTLS 1.2 or newer and OpenCrypto 2.1 or newer, and the
+; 2. https: GFOpenTLS 1.2 or newer and GFOpenCrypto 2.1 or newer, and the
 ;    certificates. An older library is renamed .before-20261101 (kept), then
 ;    the one in the drawer goes in; a newer one is left as it is.
-(if (< (getversion "LIBS:opentls.library") 65538)
+(if (< (getversion "LIBS:gfopentls.library") 65538)
     (
-        (if (exists "LIBS:opentls.library")
-            (if (= 0 (rename "LIBS:opentls.library" "LIBS:opentls.library.before-20261101"))
-                (abort "Could not rename the old LIBS:opentls.library. Nothing else was changed in LIBS:.")))
-        (copyfiles (source "OpenBrowser/Libs/opentls.library") (dest "LIBS:") (nogauge))))
-(if (< (getversion "LIBS:opencrypto.library") 131073)
+        (if (exists "LIBS:gfopentls.library")
+            (if (= 0 (rename "LIBS:gfopentls.library" "LIBS:gfopentls.library.before-20261101"))
+                (abort "Could not rename the old LIBS:gfopentls.library. Nothing else was changed in LIBS:.")))
+        (copyfiles (source "GFOpenBrowser/Libs/gfopentls.library") (dest "LIBS:") (nogauge))))
+(if (< (getversion "LIBS:gfopencrypto.library") 131073)
     (
-        (if (exists "LIBS:opencrypto.library")
-            (if (= 0 (rename "LIBS:opencrypto.library" "LIBS:opencrypto.library.before-20261101"))
-                (abort "Could not rename the old LIBS:opencrypto.library.")))
-        (copyfiles (source "OpenBrowser/Libs/opencrypto.library") (dest "LIBS:") (nogauge))))
-(if (not (exists "S:OpenTLS/ca-bundle.pem"))
+        (if (exists "LIBS:gfopencrypto.library")
+            (if (= 0 (rename "LIBS:gfopencrypto.library" "LIBS:gfopencrypto.library.before-20261101"))
+                (abort "Could not rename the old LIBS:gfopencrypto.library.")))
+        (copyfiles (source "GFOpenBrowser/Libs/gfopencrypto.library") (dest "LIBS:") (nogauge))))
+(if (not (exists "S:GFOpenTLS/ca-bundle.pem"))
     (
-        (makedir "S:OpenTLS")
-        (copyfiles (source "OpenBrowser/S/OpenTLS") (dest "S:OpenTLS") (all) (nogauge))))
+        (makedir "S:GFOpenTLS")
+        (copyfiles (source "GFOpenBrowser/S/GFOpenTLS") (dest "S:GFOpenTLS") (all) (nogauge))))
 
-; openfont.library 1.4 or newer: the engine draws and shapes all its text
+; gfopenfont.library 1.4 or newer: the engine draws and shapes all its text
 ; with it. An older one is renamed .before-20261101 (kept).
-(if (< (getversion "LIBS:openfont.library") 65540)
+(if (< (getversion "LIBS:gfopenfont.library") 65540)
     (
-        (if (exists "LIBS:openfont.library")
-            (if (= 0 (rename "LIBS:openfont.library" "LIBS:openfont.library.before-20261101"))
-                (abort "Could not rename the old LIBS:openfont.library.")))
-        (copyfiles (source "OpenBrowser/Libs/openfont.library") (dest "LIBS:") (nogauge))))
+        (if (exists "LIBS:gfopenfont.library")
+            (if (= 0 (rename "LIBS:gfopenfont.library" "LIBS:gfopenfont.library.before-20261101"))
+                (abort "Could not rename the old LIBS:gfopenfont.library.")))
+        (copyfiles (source "GFOpenBrowser/Libs/gfopenfont.library") (dest "LIBS:") (nogauge))))
 
 ; json.library: JSON for the browser and any other program (23 KB); the
 ; engine's JSON.parse parses through it
-(copylib (source "OpenBrowser/Libs/json.library") (dest "LIBS:") (nogauge)
+(copylib (source "GFOpenBrowser/Libs/json.library") (dest "LIBS:") (nogauge)
     (prompt "Installing json.library") (help @copylib-help) (confirm "expert"))
 
 ; unicode.library: Unicode (ICU 78.3) for the browser and any other program,
 ; one shared copy (4 MB); the engine's line breaking, normalisation, IDNA,
 ; collation and number and date formatting go through it. A package built
 ; without it carries none.
-(if (exists "OpenBrowser/Libs/unicode.library")
-    (copylib (source "OpenBrowser/Libs/unicode.library") (dest "LIBS:") (nogauge)
+(if (exists "GFOpenBrowser/Libs/unicode.library")
+    (copylib (source "GFOpenBrowser/Libs/unicode.library") (dest "LIBS:") (nogauge)
         (prompt "Installing unicode.library") (help @copylib-help) (confirm "expert")))
 
 ; Compressed pages: openweb.fetch's native transport decodes gzip and br
@@ -135,15 +135,15 @@
                 (if (= 0 (rename #file (cat #file ".before-" #stamp)))
                     (abort (cat "Could not rename the old " #file "."))))
             (copyfiles (source #src) (dest #destdir) (nogauge)))))
-(P_newer "LIBS:z.library" "OpenBrowser/Libs/z.library" "LIBS:" 3473420)
+(P_newer "LIBS:z.library" "GFOpenBrowser/Libs/z.library" "LIBS:" 3473420)
 (makedir "SYS:Classes/DataTypes")
-(P_newer "SYS:Classes/DataTypes/stream.datatype" "OpenBrowser/Classes/DataTypes/stream.datatype" "SYS:Classes/DataTypes" 3080193)
-(P_newer "SYS:Classes/DataTypes/gzip.datatype" "OpenBrowser/Classes/DataTypes/gzip.datatype" "SYS:Classes/DataTypes" 3080193)
-(P_newer "SYS:Classes/DataTypes/brotli.datatype" "OpenBrowser/Classes/DataTypes/brotli.datatype" "SYS:Classes/DataTypes" 3080193)
+(P_newer "SYS:Classes/DataTypes/stream.datatype" "GFOpenBrowser/Classes/DataTypes/stream.datatype" "SYS:Classes/DataTypes" 3080193)
+(P_newer "SYS:Classes/DataTypes/gzip.datatype" "GFOpenBrowser/Classes/DataTypes/gzip.datatype" "SYS:Classes/DataTypes" 3080193)
+(P_newer "SYS:Classes/DataTypes/brotli.datatype" "GFOpenBrowser/Classes/DataTypes/brotli.datatype" "SYS:Classes/DataTypes" 3080193)
 (if (not (exists "DEVS:DataTypes/GZip"))
-    (copyfiles (source "OpenBrowser/Devs/DataTypes/GZip") (dest "DEVS:DataTypes") (nogauge)))
+    (copyfiles (source "GFOpenBrowser/Devs/DataTypes/GZip") (dest "DEVS:DataTypes") (nogauge)))
 (if (not (exists "DEVS:DataTypes/Brotli"))
-    (copyfiles (source "OpenBrowser/Devs/DataTypes/Brotli") (dest "DEVS:DataTypes") (nogauge)))
+    (copyfiles (source "GFOpenBrowser/Devs/DataTypes/Brotli") (dest "DEVS:DataTypes") (nogauge)))
 
 ; 3. The Unicode data, for every program that reads it, when LOCALE: has room
 ;    for it and 2,000,000 bytes more; the engine in the drawer carries its own
@@ -153,7 +153,7 @@
 ;    gives, or -1, not readable) is not known room: the copy is tried, and a
 ;    failure is reported, not the end of the installation.
 (set #icu "LOCALE:Unicode/icudt78b.dat")
-(set #icunew "OpenBrowser/Libs/WebBrowser/Unicode/icudt78b.dat")
+(set #icunew "GFOpenBrowser/Libs/WebBrowser/Unicode/icudt78b.dat")
 (set #icufree (getdiskspace "LOCALE:"))
 (set #icuneed (+ (getsize #icunew) 2000000))
 (set #icumoved 0)
@@ -161,7 +161,7 @@
          (> #icufree 0) (<= #icufree #icuneed))
     (message (cat "LOCALE: has " #icufree " bytes free, and the Unicode data needs " #icuneed
                   " (the file and 2,000,000 bytes more), so it is not copied to LOCALE:Unicode. "
-                  "OpenBrowser reads the drawer's copy; other programs that use unicode.library "
+                  "GFOpenBrowser reads the drawer's copy; other programs that use unicode.library "
                   "need LOCALE:Unicode/icudt78b.dat.") (all))
     (
         (if (and (exists #icu) (<> (getsize #icu) (getsize #icunew)))
@@ -174,7 +174,7 @@
         (if (not (exists #icu))
             (
                 (makedir "LOCALE:Unicode")
-                (copyfiles (source "OpenBrowser/Libs/WebBrowser/Unicode") (dest "LOCALE:Unicode") (all) (nogauge)
+                (copyfiles (source "GFOpenBrowser/Libs/WebBrowser/Unicode") (dest "LOCALE:Unicode") (all) (nogauge)
                     (optional "nofail"))
                 (if (or (not (exists #icu)) (<> (getsize #icu) (getsize #icunew)))
                     (
@@ -186,14 +186,14 @@
                         (if (= #icumoved 1)
                             (rename (cat #icu ".before-" #stamp) #icu))
                         (message (cat "Could not copy the Unicode data to LOCALE:Unicode (is System: full?). "
-                                      "OpenBrowser reads the drawer's copy; other programs that use "
+                                      "GFOpenBrowser reads the drawer's copy; other programs that use "
                                       "unicode.library need LOCALE:Unicode/icudt78b.dat.") (all))
                         (transcript "LOCALE:Unicode/icudt78b.dat: copy failed")))))))
 
 ; 4. One engine: WebBrowserEngine stays in the drawer, off System:.
 ;    webbrowser.library runs LIBS:WebBrowser/WebBrowserEngine when there is
 ;    one, otherwise the drawer's Libs/WebBrowser/WebBrowserEngine (for the
-;    OpenBrowser in the drawer). An older LIBS:WebBrowser/WebBrowserEngine,
+;    GFOpenBrowser in the drawer). An older LIBS:WebBrowser/WebBrowserEngine,
 ;    the engine or the two-line script that 0.8.0 and 0.8.1 test wrote
 ;    there, is renamed WebBrowserEngine.before-<stamp> (kept); nothing new
 ;    is written in LIBS:WebBrowser.
@@ -206,7 +206,7 @@
         (
             (if (= 0 (rename #enginefile #backup
                         (prompt "Keeping the old LIBS:WebBrowser/WebBrowserEngine as " (fileonly #backup))
-                        (help "OpenBrowser now runs the engine in its drawer. Renaming it back undoes the change.")))
+                        (help "GFOpenBrowser now runs the engine in its drawer. Renaming it back undoes the change.")))
                 (abort "Could not rename LIBS:WebBrowser/WebBrowserEngine. Nothing else was changed in LIBS:WebBrowser."))
             (set #renamed 1))))
 
@@ -219,28 +219,28 @@
         ; a browser engine that takes JavaScriptCore from JavaScriptEngine
         ; looks in LIBS:JavaScript first: its own image goes there, so the
         ; engine and javascript.library use one file
-        (if (exists "OpenBrowser/Libs/JavaScript/JavaScriptEngine")
-            (copyfiles (source "OpenBrowser/Libs/JavaScript/JavaScriptEngine") (dest "LIBS:JavaScript") (nogauge)))
+        (if (exists "GFOpenBrowser/Libs/JavaScript/JavaScriptEngine")
+            (copyfiles (source "GFOpenBrowser/Libs/JavaScript/JavaScriptEngine") (dest "LIBS:JavaScript") (nogauge)))
         ; JavaScriptEngine reads ICU's data from LOCALE:Unicode, or else
         ; from its own drawer
         (if (not (exists "LOCALE:Unicode/icudt78b.dat"))
             (
                 (makedir "LIBS:JavaScript/Unicode")
-                (copyfiles (source "OpenBrowser/Libs/WebBrowser/Unicode") (dest "LIBS:JavaScript/Unicode") (all) (nogauge))))
+                (copyfiles (source "GFOpenBrowser/Libs/WebBrowser/Unicode") (dest "LIBS:JavaScript/Unicode") (all) (nogauge))))
         (copyfiles (source "Extras/C/JS") (dest "C:") (nogauge))))
 
 (if (not (exists "LIBS:bsdsocket.library"))
-    (message (cat "There is no bsdsocket.library: OpenBrowser needs a network. "
-                  "On AmigaChrome turn networking on for this instance in Cradle; "
-                  "otherwise install OpenSocket (OpenUp) or another TCP/IP stack.")))
+    (message (cat "There is no bsdsocket.library: GFOpenBrowser needs a network. "
+                  "On AmiCradle turn networking on for this instance in Cradle; "
+                  "otherwise install GFOpenSocket (GFOpenUp) or another TCP/IP stack.")))
 
 (set @default-dest #dest)
 (exit
-    (cat "OpenBrowser is in " #dest ". Reboot, then double-click OpenBrowser there.\n\n"
+    (cat "GFOpenBrowser is in " #dest ". Reboot, then double-click GFOpenBrowser there.\n\n"
          "To undo: "
          (if (<> #renamed-drawer "")
-             (cat "an older OpenBrowser was in that drawer; its" #renamed-drawer " is kept there as .before-" #stamp ", to rename back")
+             (cat "an older GFOpenBrowser was in that drawer; its" #renamed-drawer " is kept there as .before-" #stamp ", to rename back")
              "delete that drawer")
          (if (or #renamed (exists #backup)) (cat "; rename " #backup " back to WebBrowserEngine") "")
-         ". What the Installer added to LIBS:, S: and LOCALE: is listed in the Installer's log in that drawer (Install-OpenBrowser.log from the icon; read it before deleting the drawer).")
+         ". What the Installer added to LIBS:, S: and LOCALE: is listed in the Installer's log in that drawer (Install-GFOpenBrowser.log from the icon; read it before deleting the drawer).")
     (quiet))

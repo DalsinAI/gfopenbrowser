@@ -3,7 +3,7 @@
 Copyright (c) 2026 AmigaChrome Team. MIT licence for this document.
 
 This is the WebCore half of steps 5 (network on openweb.fetch) and 6
-(drawing on OpenGfx and OpenGPU) of [PLAN.md](PLAN.md). It lists every file
+(drawing on GFOpenGfx and GFOpenGPU) of [PLAN.md](PLAN.md). It lists every file
 the `PORT=Amiga` build compiles that uses curl, nghttp2, libpsl, cairo,
 pixman or libpng, the WebCore interface above each one, what a replacement
 must provide, and an order of patches. PLAN.md stays the plan; this file
@@ -74,7 +74,7 @@ Shadows use WebCore's own `ShadowBlur.cpp` (958 lines; `CairoOperations.cpp`
 calls it 15 times). Skia adds five faster appliers of its own
 (`filters/skia/`, 396 lines: Gaussian blur, drop shadow, colour matrix,
 component transfer, source graphic), chosen through
-`FilterEffect::createAcceleratedApplier()`; an OpenGPU port can do the same
+`FilterEffect::createAcceleratedApplier()`; a GFOpenGPU port can do the same
 later, but does not need to.
 
 **Fonts are step 3 as much as step 6.** The FreeType and HarfBuzz files
@@ -86,7 +86,7 @@ lines; the font is a `cairo_scaled_font_t` made with cairo-ft),
 `GlyphPageTreeNodeFreeType.cpp` (6 in 89) and `FontSetCache.cpp` (2 in
 114). `FontPlatformData.h` and `FontCustomPlatformData.h` choose the
 cairo types with `USE(CAIRO)`. So cairo cannot leave the map until the
-font backend no longer makes cairo scaled fonts: either step 3's OpenFont
+font backend no longer makes cairo scaled fonts: either step 3's GFOpenFont
 backend lands first, or step 6 brings a FreeType font object without
 cairo-ft.
 
@@ -110,14 +110,14 @@ WebKit's default when cairo goes:
 - `GraphicsContextState.h`: with cairo, setting a state property to the
   value it already has is not skipped.
 
-Two of OpenBrowser's own files draw with cairo: `src/webcore/AmigaWebView.cpp`
+Two of GFOpenBrowser's own files draw with cairo: `src/webcore/AmigaWebView.cpp`
 (`paint()` wraps the window's ARGB buffer in
 `cairo_image_surface_create_for_data` and a `GraphicsContextCairo`; the
 display-list experiment too) and `src/webcore/DumpMain.cpp` (paints into a
 cairo surface and writes it with `cairo_surface_write_to_png`).
 `src/webcore/CMakeLists.txt` links `cairo pixman-1 png`.
 
-### What an OpenGPU port must provide
+### What a GFOpenGPU port must provide
 
 Following Skia's split, four classes and three helpers:
 
@@ -138,29 +138,29 @@ Following Skia's split, four classes and three helpers:
   `bytesPerRow()`, `canMapBackingStore()` and `debugDescription()`, over
   an ARGB32 premultiplied surface in memory (Skia's unaccelerated backend
   is 73 lines on top of 44 shared).
-- **NativeImage** on an OpenGPU surface: size, `hasAlpha`,
+- **NativeImage** on a GFOpenGPU surface: size, `hasAlpha`,
   `singlePixelSolidColor`, `draw`, and `ImageBackingStore::image()` for
   decoded pictures (49 lines for cairo, 46 for Skia).
 - **Gradient** and **Pattern** objects the context can draw with, and
   `platformEncodeData()` for PNG, which PLAN.md gives to the PNG datatype.
 
 Cairo's ARGB32 is a native-endian 32-bit premultiplied word, so on the 68k
-its bytes are A, R, G, B: the same as OpenGPU's `OGPU_FMT_ARGB32` with
+its bytes are A, R, G, B: the same as GFOpenGPU's `OGPU_FMT_ARGB32` with
 `COMPOSITE_PD`. The window's buffer, decoded pictures and canvases can
-therefore be shared between cairo and OpenGPU while both are linked, with
+therefore be shared between cairo and GFOpenGPU while both are linked, with
 no conversion.
 
-### OpenGPU operations each job needs
+### GFOpenGPU operations each job needs
 
 "Today" is stream v1.5 (`openamigartg/include/opengpu/stream.h`). "v1.6"
 is the vector work (paths, strokes, gradients, blur, blend modes) being
 added on `team3/opengpu-vector-20261023` in openamigartg, which was not
 pushed when this was written; its opcodes are not checked here.
 
-| WebCore needs | Used by | OpenGPU today | Still to add |
+| WebCore needs | Used by | GFOpenGPU today | Still to add |
 | --- | --- | --- | --- |
 | Solid rectangle, premultiplied OVER or any operator | `fillRect`, `clearRect`, backgrounds | `FILL` (opaque), `COMPOSITE_PD` with `OGPU_PD_SOLID` | anti-aliased edges for rectangles not on whole pixels (an A8 mask or the path fill) |
-| Path fill, non-zero and even-odd, anti-aliased | `fillPath`, `fillRoundedRect`, `fillEllipse`, SVG, canvas, borders | `MASK` and `COMPOSITE_PD` with an A8 mask, once a rasteriser makes the mask | the A8 path rasteriser in OpenGPU (openfont's `of_raster_a8()`, non-zero only today); even-odd |
+| Path fill, non-zero and even-odd, anti-aliased | `fillPath`, `fillRoundedRect`, `fillEllipse`, SVG, canvas, borders | `MASK` and `COMPOSITE_PD` with an A8 mask, once a rasteriser makes the mask | the A8 path rasteriser in GFOpenGPU (openfont's `of_raster_a8()`, non-zero only today); even-odd |
 | Strokes: width, butt/round/square caps, miter/round/bevel joins, miter limit, dashes with offset | `strokePath`, `strokeRect`, `drawLine`, borders, focus rings, text decorations, SVG | none | v1.6 strokes; dashes need checking against v1.6 |
 | Linear, radial (two circles) and conic gradients; pad, repeat and reflect; colour stops | `fillRect(Gradient)`, gradient fills and strokes, CSS `conic-gradient` (cairo draws it as a mesh pattern) | none | v1.6 gradients, as a source for `COMPOSITE_PD`, clipped by a mask |
 | Images with an affine transform, bilinear or nearest, premultiplied source, global alpha, any operator; pad edges | `drawNativeImage`, `drawImageBuffer`, scaled pictures, canvas `drawImage` | `COMPOSITE` (scale, bilinear), `COMPOSITE_AFFINE` (SDL blend modes only, not premultiplied) | premultiplied `COMPOSITE_AFFINE` with Porter-Duff operators and pad edges (PLAN.md step 6) |
@@ -172,9 +172,9 @@ pushed when this was written; its opcodes are not checked here.
 | The 13 Porter-Duff operators | `CompositeOperator` Clear to XOR, PlusLighter (`ADD`) | `COMPOSITE_PD` (CPU; not yet on Vulkan) | `PlusDarker` and `Difference` as operators |
 | Separable and non-separable blend modes | `BlendMode` Multiply to Luminosity (15 modes) | none (the SDL blend modes are other formulas) | v1.6 blend modes |
 | Glyph runs: many A8 glyph masks in one colour, at subpixel positions | `drawGlyphs` | `MASK`, one glyph per command | a batched glyph run and a glyph cache (PLAN.md step 6) |
-| Stroked and shadowed text | `-webkit-text-stroke`, text shadows | | glyph outlines as paths (from OpenFont), then the stroke and blur above |
-| Pixel read-back and write | `getPixelBuffer`, `putPixelBuffer` (canvas `getImageData`, filters) | the surface is memory: no OpenGPU call | |
-| PNG out | canvas `toDataURL`, `toBlob` | not OpenGPU's job: the PNG datatype | the PNG datatype's encoder |
+| Stroked and shadowed text | `-webkit-text-stroke`, text shadows | | glyph outlines as paths (from GFOpenFont), then the stroke and blur above |
+| Pixel read-back and write | `getPixelBuffer`, `putPixelBuffer` (canvas `getImageData`, filters) | the surface is memory: no GFOpenGPU call | |
+| PNG out | canvas `toDataURL`, `toBlob` | not GFOpenGPU's job: the PNG datatype | the PNG datatype's encoder |
 
 ## B. Network
 
@@ -235,7 +235,7 @@ and the HTTP cache hook (patch 0026) stay above it.
 | Status, headers (every `Set-Cookie`), HTTP version, length | `CurlResponse`, `ResourceResponse(CurlResponse&)` | `wf_head()` and `wf_header()`; `ResourceResponse` needs a constructor from it |
 | Body chunks; WebCore takes its time over the response | `curlDidReceiveData`; curl paused until `completeDidReceiveResponse()` | `wf_read()`; simply not reading waits (the host reads 1 MB ahead) |
 | End, errors, cancel | `curlDidComplete`, `curlDidFailWithError`, `cancel()` | `wf_read()`'s end word, `WF_E_*`, `wf_cancel()` and `wf_close()`; `ResourceError` needs a domain for `WF_E_*` |
-| TLS through OpenTLS, certificate summary | curl's OpenTLS backend (patch 0022) | the host's OpenSSL 3 today; the info text has the subject, issuer and expiry |
+| TLS through GFOpenTLS, certificate summary | curl's GFOpenTLS backend (patch 0022) | the host's OpenSSL 3 today; the info text has the subject, issuer and expiry |
 | HTTP/2, many requests on one connection | nghttp2 (patch 0023) | no: kept HTTP/1.1 connections, 6 per host |
 | Proxies | `CurlProxySettings` | no |
 | HTTP auth | Basic from the URL only | no, but it is only headers: Basic can be added by WebCore; Digest needs WebCore's challenge code |
@@ -245,7 +245,7 @@ and the HTTP cache hook (patch 0026) stay above it.
 | Without a services card | bsdsocket.library on the Amiga | not yet (no LAN transport, no Amiga-side TLS) |
 
 The last five rows are the first half of PLAN.md step 5 (TLS through
-OpenTLS, HTTP/2, proxies, auth, a transport without a services card).
+GFOpenTLS, HTTP/2, proxies, auth, a transport without a services card).
 WebSocket is in that list too, but the port has none to lose.
 
 ### Public suffixes without libpsl
@@ -328,7 +328,7 @@ experiment (`WEBCORE_PORT.md`).
 2. **GraphicsContextOpenGPU for the window, rectangles and pictures**
    (patch 0076; written, not yet built).
    `AmigaWebView::paint()` uses it, unless the Shell variable
-   `OB_PAINT=cairo` is set or opengpu.library is missing or has no
+   `OB_PAINT=cairo` is set or gfopengpu.library is missing or has no
    `COMPOSITE_PD`. It does solid fills, `clearRect`,
    rectangle clips, and images (the pixels of a cairo image surface are
    ARGB memory) through `FILL`, `COMPOSITE_PD` and, for a picture that is
@@ -340,7 +340,7 @@ experiment (`WEBCORE_PORT.md`).
 3. **Paths and fills.** Path fill (non-zero and even-odd), strokes with
    caps, joins and dashes, clips to paths as A8 masks, gradients and
    patterns, read from WebCore's own `Path` segments and `Gradient` stops,
-   so `PathCairo` is not needed. Needs OpenGPU's rasteriser and v1.6
+   so `PathCairo` is not needed. Needs GFOpenGPU's rasteriser and v1.6
    strokes and gradients.
    Patch 0077 (written, not yet built) does the paths, strokes and
    gradients: `fillPath`, `strokePath`, `strokeRect`, `fillRoundedRect`,
@@ -349,7 +349,7 @@ experiment (`WEBCORE_PORT.md`).
    as anti-aliased paths. Strokes take cairo's width, caps, joins, miter
    limit and dashes from its context. Linear and radial gradients (an
    elliptical one through its matrix) with pad, repeat and reflect, where
-   every stop has one alpha (pixman mixes stops unpremultiplied, OpenGPU
+   every stop has one alpha (pixman mixes stops unpremultiplied, GFOpenGPU
    premultiplied: the same then). By source-over, source-atop,
    destination-over, destination-out, xor and plus-lighter. Still cairo's:
    clips to paths (next: A8 masks), patterns, conic gradients (cairo's
@@ -362,20 +362,20 @@ experiment (`WEBCORE_PORT.md`).
    but patterns and gradients: clips to paths, clip-outs and rounded
    clips as A8 masks (and rectangle clips off whole pixels or turned, by
    pixel centres as cairo's), shapes without anti-aliasing through stream
-   v1.8's `OGPU_PATH_ALIASED` (opengpu.library 0.23), and copy and clear
+   v1.8's `OGPU_PATH_ALIASED` (gfopengpu.library 0.23), and copy and clear
    on paths and through masks as cairo's coverage mix. Tested on the host
    against cairo 1.18 itself (`tests/test_opengpu_clip.c`): the same
    pixels wherever both cover whole pixels, edges of curves within 18.
 4. **Text.** `drawGlyphs` as batched glyph runs from a glyph cache, with
-   the glyph masks from step 3's OpenFont backend (or, if step 3 is not
+   the glyph masks from step 3's GFOpenFont backend (or, if step 3 is not
    ready, from the FreeType face cairo-ft holds, as FreeType is still
-   linked then). Needs the batched glyph run in OpenGPU.
+   linked then). Needs the batched glyph run in GFOpenGPU.
 5. **Layers, shadows and blend modes.** Transparency layers on offscreen
-   surfaces, `clipToImageBuffer`, the shadows (`ShadowBlur` on OpenGPU
+   surfaces, `clipToImageBuffer`, the shadows (`ShadowBlur` on GFOpenGPU
    blur), and the 15 blend modes and the last two operators. After this
    the count of calls handed to cairo should be zero on the test pages.
 6. **cairo out.** `USE(CAIRO)` off and the port's own types on:
-   `ImageBufferOpenGPUBackend`, `NativeImage` on an OpenGPU surface,
+   `ImageBufferOpenGPUBackend`, `NativeImage` on a GFOpenGPU surface,
    `PathOpenGPU` on `PathStream`, `ImageBackingStore`, `ShareableBitmap`,
    `Gradient` and `Pattern`; `platform/Cairo.cmake` and
    `SourcesCairo.txt` no longer included; `AmigaWebView.cpp` and the
@@ -384,7 +384,7 @@ experiment (`WEBCORE_PORT.md`).
    needs checking on the test pages. Needs the font backend without
    cairo-ft (step 3). Map: `libcairo.a`, `libpixman-1.a` and the cairo
    bundles. Step 6 is done.
-7. **Faster filters (later, optional).** OpenGPU appliers for Gaussian
+7. **Faster filters (later, optional).** GFOpenGPU appliers for Gaussian
    blur, drop shadow and the colour matrix, chosen as Skia's are. Map:
    nothing goes; measured by time on filter-heavy pages.
 
@@ -398,22 +398,22 @@ nghttp2 in 5.5, libpng in 6.1, cairo and pixman in 6.6.
 ## D. Cairo out (Team 4, from 1 November 2026)
 
 Dale, 1 Nov: cairo leaves openamigabrowser and what it did is offered by
-the SDK. PLAN.md step 6 (22 Oct): WebCore draws on OpenGPU directly;
-opengpu.library does all pixel work. Built on Team 3's open #104 (patch
+the SDK. PLAN.md step 6 (22 Oct): WebCore draws on GFOpenGPU directly;
+gfopengpu.library does all pixel work. Built on Team 3's open #104 (patch
 0076) and #115 (patch 0077), never rewriting them. One PR per item, in this
 order; each browser branch is stacked on the one before it, the first on
 #115's branch.
 
 | # | Repo | What | Stacked on |
 |---|---|---|---|
-| 1 | openamigartg | stream v1.8: `OGPU_PATH_ALIASED` (paths without anti-aliasing, cairo's `CAIRO_ANTIALIAS_NONE`), opengpu.library 0.23. The only new pixel work cairo did that OpenGPU lacked; everything else (A8 clip masks, patterns, conic gradients, blur, layers by `COMPOSITE_PD`) is in v1.6 already | main |
-| 2 | openamigasdk | opengpu.library in the Open SDK: its headers and SFD gathered from openamigartg (one source: `include/opengpu/`), its AutoDocs in `Docs/`, an example in `Examples/` | main (pins 1's commit) |
+| 1 | openamigartg | stream v1.8: `OGPU_PATH_ALIASED` (paths without anti-aliasing, cairo's `CAIRO_ANTIALIAS_NONE`), gfopengpu.library 0.23. The only new pixel work cairo did that GFOpenGPU lacked; everything else (A8 clip masks, patterns, conic gradients, blur, layers by `COMPOSITE_PD`) is in v1.6 already | main |
+| 2 | openamigasdk | gfopengpu.library in the Open SDK: its headers and SFD gathered from openamigartg (one source: `include/opengpu/`), its AutoDocs in `Docs/`, an example in `Examples/` | main (pins 1's commit) |
 | 3 | openamigabrowser | patch 0078 , item 1: clips to paths as A8 masks (clipPath, clipOut, rounded and off-pixel rectangle clips), aliased paths, copy and clear on paths (cairo's bounded lerp, two passes) | #115 |
 | 4 | openamigabrowser | patch 0079, item 2: patterns (drawPattern, pattern fills and strokes; tiles on whole pixels, no spacing, both-way repeat for brushes), conic gradients, stops of different alphas (premultiplied, as CSS: Dale, 1 Nov), aliased paths asked with `OGPU_QUERY_FLAG` | 3 |
 | 5 | openamigabrowser | patch 0080, item 3: drawLine, drawRect, drawEllipse, focus rings, text decorations, document markers | 4 |
-| 6 | openamigabrowser | patch 0081, item 4: shadows (OpenGPU BLUR) and transparency layers (offscreen surface, then COMPOSITE_PD by opacity, operator and blend mode), clipToImageBuffer | 5 |
-| 6b | openamigabrowser | patch 0082b, item 4's shadows: ShadowBlur's (box sizes from calculateLobes: CSS blur x 0.88, canvas 2/3; Dale, 1 Nov) as an A8 layer, OpenGPU `BLUR` asked for those sizes, the colour through it | 7 |
-| 7 | openamigabrowser | patch 0082, item 5: glyph runs through openfont.library 1.5's `OF_DrawGlyphsA`, whose glyph cache is inside openfont (Dale, 1 Nov; openamigafont #24) | 6 |
+| 6 | openamigabrowser | patch 0081, item 4: shadows (GFOpenGPU BLUR) and transparency layers (offscreen surface, then COMPOSITE_PD by opacity, operator and blend mode), clipToImageBuffer | 5 |
+| 6b | openamigabrowser | patch 0082b, item 4's shadows: ShadowBlur's (box sizes from calculateLobes: CSS blur x 0.88, canvas 2/3; Dale, 1 Nov) as an A8 layer, GFOpenGPU `BLUR` asked for those sizes, the colour through it | 7 |
+| 7 | openamigabrowser | patch 0082, item 5: glyph runs through gfopenfont.library 1.5's `OF_DrawGlyphsA`, whose glyph cache is inside openfont (Dale, 1 Nov; openamigafont #24) | 6 |
 | 8 | openamigabrowser | item 6: PNG out is already the PNG datatype's (patch 0074, #93): libpng is linked only for cairo, and leaves with it in 9 | - |
 | 9 | openamigabrowser | patch 0083, item 7: cairo, pixman and libpng out of the engine's map; GraphicsContextCairo goes | 7 |
 
@@ -429,14 +429,14 @@ State on 1 November: 1 is openamigartg #157 (merged), 2 is openamigasdk
 matrices (gradients, patterns, COMPOSITE_AFFINE) turned out miscompiled by
 GCC for the 68k: openamigartg #159 fixes it for GCC 16 and 13, checked on
 a lab Amiga; with GCC 6.5 (the os32 stove, which openamigartg's
-`library/build.sh` uses for opengpu.library) strokes painted with
+`library/build.sh` uses for gfopengpu.library) strokes painted with
 gradients or patterns still differ from the host's. Items 2 (patterns,
 gradients) and later wait on that.
 
-Later on 1 November: the shipped opengpu.library is built with
-OpenAmigaGCC 16.2.0-open4 (openamigartg #160; its OpenGPUVectorCRC matches
+Later on 1 November: the shipped gfopengpu.library is built with
+GFOpenAmigaGCC 16.2.0-open4 (openamigartg #160; its OpenGPUVectorCRC matches
 the host on a lab Amiga), so the GCC 6.5 difference no longer reaches
-users. openamigartg #161 (opengpu.library 0.24) adds `OGPU_QUERY_FLAG`, the
+users. openamigartg #161 (gfopengpu.library 0.24) adds `OGPU_QUERY_FLAG`, the
 query 0079 uses for `OGPU_PATH_ALIASED`. Gradient stops of different
 alphas are mixed premultiplied, as CSS says, where pixman mixed them
-unpremultiplied: Dale accepts OpenGPU's behaviour. Patch 0079 is item 4.
+unpremultiplied: Dale accepts GFOpenGPU's behaviour. Patch 0079 is item 4.

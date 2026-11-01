@@ -1,4 +1,4 @@
-/* OpenBrowser (DalsinAI/openamigabrowser). Copyright (c) 2026 AmigaChrome Team. MIT licence, see LICENSE. */
+/* GFOpenBrowser (DalsinAI/openamigabrowser). Copyright (c) 2026 AmigaChrome Team. MIT licence, see LICENSE. */
 /* malloc, free, calloc, realloc and aligned_alloc for the engine, over libnix.
  *
  * Linked with -Wl,--wrap=malloc,--wrap=calloc,--wrap=realloc,--wrap=free
@@ -35,7 +35,7 @@
  * memory goes back to exec when the program ends, which AllocVec's would not.
  *
  * One lock covers the small heap: a bit set by TAS, atomic on one CPU and,
- * as a host atomic, across AmigaChrome's task cores too (until 1 Nov 2026 it
+ * as a host atomic, across AmiCradle's task cores too (until 1 Nov 2026 it
  * was BSET, atomic on one CPU only), and the fast path is that bit and a
  * clear: no Forbid, no library call. A task that finds the bit set queues
  * itself and Wait()s under Forbid, which lets the holder run whatever its
@@ -129,7 +129,7 @@ static inline int os32_try(void)
 {
     unsigned char was;
     /* TAS, not BSET (1 Nov 2026): BSET is atomic against task switches on
-     * one CPU only; AmigaChrome's task cores run tasks on other host cores at
+     * one CPU only; AmiCradle's task cores run tasks on other host cores at
      * the same time, and there TAS (with CAS and CAS2) is a host atomic,
      * BSET is not. The heap is in fast RAM (the engine needs tens of MB), so
      * TAS's read-modify-write cycle never reaches the chip bus. Bit 7 is the

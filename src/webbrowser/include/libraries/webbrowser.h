@@ -16,8 +16,8 @@
  * the last program closes the library, so later programs find it ready;
  * WB_Shutdown() ends it. Calls are synchronous and may come from any task.
  *
- * WB_OpenBrowser(url, tags) opens OpenBrowser's own window in the engine
- * (or shows the page in it when it is already open): the OpenBrowser icon
+ * WB_OpenBrowser(url, tags) opens GFOpenBrowser's own window in the engine
+ * (or shows the page in it when it is already open): the GFOpenBrowser icon
  * does just that, so the browser opens at once while the engine is in
  * memory.
  *

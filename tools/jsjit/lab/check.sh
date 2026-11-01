@@ -1,5 +1,5 @@
 #!/bin/bash
-# The AmigaChrome Team. Runs every lab/correct*.js on a jsc host build with
+# The AmiCradle Team. Runs every lab/correct*.js on a jsc host build with
 # the template JIT on and off, and compares each output with node's.
 #   check.sh path/to/jsc
 here=$(cd "$(dirname "$0")" && pwd)
