@@ -18,11 +18,20 @@
 #include <sys/wait.h>
 #include <unistd.h>
 
-/* libnix's malloc, as the host's, counted */
+/* libnix's malloc, as the host's, counted. While growRaces is set, an
+ * arena's call first makes another malloc() (into raced[]), as another task
+ * can while this one is in libnix's malloc with the lock released */
 static long realLive, realCalls;
+static int growRaces;
+static void* raced[4];
 void* __real_malloc(size_t n)
 {
-    void* p = malloc(n);
+    void* p;
+    if (growRaces > 0 && n >= OS32_PAGES * OS32_PAGE) {
+        growRaces--;
+        raced[growRaces] = __wrap_malloc(24);
+    }
+    p = malloc(n);
     if (p) {
         __atomic_add_fetch(&realLive, 1, __ATOMIC_SEQ_CST);
         __atomic_add_fetch(&realCalls, 1, __ATOMIC_SEQ_CST);
@@ -73,6 +82,48 @@ static void check_classes(void)
             return;
         }
     }
+}
+
+/* the pages kept by the classes, with every block freed */
+static unsigned class_pages(void)
+{
+    unsigned c, kept = 0;
+    struct os32_page* pg;
+    for (c = 0; c < OS32_CLASSES; c++)
+        for (pg = os32.cls[c]; pg; pg = pg->next) {
+            CHECK(pg->cls == c && !pg->live && !pg->next);
+            kept++;
+        }
+    return kept;
+}
+
+/* Tasks that find the pool empty at the same time each take an arena from
+ * libnix. On one thread, in a set order: each of four malloc()s makes the
+ * next from inside libnix's malloc, so four arenas come in, the innermost
+ * first, and all four blocks share a page of that one; the other three
+ * arenas' pages wait in the pool. With the four blocks freed, no more than
+ * one spare arena may be kept (before 1 Nov 2026 all three were: 24 pages
+ * in the pool). On an empty heap: run first. */
+static void check_racing_arenas(void)
+{
+    void* first;
+    unsigned kept, i;
+    long arenas;
+    CHECK(!os32.empty && !realLive);
+    growRaces = 3;
+    first = __wrap_malloc(24);
+    CHECK(first && !growRaces && raced[0] && raced[1] && raced[2]);
+    __wrap_free(first);
+    for (i = 0; i < 3; i++) {
+        __wrap_free(raced[i]);
+        raced[i] = NULL;
+    }
+    kept = class_pages();
+    arenas = __atomic_load_n(&realLive, __ATOMIC_SEQ_CST);
+    printf("os32 malloc: arenas taken by racing tasks, all freed: %ld arenas kept, %u pages kept by a class, %u in the pool\n",
+        arenas, kept, os32.nempty);
+    CHECK(os32.nempty < 2 * OS32_PAGES);
+    CHECK(arenas <= 2 && (unsigned long)arenas * OS32_PAGES == kept + os32.nempty);
 }
 
 static void check_contract(void)
@@ -351,14 +402,8 @@ static void stress(const char* what)
 /* everything is free: the pages left are the classes' last ones and the pool */
 static void check_returned(void)
 {
-    unsigned c, kept = 0;
-    struct os32_page* pg;
+    unsigned kept = class_pages();
     long arenas = __atomic_load_n(&realLive, __ATOMIC_SEQ_CST);
-    for (c = 0; c < OS32_CLASSES; c++)
-        for (pg = os32.cls[c]; pg; pg = pg->next) {
-            CHECK(pg->cls == c && !pg->live && !pg->next);
-            kept++;
-        }
     CHECK(os32.nempty < 2 * OS32_PAGES);
     CHECK(arenas <= 5 && (unsigned long)arenas * OS32_PAGES == kept + os32.nempty);
     printf("os32 malloc: all freed: %ld arenas kept, %u pages kept by a class, %u in the pool; %ld calls to libnix\n",
@@ -370,6 +415,7 @@ int main(int argc, char** argv)
     if (argc > 1)
         rounds = atol(argv[1]);
     check_classes();
+    check_racing_arenas();
     check_contract();
 #ifdef OS32_MALLOC_DEBUG
     CHECK(dies(0));
