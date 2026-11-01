@@ -1,0 +1,407 @@
+From 0ffe51d763573b60525b37ebe7ba6d09135ca1b8 Mon Sep 17 00:00:00 2001
+From: SacredTrees <121399723+SacredTrees@users.noreply.github.com>
+Date: Sun, 1 Nov 2026 17:52:53 +0000
+Subject: [PATCH] WebCore: borders, lines, list bullets, focus rings and text
+ lines through OpenGPU
+
+GraphicsContextOpenGPU now draws itself the calls it used to hand to cairo
+whole (cairo-out item 3, openamigabrowser docs/STEP5-6-WEBCORE.md). Each
+one does what WebKit's Cairo:: code for it does:
+
+- drawRect (Cairo::drawRect): the rectangle filled with the fill colour
+  (fillRectWithColor: nothing for an invisible colour over), then a
+  1-pixel stroke of the stroke colour half a pixel inside it, with the
+  context's caps, joins and dashes.
+- drawLine (Cairo::drawLine, borders): a line centred across its
+  thickness, drawn without anti-aliasing as cairo's. A solid line under 1
+  pixel is drawn 1 wide. Dotted and dashed lines get their filled corners
+  and the dash pattern balanced between them (cairo's corner, pattern and
+  offset arithmetic).
+- drawEllipse (Cairo::drawEllipse, list bullets): filled with the fill
+  colour when visible, then stroked at the stroke thickness. The path is
+  WebCore's four-cubic ellipse.
+- drawLinesForText (underlines, overlines, line-through): rectangles of
+  the stroke colour on the line's box. The origin is on whole device
+  pixels (x rounded, y up), at least half a pixel thick, fainter under a
+  scale below 1, and double lines get a second row.
+- Focus rings: with the Adwaita theme (the engine's build), what
+  GraphicsContextCairo does, Adwaita::paintFocus, which draws through
+  this context's own calls.
+
+None of these draws a shadow or the global alpha, as cairo's don't. When
+OpenGPU can't take one part (blending, a size past the fixed point), that
+part is drawn on cairo after the batch, as cairo would have drawn it.
+Spelling and grammar markers (drawErrorUnderline's squiggle) stay
+cairo's.
+---
+ .../graphics/amiga/GraphicsContextOpenGPU.cpp | 269 +++++++++++++++++-
+ .../graphics/amiga/GraphicsContextOpenGPU.h   |  12 +-
+ 2 files changed, 268 insertions(+), 13 deletions(-)
+
+diff --git a/Source/WebCore/platform/graphics/amiga/GraphicsContextOpenGPU.cpp b/Source/WebCore/platform/graphics/amiga/GraphicsContextOpenGPU.cpp
+index d741d61..e31d1a3 100644
+--- a/Source/WebCore/platform/graphics/amiga/GraphicsContextOpenGPU.cpp
++++ b/Source/WebCore/platform/graphics/amiga/GraphicsContextOpenGPU.cpp
+@@ -26,6 +26,9 @@
+ #include "NativeImage.h"
+ #include "Path.h"
+ #include "Pattern.h"
++#if USE(THEME_ADWAITA)
++#include "Adwaita.h"
++#endif
+ #include <algorithm>
+ #include <cairo.h>
+ #include <cmath>
+@@ -451,9 +454,9 @@ bool GraphicsContextOpenGPU::ensureWork()
+ 
+ // Paths can be drawn here: PATH_FILL, anti-aliased as cairo's, normal
+ // blending, no shadow.
+-bool GraphicsContextOpenGPU::pathsWanted()
++bool GraphicsContextOpenGPU::pathsWanted(bool drawsShadow)
+ {
+-    if (!m_gpu || !(m_gpu->caps & OBGPU_CAN_PATH) || blendMode() != BlendMode::Normal || hasDropShadow())
++    if (!m_gpu || !(m_gpu->caps & OBGPU_CAN_PATH) || blendMode() != BlendMode::Normal || (drawsShadow && hasDropShadow()))
+         return false;
+     // without anti-aliasing (cairo's CAIRO_ANTIALIAS_NONE) from opengpu.library 0.23
+     if (!shouldAntialias() && !(m_gpu->caps & OBGPU_CAN_ALIASED))
+@@ -965,24 +968,223 @@ void GraphicsContextOpenGPU::strokePath(const Path& path)
+     m_cairo.strokePath(path);
+ }
+ 
+-// ---- what cairo draws -------------------------------------------------------------------
++// ---- borders, lines, list bullets (0080) --------------------------------------------------
+ 
++void GraphicsContextOpenGPU::plainFill(const FloatRect& rect, const Color& color)
++{
++    if (!color.isVisible() && compositeOperation() == CompositeOperator::SourceOver && blendMode() == BlendMode::Normal)
++        return;
++    long r[4];
++    if (m_gpu && blendMode() == BlendMode::Normal && fixedRect(rect, r)) {
++        obgpu_set_antialias(m_gpu, shouldAntialias());
++        ensureWork();
++        if (obgpu_fill(m_gpu, r[0], r[1], r[2], r[3], premultiplied(color), static_cast<int>(compositeOperation())))
++            return;
++    }
++    handOn(OBGPU_FILL);
++    cairo_t* cr = m_cairo.cr();
++    cairo_save(cr);
++    auto [red, green, blue, alpha] = color.toColorTypeLossy<SRGBA<float>>().resolved();
++    cairo_set_source_rgba(cr, red, green, blue, alpha);
++    cairo_rectangle(cr, rect.x(), rect.y(), rect.width(), rect.height());
++    cairo_fill(cr);
++    cairo_restore(cr);
++}
++
++// A stroke on cairo itself, as the Cairo:: call it stands for would make it
++// (its colour, width and dashes, the context's caps and joins).
++void GraphicsContextOpenGPU::cairoStroke(const Path& path, const Color& color, double width, const double* dashes, int dashCount, double dashOffset, bool aliased)
++{
++    flush();
++    cairo_t* cr = m_cairo.cr();
++    cairo_save(cr);
++    auto [red, green, blue, alpha] = color.toColorTypeLossy<SRGBA<float>>().resolved();
++    cairo_set_source_rgba(cr, red, green, blue, alpha);
++    cairo_set_line_width(cr, width);
++    if (dashes)
++        cairo_set_dash(cr, dashes, dashCount, dashOffset);
++    if (aliased)
++        cairo_set_antialias(cr, CAIRO_ANTIALIAS_NONE);
++    cairo_new_path(cr);
++    path.applyElements([&](const PathElement& element) {
++        auto& p = element.points;
++        switch (element.type) {
++        case PathElement::Type::MoveToPoint:
++            cairo_move_to(cr, p[0].x(), p[0].y());
++            break;
++        case PathElement::Type::AddLineToPoint:
++            cairo_line_to(cr, p[0].x(), p[0].y());
++            break;
++        case PathElement::Type::AddQuadCurveToPoint: {
++            double x0, y0;
++            cairo_get_current_point(cr, &x0, &y0);
++            cairo_curve_to(cr, x0 + 2.0 / 3 * (p[0].x() - x0), y0 + 2.0 / 3 * (p[0].y() - y0),
++                p[1].x() + 2.0 / 3 * (p[0].x() - p[1].x()), p[1].y() + 2.0 / 3 * (p[0].y() - p[1].y()), p[1].x(), p[1].y());
++            break;
++        }
++        case PathElement::Type::AddCurveToPoint:
++            cairo_curve_to(cr, p[0].x(), p[0].y(), p[1].x(), p[1].y(), p[2].x(), p[2].y());
++            break;
++        case PathElement::Type::CloseSubpath:
++            cairo_close_path(cr);
++            break;
++        }
++    });
++    cairo_stroke(cr);
++    cairo_restore(cr);
++}
++
++// As Cairo::drawRect: the rectangle filled with the fill colour (as
++// fillRectWithColor), then a 1-pixel stroke of the stroke colour half a
++// pixel inside it, with the context's caps, joins and dashes. No global
++// alpha, no shadow.
+ void GraphicsContextOpenGPU::drawRect(const FloatRect& rect, float borderThickness)
+ {
++    if (!pathsWanted(false)) {
++        handOn(OBGPU_STROKE);
++        m_cairo.drawRect(rect, borderThickness);
++        return;
++    }
++    plainFill(rect, fillColor());
++    if (strokeStyle() == StrokeStyle::NoStroke)
++        return;
++    FloatRect r(rect);
++    r.inflate(-.5f);
++    Path path;
++    path.addRect(r);
++    Paint paint;
++    paint.argb = premultiplied(strokeColor());
++    pathsWanted(false);
++    if (strokePathWith(path, paint, 1))
++        return;
+     handOn(OBGPU_STROKE);
+-    m_cairo.drawRect(rect, borderThickness);
++    cairoStroke(path, strokeColor(), 1, nullptr, 0, 0, false);
+ }
+ 
+-void GraphicsContextOpenGPU::drawLine(const FloatPoint& from, const FloatPoint& to)
++// As Cairo::drawLine (borders): a line between the points, centred across
++// its thickness; dotted and dashed lines get filled corners and a dash
++// pattern balanced between them. Drawn without anti-aliasing either way
++// (cairo's: NONE when the context anti-aliases, and NONE already when it
++// doesn't). No global alpha, no shadow.
++void GraphicsContextOpenGPU::drawLine(const FloatPoint& point1, const FloatPoint& point2)
+ {
++    if (strokeStyle() == StrokeStyle::NoStroke)
++        return;
++    float strokeThickness = this->strokeThickness();
++    bool isVerticalLine = point1.x() + strokeThickness == point2.x();
++    float strokeWidth = isVerticalLine ? point2.y() - point1.y() : point2.x() - point1.x();
++    if (!strokeThickness || !strokeWidth)
++        return;
++    Color color = strokeColor();
++    bool dashed = strokeStyle() == StrokeStyle::DottedStroke || strokeStyle() == StrokeStyle::DashedStroke;
++    // an invisible colour over leaves cairo's source as it was: cairo's
++    if (!pathsWanted(false) || !(m_gpu->caps & OBGPU_CAN_ALIASED)
++        || (!color.isVisible() && compositeOperation() == CompositeOperator::SourceOver)) {
++        handOn(OBGPU_STROKE);
++        m_cairo.drawLine(point1, point2);
++        return;
++    }
++    float cornerWidth = 0;
++    double dash[2] = { };
++    double dashOffset = 0;
++    double width = cairo_get_line_width(m_cairo.cr());
++    if (dashed) {
++        cornerWidth = strokeStyle() == StrokeStyle::DottedStroke ? strokeThickness
++            : std::min(2.0f * strokeThickness, std::max(strokeThickness, strokeWidth / 3.0f));
++        if (isVerticalLine) {
++            plainFill(FloatRect(point1.x(), point1.y(), strokeThickness, cornerWidth), color);
++            plainFill(FloatRect(point1.x(), point2.y() - cornerWidth, strokeThickness, cornerWidth), color);
++        } else {
++            plainFill(FloatRect(point1.x(), point1.y(), cornerWidth, strokeThickness), color);
++            plainFill(FloatRect(point2.x() - cornerWidth, point1.y(), cornerWidth, strokeThickness), color);
++        }
++        strokeWidth -= 2 * cornerWidth;
++        float patternWidth = strokeStyle() == StrokeStyle::DottedStroke ? strokeThickness
++            : std::min(3.0f * strokeThickness, std::max(strokeThickness, strokeWidth / 3.0f));
++        if (strokeWidth <= patternWidth + 1)
++            return;
++        float patternOffset = patternWidth;
++        int numberOfSegments = std::floor(strokeWidth / patternWidth);
++        bool oddNumberOfSegments = numberOfSegments % 2;
++        float remainder = strokeWidth - (numberOfSegments * patternWidth);
++        if (oddNumberOfSegments && remainder)
++            patternOffset -= remainder / 2.0f;
++        else if (!oddNumberOfSegments) {
++            if (remainder)
++                patternOffset += patternOffset - (patternWidth + remainder) / 2.0f;
++            else
++                patternOffset += patternWidth / 2.0f;
++        }
++        dash[0] = dash[1] = patternWidth;
++        dashOffset = patternOffset;
++    } else if (strokeThickness < 1)
++        width = 1;
++    FloatPoint p1 = point1, p2 = point2;
++    if (isVerticalLine) {
++        float centerOffset = (p2.x() - p1.x()) / 2.0f;
++        p1.move(centerOffset, cornerWidth);
++        p2.move(-centerOffset, -cornerWidth);
++    } else {
++        float centerOffset = (p2.y() - p1.y()) / 2.0f;
++        p1.move(cornerWidth, centerOffset);
++        p2.move(-cornerWidth, -centerOffset);
++    }
++    Path path;
++    path.moveTo(p1);
++    path.addLineTo(p2);
++    obgpu_stroke stroke;
++    long dashes[64];
++    bool drawn = false;
++    if (strokeFor(width, stroke, dashes)) {
++        if (dashed) {
++            stroke.dashes = 2;
++            dashes[0] = dashes[1] = std::lround(dash[0] * 65536);
++            stroke.dash_offset = std::lround(dashOffset * 65536);
++        }
++        obgpu_set_antialias(m_gpu, false);
++        drawn = beginPath(path) && obgpu_stroke_path(m_gpu, premultiplied(color), nullptr, &stroke, static_cast<int>(compositeOperation()));
++        obgpu_set_antialias(m_gpu, shouldAntialias());
++    }
++    if (drawn)
++        return;
+     handOn(OBGPU_STROKE);
+-    m_cairo.drawLine(from, to);
++    cairoStroke(path, color, width, dashed ? dash : nullptr, 2, dashOffset, true);
+ }
+ 
++// As Cairo::drawEllipse (list bullets): the ellipse filled with the fill
++// colour when it is visible, then stroked with the stroke colour at the
++// stroke thickness unless there is no stroke. No global alpha, no shadow.
++// The path is WebCore's ellipse (four cubics), where cairo_arc makes its
++// own (as many as its tolerance asks): the same to well under a pixel.
+ void GraphicsContextOpenGPU::drawEllipse(const FloatRect& rect)
+ {
+-    handOn(OBGPU_PATH);
+-    m_cairo.drawEllipse(rect);
++    Path path;
++    path.addEllipseInRect(rect);
++    obgpu_stroke stroke;
++    long dashes[64];
++    bool stroked = strokeStyle() != StrokeStyle::NoStroke;
++    if (!pathsWanted(false) || (stroked && !strokeFor(strokeThickness(), stroke, dashes))) {
++        handOn(OBGPU_PATH);
++        m_cairo.drawEllipse(rect);
++        return;
++    }
++    Paint paint;
++    if (fillColor().isVisible()) {
++        paint.argb = premultiplied(fillColor());
++        if (!fillPathWith(path, paint, false, compositeOperation())) {
++            handOn(OBGPU_PATH);
++            m_cairo.drawEllipse(rect);
++            return;
++        }
++    }
++    if (!stroked)
++        return;
++    paint.argb = premultiplied(strokeColor());
++    pathsWanted(false);
++    if (strokePathWith(path, paint, strokeThickness()))
++        return;
++    handOn(OBGPU_STROKE);
++    cairoStroke(path, strokeColor(), strokeThickness(), nullptr, 0, 0, false);
+ }
+ 
+ // As CairoUtilities' drawPatternToCairoContext: the tile repeated under the
+@@ -1034,16 +1236,31 @@ void GraphicsContextOpenGPU::drawPattern(const NativeImage& image, const FloatRe
+     m_cairo.drawPattern(image, destRect, tileRect, patternTransform, phase, spacing, options);
+ }
+ 
++// Focus rings as GraphicsContextCairo draws them: with the Adwaita theme
++// (the engine's build) Adwaita::paintFocus, which draws through this
++// context's own calls; otherwise Cairo::drawFocusRing's group, left to cairo.
+ void GraphicsContextOpenGPU::drawFocusRing(const Path& path, float outlineWidth, const Color& color, float zoomFactor)
+ {
++#if USE(THEME_ADWAITA)
++    UNUSED_PARAM(outlineWidth);
++    UNUSED_PARAM(zoomFactor);
++    Adwaita::paintFocus(*this, path, color);
++#else
+     handOn(OBGPU_FOCUS);
+     m_cairo.drawFocusRing(path, outlineWidth, color, zoomFactor);
++#endif
+ }
+ 
+ void GraphicsContextOpenGPU::drawFocusRing(const Vector<FloatRect>& rects, float outlineWidth, const Color& color, float zoomFactor)
+ {
++#if USE(THEME_ADWAITA)
++    UNUSED_PARAM(outlineWidth);
++    UNUSED_PARAM(zoomFactor);
++    Adwaita::paintFocus(*this, rects, color);
++#else
+     handOn(OBGPU_FOCUS);
+     m_cairo.drawFocusRing(rects, outlineWidth, color, zoomFactor);
++#endif
+ }
+ 
+ void GraphicsContextOpenGPU::drawGlyphs(const Font& font, std::span<const GlyphBufferGlyph> glyphs, std::span<const GlyphBufferAdvance> advances, const FloatPoint& point, FontSmoothingMode smoothing)
+@@ -1058,12 +1275,42 @@ void GraphicsContextOpenGPU::drawGlyphsImmediate(const FontBase& font, std::span
+     m_cairo.drawGlyphsImmediate(font, glyphs, advances, point, smoothing);
+ }
+ 
+-void GraphicsContextOpenGPU::drawLinesForText(const FloatPoint& point, float thickness, std::span<const FloatSegment> segments, bool isPrinting, bool doubleLines, StrokeStyle style)
++// As Cairo::drawLinesForText (underlines, overlines, line-through): each
++// segment a rectangle of the stroke colour (as fillRectWithColor) on the
++// line's box, its origin on whole device pixels (x rounded, y up), at least
++// half a pixel thick, the colour fainter under a scale below 1; double
++// underlines a second row one thickness below. No global alpha, no shadow.
++void GraphicsContextOpenGPU::drawLinesForText(const FloatPoint& point, float thickness, std::span<const FloatSegment> segments, bool isPrinting, bool doubleLines, StrokeStyle)
+ {
+-    handOn(OBGPU_TEXT_LINES);
+-    m_cairo.drawLinesForText(point, thickness, segments, isPrinting, doubleLines, style);
++    if (segments.empty())
++        return;
++    Color color = strokeColor();
++    FloatPoint origin = point;
++    float lineThickness = std::max(thickness, 0.5f);
++    if (!isPrinting) {
++        AffineTransform transform = getCTM(PossiblyIncludeDeviceScale);
++        float scale = transform.b() ? std::hypot(transform.a(), transform.b()) : transform.a();
++        if (scale < 1.0) {
++            static const float minimumUnderlineAlpha = 0.4f;
++            color = color.colorWithAlphaMultipliedBy(scale > minimumUnderlineAlpha ? scale : minimumUnderlineAlpha);
++        }
++        FloatPoint devicePoint = transform.mapPoint(point);
++        FloatPoint deviceOrigin(roundf(devicePoint.x()), ceilf(devicePoint.y()));
++        if (auto inverse = transform.inverse())
++            origin = inverse.value().mapPoint(deviceOrigin);
++    }
++    FloatRect bounds(origin, FloatSize(segments.back().end, lineThickness));
++    for (auto& segment : segments)
++        plainFill(FloatRect(FloatPoint(bounds.x() + segment.begin, bounds.y()), FloatSize(segment.length(), bounds.height())), color);
++    if (doubleLines) {
++        for (auto& segment : segments)
++            plainFill(FloatRect(FloatPoint(bounds.x() + segment.begin, bounds.y() + 2 * bounds.height()), FloatSize(segment.length(), bounds.height())), color);
++    }
+ }
+ 
++// Spelling and grammar markers: cairo's drawErrorUnderline, a squiggle
++// filled as one path. Left to cairo here: its shape is cairo's own code
++// (DrawErrorUnderline.h), to be written on the stream with cairo's leaving.
+ void GraphicsContextOpenGPU::drawDotsForDocumentMarker(const FloatRect& rect, DocumentMarkerLineStyle style)
+ {
+     handOn(OBGPU_TEXT_LINES);
+diff --git a/Source/WebCore/platform/graphics/amiga/GraphicsContextOpenGPU.h b/Source/WebCore/platform/graphics/amiga/GraphicsContextOpenGPU.h
+index 359eae9..8dcbd31 100644
+--- a/Source/WebCore/platform/graphics/amiga/GraphicsContextOpenGPU.h
++++ b/Source/WebCore/platform/graphics/amiga/GraphicsContextOpenGPU.h
+@@ -5,7 +5,8 @@
+  * colour or a linear or radial gradient, anti-aliased or not, by any
+  * operator cairo bounds by the shape (copy and clear included) go into one
+  * OpenGPU batch
+- * (OpenGPUPaintAmiga.h); from 0079 also patterns (drawPattern, pattern
++ * (OpenGPUPaintAmiga.h); from 0080 drawRect, drawLine, drawEllipse,
++ * focus rings, text decorations and spelling markers; from 0079 also patterns (drawPattern, pattern
+  * brushes), conic gradients and stops of any alphas (mixed premultiplied,
+  * as CSS); every other call goes to a GraphicsContextCairo
+  * on the same pixels and the same state, after the batch is sent and drawn.
+@@ -123,7 +124,14 @@ private:
+     void syncMatrix();
+     bool solidFill(const FloatRect&, const Color&, CompositeOperator, BlendMode);
+     bool ensureWork();
+-    bool pathsWanted();
++    // shadows: whether the cairo call this stands for draws the context's
++    // shadow (fills and strokes do; drawRect, drawLine and the like don't)
++    bool pathsWanted(bool drawsShadow = true);
++    // A rectangle of one colour as Cairo's fillRectWithColor (no global
++    // alpha, no shadow, nothing for an invisible colour over), here or, when
++    // OpenGPU can't, on cairo itself after the batch.
++    void plainFill(const FloatRect&, const Color&);
++    void cairoStroke(const Path&, const Color&, double width, const double* dashes, int dashCount, double dashOffset, bool aliased);
+     bool paintFor(const SourceBrush&, Paint&);
+     bool gradientFor(const Gradient&, const AffineTransform& gradientSpaceTransform, float globalAlpha, Paint&);
+     bool patternFor(const Pattern&, float globalAlpha, Paint&);
+-- 
+2.43.0
+
