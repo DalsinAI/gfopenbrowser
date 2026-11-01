@@ -1,0 +1,416 @@
+From 7861d342dfba9cf0f5eef2e7691a1728c5ee781c Mon Sep 17 00:00:00 2001
+From: SacredTrees <121399723+SacredTrees@users.noreply.github.com>
+Date: Sun, 1 Nov 2026 18:06:33 +0000
+Subject: [PATCH] WebCore: glyph runs through openfont.library's OF_DrawGlyphsA
+ on OpenGPU
+
+GraphicsContextOpenGPU::drawGlyphs no longer hands every run to cairo
+(cairo-out item 5, openamigabrowser docs/STEP5-6-WEBCORE.md). The glyph
+cache is openfont's, as Dale decided: openfont.library 1.5's
+OF_DrawGlyphsA fills each glyph once into its A8 atlas through OpenGPU and
+draws every use from it (openamigafont #24).
+
+- OpenGPUGlyphsAmiga.c opens openfont.library itself, version 1 with
+  revision 5 or later, with its own base: OpenFontLibrary.c's
+  OpenFontBase is left alone. It passes a run to OF_DrawGlyphsA.
+  Headers from before revision 5 compile it to "not there".
+- OpenGPUPaintAmiga: obgpu_glyphs_here gives where the writer draws now
+  (the window or a layer's group, the clip rectangle and the clip's A8
+  mask, the transform's linear part), and obgpu_map maps a pen onto it.
+- drawGlyphs follows Cairo::drawGlyphs. Each glyph sits at the point plus
+  the advances before it, in the fill colour times the global alpha.
+  Synthetic bold is drawn twice, the second time moved by its offset. It
+  is taken when:
+  - the face is an OpenFont face (FontPlatformData::openFontFace) with no
+    colour glyphs and no synthetic oblique;
+  - the text is filled only, with a colour, source-over, normal blending
+    and no shadow;
+  - it is anti-aliased, or not anti-aliased with FontSmoothingMode::None
+    where OpenGPU takes aliased paths.
+  The size on the target is the font's size through the transform. A
+  scale to a whole number of pixels uses the cache; any other size, and a
+  turned or stretched transform, is a matrix about each pen. The batch
+  and cairo's own drawing are sent first, since the library draws at
+  once, under OpenFontFace's lock.
+
+Everything else stays cairo's: stroked or shadowed text, gradient or
+pattern fills, colour emoji, oblique synthesis and drawGlyphsImmediate.
+---
+ .../graphics/amiga/GraphicsContextOpenGPU.cpp | 102 ++++++++++++++++
+ .../graphics/amiga/GraphicsContextOpenGPU.h   |   5 +-
+ .../graphics/amiga/OpenGPUGlyphsAmiga.c       | 115 ++++++++++++++++++
+ .../graphics/amiga/OpenGPUPaintAmiga.c        |  39 ++++++
+ .../graphics/amiga/OpenGPUPaintAmiga.h        |  28 +++++
+ 5 files changed, 288 insertions(+), 1 deletion(-)
+ create mode 100644 Source/WebCore/platform/graphics/amiga/OpenGPUGlyphsAmiga.c
+
+diff --git a/Source/WebCore/PlatformAmiga.cmake b/Source/WebCore/PlatformAmiga.cmake
+--- a/Source/WebCore/PlatformAmiga.cmake
++++ b/Source/WebCore/PlatformAmiga.cmake
+@@ -102,3 +102,4 @@ list(APPEND WebCore_SOURCES
+     platform/graphics/amiga/GraphicsLayerAmiga.cpp
++    platform/graphics/amiga/OpenGPUGlyphsAmiga.c
+     platform/graphics/amiga/OpenGPULibraryAmiga.c
+     platform/graphics/amiga/OpenGPUPaintAmiga.c
+diff --git a/Source/WebCore/platform/graphics/amiga/GraphicsContextOpenGPU.cpp b/Source/WebCore/platform/graphics/amiga/GraphicsContextOpenGPU.cpp
+index 81c030a..e9365ff 100644
+--- a/Source/WebCore/platform/graphics/amiga/GraphicsContextOpenGPU.cpp
++++ b/Source/WebCore/platform/graphics/amiga/GraphicsContextOpenGPU.cpp
+@@ -26,6 +26,11 @@
+ #include "NativeImage.h"
+ #include "Path.h"
+ #include "Pattern.h"
++#include "Font.h"
++#include "FontPlatformData.h"
++#if USE(OPENFONT)
++#include "OpenFontFace.h"
++#endif
+ #if USE(THEME_ADWAITA)
+ #include "Adwaita.h"
+ #endif
+@@ -1297,8 +1302,105 @@ void GraphicsContextOpenGPU::drawFocusRing(const Vector<FloatRect>& rects, float
+ #endif
+ }
+ 
++// Glyph runs (0082) as GraphicsContextCairo draws them (Cairo::drawGlyphs
++// with the face's cairo user font): each glyph at the point plus the
++// advances before it, filled with the fill colour times the global alpha,
++// drawn twice for synthetic bold (moved by its offset along x). Here
++// openfont.library 1.5's OF_DrawGlyphsA draws them from its own glyph
++// cache: an OpenFont face, fill only, a colour (no gradient or pattern),
++// source-over, normal blending, no shadow, no colour glyphs and no
++// synthetic oblique; anti-aliased, or not with FontSmoothingMode::None
++// where OpenGPU takes aliased paths. The device size is the font's size
++// through the transform: a whole number of pixels under a scale (the
++// cache), any other size or a turn as a matrix about each pen.
++bool GraphicsContextOpenGPU::glyphsHere(const Font& font, std::span<const GlyphBufferGlyph> glyphs, std::span<const GlyphBufferAdvance> advances, const FloatPoint& point, FontSmoothingMode smoothing)
++{
++#if USE(OPENFONT)
++    auto& data = font.platformData();
++    OpenFontFace* face = data.openFontFace();
++    if (!m_gpu || !face || !face->face() || face->hasColor() || data.syntheticOblique() || !data.size() || glyphs.size() > 4096
++        || textDrawingMode() != TextDrawingModeFlags(TextDrawingMode::Fill) || hasDropShadow() || blendMode() != BlendMode::Normal
++        || compositeOperation() != CompositeOperator::SourceOver || fillBrush().gradient() || fillBrush().pattern()
++        || !ob_openfont_glyphs_available())
++        return false;
++    obgpu_glyphs where;
++    if (!obgpu_glyphs_here(m_gpu, &where))
++        return false;
++    // the size on the target: a scale (and a whole pixel size) uses the cache
++    double a = where.m[0] / 65536.0, b = where.m[1] / 65536.0, c = where.m[2] / 65536.0, d = where.m[3] / 65536.0;
++    double size = data.size();
++    unsigned long pixelSize = 0;
++    long matrix[4];
++    bool useMatrix = true;
++    if (!b && !c && a == d && a > 0) {
++        double device = size * a;
++        if (std::abs(device - std::round(device)) < 1.0 / 1024 && device >= 1 && device < 4096) {
++            pixelSize = static_cast<unsigned long>(std::lround(device));
++            useMatrix = false;
++        }
++    }
++    if (useMatrix) {
++        pixelSize = static_cast<unsigned long>(std::ceil(size));
++        if (pixelSize < 1 || pixelSize > 4096)
++            return false;
++        double k = size / pixelSize, linear[4] = { a * k, c * k, b * k, d * k };
++        for (int i = 0; i < 4; i++) {
++            if (!(std::abs(linear[i]) < 32767))
++                return false;
++            matrix[i] = std::lround(linear[i] * 65536);
++        }
++    }
++    bool aliased = smoothing == FontSmoothingMode::None;
++    if (aliased && !(m_gpu->caps & OBGPU_CAN_ALIASED))
++        return false;
++    // the pens on the target, 24.8
++    Vector<unsigned long, 128> ids(glyphs.size(), [&](size_t i) { return static_cast<unsigned long>(glyphs[i]); });
++    Vector<long, 256> pens(glyphs.size() * 2);
++    float boldOffset = font.syntheticBoldOffset();
++    for (int pass = 0; pass < (boldOffset ? 2 : 1); pass++) {
++        double x = point.x() + (pass ? boldOffset : 0), y = point.y();
++        for (size_t i = 0; i < glyphs.size(); i++) {
++            if (!(std::abs(x) < (1 << 22)) || !(std::abs(y) < (1 << 22))
++                || !obgpu_map(m_gpu, std::lround(x * 256), std::lround(y * 256), &pens[i * 2], &pens[i * 2 + 1]))
++                return false;
++            x += advances[i].width();
++            y += advances[i].height();
++        }
++        // OpenGPU draws at once: the batch before it, and cairo's own drawing, go first
++        flush();
++        cairo_surface_t* surface = m_drawSurface ? m_drawSurface : m_surface;
++        cairo_surface_flush(surface);
++        Color color = alpha() < 1 ? fillColor().colorWithAlphaMultipliedBy(alpha()) : fillColor();
++        long drawn;
++        {
++            Locker locker { OpenFontFace::lock() };
++            drawn = ob_openfont_draw_glyphs(face->face(), &where, ids.span().data(), pens.span().data(), glyphs.size(), pixelSize,
++                premultiplied(color), useMatrix ? matrix : nullptr, aliased);
++        }
++        cairo_surface_mark_dirty(surface);
++        // the first pass failing leaves nothing drawn: cairo draws it all
++        if (drawn < 0) {
++            if (pass)
++                fprintf(stderr, "OpenBrowser: openfont.library could not draw a run's synthetic bold (%ld)\n", drawn);
++            return !!pass;
++        }
++        m_counts->draws += glyphs.size();
++    }
++    return true;
++#else
++    UNUSED_PARAM(font);
++    UNUSED_PARAM(glyphs);
++    UNUSED_PARAM(advances);
++    UNUSED_PARAM(point);
++    UNUSED_PARAM(smoothing);
++    return false;
++#endif
++}
++
+ void GraphicsContextOpenGPU::drawGlyphs(const Font& font, std::span<const GlyphBufferGlyph> glyphs, std::span<const GlyphBufferAdvance> advances, const FloatPoint& point, FontSmoothingMode smoothing)
+ {
++    if (glyphsHere(font, glyphs, advances, point, smoothing))
++        return;
+     handOn(OBGPU_GLYPHS);
+     m_cairo.drawGlyphs(font, glyphs, advances, point, smoothing);
+ }
+diff --git a/Source/WebCore/platform/graphics/amiga/GraphicsContextOpenGPU.h b/Source/WebCore/platform/graphics/amiga/GraphicsContextOpenGPU.h
+index 200bd0b..1626b47 100644
+--- a/Source/WebCore/platform/graphics/amiga/GraphicsContextOpenGPU.h
++++ b/Source/WebCore/platform/graphics/amiga/GraphicsContextOpenGPU.h
+@@ -5,7 +5,8 @@
+  * colour or a linear or radial gradient, anti-aliased or not, by any
+  * operator cairo bounds by the shape (copy and clear included) go into one
+  * OpenGPU batch
+- * (OpenGPUPaintAmiga.h); from 0081 also what is drawn inside transparency
++ * (OpenGPUPaintAmiga.h); from 0082 glyph runs (openfont.library 1.5's
++ * OF_DrawGlyphsA, its glyph cache inside openfont); from 0081 also what is drawn inside transparency
+  * layers (into cairo's group); from 0080 drawRect, drawLine, drawEllipse,
+  * focus rings, text decorations and spelling markers; from 0079 also patterns (drawPattern, pattern
+  * brushes), conic gradients and stops of any alphas (mixed premultiplied,
+@@ -121,6 +122,8 @@ private:
+     void clipToPath(const Path&, int flags);
+     // After cairo pushed a group: draw into its surface here (0081).
+     void groupHere();
++    // A glyph run drawn by openfont.library through OpenGPU (0082).
++    bool glyphsHere(const Font&, std::span<const GlyphBufferGlyph>, std::span<const GlyphBufferAdvance>, const FloatPoint&, FontSmoothingMode);
+     // The batch sent, then a call of this kind counted for cairo.
+     void handOn(int kind) const;
+     void flush() const;
+diff --git a/Source/WebCore/platform/graphics/amiga/OpenGPUGlyphsAmiga.c b/Source/WebCore/platform/graphics/amiga/OpenGPUGlyphsAmiga.c
+new file mode 100644
+index 0000000..d4e9aaf
+--- /dev/null
++++ b/Source/WebCore/platform/graphics/amiga/OpenGPUGlyphsAmiga.c
+@@ -0,0 +1,115 @@
++/*
++ * Glyph runs for GraphicsContextOpenGPU (OpenGPUPaintAmiga.h's
++ * ob_openfont_glyphs_available and ob_openfont_draw_glyphs, patch 0082):
++ * openfont.library 1.5's OF_DrawGlyphsA draws them from its own glyph
++ * cache through OpenGPU, straight onto the window or a layer's group. Its
++ * own base, opened once at run time; an older library (or headers from
++ * before revision 5) leaves glyphs to cairo.
++ * MIT, Copyright (c) 2026 AmigaChrome Team.
++ * SPDX-License-Identifier: MIT
++ */
++#include "OpenGPUPaintAmiga.h"
++
++#include <exec/types.h>
++#include <exec/libraries.h>
++#include <utility/tagitem.h>
++#include <proto/exec.h>
++#include <libraries/openfont.h>
++#include <opengpu/stream.h>
++
++#include <pthread.h>
++#include <stdlib.h>
++
++#ifdef OPENFONT_REVISION_GPU
++
++/* the engine's other openfont.library calls use OpenFontBase (OpenFontLibrary.c) */
++#define OPENFONT_BASE_NAME OBGlyphsOpenFontBase
++#include <inline/openfont.h>
++
++static struct Library *OBGlyphsOpenFontBase;
++static pthread_once_t s_openOnce = PTHREAD_ONCE_INIT;
++
++static void closeGlyphs(void)
++{
++    if (OBGlyphsOpenFontBase) {
++        CloseLibrary(OBGlyphsOpenFontBase);
++        OBGlyphsOpenFontBase = NULL;
++    }
++}
++
++static void openGlyphs(void)
++{
++    /* the same library the engine's fonts come from (LIBS:, or the program's
++     * drawer): version 1 exactly, revision 5 or later */
++    static const char *const names[] = { OPENFONTNAME, "PROGDIR:Libs/" OPENFONTNAME };
++    unsigned i;
++    for (i = 0; i < sizeof names / sizeof names[0] && !OBGlyphsOpenFontBase; ++i) {
++        OBGlyphsOpenFontBase = OpenLibrary((CONST_STRPTR)names[i], OPENFONT_VERSION);
++        if (OBGlyphsOpenFontBase && (OBGlyphsOpenFontBase->lib_Version != OPENFONT_VERSION
++            || OBGlyphsOpenFontBase->lib_Revision < OPENFONT_REVISION_GPU))
++            closeGlyphs();
++    }
++    if (OBGlyphsOpenFontBase)
++        atexit(closeGlyphs);
++}
++
++int ob_openfont_glyphs_available(void)
++{
++    pthread_once(&s_openOnce, openGlyphs);
++    return OBGlyphsOpenFontBase != NULL;
++}
++
++long ob_openfont_draw_glyphs(void *face, const struct obgpu_glyphs *where, const unsigned long *glyphs, const long *positions,
++    unsigned long count, unsigned long pixel_size, unsigned long argb, const long *matrix, int aliased)
++{
++    struct OFGPUTarget t;
++    struct OFGlyphRun r;
++    LONG m[4];
++    int i;
++    if (!ob_openfont_glyphs_available())
++        return OFERR_NOGPU;
++    t.gt_Address = (APTR)where->target;
++    t.gt_BytesPerRow = where->bpr;
++    t.gt_Width = (UWORD)where->w;
++    t.gt_Height = (UWORD)where->h;
++    t.gt_Format = OGPU_FMT_ARGB32;
++    t.gt_ClipX = (WORD)where->cx0;
++    t.gt_ClipY = (WORD)where->cy0;
++    t.gt_ClipW = (WORD)(where->cx1 - where->cx0);
++    t.gt_ClipH = (WORD)(where->cy1 - where->cy0);
++    t.gt_MaskAddress = (APTR)where->mask;
++    t.gt_MaskBytesPerRow = where->mask_bpr;
++    t.gt_MaskX = (WORD)where->mask_x;
++    t.gt_MaskY = (WORD)where->mask_y;
++    t.gt_MaskW = (WORD)where->mask_w;
++    t.gt_MaskH = (WORD)where->mask_h;
++    if (matrix)
++        for (i = 0; i < 4; i++)
++            m[i] = (LONG)matrix[i];
++    r.gr_Glyphs = (ULONG *)glyphs;
++    r.gr_Positions = (LONG *)positions;
++    r.gr_Count = count;
++    r.gr_PixelSize = pixel_size;
++    r.gr_Color = argb;
++    r.gr_Operator = OGPU_PD_OVER;
++    r.gr_Matrix = matrix ? m : NULL;
++    r.gr_Flags = aliased ? OFGR_ALIASED : 0;
++    return OF_DrawGlyphsA((struct OFFace *)face, &t, &r, NULL);
++}
++
++#else
++
++/* openfont.library's headers from before revision 5: glyphs stay cairo's */
++int ob_openfont_glyphs_available(void)
++{
++    return 0;
++}
++
++long ob_openfont_draw_glyphs(void *face, const struct obgpu_glyphs *where, const unsigned long *glyphs, const long *positions,
++    unsigned long count, unsigned long pixel_size, unsigned long argb, const long *matrix, int aliased)
++{
++    (void)face; (void)where; (void)glyphs; (void)positions; (void)count; (void)pixel_size; (void)argb; (void)matrix; (void)aliased;
++    return -1;
++}
++
++#endif
+diff --git a/Source/WebCore/platform/graphics/amiga/OpenGPUPaintAmiga.c b/Source/WebCore/platform/graphics/amiga/OpenGPUPaintAmiga.c
+index 7af5a94..c34fe09 100644
+--- a/Source/WebCore/platform/graphics/amiga/OpenGPUPaintAmiga.c
++++ b/Source/WebCore/platform/graphics/amiga/OpenGPUPaintAmiga.c
+@@ -1519,3 +1519,42 @@ other:
+     l->flags |= OBGPU_L_CLIP_OTHER;
+     return 0;
+ }
++
++/* ---- glyph runs, drawn by openfont.library (0082) ---------------------------------------- */
++
++int obgpu_glyphs_here(const struct obgpu *g, struct obgpu_glyphs *out)
++{
++    const struct obgpu_level *l = current(g);
++    const struct obgpu_mask *k = clipMask(g);
++    int i;
++    if (!obgpu_drawable(g) || l->cx1 <= l->cx0 || l->cy1 <= l->cy0)
++        return 0;
++    out->target = g->target;
++    out->bpr = g->target_bpr;
++    out->w = g->target_w;
++    out->h = g->target_h;
++    out->cx0 = l->cx0;
++    out->cy0 = l->cy0;
++    out->cx1 = l->cx1;
++    out->cy1 = l->cy1;
++    out->mask = k ? k->address : 0;
++    out->mask_bpr = k ? k->bpr : 0;
++    out->mask_x = k ? k->x : 0;
++    out->mask_y = k ? k->y : 0;
++    out->mask_w = k ? k->w : 0;
++    out->mask_h = k ? k->h : 0;
++    for (i = 0; i < 4; i++)
++        out->m[i] = l->m[i];
++    return 1;
++}
++
++int obgpu_map(const struct obgpu *g, long x, long y, long *tx, long *ty)
++{
++    const struct obgpu_level *l = current(g);
++    obgpu_s64 X = mapX(l->m, x, y), Y = mapY(l->m, x, y);
++    if (X <= -0x7FFFFF00LL || X >= 0x7FFFFF00LL || Y <= -0x7FFFFF00LL || Y >= 0x7FFFFF00LL)
++        return 0;
++    *tx = (long)X;
++    *ty = (long)Y;
++    return 1;
++}
+diff --git a/Source/WebCore/platform/graphics/amiga/OpenGPUPaintAmiga.h b/Source/WebCore/platform/graphics/amiga/OpenGPUPaintAmiga.h
+index c7940a4..61271a7 100644
+--- a/Source/WebCore/platform/graphics/amiga/OpenGPUPaintAmiga.h
++++ b/Source/WebCore/platform/graphics/amiga/OpenGPUPaintAmiga.h
+@@ -307,6 +307,25 @@ int obgpu_stroke_path_pattern(struct obgpu *g, const struct obgpu_pattern *patte
+ #define OBGPU_CLIP_OUT      4
+ int obgpu_clip_path(struct obgpu *g, int flags);
+ 
++/* Glyph runs (0082) are drawn by openfont.library's OF_DrawGlyphsA, from
++ * its own glyph cache, straight onto the target: where it draws now (the
++ * target, or a group's surface; the clip rectangle and the clip's A8 mask,
++ * in the target's pixels) and the transform's linear part. 0 when nothing
++ * may be drawn here. Send the batch first: the library draws at once. */
++struct obgpu_glyphs {
++    unsigned long target;
++    long bpr;
++    int w, h;
++    int cx0, cy0, cx1, cy1;
++    unsigned long mask;         /* 0: none */
++    long mask_bpr;
++    int mask_x, mask_y, mask_w, mask_h;
++    long m[4];                  /* a, b, c, d, 16.16 */
++};
++int obgpu_glyphs_here(const struct obgpu *g, struct obgpu_glyphs *out);
++/* A point (24.8, the user's space) on the target (24.8); 0 past the fixed point. */
++int obgpu_map(const struct obgpu *g, long x, long y, long *tx, long *ty);
++
+ /* Words waiting to be drawn. */
+ int obgpu_pending(const struct obgpu *g);
+ /* Sends the batch and waits for it, if it draws anything; 0, or the error. */
+@@ -317,6 +336,15 @@ long obgpu_flush(struct obgpu *g);
+  * missing or older than stream v1.4; and sends a batch and waits for it. */
+ int ob_opengpu_caps(void);
+ long ob_opengpu_run(const unsigned char *stream, long words);
++/* openamigabrowser's engine only (OpenGPUGlyphsAmiga.c, 0082):
++ * openfont.library 1.5's OF_DrawGlyphsA is there; and a run drawn with it
++ * (face an OFFace; positions x, y pairs, 24.8 target pixels; colour
++ * premultiplied ARGB32; matrix 16.16 a, b, c, d about each pen or 0;
++ * aliased: no anti-aliasing): the glyphs drawn, or a negative openfont
++ * error (OFERR_ARGUMENT for aliased where OpenGPU doesn't take it). */
++int ob_openfont_glyphs_available(void);
++long ob_openfont_draw_glyphs(void *face, const struct obgpu_glyphs *where, const unsigned long *glyphs, const long *positions,
++    unsigned long count, unsigned long pixel_size, unsigned long argb, const long *matrix, int aliased);
+ 
+ #ifdef __cplusplus
+ }
+-- 
+2.43.0
+

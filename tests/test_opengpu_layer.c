@@ -352,9 +352,18 @@ int main(void)
         check(obgpu_path_begin(&G), "an outer clip path");
         writePath(1, 40, 30, 20);
         check(obgpu_clip_path(&G, 0), "the outer clip is a mask");
+        {
+            struct obgpu_glyphs wh;
+            check(obgpu_glyphs_here(&G, &wh) && wh.mask && wh.mask_w > 0 && wh.mask_x >= 19 && wh.mask_x <= 20,
+                "glyphs: the clip's A8 mask goes with the run");
+        }
         obgpu_save(&G);
         check(!obgpu_group_surface(&G, GROUP, 4 * 50, 50, 40, 10, 10), "a group under an outer mask stays cairo's");
         check(!obgpu_drawable(&G), "nothing is drawn here in it");
+        {
+            struct obgpu_glyphs wh;
+            check(!obgpu_glyphs_here(&G, &wh), "glyphs: none here either");
+        }
         obgpu_restore(&G);
         check(obgpu_drawable(&G), "drawn here again after it");
         obgpu_restore(&G);
@@ -364,9 +373,20 @@ int main(void)
         begin(OBGPU_CAN_PD | OBGPU_CAN_PATH | OBGPU_CAN_ALIASED);
         obgpu_save(&G);
         check(obgpu_group_surface(&G, GROUP, 4 * 60, 60, 40, 5, 5), "an outer group");
+        {   /* where openfont.library draws a glyph run now (0082) */
+            struct obgpu_glyphs wh;
+            long tx = 0, ty = 0;
+            long m[6] = { 0x20000, 0, 0, 0x20000, 10 * 256, 7 * 256 };
+            obgpu_set_matrix(&G, m);
+            check(obgpu_glyphs_here(&G, &wh) && wh.target == GROUP && wh.bpr == 4 * 60 && wh.w == 60 && wh.h == 40
+                && wh.cx0 == 0 && wh.cy0 == 0 && wh.cx1 == 60 && wh.cy1 == 40 && !wh.mask && wh.m[0] == 0x20000 && wh.m[3] == 0x20000,
+                "glyphs: the group's surface, its clip, the transform's scale");
+            check(obgpu_map(&G, 3 * 256, 2 * 256, &tx, &ty) && tx == (6 + 10 - 5) * 256 && ty == (4 + 7 - 5) * 256,
+                "glyphs: a pen mapped onto the group's pixels");
+        }
         obgpu_save(&G);
         check(obgpu_group_surface(&G, GROUP + 0x20000, 4 * 30, 30, 20, 20, 15), "an inner group");
-        check(G.ox == 20 && G.oy == 15 && G.level[G.depth].m[4] == -20 * 256, "the inner group's origin");
+        check(G.ox == 20 && G.oy == 15 && G.level[G.depth].m[4] == (10 - 20) * 256, "the inner group's origin");
         obgpu_restore(&G);
         check(G.ox == 5 && G.oy == 5 && G.target == GROUP, "back in the outer group");
         obgpu_restore(&G);
