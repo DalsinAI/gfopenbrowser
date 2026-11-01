@@ -1,4 +1,4 @@
-; Install: OpenBrowser 0.8.2 test (23.10.2026), the Shell route.
+; Install: OpenBrowser 0.8.4 test (1.11.2026), the Shell route.
 ; MIT, Copyright (c) 2026 AmigaChrome Team.
 ; The Installer (Install-OpenBrowser, beside this drawer) does the same with
 ; questions. Run this from the drawer, where it stays:
@@ -9,11 +9,11 @@
 ; What it does; every step is checked, and it stops at the first failure:
 ;  - LIBS:opentls.library 1.2 or newer and LIBS:opencrypto.library 2.1 or
 ;    newer: a missing one goes in; one Version shows to be older is renamed
-;    .before-20261023b and the drawer's goes in; one whose version cannot be
+;    .before-20261101 and the drawer's goes in; one whose version cannot be
 ;    read (not loaded, no $VER in the file) is kept: the Installer reads
 ;    the RomTag and checks it;
 ;  - LIBS:openfont.library 1.4 or newer (the engine draws its text with
-;    it): missing, it goes in; older, it is renamed .before-20261023 and
+;    it): missing, it goes in; older, it is renamed .before-20261101 and
 ;    the drawer's goes in; unreadable, it is kept, as above;
 ;  - LIBS:json.library (the engine's JSON.parse needs it),
 ;    LIBS:unicode.library (its Unicode calls, when the package carries it)
@@ -21,10 +21,10 @@
 ;  - for compressed pages, LIBS:z.library 53.12 and
 ;    SYS:Classes/DataTypes/stream.datatype, gzip.datatype and
 ;    brotli.datatype 47.1 or newer, with the same rules as OpenTLS
-;    (renamed .before-20261031 when older), and DEVS:DataTypes/GZip and
+;    (renamed .before-20261101 when older), and DEVS:DataTypes/GZip and
 ;    Brotli when missing;
 ;  - LOCALE:Unicode/icudt78b.dat, as the Installer does: when missing, or
-;    one of another size, which is renamed icudt78b.dat.before-20261023b,
+;    one of another size, which is renamed icudt78b.dat.before-20261101,
 ;    when LOCALE: has room for it and 2,000,000 bytes more; when Info gives
 ;    no free space for LOCALE: (0, or nothing it can read) the copy is
 ;    tried, and a failure is reported;
@@ -34,9 +34,9 @@
 ;    drawer's Libs) runs LIBS:WebBrowser/WebBrowserEngine when there is
 ;    one, otherwise this drawer's: an older LIBS:WebBrowser/WebBrowserEngine
 ;    (the engine, or the two-line script 0.8.0 and 0.8.1 test wrote there)
-;    is renamed WebBrowserEngine.before-20261023b;
+;    is renamed WebBrowserEngine.before-20261101;
 ;  - an OpenBrowser.engine left in this drawer by an older version (unpacked
-;    over it) is renamed OpenBrowser.engine.before-20261023b: the launcher
+;    over it) is renamed OpenBrowser.engine.before-20261101: the launcher
 ;    no longer runs it.
 ; Nothing is deleted.
 FailAt 21
@@ -58,7 +58,7 @@ If $vrc GE 10 VAL
     Skip tlsdone
   EndIf
 Else
-  Rename LIBS:opentls.library LIBS:opentls.library.before-20261023b
+  Rename LIBS:opentls.library LIBS:opentls.library.before-20261101
   If WARN
     Echo "Could not rename the old LIBS:opentls.library; nothing changed."
     Quit 20
@@ -85,7 +85,7 @@ If $vrc GE 10 VAL
     Skip cryptodone
   EndIf
 Else
-  Rename LIBS:opencrypto.library LIBS:opencrypto.library.before-20261023b
+  Rename LIBS:opencrypto.library LIBS:opencrypto.library.before-20261101
   If WARN
     Echo "Could not rename the old LIBS:opencrypto.library; nothing changed."
     Quit 20
@@ -112,7 +112,7 @@ If $vrc GE 10 VAL
     Skip fontdone
   EndIf
 Else
-  Rename LIBS:openfont.library LIBS:openfont.library.before-20261023
+  Rename LIBS:openfont.library LIBS:openfont.library.before-20261101
   If WARN
     Echo "Could not rename the old LIBS:openfont.library; nothing changed."
     Quit 20
@@ -151,7 +151,7 @@ EndIf
 ; through the datatypes stream class. LIBS:z.library 53.12 (gzip.datatype
 ; opens it) and SYS:Classes/DataTypes/stream.datatype, gzip.datatype and
 ; brotli.datatype 47.1 or newer: a missing one goes in; an older one is
-; renamed .before-20261031 and the drawer's goes in; one whose version
+; renamed .before-20261101 and the drawer's goes in; one whose version
 ; cannot be read is kept. DEVS:DataTypes/GZip and Brotli go in when missing.
 ; Without them pages still load, uncompressed.
 If NOT EXISTS SYS:Classes/DataTypes
@@ -170,12 +170,12 @@ If $vrc GE 10 VAL
     Skip zlibdone
   EndIf
 Else
-  Rename LIBS:z.library LIBS:z.library.before-20261031
+  Rename LIBS:z.library LIBS:z.library.before-20261101
   If WARN
     Echo "Could not rename the old LIBS:z.library"
     Quit 20
   EndIf
-  Echo "Kept the old LIBS:z.library as z.library.before-20261031"
+  Echo "Kept the old LIBS:z.library as z.library.before-20261101"
 EndIf
 Copy Libs/z.library LIBS: QUIET
 If WARN
@@ -197,12 +197,12 @@ If $vrc GE 10 VAL
     Skip streamdone
   EndIf
 Else
-  Rename SYS:Classes/DataTypes/stream.datatype SYS:Classes/DataTypes/stream.datatype.before-20261031
+  Rename SYS:Classes/DataTypes/stream.datatype SYS:Classes/DataTypes/stream.datatype.before-20261101
   If WARN
     Echo "Could not rename the old SYS:Classes/DataTypes/stream.datatype"
     Quit 20
   EndIf
-  Echo "Kept the old SYS:Classes/DataTypes/stream.datatype as stream.datatype.before-20261031"
+  Echo "Kept the old SYS:Classes/DataTypes/stream.datatype as stream.datatype.before-20261101"
 EndIf
 Copy Classes/DataTypes/stream.datatype SYS:Classes/DataTypes/ QUIET
 If WARN
@@ -224,12 +224,12 @@ If $vrc GE 10 VAL
     Skip gzipdone
   EndIf
 Else
-  Rename SYS:Classes/DataTypes/gzip.datatype SYS:Classes/DataTypes/gzip.datatype.before-20261031
+  Rename SYS:Classes/DataTypes/gzip.datatype SYS:Classes/DataTypes/gzip.datatype.before-20261101
   If WARN
     Echo "Could not rename the old SYS:Classes/DataTypes/gzip.datatype"
     Quit 20
   EndIf
-  Echo "Kept the old SYS:Classes/DataTypes/gzip.datatype as gzip.datatype.before-20261031"
+  Echo "Kept the old SYS:Classes/DataTypes/gzip.datatype as gzip.datatype.before-20261101"
 EndIf
 Copy Classes/DataTypes/gzip.datatype SYS:Classes/DataTypes/ QUIET
 If WARN
@@ -251,12 +251,12 @@ If $vrc GE 10 VAL
     Skip brotlidone
   EndIf
 Else
-  Rename SYS:Classes/DataTypes/brotli.datatype SYS:Classes/DataTypes/brotli.datatype.before-20261031
+  Rename SYS:Classes/DataTypes/brotli.datatype SYS:Classes/DataTypes/brotli.datatype.before-20261101
   If WARN
     Echo "Could not rename the old SYS:Classes/DataTypes/brotli.datatype"
     Quit 20
   EndIf
-  Echo "Kept the old SYS:Classes/DataTypes/brotli.datatype as brotli.datatype.before-20261031"
+  Echo "Kept the old SYS:Classes/DataTypes/brotli.datatype as brotli.datatype.before-20261101"
 EndIf
 Copy Classes/DataTypes/brotli.datatype SYS:Classes/DataTypes/ QUIET
 If WARN
@@ -297,7 +297,7 @@ EndIf
 ; the Unicode data in LOCALE:Unicode/, for every program that reads it (the
 ; engine reads it there first, then from Libs/WebBrowser/Unicode/), when
 ; LOCALE: has room for the file and 2,000,000 bytes more, as the Installer
-; asks; one of another size is kept as icudt78b.dat.before-20261023b.
+; asks; one of another size is kept as icudt78b.dat.before-20261101.
 ; Without the room nothing in LOCALE: is touched. Info gives 0 free (a folder
 ; drive past its stated size does) or nothing readable: the room is not
 ; known, so the copy is tried and a failure is reported.
@@ -363,16 +363,16 @@ Else
   Echo "Info gives no free space for LOCALE: ($icudir: $icufree blocks), so the room is not known; trying the copy"
 EndIf
 If EXISTS LOCALE:Unicode/icudt78b.dat
-  If EXISTS LOCALE:Unicode/icudt78b.dat.before-20261023b
-    Echo "LOCALE:Unicode has both icudt78b.dat and icudt78b.dat.before-20261023b: move one of them away and run Install again."
+  If EXISTS LOCALE:Unicode/icudt78b.dat.before-20261101
+    Echo "LOCALE:Unicode has both icudt78b.dat and icudt78b.dat.before-20261101: move one of them away and run Install again."
     Quit 20
   EndIf
-  Rename LOCALE:Unicode/icudt78b.dat LOCALE:Unicode/icudt78b.dat.before-20261023b
+  Rename LOCALE:Unicode/icudt78b.dat LOCALE:Unicode/icudt78b.dat.before-20261101
   If WARN
     Echo "Could not rename LOCALE:Unicode/icudt78b.dat"
     Quit 20
   EndIf
-  Echo "Kept the other LOCALE:Unicode/icudt78b.dat ($icuold bytes) as icudt78b.dat.before-20261023b"
+  Echo "Kept the other LOCALE:Unicode/icudt78b.dat ($icuold bytes) as icudt78b.dat.before-20261101"
   Set icumoved 1
 EndIf
 If NOT EXISTS LOCALE:Unicode
@@ -384,11 +384,11 @@ If WARN
   ; a part-written file would break every program that reads it: it is
   ; renamed out of the way (not deleted), and the file renamed above goes back
   If EXISTS LOCALE:Unicode/icudt78b.dat
-    Rename LOCALE:Unicode/icudt78b.dat LOCALE:Unicode/icudt78b.dat.incomplete-20261023b >NIL:
-    Echo "The part-written copy is LOCALE:Unicode/icudt78b.dat.incomplete-20261023b"
+    Rename LOCALE:Unicode/icudt78b.dat LOCALE:Unicode/icudt78b.dat.incomplete-20261101 >NIL:
+    Echo "The part-written copy is LOCALE:Unicode/icudt78b.dat.incomplete-20261101"
   EndIf
   If $icumoved EQ 1
-    Rename LOCALE:Unicode/icudt78b.dat.before-20261023b LOCALE:Unicode/icudt78b.dat >NIL:
+    Rename LOCALE:Unicode/icudt78b.dat.before-20261101 LOCALE:Unicode/icudt78b.dat >NIL:
     Echo "LOCALE:Unicode/icudt78b.dat is the one it had before"
   EndIf
 Else
@@ -403,27 +403,27 @@ UnSet icumoved
 UnSet icudir
 
 If EXISTS LIBS:WebBrowser/WebBrowserEngine
-  If EXISTS LIBS:WebBrowser/WebBrowserEngine.before-20261023b
-    Echo "LIBS:WebBrowser has both WebBrowserEngine and WebBrowserEngine.before-20261023b: move one of them away and run Install again."
+  If EXISTS LIBS:WebBrowser/WebBrowserEngine.before-20261101
+    Echo "LIBS:WebBrowser has both WebBrowserEngine and WebBrowserEngine.before-20261101: move one of them away and run Install again."
     Quit 20
   EndIf
-  Rename LIBS:WebBrowser/WebBrowserEngine LIBS:WebBrowser/WebBrowserEngine.before-20261023b
+  Rename LIBS:WebBrowser/WebBrowserEngine LIBS:WebBrowser/WebBrowserEngine.before-20261101
   If WARN
     Echo "Could not rename LIBS:WebBrowser/WebBrowserEngine; nothing changed in LIBS:WebBrowser."
     Quit 20
   EndIf
-  Echo "Kept the old LIBS:WebBrowser/WebBrowserEngine as WebBrowserEngine.before-20261023b"
+  Echo "Kept the old LIBS:WebBrowser/WebBrowserEngine as WebBrowserEngine.before-20261101"
 EndIf
 Echo "webbrowser.library runs the engine in this drawer"
 
 If EXISTS OpenBrowser.engine
-  If NOT EXISTS OpenBrowser.engine.before-20261023b
-    Rename OpenBrowser.engine OpenBrowser.engine.before-20261023b
+  If NOT EXISTS OpenBrowser.engine.before-20261101
+    Rename OpenBrowser.engine OpenBrowser.engine.before-20261101
     If WARN
       Echo "Could not rename the old OpenBrowser.engine in this drawer"
       Quit 20
     EndIf
-    Echo "Kept an older version's OpenBrowser.engine as OpenBrowser.engine.before-20261023b (no longer used)"
+    Echo "Kept an older version's OpenBrowser.engine as OpenBrowser.engine.before-20261101 (no longer used)"
   EndIf
 EndIf
 

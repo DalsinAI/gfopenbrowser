@@ -42,6 +42,7 @@
 #include <limits>
 #include <stdio.h>
 #include <time.h>
+#include <wtf/DataLog.h>
 #include <wtf/MainThread.h>
 #include <wtf/NeverDestroyed.h>
 #include <wtf/MonotonicTime.h>
@@ -73,14 +74,35 @@ static void resetFPCR()
 }
 
 extern "C" void ob_quiet_requesters(void);
+extern "C" int ob_jsc_options_from_env(char* buffer, int size);
+extern "C" int ob_jsc_log_from_env(char* buffer, int size);
 
 static void initializeEngine(WebCore::LoaderStrategy* loader)
 {
+    // For tests only, and only when set: OBJSC (Set or SetEnv) adds
+    // JavaScriptCore options in JSC's own "name=value" form, since JSC_<name>
+    // variables do not reach it (see ob_jsoptions.c), and OBJSCLOG names a
+    // file for JSC's dataLog. What was set is printed, with the values the
+    // tests look at, so a run shows that it took.
+    static char extraOptions[512];
+    ob_jsc_options_from_env(extraOptions, sizeof extraOptions);
+    static char logFile[256];
+    if (ob_jsc_log_from_env(logFile, sizeof logFile) > 0)
+        WTF::setDataFile(logFile);
+    static bool extraSet;
     // One CPU: no garbage collection helper threads, which on a 68k only add
     // task switches.
     JSC::initialize([] {
         JSC::Options::setOptions("numberOfGCMarkers=1 useConcurrentGC=false useParallelMarkingConstraintSolver=false");
+        if (extraOptions[0])
+            extraSet = JSC::Options::setOptions(extraOptions);
     });
+    if (extraOptions[0]) {
+        printf("OBJSC \"%s\": %s; useJIT=%d useM68KTemplateJIT=%d slowPathAllocsBetweenGCs=%u\n", extraOptions,
+            extraSet ? "set" : "NOT all set", (int)JSC::Options::useJIT(), (int)JSC::Options::useM68KTemplateJIT(),
+            (unsigned)JSC::Options::slowPathAllocsBetweenGCs());
+        fflush(stdout);
+    }
     WTF::initializeMainThread();
     initializeCommonAtomStrings();
     populateJITOperations();
