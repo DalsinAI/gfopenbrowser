@@ -5,7 +5,7 @@
  * calls made on cairo, which draws them today: the two pictures compared
  * pixel for pixel. Where both sides cover whole pixels (rectangles on whole
  * pixels, rectangles clipped or filled without anti-aliasing) they must be
- * the same; where cairo's and OpenGPU's rasterisers each anti-alias an edge
+ * the same; where cairo's and GFOpenGPU's rasterisers each anti-alias an edge
  * (curves, slanted edges) the pixels away from the edges must be the same
  * and the edge pixels within a bound, and the count is printed.
  *   test_opengpu_clip          (needs cairo's headers and library)
@@ -396,7 +396,7 @@ int main(void)
     check(masksLive == 0, "the restore freed the mask");
     bothFillRect(0, 0, 30, 10, 0xFF0000FFUL, OBGPU_OP_SOURCE_OVER);
     compare("a scaled clip off whole pixels, restored", 1, 0);
-    /* turned: cairo's mono rasteriser against OpenGPU's pixel centres */
+    /* turned: cairo's mono rasteriser against GFOpenGPU's pixel centres */
     begin(all);
     bothMatrix(cos(0.4), sin(0.4), -sin(0.4), cos(0.4), 30, 2);
     bothClipRect(5, 5, 40, 25);

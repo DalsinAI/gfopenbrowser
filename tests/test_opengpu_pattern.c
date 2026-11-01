@@ -6,9 +6,9 @@
  * GradientCairo's conic mesh, pixman's gradients):
  *  - patterns: the same pixels away from the shape's edges, which each
  *    rasteriser anti-aliases (bilinear sampling within a bound);
- *  - conic gradients: cairo draws WebKit's mesh of Bezier sectors, OpenGPU
+ *  - conic gradients: cairo draws WebKit's mesh of Bezier sectors, GFOpenGPU
  *    the angle itself, so within a bound;
- *  - stops of different alphas: OpenGPU mixes them premultiplied (CSS),
+ *  - stops of different alphas: GFOpenGPU mixes them premultiplied (CSS),
  *    pixman unpremultiplied: checked against the premultiplied mix worked
  *    out here, and the difference from cairo printed; stops of one alpha
  *    against cairo.
@@ -412,6 +412,7 @@ static void conicSector(cairo_pattern_t *g, double cx, double cy, double r, doub
 }
 
 /* a conic gradient (WebCore's angle: from the top) on both; stops at 0 and 1 included, as createConic makes them */
+static double meshRadius = 4096;     /* WebKit's (GradientCairo's createConic) */
 static void bothConic(double cx, double cy, double angle, int n, const double (*st)[5], double x, double y, double w, double h)
 {
     double geo[6] = { cx, cy, 0, 0, 0, 0 }, turns = angle / (2 * M_PI) - 0.25;
@@ -420,7 +421,7 @@ static void bothConic(double cx, double cy, double angle, int n, const double (*
     geo[2] = turns - floor(turns);
     bothGradientRect(OBGPU_CONIC, geo, n, st, x, y, w, h, 0);
     for (i = 0; i + 1 < n; i++)
-        conicSector(p, cx, cy, 4096, angle, st[i], st[i + 1]);
+        conicSector(p, cx, cy, meshRadius, angle, st[i], st[i + 1]);
     cairo_set_source(cr, p);
     cairo_rectangle(cr, x, y, w, h);
     cairo_fill(cr);
@@ -525,6 +526,159 @@ static void makeDense(int n, const double (*st)[5])
     }
 }
 
+
+/* Diagnostics for the mesh comparisons (pixman 0.46 differs from 0.42
+ * there): the pixels differing by more than 16, with their angle (turns
+ * from the gradient's start, as CSS counts it), their radius, both sides,
+ * the background and the angle's own colour, and counts by kind. */
+static unsigned long conicExpected(int x, int y, double cx, double cy, double angle, int n, const double (*st)[5], double *tOut, double *rOut)
+{
+    double dx = x + 0.5 - cx, dy = y + 0.5 - cy, t, c[4], u, inv;
+    int i = 0, k;
+    unsigned long bg = background(x, y), out = 0;
+    t = (atan2(dy, dx) - (angle - M_PI / 2)) / (2 * M_PI);
+    t -= floor(t);
+    *tOut = t;
+    *rOut = sqrt(dx * dx + dy * dy);
+    while (i + 1 < n - 1 && t > st[i + 1][0])
+        i++;
+    u = (t - st[i][0]) / (st[i + 1][0] - st[i][0]);
+    u = u < 0 ? 0 : u > 1 ? 1 : u;
+    for (k = 0; k < 3; k++)
+        c[k + 1] = (1 - u) * st[i][k + 1] * st[i][4] + u * st[i + 1][k + 1] * st[i + 1][4];
+    c[0] = (1 - u) * st[i][4] + u * st[i + 1][4];
+    inv = 1 - c[0];
+    for (k = 0; k < 4; k++) {
+        double d = ((bg >> (24 - 8 * k)) & 255) / 255.0, v = (c[k] + d * inv) * 255;
+        out = out << 8 | (unsigned long)lround(v);
+    }
+    return out;
+}
+
+static void meshDiag(const char *what, double cx, double cy, double angle, int n, const double (*st)[5], double rx0, double ry0, double rx1, double ry1)
+{
+    const unsigned int *c;
+    int x, y, stride, shown = 0, big = 0, bgSeam = 0, nearJoin = 0, nearQuad = 0, oursRight = 0, cairoRight = 0;
+    int bands[5] = { 0, 0, 0, 0, 0 }, maxOurs = 0, maxCairo = 0;
+    obgpu_flush(&G);
+    cairo_surface_flush(cs);
+    c = (const unsigned int *)cairo_image_surface_get_data(cs);
+    stride = cairo_image_surface_get_stride(cs) / 4;
+    printf("  MESHDIAG %s (cairo %s, centre %.2f,%.2f)\n", what, cairo_version_string(), cx, cy);
+    for (y = 0; y < H; y++)
+        for (x = 0; x < W; x++) {
+            const unsigned char *p = arena + TARGET + y * BPR + x * 4;
+            unsigned long here = (unsigned long)p[0] << 24 | (unsigned long)p[1] << 16 | (unsigned long)p[2] << 8 | p[3];
+            unsigned long v = c[y * stride + x], bg = background(x, y), want;
+            double t, r, j, q, dev;
+            int d = 0, k, dOurs = 0, dCairo = 0;
+            for (k = 0; k < 32; k += 8) {
+                int a = (int)((v >> k) & 255), b = (int)((here >> k) & 255);
+                if (abs(a - b) > d)
+                    d = abs(a - b);
+            }
+            /* away from the filled rectangle's own (anti-aliased) edges */
+            if (x < rx0 + 1 || y < ry0 + 1 || x + 1 > rx1 - 1 || y + 1 > ry1 - 1)
+                continue;
+            want = conicExpected(x, y, cx, cy, angle, n, st, &t, &r);
+            if (r < exR)
+                continue;
+            for (k = 0; k < 32; k += 8) {
+                int w = (int)((want >> k) & 255);
+                if (abs(w - (int)((here >> k) & 255)) > dOurs) dOurs = abs(w - (int)((here >> k) & 255));
+                if (abs(w - (int)((v >> k) & 255)) > dCairo) dCairo = abs(w - (int)((v >> k) & 255));
+            }
+            /* both against the angle's colour, near the start line too (a pixel there mixes both ends) */
+            if (t * 2 * M_PI * r >= 1.5 && (1 - t) * 2 * M_PI * r >= 1.5) {
+                if (dOurs > maxOurs) maxOurs = dOurs;
+                if (dCairo > maxCairo) maxCairo = dCairo;
+            }
+            if (d <= 16)
+                continue;
+            big++;
+            oursRight += dOurs <= 4;
+            cairoRight += dCairo <= 4;
+            bgSeam += v == bg;
+            /* distance to the nearest sector join (stops every 1/(n-1) turn), in pixels along the arc */
+            j = (t * (n - 1) - floor(t * (n - 1) + 0.5)) / (n - 1);
+            nearJoin += fabs(j) * 2 * M_PI * r < 1.0;
+            /* distance to the nearest quadrant line of the device (cairo's sector centres move there) */
+            dev = atan2(y + 0.5 - cy, x + 0.5 - cx) / (M_PI / 2);
+            q = dev - floor(dev + 0.5);
+            nearQuad += fabs(q) * (M_PI / 2) * r < 1.0;
+            bands[r < 10 ? 0 : r < 20 ? 1 : r < 40 ? 2 : r < 80 ? 3 : 4]++;
+            if (shown < 12) {
+                printf("    MESHDIAG %d,%d t=%.4f r=%.1f cairo=%08lx here=%08lx bg=%08lx angle-colour=%08lx (ours off %d, cairo off %d)\n",
+                    x, y, t, r, v, here, bg, want, dOurs, dCairo);
+                shown++;
+            }
+        }
+    printf("  MESHDIAG %s: %d pixels off by more than 16; cairo left the background in %d; within a pixel of a sector join %d, "
+        "of a quadrant line %d; ours within 4 of the angle colour %d, cairo's %d; by radius <10 %d, <20 %d, <40 %d, <80 %d, more %d\n",
+        what, big, bgSeam, nearJoin, nearQuad, oursRight, cairoRight, bands[0], bands[1], bands[2], bands[3], bands[4]);
+    printf("  MESHDIAG %s: largest difference from the angle's colour (off the start line): ours %d, cairo's %d\n", what, maxOurs, maxCairo);
+}
+
+/* cairo's mesh rasteriser checked before cairo's conic mesh is used as a
+ * reference: one patch over the window with straight sides and four
+ * corner colours, which a Coons patch draws as the bilinear mix of them.
+ * cairo 1.18.4 with pixman 0.46.4 (Ubuntu 26.04, the CI's) leaves most of
+ * such a patch unpainted, so its conic meshes are no reference there; the
+ * comparison against cairo's mesh is then skipped and said so, and each
+ * pixel's angle colour (conicCheck) still holds the conic gradients. */
+static int skipped, meshOk;
+static int meshWorks(void)
+{
+    static const double corner[4][3] = { { 1, 0, 0 }, { 0, 1, 0 }, { 0, 0, 1 }, { 1, 1, 0 } };
+    cairo_surface_t *s = cairo_image_surface_create(CAIRO_FORMAT_ARGB32, W, H);
+    cairo_t *c = cairo_create(s);
+    cairo_pattern_t *m = cairo_pattern_create_mesh();
+    const unsigned int *px;
+    int x, y, k, stride, wrong = 0, empty = 0, worst = 0;
+    cairo_mesh_pattern_begin_patch(m);
+    cairo_mesh_pattern_move_to(m, 0, 0);
+    cairo_mesh_pattern_line_to(m, W, 0);
+    cairo_mesh_pattern_line_to(m, W, H);
+    cairo_mesh_pattern_line_to(m, 0, H);
+    for (k = 0; k < 4; k++)
+        cairo_mesh_pattern_set_corner_color_rgb(m, (unsigned)k, corner[k][0], corner[k][1], corner[k][2]);
+    cairo_mesh_pattern_end_patch(m);
+    cairo_set_source(c, m);
+    cairo_paint(c);
+    cairo_destroy(c);
+    cairo_pattern_destroy(m);
+    cairo_surface_flush(s);
+    px = (const unsigned int *)cairo_image_surface_get_data(s);
+    stride = cairo_image_surface_get_stride(s) / 4;
+    for (y = 0; y < H; y++)
+        for (x = 0; x < W; x++) {
+            /* corners 0 (0, 0), 1 (W, 0), 2 (W, H), 3 (0, H) */
+            double u = (x + 0.5) / W, v = (y + 0.5) / H;
+            unsigned int p = px[y * stride + x];
+            int d = 0;
+            for (k = 0; k < 3; k++) {
+                double want = (1 - v) * ((1 - u) * corner[0][k] + u * corner[1][k]) + v * ((1 - u) * corner[3][k] + u * corner[2][k]);
+                int got = (int)((p >> (16 - 8 * k)) & 255);
+                if (abs(got - (int)lround(want * 255)) > d)
+                    d = abs(got - (int)lround(want * 255));
+            }
+            if ((p >> 24) != 255)
+                empty++;
+            if (d > 2)
+                wrong++;
+            if (d > worst)
+                worst = d;
+        }
+    cairo_surface_destroy(s);
+    if (empty || wrong) {
+        printf("  SKIP the comparisons against cairo's conic mesh: cairo %s's mesh rasteriser leaves %d of %d pixels of one bilinear "
+            "patch unpainted and %d off by more than 2 (largest %d) here\n", cairo_version_string(), empty, W * H, wrong, worst);
+        return 0;
+    }
+    printf("  cairo %s draws a bilinear mesh patch right (largest difference %d): its conic meshes are a reference\n", cairo_version_string(), worst);
+    return 1;
+}
+
 int main(void)
 {
     const int all = OBGPU_CAN_PD | OBGPU_CAN_PATH | OBGPU_CAN_ALIASED;
@@ -626,17 +780,19 @@ int main(void)
         compare("linear, stops of one alpha (0.8)", 0, 1);
         begin(all);
         bothGradientRect(OBGPU_LINEAR, geo, 3, mixedAlpha, 8, 4, 80, 56, 1);
-        compare("linear, alphas 1, 0.1, 0.6: OpenGPU's mix against pixman's", 0, 255);
+        compare("linear, alphas 1, 0.1, 0.6: GFOpenGPU's mix against pixman's", 0, 255);
         premultipliedCheck("linear, alphas 1, 0.1, 0.6", 8, 88, 3, mixedAlpha, 4, 60, 2);
     }
 
     printf("conic gradients: against the angle's colour, and WebKit's cairo mesh\n");
+    meshOk = meshWorks();
     {
         static const double id[6] = { 1, 0, 0, 1, 0, 0 }, moved[6] = { 1, 0, 0, 1, 5.5, -3.25 };
         begin(all);
         bothConic(48, 32, 0, 4, conicStops, 0, 0, 96, 64);
         conicCheck("conic from the top, four stops", 48, 32, 0, id, 4, conicStops, 0, 0, 96, 64, 2);
-        compare("  and cairo's mesh of four sectors (Bezier, not the angle)", 0, 255);
+        if (meshOk)
+            compare("  and cairo's mesh of four sectors (Bezier, not the angle)", 0, 255);
         begin(all);
         bothConic(40, 30, 1.0, 4, conicStops, 4, 4, 80, 50);
         conicCheck("conic from 1 radian", 40, 30, 1.0, id, 4, conicStops, 4, 4, 84, 54, 2);
@@ -645,20 +801,33 @@ int main(void)
         bothConic(40, 34, 2.5, 4, conicStops, 0, 4, 90, 56);
         conicCheck("conic from 2.5 radians, under a transform", 40, 34, 2.5, moved, 4, conicStops, 6, 1, 95, 56, 2);
         makeDense(4, conicStops);
-        begin(all);
-        bothConic(48, 32, 0, 25, (const double (*)[5])dense, 0, 0, 96, 64);
-        exX = 48; exY = 32; exR = 6;
-        compare("conic, 25 stops, against cairo's mesh (6 px from the centre)", 0, 16);
-        begin(all);
-        bothMatrix(1, 0, 0, 1, 5.5, -3.25);
-        bothConic(40, 34, 2.5, 25, (const double (*)[5])dense, 0, 4, 90, 56);
-        exX = 45.5; exY = 30.75;
-        compare("conic, 25 stops, under a transform, against cairo's mesh", 0, 16);
-        exR = 0;
+        if (meshOk) {
+            int before = failures;
+            begin(all);
+            bothConic(48, 32, 0, 25, (const double (*)[5])dense, 0, 0, 96, 64);
+            exX = 48; exY = 32; exR = 6;
+            compare("conic, 25 stops, against cairo's mesh (6 px from the centre)", 0, 16);
+            if (failures != before)
+                meshDiag("conic, 25 stops", 48, 32, 0, 25, (const double (*)[5])dense, 0, 0, 96, 64);
+            before = failures;
+            begin(all);
+            bothMatrix(1, 0, 0, 1, 5.5, -3.25);
+            bothConic(40, 34, 2.5, 25, (const double (*)[5])dense, 0, 4, 90, 56);
+            exX = 45.5; exY = 30.75;
+            compare("conic, 25 stops, under a transform, against cairo's mesh", 0, 16);
+            if (failures != before)
+                meshDiag("conic, 25 stops, under a transform", 45.5, 30.75, 2.5, 25, (const double (*)[5])dense, 5.5, 0.75, 95.5, 56.75);
+            exR = 0;
+        } else
+            skipped += 3;
     }
 
     obgpu_release_masks(&G);
     check(masksLive == 0, "every mask freed");
-    printf("test_opengpu_pattern: %d checks, %d failed\n", checks, failures);
+    if (skipped)
+        printf("test_opengpu_pattern: %d checks, %d failed, %d skipped (cairo %s can't draw mesh patterns here)\n", checks, failures,
+            skipped, cairo_version_string());
+    else
+        printf("test_opengpu_pattern: %d checks, %d failed\n", checks, failures);
     return failures != 0;
 }

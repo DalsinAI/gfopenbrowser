@@ -1,5 +1,5 @@
 /*
- * OpenBrowser: WebCore's editor client (typing into form fields).
+ * GFOpenBrowser: WebCore's editor client (typing into form fields).
  * MIT, Copyright (c) 2026 AmigaChrome Team.
  */
 #pragma once
@@ -10,8 +10,8 @@ namespace WebCore {
 class EditorClient;
 }
 
-namespace OpenBrowser {
+namespace GFOpenBrowser {
 
 UniqueRef<WebCore::EditorClient> createEditorClient();
 
-} // namespace OpenBrowser
+} // namespace GFOpenBrowser

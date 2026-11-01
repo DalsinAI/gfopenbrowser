@@ -1,5 +1,5 @@
 /*
- * OpenBrowser: the HTTP disk cache joined to WebCore's network layer (see
+ * GFOpenBrowser: the HTTP disk cache joined to WebCore's network layer (see
  * AmigaHttpCache.h). For each GET request that HTTP and WebCore's cache
  * mode allow, a stored copy answers when it is still fresh; a stale one
  * gets If-None-Match and If-Modified-Since, and a 304 answer reuses it.
@@ -23,7 +23,7 @@
 #include <wtf/text/CString.h>
 #include <wtf/text/MakeString.h>
 
-namespace OpenBrowser {
+namespace GFOpenBrowser {
 
 using namespace WebCore;
 
@@ -331,4 +331,4 @@ void closeHttpCache()
     ob_httpcache_close(std::exchange(s_cache, nullptr));
 }
 
-} // namespace OpenBrowser
+} // namespace GFOpenBrowser

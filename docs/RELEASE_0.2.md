@@ -1,25 +1,25 @@
-# OpenBrowser Lite 0.2 qualification
+# GFOpenBrowser Lite 0.2 qualification
 
-> History. Since OpenBrowser Lite 0.4.1 (19 October 2026) TLS is OpenTLS (AmiSSL is gone), the engine is `src/weblayout/` and the build is `scripts/build-openbrowser.sh`; see `docs/RELEASE_0.4.1.md`.
+> History. Since GFOpenBrowser Lite 0.4.1 (19 October 2026) TLS is GFOpenTLS (AmiSSL is gone), the engine is `src/weblayout/` and the build is `scripts/build-openbrowser.sh`; see `docs/RELEASE_0.4.1.md`.
 
 Date: 7 October 2026
 
-OpenBrowser Lite 0.2 is the first build whose page renderer uses the resident `openlayout.library` rather than linking OpenLayout into the browser.
+GFOpenBrowser Lite 0.2 is the first build whose page renderer uses the resident `gfopenlayout.library` rather than linking GFOpenLayout into the browser.
 
 ## Architecture gate
 
-- `openlayout.library` ABI 2.0 from `DalsinAI/openamigalayout`;
+- `gfopenlayout.library` ABI 2.0 from `DalsinAI/openamigalayout`;
 - HTML Lite builds semantic nodes through the resident ABI;
-- the GadTools viewport consumes the OpenLayout display list;
+- the GadTools viewport consumes the GFOpenLayout display list;
 - text is measured against the active RastPort font;
-- semantic links are activated through OpenLayout hit testing;
-- the existing OpenBrowser HTTP/HTTPS, redirects, URL resolution, charset and AmiSSL stack remains intact.
+- semantic links are activated through GFOpenLayout hit testing;
+- the existing GFOpenBrowser HTTP/HTTPS, redirects, URL resolution, charset and AmiSSL stack remains intact.
 
 ## Guest qualification
 
-Qualified on AmigaOS 3.2.3 under AmigaChrome AC090-native, 68040 + FPU, LAN enabled.
+Qualified on AmigaOS 3.2.3 under AmiCradle AC090-native, 68040 + FPU, LAN enabled.
 
-The static and resident HTML/OpenLayout tests both passed the same paragraph, link, list, image, reflow and semantic-hit cases.
+The static and resident HTML/GFOpenLayout tests both passed the same paragraph, link, list, image, reflow and semantic-hit cases.
 
 The network-only `obfetch` then fetched `https://example.com/` successfully:
 
@@ -33,12 +33,12 @@ The network-only `obfetch` then fetched `https://example.com/` successfully:
 FETCH_OK status=200 type=text/html charset=utf-8 bytes=577 url=https://example.com/
 ```
 
-After those gates, the real `OpenBrowser 0.2` executable was launched with the same HTTPS URL and remained present as an AmigaDOS task after the qualification delay.
+After those gates, the real `GFOpenBrowser 0.2` executable was launched with the same HTTPS URL and remained present as an AmigaDOS task after the qualification delay.
 
 ## Qualified build sizes
 
-- OpenBrowser: 73,816 bytes
-- openlayout.library 2.0: 11,272 bytes
+- GFOpenBrowser: 73,816 bytes
+- gfopenlayout.library 2.0: 11,272 bytes
 - resident HTML Lite test: 31,276 bytes
 - `obfetch`: approximately 44 KiB
 

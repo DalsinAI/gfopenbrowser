@@ -72,7 +72,7 @@ static void timeExchange(const char *name, const char *type, const char *curve)
 
 static void timeEcdsa(void)
 {
-    static const unsigned char message[] = "OpenBrowser key offload probe";
+    static const unsigned char message[] = "GFOpenBrowser key offload probe";
     unsigned char signature[128];
     size_t length = sizeof signature;
     EVP_PKEY *key = keygen("EC", "P-256");
@@ -185,7 +185,7 @@ static const OSSL_DISPATCH obtestFunctions[] = {
 };
 
 static const OSSL_ALGORITHM obkeyDigests[] = {
-    { "OBTEST", "provider=obkey", obtestFunctions, "OpenBrowser probe digest" },
+    { "OBTEST", "provider=obkey", obtestFunctions, "GFOpenBrowser probe digest" },
     { NULL, NULL, NULL, NULL }
 };
 

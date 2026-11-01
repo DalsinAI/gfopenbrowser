@@ -1,22 +1,22 @@
-# OpenJSON: json.library
+# GFOpenJSON: json.library
 
 JSON (RFC 8259) for native AmigaOS 3.2 programs on the 68040: a resident
 library that parses JSON text into **one flat block of memory** you can pass
 around, writes JSON back out, and reads JSON as a stream of events. All our
 own code: no third-party JSON or number-conversion code. It lives in
-OpenBrowser for now and moves to its own repository later.
+GFOpenBrowser for now and moves to its own repository later.
 
 | File | What it is |
 | --- | --- |
 | `json_core.cpp`, `.h` | All of the work, in lean C++ with no Amiga headers: the parser, the block calls, JSON Pointer, the writer, the streaming reader, and exact decimal to double conversion both ways. Memory only through `struct oj_env`. |
 | `openjson_lib.c` | The library, in C: RomTag, the jump table in the SFD's order, each call in its registers, AllocVec and FreeVec as the env. |
 | `sfd/json_lib.sfd` | The 43 calls, LVO -30 to -282. |
-| `sdk/` | `Include_H/libraries/json.h` (by hand: the block, the flags, the errors, the events) and what OpenNDK's `ndkgen.py` makes from the SFD (`scripts/gen-jsonlib-sdk.sh`): clib, inline, pragmas, proto, FD, LVO equates. |
+| `sdk/` | `Include_H/libraries/json.h` (by hand: the block, the flags, the errors, the events) and what GFOpenNDK's `ndkgen.py` makes from the SFD (`scripts/gen-jsonlib-sdk.sh`): clib, inline, pragmas, proto, FD, LVO equates. |
 | `check_vectors.py` | The shell's vector table against the SFD. |
 | `tests/JSONTest.c` | The Amiga self-test (every call through the registers), and `JSONTest FILE [BENCH]` to parse a file and time parse, reader and stringify. |
 
-Build: `scripts/build-json-library.sh` (os32-gcc16 or the OpenAmigaGCC
-release, OpenNDK, `-Os`). Tests: `tests/jsonlib/run.sh` (below). CI:
+Build: `scripts/build-json-library.sh` (os32-gcc16 or the GFOpenAmigaGCC
+release, GFOpenNDK, `-Os`). Tests: `tests/jsonlib/run.sh` (below). CI:
 `.github/workflows/jsonlib.yml`.
 
 ## The block
@@ -189,7 +189,7 @@ under `qemu-m68k -cpu m68040`:
 
 With `OPENSDK_SRC` (an openamigasdk checkout) it also checks the SDK
 headers against the SFD and compiles the shell and JSONTest against
-OpenNDK. The library itself, on an Amiga: `JSONTest` (the self-test, every
+GFOpenNDK. The library itself, on an Amiga: `JSONTest` (the self-test, every
 call through its registers) and `JSONTest FILE BENCH`.
 
 ## Later

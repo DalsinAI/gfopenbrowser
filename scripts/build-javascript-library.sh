@@ -1,5 +1,5 @@
 #!/bin/sh
-# OpenBrowser (DalsinAI/openamigabrowser)
+# GFOpenBrowser (DalsinAI/openamigabrowser)
 # Copyright (c) 2026 AmigaChrome Team. MIT licence, see LICENSE.
 #
 # javascript.library 1 (src/jslib) and the JS command, for AmigaOS 3.2 on a
@@ -24,7 +24,7 @@ OUT=${1:-"$HERE/build/javascript-library"}
 if [ -n "${TOOLCHAIN_DIR:-}" ]; then
     BIN="$TOOLCHAIN_DIR/bin"
 else
-    BIN="${STOVE:-"$HOME/AmigaChrome/stoves/os32-gcc16"}/prefix/bin"
+    BIN="${STOVE:-"$HOME/AmiCradle/stoves/os32-gcc16"}/prefix/bin"
 fi
 CC="$BIN/m68k-amigaos-gcc"
 NM="$BIN/m68k-amigaos-nm"

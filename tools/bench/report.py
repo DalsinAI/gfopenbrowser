@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-# OpenBrowser (DalsinAI/openamigabrowser)
+# GFOpenBrowser (DalsinAI/openamigabrowser)
 # Copyright (c) 2026 The AmigaChrome Team. MIT licence, see LICENSE.
 """Turn an OBBench run's logs into results.csv and a Markdown summary, and
 compare them with an earlier results.csv to show what got worse.
@@ -177,7 +177,7 @@ def parse_js(path):
 
 
 def markdown(rows, info, js, worse, better, gone, baseline_name):
-    out = ["# OpenBrowser benchmark", ""]
+    out = ["# GFOpenBrowser benchmark", ""]
     if info:
         out += ["Staged: " + "; ".join(info), ""]
     out += ["Times in seconds from the moment the page was asked for (wall: the whole program, start-up included); "

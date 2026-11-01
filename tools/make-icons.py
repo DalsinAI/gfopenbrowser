@@ -1,16 +1,16 @@
 #!/usr/bin/env python3
-# OpenBrowser (DalsinAI/openamigabrowser)
+# GFOpenBrowser (DalsinAI/openamigabrowser)
 # Copyright (c) 2026 AmigaChrome Team. MIT licence, see LICENSE.
 #
-# Draws OpenBrowser's Workbench icons in the GlowIcons style and writes them
+# Draws GFOpenBrowser's Workbench icons in the GlowIcons style and writes them
 # as OS 3.5+ colour icons (.info): a classic 4-colour image for old
 # Workbenches, then a FORM ICON with the normal and the selected (glowing)
 # image. AmigaOS 3.2 shows the colour images. The artwork is original.
 #
 #   tools/make-icons.py [OUT_DIR]      (default icons/)
 #
-# Writes OUT_DIR/OpenBrowser.info (the drawer), OUT_DIR/OpenBrowser/
-# OpenBrowser.info (the program), OUT_DIR/OpenBrowser/OpenBrowser.readme.info
+# Writes OUT_DIR/GFOpenBrowser.info (the drawer), OUT_DIR/GFOpenBrowser/
+# GFOpenBrowser.info (the program), OUT_DIR/GFOpenBrowser/GFOpenBrowser.readme.info
 # and a preview.png. Needs Python 3 with numpy and Pillow.
 import os
 import struct
@@ -103,7 +103,7 @@ LIGHT /= np.linalg.norm(LIGHT)
 
 
 def globe(cv, cx, cy, r, ring=True, clip=None):
-    """The OpenBrowser mark: a shaded blue globe with a graticule, wrapped
+    """The GFOpenBrowser mark: a shaded blue globe with a graticule, wrapped
     in a tilted orange orbit."""
     ang = np.radians(-22)
     rx, ry, rw = r * 1.32, r * 0.44, max(2.0, r * 0.25)
@@ -398,18 +398,18 @@ def info(kind, normal, selected, default_tool=None, tooltypes=(), stack=0, at=No
 def main():
     here = os.path.dirname(os.path.abspath(__file__))
     outdir = sys.argv[1] if len(sys.argv) > 1 else os.path.join(here, '..', 'icons')
-    os.makedirs(os.path.join(outdir, 'OpenBrowser'), exist_ok=True)
+    os.makedirs(os.path.join(outdir, 'GFOpenBrowser'), exist_ok=True)
     icons = [
-        ('OpenBrowser.info', WBDRAWER, drawer_icon(), 'drawer', {}),
-        ('OpenBrowser/OpenBrowser.info', WBTOOL, program_icon(), 'program', {'stack': 65536, 'at': (60, 12)}),
-        ('OpenBrowser/OpenBrowser.readme.info', WBPROJECT, readme_icon(), None,
+        ('GFOpenBrowser.info', WBDRAWER, drawer_icon(), 'drawer', {}),
+        ('GFOpenBrowser/GFOpenBrowser.info', WBTOOL, program_icon(), 'program', {'stack': 65536, 'at': (60, 12)}),
+        ('GFOpenBrowser/GFOpenBrowser.readme.info', WBPROJECT, readme_icon(), None,
          {'default_tool': 'SYS:Utilities/MultiView', 'at': (220, 12)}),
     ]
     previews = []
     for name, kind, img, pic, extra in icons:
         # the selected image: the art's second frame (NAME-selected.png, the
         # drawer pulled open, the globe turned), glowing, as openamigaup's
-        # ICONS.md asks of every Open app; else the picture itself, glowing
+        # ICONS.md asks of every GFOpen app; else the picture itself, glowing
         second = art(pic + '-selected') if pic and art(pic) is not None else None
         sel = glowing(second if second is not None else img)
         with open(os.path.join(outdir, name), 'wb') as f:

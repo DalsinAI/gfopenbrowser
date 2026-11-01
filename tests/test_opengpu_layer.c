@@ -373,7 +373,7 @@ int main(void)
         begin(OBGPU_CAN_PD | OBGPU_CAN_PATH | OBGPU_CAN_ALIASED);
         obgpu_save(&G);
         check(obgpu_group_surface(&G, GROUP, 4 * 60, 60, 40, 5, 5), "an outer group");
-        {   /* where openfont.library draws a glyph run now (0082) */
+        {   /* where gfopenfont.library draws a glyph run now (0082) */
             struct obgpu_glyphs wh;
             long tx = 0, ty = 0;
             long m[6] = { 0x20000, 0, 0, 0x20000, 10 * 256, 7 * 256 };

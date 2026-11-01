@@ -30,7 +30,7 @@ GraphicsContextOpenGPU now draws three things it used to hand to cairo
   premultiplied, as CSS says; pixman mixed them unpremultiplied. Dale
   accepted this on 1 November 2026.
 
-opengpu.library: OBGPU_CAN_ALIASED is now set from opengpu.library 0.24's
+gfopengpu.library: OBGPU_CAN_ALIASED is now set from gfopengpu.library 0.24's
 OGPU_QUERY_FLAG(OGPU_OP_PATH_FILL, OGPU_PATH_ALIASED_BIT), on ARGB32 and
 A8, instead of the library's revision. An older library, or a driver that
 doesn't take the flag, answers OGPU_NONE.
@@ -337,7 +337,7 @@ index c9f921e..359eae9 100644
 + * brushes), conic gradients and stops of any alphas (mixed premultiplied,
 + * as CSS); every other call goes to a GraphicsContextCairo
   * on the same pixels and the same state, after the batch is sent and drawn.
-  * The shell variable OB_PAINT=cairo, or no opengpu.library with stream
+  * The shell variable OB_PAINT=cairo, or no gfopengpu.library with stream
   * v1.4's COMPOSITE_PD, keeps the window on cairo alone (isWanted()).
 @@ -101,11 +103,14 @@ public:
      void drawDotsForDocumentMarker(const FloatRect&, DocumentMarkerLineStyle) final;
@@ -379,7 +379,7 @@ index f1b4df0..9c4334f 100644
  #include <opengpu/opengpu.h>
  #include <inline/opengpu.h>
  
-+/* opengpu.library 0.24's flag query (stream.h), for headers from before it */
++/* gfopengpu.library 0.24's flag query (stream.h), for headers from before it */
 +#ifndef OGPU_QUERY_FLAG
 +#define OGPU_QUERY_FLAG(op, bit) (0x01000000UL | ((unsigned long)((bit) & 31) << 16) | ((unsigned long)(op) & 0xFFFFUL))
 +#endif
@@ -397,7 +397,7 @@ index f1b4df0..9c4334f 100644
 -        /* stream v1.8's OGPU_PATH_ALIASED is a flag, not an opcode: 0.23 has it */
 -        if (OBOpenGPUBase->lib_Version > 0 || OBOpenGPUBase->lib_Revision >= 23)
 +        /* stream v1.8's OGPU_PATH_ALIASED is a flag, not an opcode: asked
-+         * with opengpu.library 0.24's flag query, to which an older library
++         * with gfopengpu.library 0.24's flag query, to which an older library
 +         * or a driver that doesn't know the flag answers OGPU_NONE */
 +        if (done(OGPU_Query(OGPU_QUERY_FLAG(OGPU_OP_PATH_FILL, OGPU_PATH_ALIASED_BIT), OGPU_FMT_ARGB32))
 +            && done(OGPU_Query(OGPU_QUERY_FLAG(OGPU_OP_PATH_FILL, OGPU_PATH_ALIASED_BIT), OGPU_FMT_A8)))
@@ -570,11 +570,11 @@ index 95f6fd4..1a0ad37 100644
   * drawn here. */
  #define OBGPU_CAN_PD    1
  #define OBGPU_CAN_PATH  2
--/* opengpu.library 0.23 (stream v1.8): paths without anti-aliasing
+-/* gfopengpu.library 0.23 (stream v1.8): paths without anti-aliasing
 - * (OGPU_PATH_ALIASED), as cairo's CAIRO_ANTIALIAS_NONE. */
 +/* Paths without anti-aliasing (stream v1.8's OGPU_PATH_ALIASED), as
 + * cairo's CAIRO_ANTIALIAS_NONE: from 0079, where the back end says it takes
-+ * the flag (opengpu.library 0.24's OGPU_QUERY_FLAG). */
++ * the flag (gfopengpu.library 0.24's OGPU_QUERY_FLAG). */
  #define OBGPU_CAN_ALIASED 4
  
  /* WebCore's CompositeOperator, in its order (GraphicsTypes.h). */

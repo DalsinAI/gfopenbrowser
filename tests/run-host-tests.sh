@@ -1,13 +1,13 @@
 #!/bin/sh
-# OpenBrowser Lite's host tests: weblayout's HTML Lite, CSS Lite, address
+# GFOpenBrowser Lite's host tests: weblayout's HTML Lite, CSS Lite, address
 # resolver, own C library calls, text converter and allocator, and its calls
 # (weblayout.h, drawn by tests/host's stand-in graphics.library), and
-# OpenMail's HTML-to-text converter, with the host's C compiler, on
-# OpenLayout's portable C. Also the engine's malloc (the stove's
+# GFOpenMail's HTML-to-text converter, with the host's C compiler, on
+# GFOpenLayout's portable C. Also the engine's malloc (the stove's
 # os32compat_malloc.c) on threads, with tests/host's stand-in exec calls, and
 # MallocBench, its timings against libnix's malloc (here the host's). And the
 # engine's HTTP disk cache (src/webcore/ob_httpcache.c) in a scratch folder.
-# And the engine's OpenGPU stream writer (WebKit patches 0076 and 0077) on
+# And the engine's GFOpenGPU stream writer (WebKit patches 0076 and 0077) on
 # openamigartg's CPU core, against a reference from stream.h's formulas.
 #
 #   OPENLAYOUT_SRC  an openamigalayout checkout (default ../openamigalayout)
@@ -67,7 +67,7 @@ python3 "$HERE/tools/patch-files.py" "$HERE/webkit/patches/0070-amiga-public-suf
     "$OUT/psl" PublicSuffixAmiga.c PublicSuffixAmiga.h
 "$CC" $FLAGS -I"$OUT/psl" "$OUT/psl/PublicSuffixAmiga.c" "$HERE/tests/test_public_suffixes.c" \
     -o "$OUT/test_public_suffixes"
-# the window's OpenGPU stream writer, which lives in WebKit patches 0076,
+# the window's GFOpenGPU stream writer, which lives in WebKit patches 0076,
 # 0077 (paths), 0078 (clips) and 0079 (patterns, conic gradients), on openamigartg's CPU core (built as its tests/run.sh
 # builds it)
 python3 "$HERE/tools/patch-files.py" "$HERE/webkit/patches/0076-amiga-graphicscontext-opengpu.patch" \
@@ -127,10 +127,8 @@ rm -rf "$OUT/httpcache"
 "$OUT/test_public_suffixes" "$HERE/data/public-suffixes" "$HERE/tests/public-suffix-cases.txt"
 "$OUT/test_opengpu_paint"
 # a test's last line only, but its whole log and a failed run when it fails (a pipe into tail hid the failure).
-# test_opengpu_pattern still goes through the pipe: its two checks against cairo's conic mesh fail with pixman
-# 0.46 (Ubuntu 26.04), where the mesh's sector edges come out differently; its own conic matches the angle's colour.
 last_line() { "$1" > "$1.log" 2>&1 || { cat "$1.log"; exit 1; }; tail -1 "$1.log"; }
-if [ "$CLIP_TEST" = 1 ]; then "$OUT/test_opengpu_clip"; "$OUT/test_opengpu_pattern" | tail -1; last_line "$OUT/test_opengpu_lines"; last_line "$OUT/test_opengpu_layer"; last_line "$OUT/test_opengpu_shadow"; else echo "test_opengpu_clip, test_opengpu_pattern, test_opengpu_lines, test_opengpu_layer, test_opengpu_shadow: skipped (no cairo headers)"; fi
+if [ "$CLIP_TEST" = 1 ]; then "$OUT/test_opengpu_clip"; last_line "$OUT/test_opengpu_pattern"; last_line "$OUT/test_opengpu_lines"; last_line "$OUT/test_opengpu_layer"; last_line "$OUT/test_opengpu_shadow"; else echo "test_opengpu_clip, test_opengpu_pattern, test_opengpu_lines, test_opengpu_layer, test_opengpu_shadow: skipped (no cairo headers)"; fi
 # fewer operations under the sanitizers, which are slower
 R=200000
 [ "${SANITIZE:-0}" = 1 ] && R=50000

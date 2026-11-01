@@ -1,9 +1,9 @@
 name: json.library
 
-# json.library (src/jsonlib, OpenJSON): the core's tests on the host and
+# json.library (src/jsonlib, GFOpenJSON): the core's tests on the host and
 # under qemu-m68k against Python's json and Node's number formatting, the
-# SDK headers against the SFD, and the 68040 build with the OpenAmigaGCC
-# release and OpenNDK, pinned as lite.yml pins them.
+# SDK headers against the SFD, and the 68040 build with the GFOpenAmigaGCC
+# release and GFOpenNDK, pinned as lite.yml pins them.
 on:
   push:
     paths:

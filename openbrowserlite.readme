@@ -1,12 +1,12 @@
 Short:        Small web browser for AmigaOS 3.2 (no WebKit)
-Author:       AmigaChrome Team
+Author:       AmiCradle Team
 Uploader:     UPLOADER-PLACEHOLDER
 Type:         comm/www
 Version:      0.4.1
 Architecture: m68k-amigaos >= 3.2
 Distribution: Aminet
 
-OpenBrowser Lite is a small web browser for AmigaOS 3.2: a GadTools window
+GFOpenBrowser Lite is a small web browser for AmigaOS 3.2: a GadTools window
 that opens http:// and https:// pages and lays them out, in about 100 KB.
 
 What it shows:
@@ -18,19 +18,19 @@ What it shows:
     element, class and ID selectors; colours, sizes, margins, padding,
     alignment, display: none
   - Back, Reload, an address field, and ARexx: OPENURL <address> on the
-    port AMIGACHROME.BROWSER (OpenMail opens its links that way)
+    port AMICRADLE.BROWSER (GFOpenMail opens its links that way)
 
 What it doesn't do: JavaScript, forms, frames, table grids, web fonts. For
-those there is OpenBrowser on WebKit (much larger).
+those there is GFOpenBrowser on WebKit (much larger).
 
 Requirements:
   - AmigaOS 3.2 or newer
   - a 68040 with FPU (hard float; not an LC or EC040)
   - a TCP/IP stack (bsdsocket.library)
-  - for https://: OpenTLS (LIBS:opentls.library and opencrypto.library) and
-    its CA list, S:OpenTLS/ca-bundle.pem (OpenUp's OpenTLS part)
+  - for https://: GFOpenTLS (LIBS:gfopentls.library and gfopencrypto.library) and
+    its CA list, S:GFOpenTLS/ca-bundle.pem (GFOpenUp's GFOpenTLS part)
 
-Its page engine, weblayout, is built on OpenLayout and kept behind one
+Its page engine, weblayout, is built on GFOpenLayout and kept behind one
 header so that it can become a shared weblayout.library.
 
 Licence: MIT, Copyright (c) 2026 AmigaChrome Team. If you base work on

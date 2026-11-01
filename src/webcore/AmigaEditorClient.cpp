@@ -1,5 +1,5 @@
 /*
- * OpenBrowser: WebCore's editor client. It lets form fields and editable
+ * GFOpenBrowser: WebCore's editor client. It lets form fields and editable
  * content take typing, and turns editing keys into WebCore's commands.
  *
  * Our code is MIT, Copyright (c) 2026 AmigaChrome Team. The key tables and the
@@ -52,7 +52,7 @@
 #include <wtf/NeverDestroyed.h>
 #include <wtf/TZoneMallocInlines.h>
 
-namespace OpenBrowser {
+namespace GFOpenBrowser {
 
 using namespace WebCore;
 
@@ -310,4 +310,4 @@ UniqueRef<EditorClient> createEditorClient()
     return makeUniqueRef<AmigaEditorClient>();
 }
 
-} // namespace OpenBrowser
+} // namespace GFOpenBrowser

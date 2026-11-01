@@ -1,9 +1,9 @@
-/* OpenBrowser (DalsinAI/openamigabrowser). Copyright (c) 2026 AmigaChrome Team. MIT licence, see LICENSE. */
+/* GFOpenBrowser (DalsinAI/openamigabrowser). Copyright (c) 2026 AmigaChrome Team. MIT licence, see LICENSE. */
 /* C99 <fenv.h> for AmigaOS 3.x with a 68881/68882/68040/68060 FPU.
- * AmigaChrome os32-gcc16: libnix has no fenv. Header-only, using the
+ * AmiCradle os32-gcc16: libnix has no fenv. Header-only, using the
  * FPCR (rounding, trap enables) and FPSR (accrued exceptions) directly. */
-#ifndef _AMIGACHROME_FENV_H
-#define _AMIGACHROME_FENV_H
+#ifndef _AMICRADLE_FENV_H
+#define _AMICRADLE_FENV_H
 
 typedef unsigned int fexcept_t;
 typedef struct { unsigned int __control_register; unsigned int __status_register; } fenv_t;

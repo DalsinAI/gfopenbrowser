@@ -1,5 +1,5 @@
 #!/bin/bash
-# The AmigaChrome Team. Counts the 68k instructions a jsc run executes under
+# The AmiCradle Team. Counts the 68k instructions a jsc run executes under
 # qemu-m68k (needs qemu's -d exec logging; no plugins).
 #   count.sh jsc test.js [on]     -> "instructions translation-blocks"
 # With "on", JSC_useM68KTemplateJIT=1. TOP=file also writes hot blocks.

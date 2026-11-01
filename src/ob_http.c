@@ -1,6 +1,6 @@
 /* ob_http: HTTP/1.1 GET with redirects and chunked bodies.
  *
- * OpenBrowser. MIT, Copyright (c) 2026 AmigaChrome Team. */
+ * GFOpenBrowser. MIT, Copyright (c) 2026 AmigaChrome Team. */
 #include "ob_http.h"
 #include "oam_net.h"
 #include "weblayout/wl_url.h"
@@ -10,7 +10,7 @@
 #include <stdlib.h>
 #include <string.h>
 
-#define USER_AGENT "OpenBrowser/0.4.1 (AmigaOS 3.2; m68k)"
+#define USER_AGENT "GFOpenBrowser/0.4.1 (AmigaOS 3.2; m68k)"
 #define MAX_REDIRECTS 5
 #define MAX_BODY (8L * 1024 * 1024)
 

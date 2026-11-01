@@ -1,5 +1,5 @@
 #!/bin/sh
-# OpenBrowser (DalsinAI/openamigabrowser)
+# GFOpenBrowser (DalsinAI/openamigabrowser)
 # Copyright (c) 2026 AmigaChrome Team. MIT licence, see LICENSE.
 #
 # unicode.library 1 (src/unicodelib): ICU 78's code and data, one shared
@@ -25,15 +25,15 @@
 #
 #   OAB_DEPS        holds icu78-m68k-amigaos from scripts/build-icu.sh: the
 #                   library links its static libraries and ships its data
-#   TOOLCHAIN_DIR   the OpenAmigaGCC release, or STOVE (os32-gcc16)
-#   NDK_INCLUDE     OpenNDK's Include_H
+#   TOOLCHAIN_DIR   the GFOpenAmigaGCC release, or STOVE (os32-gcc16)
+#   NDK_INCLUDE     GFOpenNDK's Include_H
 set -eu
 HERE=$(CDPATH= cd -- "$(dirname -- "$0")/.." && pwd)
 OUT=${1:-"$HERE/build/unicode-library"}
 if [ -n "${TOOLCHAIN_DIR:-}" ]; then
     BIN="$TOOLCHAIN_DIR/bin"
 else
-    BIN="${STOVE:-"$HOME/AmigaChrome/stoves/os32-gcc16"}/prefix/bin"
+    BIN="${STOVE:-"$HOME/AmiCradle/stoves/os32-gcc16"}/prefix/bin"
 fi
 CC="$BIN/m68k-amigaos-gcc"
 CXX="$BIN/m68k-amigaos-g++"
@@ -42,7 +42,7 @@ NM="$BIN/m68k-amigaos-nm"
 STRIP="$BIN/m68k-amigaos-strip"
 ICU="${OAB_DEPS:?set OAB_DEPS to the folder with icu78-m68k-amigaos}/icu78-m68k-amigaos"
 LIB="$HERE/src/unicodelib"
-: "${NDK_INCLUDE:?set NDK_INCLUDE to OpenNDK's Include_H}"
+: "${NDK_INCLUDE:?set NDK_INCLUDE to GFOpenNDK's Include_H}"
 [ -x "$CC" ] || { echo "build-unicode-library.sh: no compiler at $CC (set TOOLCHAIN_DIR or STOVE)" >&2; exit 2; }
 for f in lib/libicuuc.a lib/libicui18n.a include/unicode/utypes.h share/icudt78b.dat; do
     [ -f "$ICU/$f" ] || { echo "build-unicode-library.sh: no $ICU/$f (scripts/build-icu.sh)" >&2; exit 2; }

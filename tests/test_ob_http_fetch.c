@@ -1,4 +1,4 @@
-/* OpenBrowser Lite's HTTP GET (src/ob_http.c, ob_http_get) on the host, on
+/* GFOpenBrowser Lite's HTTP GET (src/ob_http.c, ob_http_get) on the host, on
  * a stand-in network that answers from memory: tests/run-host-tests.sh.
  * ob_http.c and oam_buf.c are built with malloc, realloc and free renamed
  * to the counting ones here, so the test sees the most memory held at once.

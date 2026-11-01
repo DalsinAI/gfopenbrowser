@@ -1,8 +1,8 @@
 /*
- * OpenBrowser: the browser window. WebCore pages in a GadTools window:
+ * GFOpenBrowser: the browser window. WebCore pages in a GadTools window:
  * Back, Forward, Reload and Stop, the address, the page, and a status line.
  *
- *   OpenBrowser [URL]
+ *   GFOpenBrowser [URL]
  *
  * The page is painted into a 32-bit buffer and copied into the window; on a
  * graphics card's screen as it is, on a native screen dithered to pens. One
@@ -44,7 +44,7 @@
 #define TLS_SESSIONS "PROGDIR:TLSSessions"
 #include "oam_stack.h"
 
-static const char version[] __attribute__((used)) = "$VER: OpenBrowser 0.8.2 (23.10.2026)";
+static const char version[] __attribute__((used)) = "$VER: GFOpenBrowser 0.8.2 (23.10.2026)";
 
 #define HOME_PAGE "https://example.com/"
 
@@ -76,7 +76,7 @@ static int timerPending;
 
 static char urlText[2048] = HOME_PAGE;
 static char statusText[256] = "";
-static char titleText[256] = "OpenBrowser";
+static char titleText[256] = "GFOpenBrowser";
 static int quitNow;
 static int loading;
 
@@ -87,7 +87,7 @@ static int paintLegacy;
 
 /* For the lab's comparison, per page load: the areas painted, the passes
  * that painted any, and the time spent painting them and copying them into
- * the window, then what painted them (OpenGPU's draws and batches and the
+ * the window, then what painted them (GFOpenGPU's draws and batches and the
  * calls cairo drew, ob_webview_paint_report()). Printed as one OBVIEW_BENCH
  * line once the page has loaded and settled (nothing left to lay out or
  * paint). */
@@ -433,7 +433,7 @@ static void relayout(void)
 static void onTitle(void *context, const char *title)
 {
     (void)context;
-    utf8ToLatin1(*title ? title : "OpenBrowser", titleText, sizeof titleText);
+    utf8ToLatin1(*title ? title : "GFOpenBrowser", titleText, sizeof titleText);
     if (window)
         SetWindowTitles(window, (UBYTE *)titleText, (UBYTE *)-1);
 }
@@ -873,12 +873,12 @@ static int openBrowserWindow(const char *url, int network)
         struct DimensionInfo dims;
         if (mode != INVALID_ID && GetDisplayInfoData(NULL, (UBYTE *)&dims, sizeof dims, DTAG_DIMS, mode) && dims.MaxDepth >= 15) {
             ownScreen = OpenScreenTags(NULL, SA_DisplayID, mode, SA_Depth, dims.MaxDepth >= 24 ? 24 : dims.MaxDepth,
-                SA_Width, 800, SA_Height, 600, SA_Title, (ULONG)"OpenBrowser", SA_PubName, (ULONG)"OPENBROWSER",
+                SA_Width, 800, SA_Height, 600, SA_Title, (ULONG)"GFOpenBrowser", SA_PubName, (ULONG)"GFOPENBROWSER",
                 SA_LikeWorkbench, TRUE, SA_SharePens, TRUE, TAG_DONE);
             if (ownScreen) {
                 PubScreenStatus(ownScreen, 0);
                 UnlockPubScreen(NULL, screen);
-                screen = LockPubScreen((CONST_STRPTR)"OPENBROWSER");
+                screen = LockPubScreen((CONST_STRPTR)"GFOPENBROWSER");
             }
         }
     }
@@ -909,7 +909,7 @@ static int openBrowserWindow(const char *url, int network)
     ob_blit_open(screen);
     UnlockPubScreen(NULL, screen);
     if (!window || !makeGadgets() || !allocatePage()) {
-        printf("OpenBrowser could not open its window.\n");
+        printf("GFOpenBrowser could not open its window.\n");
         quitNow = 1;
     }
     ob_splash(NULL, OB_SPLASH_CLOSE);
@@ -1062,7 +1062,7 @@ static int browserMain(int argc, char **argv)
     readToolTypes(argc, argv);
     ob_splash("Starting WebKit and the network", 75);
     if (!openLibraries()) {
-        printf("OpenBrowser needs AmigaOS 3.1 or newer.\n");
+        printf("GFOpenBrowser needs AmigaOS 3.1 or newer.\n");
         closeLibraries();
         return 20;
     }
@@ -1121,7 +1121,7 @@ int main(int argc, char **argv)
     /* Started from Workbench (no arguments at all): WebKit's own messages
      * go to a log in T:, not to a console window over the page. */
     if (argc == 0)
-        freopen("T:OpenBrowser.log", "w", stderr);
+        freopen("T:GFOpenBrowser.log", "w", stderr);
     /* WebCore and JavaScriptCore recurse deeply; give them 2 MB of stack. */
     return oam_run_with_stack(2 * 1024 * 1024, browserMain, argc, argv);
 }

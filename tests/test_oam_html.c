@@ -1,5 +1,5 @@
 /*
- * OpenMail's HTML-to-text converter as OpenBrowser Lite uses it for its
+ * GFOpenMail's HTML-to-text converter as GFOpenBrowser Lite uses it for its
  * Links... list: https://example.com/ (no </head>) keeps its text and link.
  * MIT, Copyright (c) 2026 AmigaChrome Team.
  */

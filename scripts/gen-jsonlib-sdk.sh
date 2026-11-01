@@ -1,8 +1,8 @@
 #!/bin/sh
 # json.library's SDK files (src/jsonlib/sdk: FD, clib/, inline/, pragmas/,
 # proto/ and the LVO equates) from src/jsonlib/sfd/json_lib.sfd, with
-# OpenSDK's generator (DalsinAI/openamigasdk OpenNDK/tools/ndkgen.py), as
-# OpenNDK makes its own. sdk/Include_H/libraries/json.h is written by hand.
+# GFOpenSDK's generator (DalsinAI/openamigasdk OpenNDK/tools/ndkgen.py), as
+# GFOpenNDK makes its own. sdk/Include_H/libraries/json.h is written by hand.
 # Edit the SFD (new calls at the end), then run this.
 #
 #   OPENSDK_SRC   an openamigasdk checkout (default ../openamigasdk)

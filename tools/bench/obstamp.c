@@ -10,7 +10,7 @@
  * midnight (in 20 ms steps: 1/50 s ticks). Memory is AvailMem(): all free
  * memory, Fast and Chip, and the largest free block.
  *
- * OpenBrowser. MIT, Copyright (c) 2026 The AmigaChrome Team.
+ * GFOpenBrowser. MIT, Copyright (c) 2026 The AmigaChrome Team.
  */
 #include <exec/types.h>
 #include <exec/memory.h>

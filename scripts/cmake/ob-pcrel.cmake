@@ -1,4 +1,4 @@
-# OpenBrowser (DalsinAI/openamigabrowser)
+# GFOpenBrowser (DalsinAI/openamigabrowser)
 # Copyright (c) 2026 AmigaChrome Team. MIT licence, see LICENSE.
 #
 # OB_PCREL=1: the files our GCC cannot build pc-relative are built with

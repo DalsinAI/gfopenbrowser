@@ -6,7 +6,7 @@ Subject: [PATCH] WebCore: the window painted through a GraphicsContext on
 
 GraphicsContextOpenGPU (platform/graphics/amiga) is the window's context
 on the Amiga. Solid rectangles, clearRect, rectangle clips and pictures go
-into one opengpu.library batch per paint; every other call goes to a
+into one gfopengpu.library batch per paint; every other call goes to a
 GraphicsContextCairo on the same pixels, which gets every state change as
 it happens, after the batch is sent and drawn. The calls cairo draws are
 counted by kind for the browser's OBVIEW_BENCH line.
@@ -40,7 +40,7 @@ held until then. A failed batch leaves the rest of the paint to cairo.
 OpenGPUPaintAmiga.c turns the state and the calls into stream words:
 plain C, no WebKit, no floating point, tested on the host against
 openamigartg's CPU core (openamigabrowser tests/test_opengpu_paint.c).
-OpenGPULibraryAmiga.c opens opengpu.library once at run time through
+OpenGPULibraryAmiga.c opens gfopengpu.library once at run time through
 openamigartg's inline calls; nothing more is linked. Without it, with a
 library that answers OGPU_NONE for COMPOSITE_PD, or with the Shell
 variable OB_PAINT=cairo, the browser paints with cairo as before.
@@ -70,7 +70,7 @@ index b315e7ab109..50d4da6d261 100644
      platform/generic/KeyedDecoderGeneric.cpp
      platform/generic/KeyedEncoderGeneric.cpp
  
-+    # The window is painted through opengpu.library, opened at run time
++    # The window is painted through gfopengpu.library, opened at run time
 +    # (cairo for what it doesn't draw, and with OB_PAINT=cairo). The
 +    # browser's build gives the two C files openamigartg's OpenGPU headers
 +    # (src/webcore/CMakeLists.txt); nothing more is linked.
@@ -148,7 +148,7 @@ index 00000000000..3b339abd151
 +        if (value && equalLettersIgnoringASCIICase(String::fromLatin1(value), "cairo"_s))
 +            return false;
 +        if (!(ob_opengpu_caps() & OBGPU_CAN_PD)) {
-+            fprintf(stderr, "OpenBrowser: no opengpu.library with COMPOSITE_PD; the window is painted with cairo\n");
++            fprintf(stderr, "OpenBrowser: no gfopengpu.library with COMPOSITE_PD; the window is painted with cairo\n");
 +            return false;
 +        }
 +        return true;
@@ -686,7 +686,7 @@ index 00000000000..9f2fe7fb74c
 + * clearRect, rectangle clips and pictures go into one OpenGPU batch
 + * (OpenGPUPaintAmiga.h); every other call goes to a GraphicsContextCairo
 + * on the same pixels and the same state, after the batch is sent and drawn.
-+ * The shell variable OB_PAINT=cairo, or no opengpu.library with stream
++ * The shell variable OB_PAINT=cairo, or no gfopengpu.library with stream
 + * v1.4's COMPOSITE_PD, keeps the window on cairo alone (isWanted()).
 + * MIT, Copyright (c) 2026 AmigaChrome Team.
 + * SPDX-License-Identifier: MIT
@@ -808,7 +808,7 @@ index 00000000000..017286bfac2
 +++ b/Source/WebCore/platform/graphics/amiga/OpenGPULibraryAmiga.c
 @@ -0,0 +1,76 @@
 +/*
-+ * opengpu.library for GraphicsContextOpenGPU (OpenGPUPaintAmiga.h's
++ * gfopengpu.library for GraphicsContextOpenGPU (OpenGPUPaintAmiga.h's
 + * ob_opengpu_caps and ob_opengpu_run). Opened at run time, once, through
 + * openamigartg's inline calls; nothing is linked. A missing library, or one
 + * older than stream v1.4 (it answers OGPU_NONE for COMPOSITE_PD), leaves
@@ -1570,7 +1570,7 @@ index 00000000000..2005f634ce7
 +extern "C" {
 +#endif
 +
-+/* What the back end does (opengpu.library's OGPU_Query): COMPOSITE_PD
++/* What the back end does (gfopengpu.library's OGPU_Query): COMPOSITE_PD
 + * (stream v1.4) for fills that blend and for pictures, and PATH_FILL (v1.6)
 + * for pictures under a scale or any other transform. Without PD nothing is
 + * drawn here. */
@@ -1695,7 +1695,7 @@ index 00000000000..2005f634ce7
 +long obgpu_flush(struct obgpu *g);
 +
 +/* openamigabrowser's engine only (OpenGPULibraryAmiga.c): opens
-+ * opengpu.library once and says what it does (OBGPU_CAN_), 0 when it is
++ * gfopengpu.library once and says what it does (OBGPU_CAN_), 0 when it is
 + * missing or older than stream v1.4; and sends a batch and waits for it. */
 +int ob_opengpu_caps(void);
 +long ob_opengpu_run(const unsigned char *stream, long words);

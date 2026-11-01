@@ -1,4 +1,4 @@
-# Faster JavaScript for OpenBrowser: plan
+# Faster JavaScript for GFOpenBrowser: plan
 
 Status, 6 October 2026. JavaScriptCore runs on the 68k through its C
 interpreter (`ENABLE_C_LOOP`). This is the plan for making it faster: a
@@ -157,19 +157,19 @@ shows fully once the slow opcodes above are fixed there.
 
 ## Step 2: compiling as a service ("code in, runtime out")
 
-> **Revised, 17 October 2026:** AmigaChrome's
+> **Revised, 17 October 2026:** AmiCradle's
 > `docs/design/Design-OpenBrowser-JIT-on-core.md` 0.4 (PR #564) replaces this
 > step. Compiling becomes J3, `js.compile/1`, an optimising tier whose 68k
 > code keeps values unboxed, after J2's 68k Baseline JIT in the program. Work
 > off the main thread becomes J4, Web Workers on extra 68k cores through Exec
 > across cores. This text is kept for the record.
 
-Like OpenMulticore's jobs: the engine sends a hot function's bytecode to a
-`js.compile/1` service on `openservice.device` and gets back ready-to-run 68k
+Like GFOpenMulticore's jobs: the engine sends a hot function's bytecode to a
+`js.compile/1` service on `gfopenservice.device` and gets back ready-to-run 68k
 code.
 
 - **Where it runs:** on a Cradle PC, on a card core, or on the Amiga itself
-  when nothing else is there. Placement follows OpenMulticore's rules; the
+  when nothing else is there. Placement follows GFOpenMulticore's rules; the
   68k fallback is always present.
 - **What goes in:** the function's bytecode, its constants, the value
   profiles the interpreter collected, and a table of the engine's runtime
@@ -190,14 +190,14 @@ running.
 
 ## Step 3: offload the work itself (later)
 
-> **Revised, 17 October 2026:** AmigaChrome's
+> **Revised, 17 October 2026:** AmiCradle's
 > `docs/design/Design-OpenBrowser-JIT-on-core.md` 0.4 (PR #564) replaces this
 > step. Compiling becomes J3, `js.compile/1`, an optimising tier whose 68k
 > code keeps values unboxed, after J2's 68k Baseline JIT in the program. Work
 > off the main thread becomes J4, Web Workers on extra 68k cores through Exec
 > across cores. This text is kept for the record.
 
-With OpenMulticore cores that run native code, whole scripts (a worker, a
+With GFOpenMulticore cores that run native code, whole scripts (a worker, a
 page's JavaScript) could run on the card with its own heap, the page's DOM
 calls marshalled back. This needs WebCore's worker support on the Amiga and
 is not started.

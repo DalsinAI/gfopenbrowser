@@ -1,5 +1,5 @@
 /*
- * OpenBrowser: the two cybergraphics.library calls it uses, for graphics
+ * GFOpenBrowser: the two cybergraphics.library calls it uses, for graphics
  * card screens (Picasso96 and CyberGraphX both provide the library). The
  * names, numbers and call offsets are the library's published interface.
  * MIT, Copyright (c) 2026 AmigaChrome Team.

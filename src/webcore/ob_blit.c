@@ -1,5 +1,5 @@
 /*
- * OpenBrowser: putting the page's 32-bit pixels into a window.
+ * GFOpenBrowser: putting the page's 32-bit pixels into a window.
  *
  * On a graphics card's screen (Picasso96 or CyberGraphX), cybergraphics'
  * WritePixelArray() copies them as they are. On a native (AGA or ECS)

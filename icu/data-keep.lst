@@ -1,4 +1,4 @@
-# The ICU 78 data items OpenBrowser keeps (scripts/build-icu.sh): the root and
+# The ICU 78 data items GFOpenBrowser keeps (scripts/build-icu.sh): the root and
 # English (en, en_001, en_GB, en_US) locales, every break rule,
 # normalisation and character properties. No text converters: WebKit decodes
 # every web encoding itself (TextCodecCJK, TextCodecSingleByte and the UTF

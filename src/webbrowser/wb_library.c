@@ -35,7 +35,7 @@ struct Library *CyberGfxBase;
 static BPTR segList;
 
 #define ENGINE_PATH "LIBS:WebBrowser/WebBrowserEngine"
-/* Not installed: OpenBrowser's drawer, as unpacked, carries the library and
+/* Not installed: GFOpenBrowser's drawer, as unpacked, carries the library and
  * the engine in Libs (PROGDIR: of the program asking). */
 #define ENGINE_PATH_DRAWER "PROGDIR:Libs/WebBrowser/WebBrowserEngine"
 #define ENGINE_WAIT 180                       /* seconds for a cold start on a slow disk */

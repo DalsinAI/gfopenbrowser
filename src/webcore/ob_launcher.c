@@ -1,5 +1,5 @@
 /*
- * OpenBrowser's launcher: the small OpenBrowser program that the icon (or a
+ * GFOpenBrowser's launcher: the small GFOpenBrowser program that the icon (or a
  * Shell) starts. The browser runs in WebBrowserEngine, the one engine behind
  * webbrowser.library: the launcher opens LIBS:webbrowser.library, or the
  * drawer's own PROGDIR:Libs/webbrowser.library before Install, and asks it
@@ -35,7 +35,7 @@
 #include "libraries/webbrowser.h"
 #include "proto/webbrowser.h"
 
-static const char version[] __attribute__((used)) = "$VER: OpenBrowser 0.8.2 (23.10.2026)";
+static const char version[] __attribute__((used)) = "$VER: GFOpenBrowser 0.8.2 (23.10.2026)";
 
 struct IntuitionBase *IntuitionBase;
 struct GfxBase *GfxBase;
@@ -49,7 +49,7 @@ static volatile int splashDone;  /* set, under Forbid, as the title window's pro
 
 static struct Window *window;
 static struct DrawInfo *drawInfo;
-static char statusText[80] = "Loading OpenBrowser";
+static char statusText[80] = "Loading GFOpenBrowser";
 static LONG percent;
 
 static void drawText(struct RastPort *rp, const char *text, WORD x, WORD y, WORD width)
@@ -104,7 +104,7 @@ static void splashMain(void)
         drawInfo = GetScreenDrawInfo(screen);
         window = OpenWindowTags(NULL, WA_PubScreen, (ULONG)screen,
             WA_Left, (screen->Width - width) / 2, WA_Top, (screen->Height - height) / 2,
-            WA_Width, width, WA_Height, height, WA_Title, (ULONG)"OpenBrowser",
+            WA_Width, width, WA_Height, height, WA_Title, (ULONG)"GFOpenBrowser",
             WA_DragBar, TRUE, WA_DepthGadget, TRUE, WA_SmartRefresh, TRUE, WA_Activate, TRUE,
             WA_IDCMP, IDCMP_REFRESHWINDOW, TAG_DONE);
     }
@@ -247,7 +247,7 @@ int main(int argc, char **argv)
      * browser at once. */
     if (IntuitionBase && GfxBase && !FindPort((CONST_STRPTR)OB_SPLASH_PORT) && !FindPort((CONST_STRPTR)WEBBROWSER_ENGINE_PORT)) {
         SetSignal(0, SIGBREAKF_CTRL_E | SIGBREAKF_CTRL_F);
-        splash = (struct Task *)CreateNewProcTags(NP_Entry, (ULONG)splashMain, NP_Name, (ULONG)"OpenBrowser title",
+        splash = (struct Task *)CreateNewProcTags(NP_Entry, (ULONG)splashMain, NP_Name, (ULONG)"GFOpenBrowser title",
             NP_StackSize, 8192, NP_Priority, 1, TAG_DONE);
         if (splash)
             Wait(SIGBREAKF_CTRL_F | SIGBREAKF_CTRL_E);
@@ -255,9 +255,9 @@ int main(int argc, char **argv)
 
     if ((result = openInLibrary(argc, argv, &splash)) < 0) {
         result = RETURN_FAIL;
-        ob_splash("OpenBrowser needs webbrowser.library 1.1", 0);
+        ob_splash("GFOpenBrowser needs webbrowser.library 1.1", 0);
         if (argc)
-            printf("OpenBrowser: needs webbrowser.library 1.1 or newer in LIBS: or in this drawer's Libs\n");
+            printf("GFOpenBrowser: needs webbrowser.library 1.1 or newer in LIBS: or in this drawer's Libs\n");
         Delay(5 * TICKS_PER_SECOND);
     }
 

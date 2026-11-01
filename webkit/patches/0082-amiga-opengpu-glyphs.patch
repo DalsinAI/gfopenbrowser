@@ -1,16 +1,16 @@
 From 7861d342dfba9cf0f5eef2e7691a1728c5ee781c Mon Sep 17 00:00:00 2001
 From: SacredTrees <121399723+SacredTrees@users.noreply.github.com>
 Date: Sun, 1 Nov 2026 18:06:33 +0000
-Subject: [PATCH] WebCore: glyph runs through openfont.library's OF_DrawGlyphsA
+Subject: [PATCH] WebCore: glyph runs through gfopenfont.library's OF_DrawGlyphsA
  on OpenGPU
 
 GraphicsContextOpenGPU::drawGlyphs no longer hands every run to cairo
 (cairo-out item 5, openamigabrowser docs/STEP5-6-WEBCORE.md). The glyph
-cache is openfont's, as Dale decided: openfont.library 1.5's
+cache is openfont's, as Dale decided: gfopenfont.library 1.5's
 OF_DrawGlyphsA fills each glyph once into its A8 atlas through OpenGPU and
 draws every use from it (openamigafont #24).
 
-- OpenGPUGlyphsAmiga.c opens openfont.library itself, version 1 with
+- OpenGPUGlyphsAmiga.c opens gfopenfont.library itself, version 1 with
   revision 5 or later, with its own base: OpenFontLibrary.c's
   OpenFontBase is left alone. It passes a run to OF_DrawGlyphsA.
   Headers from before revision 5 compile it to "not there".
@@ -76,7 +76,7 @@ index 81c030a..e9365ff 100644
 +// with the face's cairo user font): each glyph at the point plus the
 +// advances before it, filled with the fill colour times the global alpha,
 +// drawn twice for synthetic bold (moved by its offset along x). Here
-+// openfont.library 1.5's OF_DrawGlyphsA draws them from its own glyph
++// gfopenfont.library 1.5's OF_DrawGlyphsA draws them from its own glyph
 +// cache: an OpenFont face, fill only, a colour (no gradient or pattern),
 +// source-over, normal blending, no shadow, no colour glyphs and no
 +// synthetic oblique; anti-aliased, or not with FontSmoothingMode::None
@@ -151,7 +151,7 @@ index 81c030a..e9365ff 100644
 +        // the first pass failing leaves nothing drawn: cairo draws it all
 +        if (drawn < 0) {
 +            if (pass)
-+                fprintf(stderr, "OpenBrowser: openfont.library could not draw a run's synthetic bold (%ld)\n", drawn);
++                fprintf(stderr, "OpenBrowser: gfopenfont.library could not draw a run's synthetic bold (%ld)\n", drawn);
 +            return !!pass;
 +        }
 +        m_counts->draws += glyphs.size();
@@ -183,7 +183,7 @@ index 200bd0b..1626b47 100644
   * operator cairo bounds by the shape (copy and clear included) go into one
   * OpenGPU batch
 - * (OpenGPUPaintAmiga.h); from 0081 also what is drawn inside transparency
-+ * (OpenGPUPaintAmiga.h); from 0082 glyph runs (openfont.library 1.5's
++ * (OpenGPUPaintAmiga.h); from 0082 glyph runs (gfopenfont.library 1.5's
 + * OF_DrawGlyphsA, its glyph cache inside openfont); from 0081 also what is drawn inside transparency
   * layers (into cairo's group); from 0080 drawRect, drawLine, drawEllipse,
   * focus rings, text decorations and spelling markers; from 0079 also patterns (drawPattern, pattern
@@ -192,7 +192,7 @@ index 200bd0b..1626b47 100644
      void clipToPath(const Path&, int flags);
      // After cairo pushed a group: draw into its surface here (0081).
      void groupHere();
-+    // A glyph run drawn by openfont.library through OpenGPU (0082).
++    // A glyph run drawn by gfopenfont.library through OpenGPU (0082).
 +    bool glyphsHere(const Font&, std::span<const GlyphBufferGlyph>, std::span<const GlyphBufferAdvance>, const FloatPoint&, FontSmoothingMode);
      // The batch sent, then a call of this kind counted for cairo.
      void handOn(int kind) const;
@@ -206,7 +206,7 @@ index 0000000..d4e9aaf
 +/*
 + * Glyph runs for GraphicsContextOpenGPU (OpenGPUPaintAmiga.h's
 + * ob_openfont_glyphs_available and ob_openfont_draw_glyphs, patch 0082):
-+ * openfont.library 1.5's OF_DrawGlyphsA draws them from its own glyph
++ * gfopenfont.library 1.5's OF_DrawGlyphsA draws them from its own glyph
 + * cache through OpenGPU, straight onto the window or a layer's group. Its
 + * own base, opened once at run time; an older library (or headers from
 + * before revision 5) leaves glyphs to cairo.
@@ -227,7 +227,7 @@ index 0000000..d4e9aaf
 +
 +#ifdef OPENFONT_REVISION_GPU
 +
-+/* the engine's other openfont.library calls use OpenFontBase (OpenFontLibrary.c) */
++/* the engine's other gfopenfont.library calls use OpenFontBase (OpenFontLibrary.c) */
 +#define OPENFONT_BASE_NAME OBGlyphsOpenFontBase
 +#include <inline/openfont.h>
 +
@@ -304,7 +304,7 @@ index 0000000..d4e9aaf
 +
 +#else
 +
-+/* openfont.library's headers from before revision 5: glyphs stay cairo's */
++/* gfopenfont.library's headers from before revision 5: glyphs stay cairo's */
 +int ob_openfont_glyphs_available(void)
 +{
 +    return 0;
@@ -327,7 +327,7 @@ index 7af5a94..c34fe09 100644
      return 0;
  }
 +
-+/* ---- glyph runs, drawn by openfont.library (0082) ---------------------------------------- */
++/* ---- glyph runs, drawn by gfopenfont.library (0082) ---------------------------------------- */
 +
 +int obgpu_glyphs_here(const struct obgpu *g, struct obgpu_glyphs *out)
 +{
@@ -373,7 +373,7 @@ index c7940a4..61271a7 100644
  #define OBGPU_CLIP_OUT      4
  int obgpu_clip_path(struct obgpu *g, int flags);
  
-+/* Glyph runs (0082) are drawn by openfont.library's OF_DrawGlyphsA, from
++/* Glyph runs (0082) are drawn by gfopenfont.library's OF_DrawGlyphsA, from
 + * its own glyph cache, straight onto the target: where it draws now (the
 + * target, or a group's surface; the clip rectangle and the clip's A8 mask,
 + * in the target's pixels) and the transform's linear part. 0 when nothing
@@ -400,7 +400,7 @@ index c7940a4..61271a7 100644
  int ob_opengpu_caps(void);
  long ob_opengpu_run(const unsigned char *stream, long words);
 +/* openamigabrowser's engine only (OpenGPUGlyphsAmiga.c, 0082):
-+ * openfont.library 1.5's OF_DrawGlyphsA is there; and a run drawn with it
++ * gfopenfont.library 1.5's OF_DrawGlyphsA is there; and a run drawn with it
 + * (face an OFFace; positions x, y pairs, 24.8 target pixels; colour
 + * premultiplied ARGB32; matrix 16.16 a, b, c, d about each pen or 0;
 + * aliased: no anti-aliasing): the glyphs drawn, or a negative openfont

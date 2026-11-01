@@ -7,14 +7,14 @@ index 1ad4456bc..a2df75088 100644
  #undef PCC_STATIC_STRUCT_RETURN
  #define DEFAULT_PCC_STRUCT_RETURN 0
 +
-+/* AmigaChrome os32-gcc16: make int32_t/uint32_t plain int, as on AROS and
++/* AmiCradle os32-gcc16: make int32_t/uint32_t plain int, as on AROS and
 +   32-bit Linux, instead of newlib's long. Same size and C ABI; avoids the
 +   int vs int32_t overload ambiguities in ICU and WebKit. With -mshort
 +   (16-bit int) newlib's long choice still applies.  */
 +#undef STDINT_LONG32
 +#define STDINT_LONG32 (INT_TYPE_SIZE != 32 && LONG_TYPE_SIZE == 32)
 +
-+/* AmigaChrome os32-gcc16: no -mcrt means libnix (nix20), not newlib, which
++/* AmiCradle os32-gcc16: no -mcrt means libnix (nix20), not newlib, which
 +   this stove does not build. This keeps libstdc++'s configure link tests
 +   (and plain m68k-amigaos-g++ use) on the real C library.  */
 +#undef DRIVER_SELF_SPECS

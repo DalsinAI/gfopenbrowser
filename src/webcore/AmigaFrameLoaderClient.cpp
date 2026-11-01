@@ -1,5 +1,5 @@
 /*
- * OpenBrowser: WebCore's frame loader client, one per frame. It makes the
+ * GFOpenBrowser: WebCore's frame loader client, one per frame. It makes the
  * frame's view when a page commits, says yes to navigations and to the
  * types WebCore can show, makes subframes for <iframe>, and tells the main
  * frame's window about titles, addresses and progress.
@@ -48,7 +48,7 @@
 #include <wtf/NeverDestroyed.h>
 #include <wtf/RunLoop.h>
 
-namespace OpenBrowser {
+namespace GFOpenBrowser {
 
 using namespace WebCore;
 
@@ -61,7 +61,7 @@ private:
         : FrameNetworkingContext(&frame)
     {
     }
-    // Cookies live in OpenBrowser's own jar (AmigaCookieJar), not here.
+    // Cookies live in GFOpenBrowser's own jar (AmigaCookieJar), not here.
     CookieStorageSession* storageSession() const final { return nullptr; }
 };
 
@@ -396,4 +396,4 @@ UniqueRef<LocalFrameLoaderClient> createFrameLoaderClient(FrameLoader& loader, W
     return makeUniqueRefWithoutRefCountedCheck<AmigaFrameLoaderClient>(loader, view);
 }
 
-} // namespace OpenBrowser
+} // namespace GFOpenBrowser

@@ -80,7 +80,7 @@ index ed95e2e66e..165c23033e 100644
  void obdt_free(OBDTImage*);
  
 +/* A decoder elsewhere (OpenBrowser: media.decode/1 through
-+ * openservice.device), tried before the datatypes. It returns 1 with out
++ * gfopenservice.device), tried before the datatypes. It returns 1 with out
 + * filled (pixels from malloc), or 0 to leave the picture to the datatypes.
 + * With one set, SVG pictures in <img> and CSS are decoded as bitmaps by it
 + * instead of drawn by WebCore, which is very slow on a 68k. */

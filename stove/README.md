@@ -1,6 +1,6 @@
 # The os32-gcc16 stove
 
-The compiler OpenBrowser builds with: bebbo's amiga-gcc framework
+The compiler GFOpenBrowser builds with: bebbo's amiga-gcc framework
 (https://franke.ms/git/bebbo/amiga-gcc) with gcc branch `amiga16.2`
 (GCC 16.2.0b).
 

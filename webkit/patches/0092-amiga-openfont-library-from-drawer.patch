@@ -1,11 +1,11 @@
 From ecabf310c91808fdccd70ef308ef38b91bc5449b Mon Sep 17 00:00:00 2001
 From: SacredTrees <121399723+SacredTrees@users.noreply.github.com>
 Date: Fri, 23 Oct 2026 16:47:29 +0000
-Subject: [PATCH] WebCore: find the package's openfont.library from the
+Subject: [PATCH] WebCore: find the package's gfopenfont.library from the
  engine's drawer
 
 The one engine runs from the drawer's Libs/WebBrowser/, while the package
-keeps openfont.library in the drawer's Libs/. Without LIBS:openfont.library
+keeps gfopenfont.library in the drawer's Libs/. Without LIBS:gfopenfont.library
 the engine looked in PROGDIR:Libs/ only, opened no library, found no face
 and stopped at lastResortFallbackFont's RELEASE_ASSERT on most pages. It
 now also looks in PROGDIR:/ (the drawer's Libs/).

@@ -24,7 +24,7 @@ paths (cairo-out item 1, openamigabrowser docs/STEP5-6-WEBCORE.md):
   reads it.
 - Shapes with shouldAntialias() off (SVG crispEdges and the like) are
   drawn with stream v1.8's OGPU_PATH_ALIASED, each pixel by its centre,
-  as cairo's CAIRO_ANTIALIAS_NONE: opengpu.library 0.23 and later
+  as cairo's CAIRO_ANTIALIAS_NONE: gfopengpu.library 0.23 and later
   (OBGPU_CAN_ALIASED, from its version: the bit is a flag, not an
   opcode). Before 0.23 they stay cairo's.
 - Copy and clear on paths, and on rectangles off whole pixels or through
@@ -191,7 +191,7 @@ index 90f641b..b7738e4 100644
 -        && ensureWork();
 +    if (!m_gpu || !(m_gpu->caps & OBGPU_CAN_PATH) || blendMode() != BlendMode::Normal || hasDropShadow())
 +        return false;
-+    // without anti-aliasing (cairo's CAIRO_ANTIALIAS_NONE) from opengpu.library 0.23
++    // without anti-aliasing (cairo's CAIRO_ANTIALIAS_NONE) from gfopengpu.library 0.23
 +    if (!shouldAntialias() && !(m_gpu->caps & OBGPU_CAN_ALIASED))
 +        return false;
 +    obgpu_set_antialias(m_gpu, shouldAntialias());
@@ -245,7 +245,7 @@ index a84a5c3..c9f921e 100644
 + * OpenGPU batch
   * (OpenGPUPaintAmiga.h); every other call goes to a GraphicsContextCairo
   * on the same pixels and the same state, after the batch is sent and drawn.
-  * The shell variable OB_PAINT=cairo, or no opengpu.library with stream
+  * The shell variable OB_PAINT=cairo, or no gfopengpu.library with stream
 @@ -106,6 +109,9 @@ private:
      };
  
@@ -289,7 +289,7 @@ index 9650827..fc802ae 100644
 + *   everything drawn while it is the clip multiplied by it (COMPOSITE_PD's
 + *   mask, PATH_FILL's PATH_MASK). Rectangles clip by their pixels' centres,
 + *   as cairo clips them without anti-aliasing (stream v1.8's
-+ *   OGPU_PATH_ALIASED, opengpu.library 0.23).
++ *   OGPU_PATH_ALIASED, gfopengpu.library 0.23).
 + * - shapes without anti-aliasing (setShouldAntialias(false)): v1.8's
 + *   OGPU_PATH_ALIASED.
 + * - copy and clear on a path or through a mask, as cairo's: what is there
@@ -805,7 +805,7 @@ index 8c06d92..95f6fd4 100644
   * drawn here. */
  #define OBGPU_CAN_PD    1
  #define OBGPU_CAN_PATH  2
-+/* opengpu.library 0.23 (stream v1.8): paths without anti-aliasing
++/* gfopengpu.library 0.23 (stream v1.8): paths without anti-aliasing
 + * (OGPU_PATH_ALIASED), as cairo's CAIRO_ANTIALIAS_NONE. */
 +#define OBGPU_CAN_ALIASED 4
  

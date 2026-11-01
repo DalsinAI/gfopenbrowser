@@ -1,8 +1,8 @@
 /*
- * OpenBrowser: WebCore's network thread on AmigaOS.
+ * GFOpenBrowser: WebCore's network thread on AmigaOS.
  *
  * Every load goes through openweb.fetch (WebKit patch 0075, no curl). Its
- * native transport opens its own bsdsocket.library, opentls.library and
+ * native transport opens its own bsdsocket.library, gfopentls.library and
  * datatypes.library bases on the network thread, and the card needs none,
  * so the program opens no socket base itself and starts without a TCP/IP
  * stack. Until patch 0075 this file opened bsdsocket.library on the main

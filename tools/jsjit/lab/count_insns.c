@@ -1,4 +1,4 @@
-// The AmigaChrome Team. Reads qemu -d in_asm,exec,nochain from stdin, prints executed guest instructions.
+// The AmiCradle Team. Reads qemu -d in_asm,exec,nochain from stdin, prints executed guest instructions.
 // Counts executed guest instructions from qemu -d in_asm,exec,nochain on stdin.
 #include <stdio.h>
 #include <stdlib.h>

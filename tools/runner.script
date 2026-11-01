@@ -1,4 +1,4 @@
-; OpenBrowser probe runner (Copyright (c) 2026 AmigaChrome Team, MIT).
+; GFOpenBrowser probe runner (Copyright (c) 2026 AmigaChrome Team, MIT).
 ; Put in DH1:Probe/ and start from S:User-Startup with:
 ;   Run >NIL: Execute DH1:Probe/runner.script
 ; The host drops job.script here; this loop renames it, runs it and waits.

@@ -1,10 +1,10 @@
 /*
  * weblayout: a web page laid out and drawn into a RastPort.
  *
- * The public face of OpenBrowser Lite's page engine: HTML Lite (the
- * semantic HTML adapter), CSS Lite (the small cascade), OpenLayout (the
+ * The public face of GFOpenBrowser Lite's page engine: HTML Lite (the
+ * semantic HTML adapter), CSS Lite (the small cascade), GFOpenLayout (the
  * geometry and the display list) and page pictures through
- * picture.datatype. OpenBrowser Lite calls nothing else of the engine.
+ * picture.datatype. GFOpenBrowser Lite calls nothing else of the engine.
  *
  * It is shaped as a library (docs/WEBLAYOUT_LIBRARY.md): opaque documents,
  * Exec types, no callbacks, no varargs and no C library types in the calls,
@@ -126,8 +126,8 @@ CONST_STRPTR WL_HitLink(WLDocument *doc, const struct WLView *view,
 BOOL WL_ResolveURL(CONST_STRPTR base, CONST_STRPTR href, STRPTR out,
                    ULONG outlen);
 
-/* Open and close what the engine needs (openlayout.library when it is
- * built for the resident OpenLayout, and datatypes.library on first use).
+/* Open and close what the engine needs (gfopenlayout.library when it is
+ * built for the resident GFOpenLayout, and datatypes.library on first use).
  * TRUE when it is ready. */
 BOOL WL_Open(void);
 void WL_Close(void);

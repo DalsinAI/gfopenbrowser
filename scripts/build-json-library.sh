@@ -1,8 +1,8 @@
 #!/bin/sh
-# OpenBrowser (DalsinAI/openamigabrowser)
+# GFOpenBrowser (DalsinAI/openamigabrowser)
 # Copyright (c) 2026 AmigaChrome Team. MIT licence, see LICENSE.
 #
-# json.library 1 (src/jsonlib, OpenJSON) and its Amiga test program, for
+# json.library 1 (src/jsonlib, GFOpenJSON) and its Amiga test program, for
 # AmigaOS 3.2 on a 68040. Soft float (toolchain/m68k-soft-m68040.specs) for
 # JSONTest; the library itself has no floating point at all and links with
 # no C library. Built for size (-Os). The core is lean C++
@@ -24,7 +24,7 @@ OUT=${1:-"$HERE/build/json-library"}
 if [ -n "${TOOLCHAIN_DIR:-}" ]; then
     BIN="$TOOLCHAIN_DIR/bin"
 else
-    BIN="${STOVE:-"$HOME/AmigaChrome/stoves/os32-gcc16"}/prefix/bin"
+    BIN="${STOVE:-"$HOME/AmiCradle/stoves/os32-gcc16"}/prefix/bin"
 fi
 CC="$BIN/m68k-amigaos-gcc"
 CXX="$BIN/m68k-amigaos-g++"

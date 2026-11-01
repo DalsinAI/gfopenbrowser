@@ -1,21 +1,21 @@
-# Restart: OpenBrowser
+# Restart: GFOpenBrowser
 
 _Written 6 October 2026 at about 23:55 UTC, while all work is paused on @SacredTrees's word (23:28 UTC). Read this first when work resumes; the newest capsule and the live PR list win if they disagree._
 
 ## What this repo is
 
-OpenBrowser: WebKit (curl port) and JavaScriptCore on a 68040, plus webbrowser.library, which lets any program fetch a page's picture, text and title from one resident engine.
+GFOpenBrowser: WebKit (curl port) and JavaScriptCore on a 68040, plus webbrowser.library, which lets any program fetch a page's picture, text and title from one resident engine.
 
 ## Where it stands
 
-OpenBrowser 0.5 is packed on the home PC (~/AmigaChrome-dev/dist/OpenBrowser-0.5-68040.lha) and installed on the bench, Instance-24. The hand-written 68k JavaScript interpreter is on by default (WebKit patch 0015, slow steps 9-22x faster). The visit cache (patch 0018) is on a branch, not yet on main. Work goes straight to main as commits. Open PR #5 brings the new icon set.
+GFOpenBrowser 0.5 is packed on the home PC (~/AmiCradle-dev/dist/GFOpenBrowser-0.5-68040.lha) and installed on the bench, Instance-24. The hand-written 68k JavaScript interpreter is on by default (WebKit patch 0015, slow steps 9-22x faster). The visit cache (patch 0018) is on a branch, not yet on main. Work goes straight to main as commits. Open PR #5 brings the new icon set.
 
 ## Merged lately
 
-- #4 (578cdd5, 2026-10-06): Credit who made OpenBrowser: CONTRIBUTORS.md
+- #4 (578cdd5, 2026-10-06): Credit who made GFOpenBrowser: CONTRIBUTORS.md
 - #1 (fb84988, 2026-10-06): Say "we" in the repository's text, not a person's name
-- #3 (9c87d26, 2026-10-06): OpenBrowser: real sites on the 68k, and Nursery offload
-- #2 (bd52027, 2026-10-05): GlowIcons-style Workbench icons for OpenBrowser
+- #3 (9c87d26, 2026-10-06): GFOpenBrowser: real sites on the 68k, and Nursery offload
+- #2 (bd52027, 2026-10-05): GlowIcons-style Workbench icons for GFOpenBrowser
 
 ## Open pull requests
 

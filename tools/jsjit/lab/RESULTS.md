@@ -1,6 +1,6 @@
 # 68k template JIT: lab results
 
-The AmigaChrome Team. jsc (WebKit pin 54fe1539, patches 0001-0024) cross-built
+The AmiCradle Team. jsc (WebKit pin 54fe1539, patches 0001-0024) cross-built
 for m68k Linux with `-m68040`, run under `qemu-m68k -cpu m68040`. The numbers
 are 68k instructions executed (`count.sh`), with jsc start-up (6.3 M) taken
 off. They are not cycles: a real 68040 also pays for memory and branches.
@@ -155,7 +155,7 @@ and 3, with the JIT on and off (126/126).
 
 ## 21 Oct 2026, timing on the 68040 lab (patch 0043, K09 engine)
 
-The OpenBrowser 0.7 engine (-Os, 0001-0043) in a lab copy of the
+The GFOpenBrowser 0.7 engine (-Os, 0001-0043) in a lab copy of the
 emulated 68040, three rounds, each test repeated for 2 s, JIT set on and
 off with `Set JSC_useM68KTemplateJIT 1` / `0`. The engine reads only
 local shell variables: `SetEnv` (ENV:) is not seen, and an earlier run

@@ -2,11 +2,11 @@
 
 ## Creator and maintainer
 
-- **SacredTrees** ([@SacredTrees](https://github.com/SacredTrees)): created OpenBrowser, designs it and maintains it.
+- **SacredTrees** ([@SacredTrees](https://github.com/SacredTrees)): created GFOpenBrowser, designs it and maintains it.
 
-## The AmigaChrome team
+## The AmiCradle team
 
-We are The AmigaChrome Team, who build AmigaChrome alongside SacredTrees:
+We are The AmiCradle Team, who build AmiCradle alongside SacredTrees:
 
 - **Agnus**, our coordinator, who keeps every thread moving.
 - **Thufir**, **Kynes** and **Galen**, who started the work on SacredTrees's x86 cores.
@@ -14,14 +14,14 @@ We are The AmigaChrome Team, who build AmigaChrome alongside SacredTrees:
 
 ## Copyright holder
 
-OpenBrowser's own code, documents and icons are Copyright (c) 2026 AmigaChrome
+GFOpenBrowser's own code, documents and icons are Copyright (c) 2026 AmigaChrome
 Team, released under the MIT licence (`LICENSE`). Our patches to WebKit,
 ICU and GCC stay under the licence of the files they change.
 `THIRD_PARTY_NOTICES.md` carries the formal notices.
 
 ## Third-party work in this repository
 
-OpenBrowser stands on other people's work. Each of these keeps its own
+GFOpenBrowser stands on other people's work. Each of these keeps its own
 copyright and licence.
 
 | Component | Where | Authors | Licence |
@@ -35,14 +35,14 @@ copyright and licence.
 
 ## From our other repositories
 
-- **OpenMail** (`DalsinAI/openamigamail`): its message library, in `third_party/openmail/` (MIT, AmigaChrome Team; `FROM` names the commit and our one change).
+- **GFOpenMail** (`DalsinAI/openamigamail`): its message library, in `third_party/openmail/` (MIT, AmigaChrome Team; `FROM` names the commit and our one change).
 
 ## Fetched at build time, not committed
 
 - **WebKit** (WTF, bmalloc, JavaScriptCore, WebCore): pinned to `54fe1539718e` of https://github.com/WebKit/WebKit in `webkit/UPSTREAM`, by Apple Inc. and the WebKit contributors; LGPL 2 and BSD-style.
 - **ICU 78.3** (icu4c), by Unicode, Inc. and the ICU contributors; Unicode License v3.
 - **bebbo's amiga-gcc** (https://franke.ms/git/bebbo/amiga-gcc, GCC 16.2, branch `amiga16.2`), with libnix and libpthread (Szilard Biro, zlib-style); GCC's runtime libraries are GPL-3.0 with the GCC Runtime Library Exception.
-- **The OpenAmiga ports** WebCore links: cairo and pixman, libxml2, SQLite, curl, libpsl, zlib and libpng, each under its own licence; curl does TLS through **OpenTLS** (opentls.library) at run time. Until 19 October 2026 the engine used **AmiSSL 5** (OpenSSL 3, Apache-2.0); until 23 October 2026 its text used FreeType, HarfBuzz, fontconfig and Expat, now **OpenFont** (openfont.library).
+- **The GFOpenAmiga ports** WebCore links: cairo and pixman, libxml2, SQLite, curl, libpsl, zlib and libpng, each under its own licence; curl does TLS through **GFOpenTLS** (gfopentls.library) at run time. Until 19 October 2026 the engine used **AmiSSL 5** (OpenSSL 3, Apache-2.0); until 23 October 2026 its text used FreeType, HarfBuzz, fontconfig and Expat, now **GFOpenFont** (gfopenfont.library).
 
 ## Work we learned from
 
