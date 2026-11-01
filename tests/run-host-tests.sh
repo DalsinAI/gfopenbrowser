@@ -57,15 +57,27 @@ python3 "$HERE/tools/patch-files.py" "$HERE/webkit/patches/0070-amiga-public-suf
     "$OUT/psl" PublicSuffixAmiga.c PublicSuffixAmiga.h
 "$CC" $FLAGS -I"$OUT/psl" "$OUT/psl/PublicSuffixAmiga.c" "$HERE/tests/test_public_suffixes.c" \
     -o "$OUT/test_public_suffixes"
-# the window's OpenGPU stream writer, which lives in WebKit patches 0076
-# and 0077 (paths), on openamigartg's CPU core (built as its tests/run.sh
+# the window's OpenGPU stream writer, which lives in WebKit patches 0076,
+# 0077 (paths) and 0078 (clips), on openamigartg's CPU core (built as its tests/run.sh
 # builds it)
 python3 "$HERE/tools/patch-files.py" "$HERE/webkit/patches/0076-amiga-graphicscontext-opengpu.patch" \
     "$OUT/opengpu" OpenGPUPaintAmiga.c OpenGPUPaintAmiga.h
 python3 "$HERE/tools/patch-files.py" "$HERE/webkit/patches/0077-amiga-opengpu-paths.patch" \
     "$OUT/opengpu" OpenGPUPaintAmiga.c OpenGPUPaintAmiga.h
+python3 "$HERE/tools/patch-files.py" "$HERE/webkit/patches/0078-amiga-opengpu-clips.patch" \
+    "$OUT/opengpu" OpenGPUPaintAmiga.c OpenGPUPaintAmiga.h
 "$CC" $FLAGS -I"$OUT/opengpu" -I"$RTG/include" -I"$RTG/library/opengpu" "$OUT/opengpu/OpenGPUPaintAmiga.c" \
     "$RTG/library/opengpu/ogpu_core.c" "$HERE/tests/test_opengpu_paint.c" -lm -o "$OUT/test_opengpu_paint"
+# 0078's clips, masks, aliased shapes, copy and clear, against cairo drawing
+# the same calls, where cairo's headers are there (cairo leaves the engine
+# at the end of step 6; this is its reference until then)
+CLIP_TEST=0
+if pkg-config --exists cairo 2>/dev/null; then
+    "$CC" $FLAGS -D_DEFAULT_SOURCE $(pkg-config --cflags cairo) -I"$OUT/opengpu" -I"$RTG/include" -I"$RTG/library/opengpu" \
+        "$OUT/opengpu/OpenGPUPaintAmiga.c" "$RTG/library/opengpu/ogpu_core.c" "$HERE/tests/test_opengpu_clip.c" \
+        $(pkg-config --libs cairo) -lm -o "$OUT/test_opengpu_clip"
+    CLIP_TEST=1
+fi
 "$OUT/test_wl_html" > "$OUT/test_wl_html.log" || { cat "$OUT/test_wl_html.log"; exit 1; }
 tail -1 "$OUT/test_wl_html.log"
 "$OUT/test_wl_css"
@@ -77,6 +89,7 @@ rm -rf "$OUT/httpcache"
 "$OUT/test_ob_httpcache" "$OUT/httpcache"
 "$OUT/test_public_suffixes" "$HERE/data/public-suffixes" "$HERE/tests/public-suffix-cases.txt"
 "$OUT/test_opengpu_paint"
+if [ "$CLIP_TEST" = 1 ]; then "$OUT/test_opengpu_clip"; else echo "test_opengpu_clip: skipped (no cairo headers)"; fi
 # fewer operations under the sanitizers, which are slower
 R=200000
 [ "${SANITIZE:-0}" = 1 ] && R=50000

@@ -304,9 +304,10 @@ static void tFill(const char *what, double x, double y, double w, double h, unsi
     if (!mdrawable() || pd < 0)
         want = 0;
     else if (!devRect(l, x, y, w, h, e) || !edgesWhole(l, e)) {
-        /* off whole pixels, or turned: a path, by the operators that leave the outside alone */
+        /* off whole pixels, or turned: a path (copy and clear as cairo's
+         * mix by the coverage, 0078) */
         asPath = 1;
-        if (!(G.caps & OBGPU_CAN_PATH) || pd == OGPU_PD_CLEAR || pd == OGPU_PD_SRC)
+        if (!(G.caps & OBGPU_CAN_PATH))
             want = 0;
     }
     expectResult(what, r, want);
@@ -814,7 +815,15 @@ static void refPaint(unsigned long argb, const struct tgrad *gr, int pd)
                 t += 64;
             if (tol[py][px] < t)
                 tol[py][px] = (unsigned char)t;
-            store(&expect[py][px * 4], combine(pd, scale(p, cov), load(&expect[py][px * 4], 0)));
+            if (pd == OGPU_PD_CLEAR || pd == OGPU_PD_SRC) {
+                /* cairo's clear and copy on a shape: the pixel times 1 - the
+                 * coverage, then (copy) the paint times the coverage added */
+                struct px q = combine(OGPU_PD_OUT_REVERSE, scale(colour(0xFF000000UL), cov), load(&expect[py][px * 4], 0));
+                if (pd == OGPU_PD_SRC)
+                    q = combine(OGPU_PD_ADD, scale(p, cov), q);
+                store(&expect[py][px * 4], q);
+            } else
+                store(&expect[py][px * 4], combine(pd, scale(p, cov), load(&expect[py][px * 4], 0)));
         }
 }
 
@@ -1148,7 +1157,7 @@ static int pathWanted(int op, const struct tgrad *gr)
 {
     int pd = pdOf(op);
     (void)gr;
-    return mdrawable() && (G.caps & OBGPU_CAN_PATH) && pd >= 0 && pd != OGPU_PD_CLEAR && pd != OGPU_PD_SRC;
+    return mdrawable() && (G.caps & OBGPU_CAN_PATH) && pd >= 0;
 }
 
 static void tPathFill(const char *what, int evenodd, unsigned long argb, const struct tgrad *gr, int op, int want)
@@ -1715,14 +1724,14 @@ static void testStrokes(void)
     pM(60, 30); pL(60, 30);
     tPathStroke("butt caps on a subpath of one point: nothing", &s, 0xFF800000UL, 0, OBGPU_OP_SOURCE_OVER, -1);
     verify("subpaths of one point");
-    /* no width: nothing; operators cairo bounds by coverage: cairo's */
+    /* no width: nothing; copy as cairo bounds it by coverage (0078) */
     s.width = 0;
     npath = 0;
     pM(5, 5); pL(50, 50);
     tPathStroke("no width", &s, 0xFF000000UL, 0, OBGPU_OP_SOURCE_OVER, 1);
     s.width = 2;
-    tPathStroke("a stroke by copy", &s, 0xFF000000UL, 0, OBGPU_OP_COPY, 0);
-    verify("strokes with nothing to draw");
+    tPathStroke("a stroke by copy", &s, 0xFF000000UL, 0, OBGPU_OP_COPY, -1);
+    verify("strokes with nothing to draw, and a stroke by copy");
 }
 
 static void testDashes(void)
