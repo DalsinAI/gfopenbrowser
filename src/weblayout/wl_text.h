@@ -1,6 +1,6 @@
 /*
  * weblayout: page text (UTF-8) down to ISO-8859-1 for the Amiga's fonts.
- * MIT, Copyright (c) 2026 AmigaChrome Team.
+ * MIT, Copyright (c) 2026 AmiCradle Team.
  */
 #ifndef WL_TEXT_H
 #define WL_TEXT_H

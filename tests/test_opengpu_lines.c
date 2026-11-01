@@ -9,7 +9,7 @@
  * whole-pixel rectangles and aliased lines the same, anti-aliased edges
  * within a bound.
  *   test_opengpu_lines          (needs cairo's headers and library)
- * MIT, Copyright (c) 2026 AmigaChrome Team.
+ * MIT, Copyright (c) 2026 AmiCradle Team.
  * SPDX-License-Identifier: MIT
  */
 #include <cairo.h>

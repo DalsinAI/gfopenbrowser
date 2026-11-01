@@ -2,7 +2,7 @@
 #define LIBRARIES_UNICODE_H
 /*
 **  unicode.library 1: one shared copy of Unicode (ICU 78) for every program.
-**  MIT, Copyright (c) 2026 AmigaChrome Team.
+**  MIT, Copyright (c) 2026 AmiCradle Team.
 **
 **  UnicodeTable(count) returns a table of pointers to ICU 78's C
 **  functions, in the order of src/unicodelib/calls.txt (append only), for

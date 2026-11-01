@@ -9,7 +9,7 @@
  * and the shape drawn by cairo over it. The writer asks GFOpenGPU's BLUR for
  * the same box sizes (obgpu_blur_radius_for_box).
  *   test_opengpu_shadow          (needs cairo's headers and library)
- * MIT, Copyright (c) 2026 AmigaChrome Team.
+ * MIT, Copyright (c) 2026 AmiCradle Team.
  * SPDX-License-Identifier: MIT
  */
 #include <cairo.h>

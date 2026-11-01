@@ -2,7 +2,7 @@
  * GFOpenBrowser: one web page in a view: WebCore's Page with GFOpenBrowser's
  * clients, loading, painting into a 32-bit ARGB buffer, and input. The
  * Amiga window around it talks to it through ob_webview.h.
- * MIT, Copyright (c) 2026 AmigaChrome Team.
+ * MIT, Copyright (c) 2026 AmiCradle Team.
  */
 #pragma once
 

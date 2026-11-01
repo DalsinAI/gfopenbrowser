@@ -1,6 +1,6 @@
 /* The engine's HTTP disk cache (src/webcore/ob_httpcache.c) on the host:
  * tests/run-host-tests.sh, which names a scratch folder as the argument.
- * MIT, Copyright (c) 2026 AmigaChrome Team. */
+ * MIT, Copyright (c) 2026 AmiCradle Team. */
 #include "ob_httpcache.h"
 
 #include <dirent.h>

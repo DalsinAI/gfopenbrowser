@@ -3,7 +3,7 @@
  * frame's view when a page commits, says yes to navigations and to the
  * types WebCore can show, makes subframes for <iframe>, and tells the main
  * frame's window about titles, addresses and progress.
- * MIT, Copyright (c) 2026 AmigaChrome Team.
+ * MIT, Copyright (c) 2026 AmiCradle Team.
  */
 #include "config.h"
 #include "AmigaFrameLoaderClient.h"

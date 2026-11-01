@@ -1,6 +1,6 @@
 # Steps 5 and 6 in WebCore: what goes, and what replaces it
 
-Copyright (c) 2026 AmigaChrome Team. MIT licence for this document.
+Copyright (c) 2026 AmiCradle Team. MIT licence for this document.
 
 This is the WebCore half of steps 5 (network on openweb.fetch) and 6
 (drawing on GFOpenGfx and GFOpenGPU) of [PLAN.md](PLAN.md). It lists every file

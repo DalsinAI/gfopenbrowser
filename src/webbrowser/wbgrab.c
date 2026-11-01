@@ -2,7 +2,7 @@
  * WBGrab: webbrowser.library's example. URL in; the page's picture
  * (a 24-bit PPM), its text and its title out.
  *   WBGrab URL/A,WIDTH/N,HEIGHT/N,PICTURE/K,TEXT/K,WAIT/N,NOSCRIPTS/S,SHUTDOWN/S
- * MIT, Copyright (c) 2026 AmigaChrome Team.
+ * MIT, Copyright (c) 2026 AmiCradle Team.
  */
 #include <stdio.h>
 #include <stdlib.h>

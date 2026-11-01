@@ -5,7 +5,7 @@
  * never filled in, so JSC_ variables never reached it. The variable OBJSC
  * (a Shell's local Set, else ENV:) holds options in JSC's own form,
  * "name=value name=value", handed to JSC::Options::setOptions() at start.
- * MIT, Copyright (c) 2026 AmigaChrome Team.
+ * MIT, Copyright (c) 2026 AmiCradle Team.
  */
 #include <exec/types.h>
 #include <dos/var.h>

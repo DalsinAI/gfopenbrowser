@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-# Copyright (c) 2026 AmigaChrome Team. MIT licence (LICENSE).
+# Copyright (c) 2026 AmiCradle Team. MIT licence (LICENSE).
 # SPDX-License-Identifier: MIT
 """Writes the files a WebKit patch adds whole into a folder, for the host
 tests of code that lives only in a patch (such as 0070's public suffix

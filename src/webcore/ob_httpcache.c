@@ -20,7 +20,7 @@
  * "<name>.<n>.tmp" and renamed when complete; a .tmp file found at the start
  * is what a crash left, and goes.
  *
- * MIT, Copyright (c) 2026 AmigaChrome Team.
+ * MIT, Copyright (c) 2026 AmiCradle Team.
  */
 #include "ob_httpcache.h"
 

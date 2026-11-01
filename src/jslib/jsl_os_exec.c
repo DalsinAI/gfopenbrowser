@@ -8,7 +8,7 @@
  * task, so threads and the C library's memory are only ever handled by the
  * engine's own processes.
  *
- * MIT, Copyright (c) 2026 AmigaChrome Team.
+ * MIT, Copyright (c) 2026 AmiCradle Team.
  */
 #include <pthread.h>
 #include <string.h>

@@ -1,6 +1,6 @@
 #!/bin/sh
 # GFOpenBrowser (DalsinAI/openamigabrowser)
-# Copyright (c) 2026 AmigaChrome Team. MIT licence, see LICENSE.
+# Copyright (c) 2026 AmiCradle Team. MIT licence, see LICENSE.
 #
 # Builds op_mov's template from a generated 68k interpreter and runs the
 # stitcher test under qemu-m68k (68040). Needs binutils/g++ for

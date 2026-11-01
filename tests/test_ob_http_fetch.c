@@ -2,7 +2,7 @@
  * a stand-in network that answers from memory: tests/run-host-tests.sh.
  * ob_http.c and oam_buf.c are built with malloc, realloc and free renamed
  * to the counting ones here, so the test sees the most memory held at once.
- * MIT, Copyright (c) 2026 AmigaChrome Team. */
+ * MIT, Copyright (c) 2026 AmiCradle Team. */
 #include "ob_http.h"
 #include "oam_net.h"
 

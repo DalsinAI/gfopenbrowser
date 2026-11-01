@@ -11,7 +11,7 @@
  * script task has been alive for ENV:JavaScriptIdleQuit seconds (default
  * 60; 0 stays resident), or on Ctrl-C when none is alive.
  *
- * MIT, Copyright (c) 2026 AmigaChrome Team.
+ * MIT, Copyright (c) 2026 AmiCradle Team.
  */
 #include <pthread.h>
 #include <stdlib.h>

@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 # GFOpenBrowser (DalsinAI/openamigabrowser)
-# Copyright (c) 2026 The AmigaChrome Team. MIT licence, see LICENSE.
+# Copyright (c) 2026 The AmiCradle Team. MIT licence, see LICENSE.
 """A pinned slice of test262 for jsc on the Amiga, fetched at run time.
 
 test262 (https://github.com/tc39/test262, BSD-3-Clause, Ecma International)

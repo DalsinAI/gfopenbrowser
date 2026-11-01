@@ -1,7 +1,7 @@
 /*
  * GFOpenBrowser: the HTTP disk cache (ob_httpcache.c) joined to WebCore's
  * network layer (AmigaNetwork.h).
- * MIT, Copyright (c) 2026 AmigaChrome Team.
+ * MIT, Copyright (c) 2026 AmiCradle Team.
  */
 #pragma once
 

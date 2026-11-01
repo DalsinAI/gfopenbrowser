@@ -28,7 +28,7 @@
  *  the Free Software Foundation, Inc., 51 Franklin Street, Fifth Floor,
  *  Boston, MA 02110-1301, USA.
  *
- * The Amiga changes are by the AmigaChrome Team (2026), under the same licence.
+ * The Amiga changes are by the AmiCradle Team (2026), under the same licence.
  */
 #include "config.h"
 #include "AmigaLoaderStrategy.h"

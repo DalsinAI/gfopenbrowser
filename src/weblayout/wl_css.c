@@ -1,6 +1,6 @@
 /*
  * weblayout: the small CSS cascade (CSS Lite).
- * MIT, Copyright (c) 2026 AmigaChrome Team.
+ * MIT, Copyright (c) 2026 AmiCradle Team.
  */
 #include "wl_css.h"
 

@@ -3,7 +3,7 @@
  * WBMessage to the engine's port, answered when the engine has done it.
  * The engine is started the first time a program needs it and stays in
  * memory after the last close, so the next program finds it ready.
- * MIT, Copyright (c) 2026 AmigaChrome Team.
+ * MIT, Copyright (c) 2026 AmiCradle Team.
  */
 #include <string.h>
 #include <exec/memory.h>

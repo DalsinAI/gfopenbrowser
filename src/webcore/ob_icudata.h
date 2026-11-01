@@ -1,7 +1,7 @@
 /*
  * GFOpenBrowser: ICU's data read from a file at start (OB_ICU_DATA=file)
  * instead of linked into every program.
- * MIT, Copyright (c) 2026 AmigaChrome Team.
+ * MIT, Copyright (c) 2026 AmiCradle Team.
  */
 #ifndef OB_ICUDATA_H
 #define OB_ICUDATA_H

@@ -16,11 +16,11 @@ Ruby: `Source/JavaScriptCore/offlineasm-py/` (offlineasm's front end, from
 generator, from `generator/*.rb`) and `Source/WTF/Scripts/GeneratePreferences.py`
 (from `GeneratePreferences.rb`). They are derived works of Apple Inc.'s
 BSD-licensed originals (Copyright (C) 2011-2023 Apple Inc.): each file keeps
-Apple's copyright notice and licence text, with a line for the AmigaChrome
+Apple's copyright notice and licence text, with a line for the AmiCradle
 Team's port, and stays under that BSD licence. The M68K back end
 (`offlineasm-py/offlineasm/m68k.py`, a port of our own `m68k.rb`), the
 BytecodeList reader (`generator-py/RubyListReader.py`) and `Source/cmake/no-ruby.py`
-are ours (MIT, AmigaChrome Team).
+are ours (MIT, AmiCradle Team).
 
 Patch 0021 (`webkit/patches/0021-webcore-generators-in-python.patch`) does the
 same for WebCore: `Source/WebCore/domjit/generate-abstract-heap.py`,
@@ -28,7 +28,7 @@ same for WebCore: `Source/WebCore/domjit/generate-abstract-heap.py`,
 `Source/WebCore/Scripts/GenerateQuirkBehaviors.py`, ports of Apple Inc.'s
 BSD-licensed Ruby scripts (Copyright (C) 2016-2023 Apple Inc.), and the
 Python forms of their templates (`*.pyerb`, from Apple's `*.erb`). They keep
-Apple's notices and licence, with a line for the AmigaChrome Team's port.
+Apple's notices and licence, with a line for the AmiCradle Team's port.
 
 `data/public-suffixes` is Mozilla's Public Suffix List
 (https://github.com/publicsuffix/list, taken 23 October 2026), rewritten by
@@ -45,9 +45,9 @@ amiga-gcc and uses GFOpenTLS (gfopentls.library) when it runs; until 19 October
 2026 it used AmiSSL 5 (OpenSSL 3, Apache-2.0).
 
 The package (`scripts/package-browser.sh`) carries, for compressed pages,
-z.library (GFOpenZlib, AmigaChrome Team, MIT, with zlib inside under the zlib
+z.library (GFOpenZlib, AmiCradle Team, MIT, with zlib inside under the zlib
 licence) and opendatatypes' stream.datatype, gzip.datatype and
-brotli.datatype (AmigaChrome Team, MIT; brotli.datatype is our own decoder,
+brotli.datatype (AmiCradle Team, MIT; brotli.datatype is our own decoder,
 written from RFC 7932, with the static dictionary taken from the RFC's
 text), built from their own repositories.
 

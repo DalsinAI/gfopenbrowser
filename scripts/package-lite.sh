@@ -1,6 +1,6 @@
 #!/bin/sh
 # GFOpenBrowser (DalsinAI/openamigabrowser)
-# Copyright (c) 2026 AmigaChrome Team. MIT licence, see LICENSE.
+# Copyright (c) 2026 AmiCradle Team. MIT licence, see LICENSE.
 #
 # GFOpenBrowser Lite's release archive, the Amiga way: one drawer and its
 # icon, ready to drag where it should live.

@@ -7,7 +7,7 @@
  * may send to it, and jsl_os_send waits until the script task has run the
  * call and replied.
  *
- * MIT, Copyright (c) 2026 AmigaChrome Team.
+ * MIT, Copyright (c) 2026 AmiCradle Team.
  */
 #ifndef JSL_OS_H
 #define JSL_OS_H

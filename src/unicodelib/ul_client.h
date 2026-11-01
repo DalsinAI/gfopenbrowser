@@ -1,5 +1,5 @@
 /* unicode.library from a program (ul_client.c).
- * Copyright (c) 2026 AmigaChrome Team. MIT. */
+ * Copyright (c) 2026 AmiCradle Team. MIT. */
 #ifndef UL_CLIENT_H
 #define UL_CLIENT_H
 

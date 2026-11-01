@@ -11,7 +11,7 @@
  * (../wl_libc.c, wl_runtime.c), so it runs in any program, whatever its
  * C library.
  *
- * MIT, Copyright (c) 2026 AmigaChrome Team.
+ * MIT, Copyright (c) 2026 AmiCradle Team.
  */
 #include <exec/types.h>
 #include <exec/resident.h>

@@ -2,7 +2,7 @@
  * GFOpenBrowser: the C interface between the Amiga window (GadTools, C) and
  * a WebCore page (C++). Everything here runs on the program's main task,
  * except ob_webcore_set_wakeup()'s callback, which other threads may call.
- * MIT, Copyright (c) 2026 AmigaChrome Team.
+ * MIT, Copyright (c) 2026 AmiCradle Team.
  */
 #ifndef OB_WEBVIEW_H
 #define OB_WEBVIEW_H

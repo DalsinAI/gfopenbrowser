@@ -9,7 +9,7 @@
  * takes a while to load from disk, so the launcher first opens a title
  * window; the engine reports its own steps to it (ob_splash.h) and closes it
  * once its window is open.
- * MIT, Copyright (c) 2026 AmigaChrome Team.
+ * MIT, Copyright (c) 2026 AmiCradle Team.
  */
 #include <stdio.h>
 #include <string.h>

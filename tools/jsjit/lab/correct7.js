@@ -1,6 +1,6 @@
 // Calls to several functions from one site, objects built by literals and
 // constructors, prototype chains (patch 0035): every result must match node.
-// The AmigaChrome Team, MIT.
+// The AmiCradle Team, MIT.
 if (typeof print === "undefined") var print = console.log;
 function a(x) { return x + 1; } function b(x) { return x * 2; } function c(x, y) { return "" + x + (y === undefined ? "u" : y); }
 function mk(k) { return function (x) { return x + k; }; }

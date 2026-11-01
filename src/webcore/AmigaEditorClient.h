@@ -1,6 +1,6 @@
 /*
  * GFOpenBrowser: WebCore's editor client (typing into form fields).
- * MIT, Copyright (c) 2026 AmigaChrome Team.
+ * MIT, Copyright (c) 2026 AmiCradle Team.
  */
 #pragma once
 

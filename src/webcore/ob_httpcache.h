@@ -15,7 +15,7 @@
  * complete, so a crash leaves no half entry behind.
  *
  * Not thread-safe: the engine uses it on the main task only.
- * MIT, Copyright (c) 2026 AmigaChrome Team.
+ * MIT, Copyright (c) 2026 AmiCradle Team.
  */
 #ifndef OB_HTTPCACHE_H
 #define OB_HTTPCACHE_H

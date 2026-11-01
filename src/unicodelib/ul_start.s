@@ -1,6 +1,6 @@
 | unicode.library: the first code in the file. Run as a program, the
 | library does nothing (scripts/build-unicode-library.sh links this first).
-| Copyright (c) 2026 AmigaChrome Team. MIT.
+| Copyright (c) 2026 AmiCradle Team. MIT.
 	.text
 	.globl	_start
 _start:

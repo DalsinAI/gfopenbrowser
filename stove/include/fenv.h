@@ -1,4 +1,4 @@
-/* GFOpenBrowser (DalsinAI/openamigabrowser). Copyright (c) 2026 AmigaChrome Team. MIT licence, see LICENSE. */
+/* GFOpenBrowser (DalsinAI/openamigabrowser). Copyright (c) 2026 AmiCradle Team. MIT licence, see LICENSE. */
 /* C99 <fenv.h> for AmigaOS 3.x with a 68881/68882/68040/68060 FPU.
  * AmiCradle os32-gcc16: libnix has no fenv. Header-only, using the
  * FPCR (rounding, trap enables) and FPSR (accrued exceptions) directly. */

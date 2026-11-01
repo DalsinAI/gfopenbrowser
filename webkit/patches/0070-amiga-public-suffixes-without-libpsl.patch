@@ -73,7 +73,7 @@ index 00000000000..e5b8413ad89
 + * (https://github.com/publicsuffix/list/wiki/Format): an exception rule
 + * wins, otherwise the longest matching rule, otherwise "*" (the last label)
 + * when the caller allows it.
-+ * MIT, Copyright (c) 2026 AmigaChrome Team.
++ * MIT, Copyright (c) 2026 AmiCradle Team.
 + */
 +#include "PublicSuffixAmiga.h"
 +
@@ -273,7 +273,7 @@ index 00000000000..287e6ee97d2
 +/*
 + * Public suffixes without libpsl: Mozilla's Public Suffix List, read from
 + * PROGDIR:Network/public-suffixes (PublicSuffixAmiga.c).
-+ * MIT, Copyright (c) 2026 AmigaChrome Team.
++ * MIT, Copyright (c) 2026 AmiCradle Team.
 + */
 +#ifndef PublicSuffixAmiga_h
 +#define PublicSuffixAmiga_h
@@ -309,7 +309,7 @@ index 00000000000..326be0ed728
 +/*
 + * PublicSuffixStore's two platform calls on our own list reader
 + * (PublicSuffixAmiga.c) in place of libpsl.
-+ * MIT, Copyright (c) 2026 AmigaChrome Team.
++ * MIT, Copyright (c) 2026 AmiCradle Team.
 + */
 +#include "config.h"
 +#include "PublicSuffixStore.h"

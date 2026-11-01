@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 # GFOpenBrowser (DalsinAI/openamigabrowser)
-# Copyright (c) 2026 AmigaChrome Team. MIT licence, see LICENSE.
+# Copyright (c) 2026 AmiCradle Team. MIT licence, see LICENSE.
 #
 # Draws GFOpenBrowser's Workbench icons in the GlowIcons style and writes them
 # as OS 3.5+ colour icons (.info): a classic 4-colour image for old

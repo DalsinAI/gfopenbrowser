@@ -1,5 +1,5 @@
 # GFOpenBrowser benchmark pages (tools/bench, docs/BENCHMARKS.md).
-# MIT, Copyright (c) 2026 The AmigaChrome Team.
+# MIT, Copyright (c) 2026 The AmiCradle Team.
 #
 # One page per line:  id  set  target  [option=value ...]
 #   id      letters, digits and "-" (AmigaDOS file names: logs/<id>.log, png/<id>.png)

@@ -311,7 +311,7 @@ index 00000000000..55b22f9db66
 +++ b/Source/WebCore/platform/graphics/openfont/ComplexTextControllerOpenFont.cpp
 @@ -0,0 +1,272 @@
 +/*
-+ * Copyright (C) 2026 AmigaChrome Team.
++ * Copyright (C) 2026 AmiCradle Team.
 + *
 + * Redistribution and use in source and binary forms, with or without
 + * modification, are permitted provided that the following conditions
@@ -589,7 +589,7 @@ index 00000000000..4514306a3d1
 +++ b/Source/WebCore/platform/graphics/openfont/FontCacheOpenFont.cpp
 @@ -0,0 +1,227 @@
 +/*
-+ * Copyright (C) 2026 AmigaChrome Team.
++ * Copyright (C) 2026 AmiCradle Team.
 + *
 + * Redistribution and use in source and binary forms, with or without
 + * modification, are permitted provided that the following conditions
@@ -822,7 +822,7 @@ index 00000000000..3d9451f8253
 +++ b/Source/WebCore/platform/graphics/openfont/FontCustomPlatformDataOpenFont.cpp
 @@ -0,0 +1,122 @@
 +/*
-+ * Copyright (C) 2026 AmigaChrome Team.
++ * Copyright (C) 2026 AmiCradle Team.
 + *
 + * Redistribution and use in source and binary forms, with or without
 + * modification, are permitted provided that the following conditions
@@ -950,7 +950,7 @@ index 00000000000..0e183d6a39d
 +++ b/Source/WebCore/platform/graphics/openfont/FontPlatformDataOpenFont.cpp
 @@ -0,0 +1,183 @@
 +/*
-+ * Copyright (C) 2026 AmigaChrome Team.
++ * Copyright (C) 2026 AmiCradle Team.
 + *
 + * Redistribution and use in source and binary forms, with or without
 + * modification, are permitted provided that the following conditions
@@ -1139,7 +1139,7 @@ index 00000000000..b24c0bb4d4f
 +++ b/Source/WebCore/platform/graphics/openfont/GlyphPageTreeNodeOpenFont.cpp
 @@ -0,0 +1,79 @@
 +/*
-+ * Copyright (C) 2026 AmigaChrome Team.
++ * Copyright (C) 2026 AmiCradle Team.
 + *
 + * Redistribution and use in source and binary forms, with or without
 + * modification, are permitted provided that the following conditions
@@ -1224,7 +1224,7 @@ index 00000000000..6dc2eeac758
 +++ b/Source/WebCore/platform/graphics/openfont/OpenFontFace.cpp
 @@ -0,0 +1,440 @@
 +/*
-+ * Copyright (C) 2026 AmigaChrome Team.
++ * Copyright (C) 2026 AmiCradle Team.
 + *
 + * Redistribution and use in source and binary forms, with or without
 + * modification, are permitted provided that the following conditions
@@ -1670,7 +1670,7 @@ index 00000000000..a0ccb78433c
 +++ b/Source/WebCore/platform/graphics/openfont/OpenFontFace.h
 @@ -0,0 +1,115 @@
 +/*
-+ * Copyright (C) 2026 AmigaChrome Team.
++ * Copyright (C) 2026 AmiCradle Team.
 + *
 + * Redistribution and use in source and binary forms, with or without
 + * modification, are permitted provided that the following conditions
@@ -1791,7 +1791,7 @@ index 00000000000..6a748803917
 +++ b/Source/WebCore/platform/graphics/openfont/OpenFontLibrary.c
 @@ -0,0 +1,251 @@
 +/*
-+ * Copyright (C) 2026 AmigaChrome Team.
++ * Copyright (C) 2026 AmiCradle Team.
 + *
 + * Redistribution and use in source and binary forms, with or without
 + * modification, are permitted provided that the following conditions
@@ -2048,7 +2048,7 @@ index 00000000000..7bc9039e341
 +++ b/Source/WebCore/platform/graphics/openfont/OpenFontLibrary.h
 @@ -0,0 +1,158 @@
 +/*
-+ * Copyright (C) 2026 AmigaChrome Team.
++ * Copyright (C) 2026 AmiCradle Team.
 + *
 + * Redistribution and use in source and binary forms, with or without
 + * modification, are permitted provided that the following conditions
@@ -2212,7 +2212,7 @@ index 00000000000..ef8e363613f
 +++ b/Source/WebCore/platform/graphics/openfont/SimpleFontDataOpenFont.cpp
 @@ -0,0 +1,194 @@
 +/*
-+ * Copyright (C) 2026 AmigaChrome Team.
++ * Copyright (C) 2026 AmiCradle Team.
 + *
 + * Redistribution and use in source and binary forms, with or without
 + * modification, are permitted provided that the following conditions
@@ -2424,7 +2424,7 @@ index 00000000000..5d981ac944d
 --- /dev/null
 +++ b/Source/cmake/FindOpenFont.cmake
 @@ -0,0 +1,88 @@
-+# Copyright (C) 2026 AmigaChrome Team.
++# Copyright (C) 2026 AmiCradle Team.
 +#
 +# Redistribution and use in source and binary forms, with or without
 +# modification, are permitted provided that the following conditions

@@ -28,7 +28,7 @@
  * with how long the page took to paint and what painted it (GFOpenGPU's draws
  * and batches and the calls cairo drew, ob_webview_paint_report()).
  *
- * MIT, Copyright (c) 2026 AmigaChrome Team.
+ * MIT, Copyright (c) 2026 AmiCradle Team.
  */
 #include <stdio.h>
 #include <time.h>

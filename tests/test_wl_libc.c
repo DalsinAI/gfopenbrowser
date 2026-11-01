@@ -1,6 +1,6 @@
 /* weblayout's own C library calls, its UTF-8 to Latin-1 converter and its
  * allocator, against the host's C library: tests/run-host-tests.sh.
- * MIT, Copyright (c) 2026 AmigaChrome Team. */
+ * MIT, Copyright (c) 2026 AmiCradle Team. */
 #include "wl_libc.h"
 #include "wl_mem.h"
 #include "wl_text.h"

@@ -1,6 +1,6 @@
 /* unicode.library: what ICU needs from a C library, made safe to share
  * between programs (ul_runtime.c).
- * Copyright (c) 2026 AmigaChrome Team. MIT. */
+ * Copyright (c) 2026 AmiCradle Team. MIT. */
 #ifndef UL_RUNTIME_H
 #define UL_RUNTIME_H
 

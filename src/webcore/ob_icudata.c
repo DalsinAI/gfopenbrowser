@@ -6,7 +6,7 @@
  * common data file, into memory once and gives them to ICU with
  * udata_setCommonData. The engine file gets that much smaller; a later
  * unicode.library can share one copy between programs.
- * MIT, Copyright (c) 2026 AmigaChrome Team.
+ * MIT, Copyright (c) 2026 AmiCradle Team.
  */
 #include "ob_icudata.h"
 

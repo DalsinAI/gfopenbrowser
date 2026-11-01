@@ -14,7 +14,7 @@ We are The AmiCradle Team, who build AmiCradle alongside SacredTrees:
 
 ## Copyright holder
 
-GFOpenBrowser's own code, documents and icons are Copyright (c) 2026 AmigaChrome
+GFOpenBrowser's own code, documents and icons are Copyright (c) 2026 AmiCradle
 Team, released under the MIT licence (`LICENSE`). Our patches to WebKit,
 ICU and GCC stay under the licence of the files they change.
 `THIRD_PARTY_NOTICES.md` carries the formal notices.
@@ -29,13 +29,13 @@ copyright and licence.
 | WebKitLegacy's `BackForwardList`, adapted | `src/webcore/AmigaBackForwardList.cpp`, `.h` | Apple Inc., Torch Mobile Inc., Google, Inc. | BSD 2-clause (in each file's header) |
 | WebKitLegacy's `WebResourceLoadScheduler`, adapted | `src/webcore/AmigaLoaderStrategy.cpp` | Lars Knoll, Dirk Mueller, Waldo Bastian, Apple Inc., Google Inc. | GNU LGPL 2 or later (in the file's header) |
 | Key tables and keyboard handling from WebKit's WPE port | `src/webcore/AmigaEditorClient.cpp` | Igalia S.L. | BSD 2-clause (in the file's header) |
-| Our patches to WebKit and JavaScriptCore | `webkit/patches/` | AmigaChrome Team, to files by Apple Inc. and the WebKit contributors | Each patched file's own: LGPL 2 or BSD-style |
-| Our patches to ICU 78.3 | `icu/patches/` | AmigaChrome Team, to files by Unicode, Inc. and the ICU contributors | Unicode License v3 |
-| Our patches to GCC 16 (bebbo's amiga-gcc, branch `amiga16.2`) and its newlib headers | `stove/gcc-patches/` | AmigaChrome Team, to files by the GCC and newlib contributors | GPL-3.0-or-later with the GCC Runtime Library Exception; newlib's own licence for `sys-include` |
+| Our patches to WebKit and JavaScriptCore | `webkit/patches/` | AmiCradle Team, to files by Apple Inc. and the WebKit contributors | Each patched file's own: LGPL 2 or BSD-style |
+| Our patches to ICU 78.3 | `icu/patches/` | AmiCradle Team, to files by Unicode, Inc. and the ICU contributors | Unicode License v3 |
+| Our patches to GCC 16 (bebbo's amiga-gcc, branch `amiga16.2`) and its newlib headers | `stove/gcc-patches/` | AmiCradle Team, to files by the GCC and newlib contributors | GPL-3.0-or-later with the GCC Runtime Library Exception; newlib's own licence for `sys-include` |
 
 ## From our other repositories
 
-- **GFOpenMail** (`DalsinAI/openamigamail`): its message library, in `third_party/openmail/` (MIT, AmigaChrome Team; `FROM` names the commit and our one change).
+- **GFOpenMail** (`DalsinAI/openamigamail`): its message library, in `third_party/openmail/` (MIT, AmiCradle Team; `FROM` names the commit and our one change).
 
 ## Fetched at build time, not committed
 

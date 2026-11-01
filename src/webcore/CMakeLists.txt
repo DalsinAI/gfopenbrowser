@@ -1,7 +1,7 @@
 # GFOpenBrowser's WebCore programs, built inside the WebKit build tree
 # (Source/PlatformAmiga.cmake adds this folder when OPENBROWSER_WEBCORE_DIR
 # names it), so they share WebKit's flags and link its static libraries.
-# MIT, Copyright (c) 2026 AmigaChrome Team.
+# MIT, Copyright (c) 2026 AmiCradle Team.
 
 set(OB_THIRD_PARTY "${CMAKE_CURRENT_SOURCE_DIR}/../../third_party/openmail")
 

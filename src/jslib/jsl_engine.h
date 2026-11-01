@@ -13,7 +13,7 @@
  * Every JSTask starts with a pointer to the table, so a call that takes a
  * task needs nothing else from the library.
  *
- * MIT, Copyright (c) 2026 AmigaChrome Team.
+ * MIT, Copyright (c) 2026 AmiCradle Team.
  */
 #ifndef JSL_ENGINE_H
 #define JSL_ENGINE_H

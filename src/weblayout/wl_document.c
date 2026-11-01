@@ -1,7 +1,7 @@
 /*
  * weblayout: the calls of weblayout.h, over HTML Lite, CSS Lite,
  * GFOpenLayout, the painter and the picture loader.
- * MIT, Copyright (c) 2026 AmigaChrome Team.
+ * MIT, Copyright (c) 2026 AmiCradle Team.
  */
 #include "weblayout.h"
 

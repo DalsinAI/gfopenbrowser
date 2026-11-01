@@ -2,7 +2,7 @@
  * obfetch: fetch an address with GFOpenBrowser's engine and print it as text,
  * for testing from a Shell.   obfetch <address>...
  *
- * GFOpenBrowser. MIT, Copyright (c) 2026 AmigaChrome Team.
+ * GFOpenBrowser. MIT, Copyright (c) 2026 AmiCradle Team.
  */
 #include <stdio.h>
 #include <stdlib.h>

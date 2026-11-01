@@ -2,7 +2,7 @@
  * javascript.library engine core tests, on Linux under qemu-m68k
  * (tests/jslib/run.sh), through the engine's table as the library calls it.
  * Each check prints "ok" or "FAIL"; the exit code is the number of failures.
- * MIT, Copyright (c) 2026 AmigaChrome Team.
+ * MIT, Copyright (c) 2026 AmiCradle Team.
  */
 #include <dirent.h>
 #include <pthread.h>

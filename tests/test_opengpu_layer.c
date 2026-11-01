@@ -7,7 +7,7 @@
  * group in openamigartg's CPU core's memory, cairo puts it on a copy of the
  * window, and that is compared with cairo drawing all of it itself.
  *   test_opengpu_layer          (needs cairo's headers and library)
- * MIT, Copyright (c) 2026 AmigaChrome Team.
+ * MIT, Copyright (c) 2026 AmiCradle Team.
  * SPDX-License-Identifier: MIT
  */
 #include <cairo.h>

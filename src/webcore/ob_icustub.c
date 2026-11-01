@@ -7,7 +7,7 @@
  * finds every item in the data ob_icu_data_load hands it. The layout is
  * ICU's common data header ("CmnD", format 1) with a table of contents of
  * zero entries.
- * MIT, Copyright (c) 2026 AmigaChrome Team.
+ * MIT, Copyright (c) 2026 AmiCradle Team.
  */
 #include <stdint.h>
 #include <unicode/udata.h>

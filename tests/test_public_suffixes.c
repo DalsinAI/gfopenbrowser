@@ -4,7 +4,7 @@
  * (tests/public-suffix-cases.txt), on the list the package ships
  * (data/public-suffixes), and a few is-a-suffix answers as libpsl gave them.
  *   test_public_suffixes data/public-suffixes tests/public-suffix-cases.txt
- * MIT, Copyright (c) 2026 AmigaChrome Team.
+ * MIT, Copyright (c) 2026 AmiCradle Team.
  */
 #include <stdio.h>
 #include <stdlib.h>

@@ -1,6 +1,6 @@
 /*
  * weblayout: page pictures through picture.datatype.
- * MIT, Copyright (c) 2026 AmigaChrome Team.
+ * MIT, Copyright (c) 2026 AmiCradle Team.
  */
 #include "wl_image_dt.h"
 

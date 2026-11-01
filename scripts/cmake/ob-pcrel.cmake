@@ -1,5 +1,5 @@
 # GFOpenBrowser (DalsinAI/openamigabrowser)
-# Copyright (c) 2026 AmigaChrome Team. MIT licence, see LICENSE.
+# Copyright (c) 2026 AmiCradle Team. MIT licence, see LICENSE.
 #
 # OB_PCREL=1: the files our GCC cannot build pc-relative are built with
 # absolute addresses (-mno-pcrel -fno-PIC) instead. Such code links into

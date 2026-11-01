@@ -1,6 +1,6 @@
 /*
  * GFOpenBrowser: WebCore's platform strategies (loader, blobs, pasteboard).
- * MIT, Copyright (c) 2026 AmigaChrome Team.
+ * MIT, Copyright (c) 2026 AmiCradle Team.
  */
 #pragma once
 

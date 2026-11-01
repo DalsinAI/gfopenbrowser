@@ -1,5 +1,5 @@
 // Loop register copies (patch 0032): every result must match the interpreter.
-// The AmigaChrome Team, MIT.
+// The AmiCradle Team, MIT.
 function out(n, v) { print(n + " " + v); }
 function f1() { var s = 0; for (var i = 0; i < 100000; i++) s = s + i * 30000; return s; }            // add overflows to double mid-loop
 function f2() { var s = 1; for (var i = 0; i < 40; i++) s = s * 3; return s; }                        // mul overflow

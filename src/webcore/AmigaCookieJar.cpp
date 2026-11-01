@@ -1,7 +1,7 @@
 /*
  * GFOpenBrowser: the cookie jar (see AmigaCookieJar.h). The cookie string
  * logic follows WebKit's curl network session (NetworkStorageSessionCurl).
- * MIT, Copyright (c) 2026 AmigaChrome Team.
+ * MIT, Copyright (c) 2026 AmiCradle Team.
  */
 #include "config.h"
 #include "AmigaCookieJar.h"

@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 # unicode.library: makes the call table from calls.txt.
-# Copyright (c) 2026 AmigaChrome Team. MIT.
+# Copyright (c) 2026 AmiCradle Team. MIT.
 #
 #   gen_calls.py CALLS OUT_DIR
 #

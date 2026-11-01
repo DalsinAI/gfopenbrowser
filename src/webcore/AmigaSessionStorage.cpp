@@ -2,7 +2,7 @@
  * GFOpenBrowser: sessionStorage in memory (see AmigaSessionStorage.h).
  * Each view has one page and one provider; the provider keeps one session
  * namespace, and that keeps one area per origin. Nothing is written to disk.
- * MIT, Copyright (c) 2026 AmigaChrome Team.
+ * MIT, Copyright (c) 2026 AmiCradle Team.
  */
 #include "config.h"
 #include "AmigaSessionStorage.h"

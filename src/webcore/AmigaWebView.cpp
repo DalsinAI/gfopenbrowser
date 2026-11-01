@@ -1,6 +1,6 @@
 /*
  * GFOpenBrowser: one web page in a view (see AmigaWebView.h).
- * MIT, Copyright (c) 2026 AmigaChrome Team.
+ * MIT, Copyright (c) 2026 AmiCradle Team.
  */
 #include "config.h"
 #include "AmigaWebView.h"

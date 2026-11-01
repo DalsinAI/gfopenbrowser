@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-# Copyright (c) 2026 AmigaChrome Team. MIT licence (see LICENSE at the repository root).
+# Copyright (c) 2026 AmiCradle Team. MIT licence (see LICENSE at the repository root).
 """json.library's core against references, for tests/jsonlib/run.sh.
 
   json_ref.py gen DIR        writes DIR/script.txt and the files it names

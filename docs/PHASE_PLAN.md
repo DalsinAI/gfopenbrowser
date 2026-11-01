@@ -1,6 +1,6 @@
 # GFOpenBrowser: phase plan
 
-Copyright (c) 2026 AmigaChrome Team. MIT licence for this document and our own code; WebKit and JavaScriptCore parts keep their LGPL/BSD notices.
+Copyright (c) 2026 AmiCradle Team. MIT licence for this document and our own code; WebKit and JavaScriptCore parts keep their LGPL/BSD notices.
 
 Written 4 Oct 2026 after our direction, relayed word for word by the main session: "the webkit browser project needs to move to a new phase, a gadtools ui, datatype support, and get it a useable browser."
 
@@ -21,7 +21,7 @@ Written 4 Oct 2026 after our direction, relayed word for word by the main sessio
 - Keep the paint path behind one interface, so GFOpen RTG's GFOpenGPU (openrtg DESIGN.md section 5) can take page drawing onto the host later.
 - Binaries, ICU data and test evidence stay out of the public repo; WebKit is a patch series against pinned upstream `54fe1539718e`.
 
-## Reuse from the other Open… projects (MIT, AmigaChrome Team, notices kept)
+## Reuse from the other Open… projects (MIT, AmiCradle Team, notices kept)
 
 | Need | Source |
 | --- | --- |

@@ -13,7 +13,7 @@
  * failed and returns 10.
  *
  * Built by scripts/build-weblayout-library.sh.
- * MIT, Copyright (c) 2026 AmigaChrome Team.
+ * MIT, Copyright (c) 2026 AmiCradle Team.
  */
 #include <exec/types.h>
 #include <exec/memory.h>

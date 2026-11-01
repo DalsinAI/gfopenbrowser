@@ -1,6 +1,6 @@
 // Strings in compiled code: s[i], .length of flat strings and ropes, and
 // charCodeAt, including replaced and odd receivers (patch 0036): every
-// result must match node. The AmigaChrome Team, MIT.
+// result must match node. The AmiCradle Team, MIT.
 if (typeof print === "undefined") var print = console.log;
 var collect = typeof gc === "function" ? gc : function () {};
 function chars(s) { var r = ""; for (var i = 0; i < s.length; i++) r += s[i]; return r; }

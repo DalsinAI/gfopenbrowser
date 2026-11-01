@@ -1,5 +1,5 @@
 <!DOCTYPE html><html><body><script>
-// GFOpenBrowser per-opcode JavaScript timings: "JSBENCH name ms". MIT, Copyright (c) 2026 AmigaChrome Team.
+// GFOpenBrowser per-opcode JavaScript timings: "JSBENCH name ms". MIT, Copyright (c) 2026 AmiCradle Team.
 function run(name, f) { var t = Date.now(), r = f(); console.log("JSBENCH " + name + " " + (Date.now() - t) + " (" + r + ")"); }
 run("empty", function () { var s = 0; for (var i = 0; i < 100000; i++); return i; });
 run("getprop-stmt", function () { var o = { a: 1 }; for (var i = 0; i < 100000; i++) o.a; return i; });

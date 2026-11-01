@@ -1,6 +1,6 @@
 /* ob_http: HTTP/1.1 GET with redirects and chunked bodies.
  *
- * GFOpenBrowser. MIT, Copyright (c) 2026 AmigaChrome Team. */
+ * GFOpenBrowser. MIT, Copyright (c) 2026 AmiCradle Team. */
 #include "ob_http.h"
 #include "oam_net.h"
 #include "weblayout/wl_url.h"

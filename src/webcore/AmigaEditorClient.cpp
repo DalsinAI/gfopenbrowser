@@ -2,7 +2,7 @@
  * GFOpenBrowser: WebCore's editor client. It lets form fields and editable
  * content take typing, and turns editing keys into WebCore's commands.
  *
- * Our code is MIT, Copyright (c) 2026 AmigaChrome Team. The key tables and the
+ * Our code is MIT, Copyright (c) 2026 AmiCradle Team. The key tables and the
  * keyboard handling come from WebKit's WPE port, under this licence:
  *
  * Copyright (C) 2014 Igalia S.L.

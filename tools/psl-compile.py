@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-# Copyright (c) 2026 AmigaChrome Team. MIT licence (LICENSE).
+# Copyright (c) 2026 AmiCradle Team. MIT licence (LICENSE).
 # SPDX-License-Identifier: MIT
 """The Public Suffix List as the engine reads it (WebKit patch 0070).
 

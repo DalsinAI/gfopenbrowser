@@ -1,6 +1,6 @@
 #!/bin/sh
 # GFOpenBrowser (DalsinAI/openamigabrowser)
-# Copyright (c) 2026 AmigaChrome Team. MIT licence, see LICENSE.
+# Copyright (c) 2026 AmiCradle Team. MIT licence, see LICENSE.
 #
 # Build WebKit's JSCOnly `jsc` shell for AmigaOS 3.2.x (68040, FPU) with the
 # os32-gcc16 stove. WebKit itself is not in this repository: check out the

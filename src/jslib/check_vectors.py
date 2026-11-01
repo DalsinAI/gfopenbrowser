@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-# Copyright (c) 2026 AmigaChrome Team. MIT licence (see LICENSE at the repository root).
+# Copyright (c) 2026 AmiCradle Team. MIT licence (see LICENSE at the repository root).
 """javascript_lib.c's vector table against sfd/javascript_lib.sfd: the same calls in
 the same order, and each slot's LVO comment right. The SDK headers are made
 from the SFD by GFOpenNDK's ndkgen.py (scripts/gen-jslib-sdk.sh)."""

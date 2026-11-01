@@ -8,7 +8,7 @@
  * stack. Until patch 0075 this file opened bsdsocket.library on the main
  * task and on curl's thread, and until 19 October 2026 AmiSSL as well.
  *
- * MIT, Copyright (c) 2026 AmigaChrome Team.
+ * MIT, Copyright (c) 2026 AmiCradle Team.
  */
 #include <exec/types.h>
 #include <proto/exec.h>

@@ -9,7 +9,7 @@
  * (curves, slanted edges) the pixels away from the edges must be the same
  * and the edge pixels within a bound, and the count is printed.
  *   test_opengpu_clip          (needs cairo's headers and library)
- * MIT, Copyright (c) 2026 AmigaChrome Team.
+ * MIT, Copyright (c) 2026 AmiCradle Team.
  * SPDX-License-Identifier: MIT
  */
 #include <cairo.h>

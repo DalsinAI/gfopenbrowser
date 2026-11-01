@@ -4,7 +4,7 @@
 // non-extensible, sealed or frozen, or given a read-only length, part way
 // through; an indexed setter on Array.prototype; copy-on-write literals;
 // plain objects with indexed properties; filter, map and friends.
-// MIT, Copyright (c) 2026 The AmigaChrome Team.
+// MIT, Copyright (c) 2026 The AmiCradle Team.
 if (typeof print === "undefined") var print = console.log;
 function append(n) { var a = [], b = [], c = [], d = [1.5]; for (var i = 0; i < n; i++) { a[a.length] = i; b[i] = { v: i }; c[c.length] = i % 3 ? i : "s" + i; d[d.length] = i + 0.5; } return a.length + ":" + b[n - 1].v + ":" + c.join("").length + ":" + d[n]; }
 print("append " + append(3000));

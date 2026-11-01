@@ -1,5 +1,5 @@
 ==id $Id: json_lib.sfd 1.0 (22.10.2026) GFOpenJSON, AmiCradle Team $
-* json.library: JSON (RFC 8259) for native programs. MIT, Copyright (c) 2026 AmigaChrome Team.
+* json.library: JSON (RFC 8259) for native programs. MIT, Copyright (c) 2026 AmiCradle Team.
 * scripts/gen-jsonlib-sdk.sh makes sdk/ (clib, inline, pragmas, proto, FD, LVOs) from this with
 * GFOpenNDK's ndkgen.py; openjson_lib.c's vector table follows it line for line (check_vectors.py).
 ==base _JSONBase

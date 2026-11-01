@@ -2,7 +2,7 @@
  * weblayout: HTML to a GFOpenLayout semantic tree (HTML Lite).
  * Derived in approach from GFOpenMail's small MIT HTML-to-text tokenizer,
  * but emits a GFOpenLayout tree rather than flattening the document.
- * MIT, Copyright (c) 2026 AmigaChrome Team.
+ * MIT, Copyright (c) 2026 AmiCradle Team.
  */
 #include "wl_html.h"
 #include "wl_css.h"

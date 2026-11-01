@@ -231,7 +231,7 @@ index 00000000000..a2a0d08cab6
 +++ b/Source/JavaScriptCore/llint/M68KTemplateJIT.cpp
 @@ -0,0 +1,191 @@
 +/*
-+ * Copyright (c) 2026 AmigaChrome Team
++ * Copyright (c) 2026 AmiCradle Team
 + *
 + * Permission is hereby granted, free of charge, to any person obtaining a copy
 + * of this software and associated documentation files (the "Software"), to
@@ -428,7 +428,7 @@ index 00000000000..6acb565f0ac
 +++ b/Source/JavaScriptCore/llint/M68KTemplateJIT.h
 @@ -0,0 +1,55 @@
 +/*
-+ * Copyright (c) 2026 AmigaChrome Team
++ * Copyright (c) 2026 AmiCradle Team
 + *
 + * Permission is hereby granted, free of charge, to any person obtaining a copy
 + * of this software and associated documentation files (the "Software"), to
@@ -490,7 +490,7 @@ index 00000000000..90631a2670d
 @@ -0,0 +1,85 @@
 +/*
 + * OpenBrowser (DalsinAI/openamigabrowser)
-+ * Copyright (c) 2026 AmigaChrome Team. MIT licence, see LICENSE.
++ * Copyright (c) 2026 AmiCradle Team. MIT licence, see LICENSE.
 + *
 + * The 68k template JIT's stitcher core (J2, stage T2 prototype). Plain C so
 + * the host test (test/qemu_stitch.c) and JavaScriptCore share it.
@@ -581,7 +581,7 @@ index 00000000000..ade7cccf6a5
 @@ -0,0 +1,714 @@
 +#!/usr/bin/env python3
 +# OpenBrowser (DalsinAI/openamigabrowser)
-+# Copyright (c) 2026 AmigaChrome Team. MIT licence, see LICENSE.
++# Copyright (c) 2026 AmiCradle Team. MIT licence, see LICENSE.
 +#
 +# The 68k template JIT's templates (J2, stage T1 prototype).
 +#

@@ -33,7 +33,7 @@ Requirements:
 Its page engine, weblayout, is built on GFOpenLayout and kept behind one
 header so that it can become a shared weblayout.library.
 
-Licence: MIT, Copyright (c) 2026 AmigaChrome Team. If you base work on
+Licence: MIT, Copyright (c) 2026 AmiCradle Team. If you base work on
 this, please say what it is based on.
 
 Source: https://github.com/DalsinAI/openamigabrowser

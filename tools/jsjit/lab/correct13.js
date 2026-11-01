@@ -1,7 +1,7 @@
 // Small functions inlined into their callers (patch 0038): every way out of
 // the inlined code (types changing, getters, exceptions with stack traces,
 // a callee replaced or garbage-collected, the stack running out) must give
-// what node gives. The AmigaChrome Team, MIT.
+// what node gives. The AmiCradle Team, MIT.
 if (typeof print === "undefined") var print = console.log;
 var collect = typeof gc === "function" ? gc : function () {};
 function add(a, b) { return a + b; }

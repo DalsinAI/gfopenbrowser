@@ -4,7 +4,7 @@
 // with lastIndex, replace, split, matchAll and search; then patterns the
 // skip must leave alone (alternatives, optional or empty-able starts,
 // assertions, lookbehind, groups, back references, non-BMP characters).
-// MIT, Copyright (c) 2026 The AmigaChrome Team.
+// MIT, Copyright (c) 2026 The AmiCradle Team.
 if (typeof print === "undefined") var print = console.log;
 var latin = "The quick <brown> fox & the \"lazy\" dog's café: naïve façade, Ünïcödé ÿ ß 123-456 KELVIN kµ xéy";
 var wide = latin + " ſK İ 😀 Σσς end";

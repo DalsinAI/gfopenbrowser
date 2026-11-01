@@ -1,5 +1,5 @@
 // Compares and tests on every kind of value (patch 0035): every result must match node.
-// The AmigaChrome Team, MIT.
+// The AmiCradle Team, MIT.
 if (typeof print === "undefined") var print = console.log;
 var o1 = {}, o2 = {}, f1 = function () {}, sym = Symbol("s");
 var big = 10n;

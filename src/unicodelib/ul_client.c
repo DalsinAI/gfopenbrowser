@@ -1,5 +1,5 @@
 /* unicode.library from a program: ICU's calls go to the library.
- * Copyright (c) 2026 AmigaChrome Team. MIT.
+ * Copyright (c) 2026 AmiCradle Team. MIT.
  *
  * Linked with ul_stubs.s (gen_calls.py) in place of ICU's own libraries
  * (libicuuc.a, libicui18n.a, libicudata.a). Each of ICU's functions there

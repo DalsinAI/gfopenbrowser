@@ -1,6 +1,6 @@
 #!/bin/sh
 # GFOpenBrowser (DalsinAI/openamigabrowser)
-# Copyright (c) 2026 AmigaChrome Team. MIT licence, see LICENSE.
+# Copyright (c) 2026 AmiCradle Team. MIT licence, see LICENSE.
 #
 # src/unicodelib/sdk from sfd/unicode_lib.sfd with GFOpenNDK's ndkgen.py
 # (libraries/unicode.h is written by hand). OPENSDK_SRC: an openamigasdk

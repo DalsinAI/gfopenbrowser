@@ -1,5 +1,5 @@
 # GFOpenBrowser (DalsinAI/openamigabrowser)
-# Copyright (c) 2026 The AmigaChrome Team. MIT licence, see LICENSE.
+# Copyright (c) 2026 The AmiCradle Team. MIT licence, see LICENSE.
 """Host self-tests for tools/bench:  python3 -m unittest discover -s tools/bench/tests -v"""
 import csv
 import hashlib
@@ -131,7 +131,7 @@ class Manifest(unittest.TestCase):
         for name in os.listdir(os.path.join(ROOT, "tests", "bench", "local")) + ["../compat/features.html"]:
             with open(os.path.join(ROOT, "tests", "bench", "local", name), encoding="utf-8") as f:
                 text = f.read()
-            self.assertIn("The AmigaChrome Team", text, name)
+            self.assertIn("The AmiCradle Team", text, name)
             self.assertNotRegex(text, r'(src|href)="(https?:)?//', name)  # no network in the local set
 
 

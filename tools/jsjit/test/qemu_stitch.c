@@ -1,6 +1,6 @@
 /*
  * GFOpenBrowser (DalsinAI/openamigabrowser)
- * Copyright (c) 2026 AmigaChrome Team. MIT licence, see LICENSE.
+ * Copyright (c) 2026 AmiCradle Team. MIT licence, see LICENSE.
  *
  * Host test for the 68k template JIT's stitcher, run under qemu-m68k
  * (-cpu m68040) as an m68k Linux program. It stitches real op_mov templates

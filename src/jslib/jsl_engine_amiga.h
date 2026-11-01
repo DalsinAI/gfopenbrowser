@@ -7,7 +7,7 @@
  * (idle, or on Ctrl-C) under Forbid with no users and no live script tasks,
  * so a table the library holds is never unloaded under it.
  *
- * MIT, Copyright (c) 2026 AmigaChrome Team.
+ * MIT, Copyright (c) 2026 AmiCradle Team.
  */
 #ifndef JSL_ENGINE_AMIGA_H
 #define JSL_ENGINE_AMIGA_H

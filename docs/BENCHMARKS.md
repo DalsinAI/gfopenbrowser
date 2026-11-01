@@ -161,4 +161,4 @@ They run in CI (`.github/workflows/bench.yml`) with the test262 slice's
 hashes checked against the network, `obstamp` built and `obcore_view.c`
 compiled for syntax with GFOpenAmigaGCC.
 
-MIT, Copyright (c) 2026 The AmigaChrome Team.
+MIT, Copyright (c) 2026 The AmiCradle Team.

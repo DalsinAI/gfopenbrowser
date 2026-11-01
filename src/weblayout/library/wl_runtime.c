@@ -4,7 +4,7 @@
  * weblayout's own allocator (../wl_mem.c) and its snprintf, strtol, ctype
  * and strcasecmp (../wl_libc.c) are the rest.
  *
- * MIT, Copyright (c) 2026 AmigaChrome Team.
+ * MIT, Copyright (c) 2026 AmiCradle Team.
  */
 #include <stddef.h>
 

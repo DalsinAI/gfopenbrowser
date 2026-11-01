@@ -1,5 +1,5 @@
 // WebKit patch 0058 (JSON.parse through json.library): run with the JS command (javascript.library).
-// Copyright (c) 2026 AmigaChrome Team. MIT.
+// Copyright (c) 2026 AmiCradle Team. MIT.
 // Focused JSON.parse checks for patch 0058: prints one line per check.
 // Run on the old and the new engine and compare (only error messages may differ).
 var n = 0, bad = 0;

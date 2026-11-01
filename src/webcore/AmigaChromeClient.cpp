@@ -1,6 +1,6 @@
 /*
  * GFOpenBrowser: WebCore's chrome client (see AmigaChromeClient.h).
- * MIT, Copyright (c) 2026 AmigaChrome Team.
+ * MIT, Copyright (c) 2026 AmiCradle Team.
  */
 #include "config.h"
 #include "AmigaChromeClient.h"

@@ -3,7 +3,7 @@
  * curl's; since WebKit patch 0075 nothing in the programs calls through it
  * (openweb.fetch's native transport keeps its own bsdsocket.library base),
  * and it stays defined and empty so that no library's own copy comes in.
- * MIT, Copyright (c) 2026 AmigaChrome Team.
+ * MIT, Copyright (c) 2026 AmiCradle Team.
  */
 #include <exec/libraries.h>
 

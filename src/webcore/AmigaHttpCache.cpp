@@ -6,7 +6,7 @@
  * Responses are stored as their body arrives, without the headers that
  * must not come back (cookies, and the length and encoding the transport
  * undid).
- * MIT, Copyright (c) 2026 AmigaChrome Team.
+ * MIT, Copyright (c) 2026 AmiCradle Team.
  */
 #include "config.h"
 #include "AmigaHttpCache.h"
