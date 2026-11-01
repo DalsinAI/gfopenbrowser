@@ -402,6 +402,58 @@ static void testEnvironment(void)
     }
 }
 
+/* Many entries (1 Nov 2026: lookups go through a hash table): every one is
+ * found, after some go every one left is found, and none that went is. */
+static void testMany(void)
+{
+    ob_httpcache *c;
+    char url[64];
+    int i, found = 0, gone = 0;
+    clearDir();
+    c = ob_httpcache_open(dir, 64UL * 1024 * 1024);
+    CHECK(c != NULL);
+    if (!c)
+        return;
+    for (i = 0; i < 600; i++) {
+        ob_httpcache_writer *w;
+        sprintf(url, "http://many.example/%d", i);
+        w = ob_httpcache_store_begin(c, url, 60, 1000, NULL, NULL, NULL, 0);
+        if (w && ob_httpcache_store_write(w, "x", 1))
+            ob_httpcache_store_commit(c, w, 1000);
+        else if (w)
+            ob_httpcache_store_abort(c, w);
+    }
+    CHECK(ob_httpcache_count(c) == 600);
+    for (i = 0; i < 600; i += 3) {
+        sprintf(url, "http://many.example/%d", i);
+        ob_httpcache_remove(c, url);
+    }
+    for (i = 0; i < 600; i++) {
+        ob_httpcache_entry *e;
+        sprintf(url, "http://many.example/%d", i);
+        e = ob_httpcache_lookup(c, url, 1001);
+        if (e) {
+            found += i % 3 != 0;
+            gone += i % 3 == 0;
+            ob_httpcache_entry_free(e);
+        }
+    }
+    CHECK(found == 400);
+    CHECK(gone == 0);
+    CHECK(ob_httpcache_count(c) == 400);
+    ob_httpcache_close(c);
+    c = ob_httpcache_open(dir, 64UL * 1024 * 1024);      /* from the index */
+    CHECK(c && ob_httpcache_count(c) == 400);
+    if (c) {
+        ob_httpcache_entry *e = ob_httpcache_lookup(c, "http://many.example/599", 1002);
+        CHECK(e != NULL);
+        if (e)
+            ob_httpcache_entry_free(e);
+        ob_httpcache_close(c);
+    }
+    clearDir();
+}
+
 int main(int argc, char **argv)
 {
     if (argc < 2 || strlen(argv[1]) > 900) {
@@ -414,6 +466,7 @@ int main(int argc, char **argv)
     testStore();
     testEviction();
     testEnvironment();
+    testMany();
     clearDir();
     if (failed)
         return 1;

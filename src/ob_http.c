@@ -41,9 +41,11 @@ int ob_url_parse(const char *url, ob_url *out, char *err, size_t errlen)
     slash = strpbrk(host, "/?#");
     hend = slash ? slash : host + strlen(host);
     {
-        const char *colon = memchr(host, ':', (size_t)(hend - host));
-        const char *at = memchr(host, '@', (size_t)(hend - host));
+        const char *at = NULL, *colon, *q;
+        for (q = host; q < hend; q++)           /* the last '@' ends user:password */
+            if (*q == '@') at = q;
         if (at) host = at + 1;                  /* no user:password support; skip it */
+        colon = memchr(host, ':', (size_t)(hend - host));   /* the port's, after it */
         if (colon && colon > host) {
             out->port = atoi(colon + 1);
             hend = colon;
@@ -107,9 +109,13 @@ static char *find_header(const char *head, const char *name)
     return NULL;
 }
 
-static int dechunk(const char *p, size_t len, oam_buf *out)
+/* Decodes a chunked body in place: data[start..len) becomes the body at
+ * data[0..]. The body is never longer than what it was read from, so it
+ * never overtakes what is still to be read. Returns the body's length. */
+static size_t dechunk(char *data, size_t start, size_t len)
 {
-    const char *end = p + len;
+    const char *p = data + start, *end = data + len;
+    size_t o = 0;
     while (p < end) {
         unsigned long size = strtoul(p, NULL, 16);
         const char *line = memchr(p, '\n', (size_t)(end - p));
@@ -117,12 +123,13 @@ static int dechunk(const char *p, size_t len, oam_buf *out)
         p = line + 1;
         if (!size) break;
         if ((size_t)(end - p) < size) size = (unsigned long)(end - p);
-        if (!oam_buf_add(out, p, size)) return 0;
+        memmove(data + o, p, size);
+        o += size;
         p += size;
         if (p < end && *p == '\r') p++;
         if (p < end && *p == '\n') p++;
     }
-    return 1;
+    return o;
 }
 
 static int fetch_once(const ob_url *u, ob_response *resp, char **location, char *err, size_t errlen)
@@ -140,9 +147,12 @@ static int fetch_once(const ob_url *u, ob_response *resp, char **location, char 
     oam_net_set_timeout(c, 30);
     oam_buf_init(&req);
     oam_buf_init(&raw);
-    oam_buf_printf(&req, "GET %s HTTP/1.1\r\nHost: %s\r\nUser-Agent: " USER_AGENT
-                   "\r\nAccept: text/html, text/plain;q=0.9, */*;q=0.5\r\n"
-                   "Accept-Encoding: identity\r\nConnection: close\r\n\r\n", u->path, u->host);
+    oam_buf_printf(&req, "GET %s HTTP/1.1\r\nHost: %s", u->path, u->host);
+    if (u->port != (u->tls ? 443 : 80))         /* the Host header names a port that isn't the usual one */
+        oam_buf_printf(&req, ":%d", u->port);
+    oam_buf_adds(&req, "\r\nUser-Agent: " USER_AGENT
+                 "\r\nAccept: text/html, text/plain;q=0.9, */*;q=0.5\r\n"
+                 "Accept-Encoding: identity\r\nConnection: close\r\n\r\n");
     STEP("Sending the request");
     if (req.failed || oam_net_write(c, req.data, (long)req.len) < 0) {
         set_err(err, errlen, oam_net_error(c));
@@ -180,14 +190,21 @@ static int fetch_once(const ob_url *u, ob_response *resp, char **location, char 
         lower(resp->content_type);
         free(ct);
     }
-    oam_buf_clear(&resp->body);
+    /* The body is moved to the front of what was read, which becomes the
+     * response's body: one copy of up to MAX_BODY, not two. */
     te = find_header(raw.data, "Transfer-Encoding");
     if (te && strstr(te, "chunked"))
-        ok = dechunk(raw.data + hlen, raw.len - hlen, &resp->body);
-    else
-        ok = oam_buf_add(&resp->body, raw.data + hlen, raw.len - hlen) || raw.len == hlen;
+        raw.len = dechunk(raw.data, hlen, raw.len);
+    else {
+        memmove(raw.data, raw.data + hlen, raw.len - hlen);
+        raw.len -= hlen;
+    }
+    raw.data[raw.len] = 0;
     free(te);
-    if (!ok) set_err(err, errlen, "Out of memory.");
+    oam_buf_free(&resp->body);
+    resp->body = raw;
+    oam_buf_init(&raw);
+    ok = 1;
 out:
     oam_net_close(c);
     oam_buf_free(&req);
