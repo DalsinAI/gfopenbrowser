@@ -743,6 +743,56 @@ int main(void)
         bothConic(48, 32, 0, 25, (const double (*)[5])dense, 0, 0, 96, 64);
         exX = 48; exY = 32; exR = 6;
         meshDiag("conic, 25 stops", 48, 32, 0, 25, (const double (*)[5])dense, 0, 0, 96, 64);
+        {   /* simpler meshes: one quad patch over the window, a small one, painted or filled, ARGB32 and RGB24 */
+            int variant;
+            for (variant = 0; variant < 6; variant++) {
+                cairo_pattern_t *mp = cairo_pattern_create_mesh();
+                const unsigned int *cc;
+                int x, y, st2, unpainted = 0, total = 0;
+                cairo_surface_t *probe = cairo_image_surface_create(variant == 3 ? CAIRO_FORMAT_RGB24 : CAIRO_FORMAT_ARGB32, W, H);
+                cairo_t *pc = cairo_create(probe);
+                double s0 = variant == 1 ? 10 : 0, s1 = variant == 1 ? 40 : (variant == 5 ? 4000 : W);
+                cairo_set_source_rgba(pc, 0, 0, 0, 0);
+                cairo_set_operator(pc, CAIRO_OPERATOR_SOURCE);
+                cairo_paint(pc);
+                cairo_set_operator(pc, CAIRO_OPERATOR_OVER);
+                cairo_mesh_pattern_begin_patch(mp);
+                cairo_mesh_pattern_move_to(mp, s0, s0);
+                cairo_mesh_pattern_line_to(mp, s1, s0);
+                if (variant == 4)
+                    cairo_mesh_pattern_curve_to(mp, s1 + 10, s1 / 2, s1 - 10, s1 / 2, s1, s1);
+                else
+                    cairo_mesh_pattern_line_to(mp, s1, s1);
+                cairo_mesh_pattern_line_to(mp, s0, s1);
+                cairo_mesh_pattern_set_corner_color_rgb(mp, 0, 1, 0, 0);
+                cairo_mesh_pattern_set_corner_color_rgb(mp, 1, 0, 1, 0);
+                cairo_mesh_pattern_set_corner_color_rgb(mp, 2, 0, 0, 1);
+                cairo_mesh_pattern_set_corner_color_rgb(mp, 3, 1, 1, 0);
+                cairo_mesh_pattern_end_patch(mp);
+                cairo_set_source(pc, mp);
+                if (variant == 2) {
+                    cairo_rectangle(pc, 0, 0, W, H);
+                    cairo_fill(pc);
+                } else
+                    cairo_paint(pc);
+                cairo_destroy(pc);
+                cairo_pattern_destroy(mp);
+                cairo_surface_flush(probe);
+                cc = (const unsigned int *)cairo_image_surface_get_data(probe);
+                st2 = cairo_image_surface_get_stride(probe) / 4;
+                for (y = 1; y < H - 1; y++)
+                    for (x = 1; x < W - 1; x++) {
+                        double px = x + 0.5, py = y + 0.5;
+                        if (variant == 1 && (px < 11 || px > 39 || py < 11 || py > 39))
+                            continue;
+                        total++;
+                        unpainted += (cc[y * st2 + x] & 0xFFFFFF) == 0;
+                    }
+                printf("  MESHDIAG one patch, variant %d (0 window paint, 1 small, 2 fill, 3 RGB24, 4 a curved side, 5 4000 wide): %d of %d pixels left empty\n",
+                    variant, unpainted, total);
+                cairo_surface_destroy(probe);
+            }
+        }
         {   /* the same mesh at other radii: pixels cairo leaves as the background */
             static const double radii[] = { 4096, 2048, 1024, 512, 320, 160 };
             int ri;
