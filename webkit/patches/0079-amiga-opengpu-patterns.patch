@@ -1,0 +1,641 @@
+From f9aef9cfe61b97007f2a06fcc1c5d5bf09b4028c Mon Sep 17 00:00:00 2001
+From: SacredTrees <121399723+SacredTrees@users.noreply.github.com>
+Date: Sun, 1 Nov 2026 16:59:11 +0000
+Subject: [PATCH] WebCore: patterns, conic gradients and stops of any alpha
+ through OpenGPU
+
+GraphicsContextOpenGPU now draws three things it used to hand to cairo
+(cairo-out item 2, openamigabrowser docs/STEP5-6-WEBCORE.md):
+
+- Pictures as paint (OpenGPUPaintAmiga's struct obgpu_pattern,
+  obgpu_fill_path_pattern and obgpu_stroke_path_pattern: PATH_FILL and
+  PATH_STROKE with OGPU_PATH_PATTERN). The picture is in a slot and its
+  tile is repeated under its matrix times the transform.
+  - drawPattern follows CairoUtilities' drawPatternToCairoContext: the
+    tile under the pattern transform from the phase (reduced by whole
+    tiles, as cairo's), filled over the destination rectangle by the
+    options' operator.
+  - Fills and strokes with a pattern brush follow PatternCairo: the tile
+    image under the pattern space, repeated.
+  - Limits: tiles on whole pixels, no spacing, normal blending. Filters
+    as cairo's: FAST nearest and BILINEAR; GOOD or BEST only where the
+    picture isn't shrunk or turned. Brushes must repeat both ways and
+    have no global alpha.
+  - Nearest sampling breaks ties as pixman does: a centre exactly between
+    two pixels takes the one before.
+- Conic gradients (OBGPU_CONIC, stream.h's OGPU_GRAD_CONIC). WebCore's
+  angle starts at the top and OpenGPU's at the x axis, so the angle loses
+  a quarter turn. cairo drew them as a mesh of Bezier sectors.
+- Gradient stops of different alphas are drawn. OpenGPU mixes them
+  premultiplied, as CSS says; pixman mixed them unpremultiplied. Dale
+  accepted this on 1 November 2026.
+
+opengpu.library: OBGPU_CAN_ALIASED is now set from opengpu.library 0.24's
+OGPU_QUERY_FLAG(OGPU_OP_PATH_FILL, OGPU_PATH_ALIASED_BIT), on ARGB32 and
+A8, instead of the library's revision. An older library, or a driver that
+doesn't take the flag, answers OGPU_NONE.
+---
+ .../graphics/amiga/GraphicsContextOpenGPU.cpp | 185 +++++++++++++++---
+ .../graphics/amiga/GraphicsContextOpenGPU.h   |  13 +-
+ .../graphics/amiga/OpenGPULibraryAmiga.c      |  15 +-
+ .../graphics/amiga/OpenGPUPaintAmiga.c        |  89 ++++++++-
+ .../graphics/amiga/OpenGPUPaintAmiga.h        |  40 +++-
+ 5 files changed, 299 insertions(+), 43 deletions(-)
+
+diff --git a/Source/WebCore/platform/graphics/amiga/GraphicsContextOpenGPU.cpp b/Source/WebCore/platform/graphics/amiga/GraphicsContextOpenGPU.cpp
+index b7738e4..d741d61 100644
+--- a/Source/WebCore/platform/graphics/amiga/GraphicsContextOpenGPU.cpp
++++ b/Source/WebCore/platform/graphics/amiga/GraphicsContextOpenGPU.cpp
+@@ -25,9 +25,11 @@
+ #include "ImageBuffer.h"
+ #include "NativeImage.h"
+ #include "Path.h"
++#include "Pattern.h"
+ #include <algorithm>
+ #include <cairo.h>
+ #include <cmath>
++#include <numbers>
+ #include <stdio.h>
+ #include <stdlib.h>
+ #include <wtf/FastMalloc.h>
+@@ -461,24 +463,25 @@ bool GraphicsContextOpenGPU::pathsWanted()
+ }
+ 
+ // A fill or stroke brush as cairo paints it (Cairo::FillSource and
+-// StrokeSource): a colour times the global alpha, or a gradient with the
+-// global alpha in its stops. Patterns stay cairo's.
++// StrokeSource): a colour times the global alpha, a gradient with the
++// global alpha in its stops, or (0079) a pattern.
+ bool GraphicsContextOpenGPU::paintFor(const SourceBrush& brush, Paint& paint)
+ {
+     float globalAlpha = alpha();
+-    if (brush.pattern())
+-        return false;
++    if (auto* pattern = brush.pattern())
++        return patternFor(*pattern, globalAlpha, paint);
+     if (auto* gradient = brush.gradient())
+         return gradientFor(*gradient, brush.gradientSpaceTransform(), globalAlpha, paint);
+     paint.argb = premultiplied(globalAlpha < 1 ? brush.color().colorWithAlphaMultipliedBy(globalAlpha) : brush.color());
+     return true;
+ }
+ 
+-// A gradient as GradientCairo.cpp makes it, where pixman and OpenGPU draw
+-// it alike: linear and radial (an elliptical one through its matrix, as
+-// cairo's), with stops of one alpha (pixman mixes them unpremultiplied,
+-// OpenGPU premultiplied: the same when the alpha is). Conic gradients are
+-// cairo's mesh, and stay cairo's.
++// A gradient as GradientCairo.cpp makes it: linear and radial (an
++// elliptical one through its matrix, as cairo's), and from 0079 conic
++// (cairo's mesh of sectors from the top, OpenGPU's CONIC from the x axis:
++// the angle less a quarter turn). Stops of different alphas are mixed
++// premultiplied, as CSS says, where pixman mixed them unpremultiplied
++// (accepted, 1 November 2026); stops of one alpha draw alike.
+ bool GraphicsContextOpenGPU::gradientFor(const Gradient& gradient, const AffineTransform& gradientSpaceTransform, float globalAlpha, Paint& paint)
+ {
+     double m[6] = { gradientSpaceTransform.a(), gradientSpaceTransform.b(), gradientSpaceTransform.c(),
+@@ -514,8 +517,13 @@ bool GraphicsContextOpenGPU::gradientFor(const Gradient& gradient, const AffineT
+             }
+             return data.point0 != data.point1 || data.startRadius != data.endRadius;
+         },
+-        [&](const Gradient::ConicData&) {
+-            return false;
++        [&](const Gradient::ConicData& data) {
++            kind = OBGPU_CONIC;
++            geometry[0] = data.point0.x();
++            geometry[1] = data.point0.y();
++            double turns = data.angleRadians / (2 * std::numbers::pi) - 0.25;
++            geometry[2] = turns - std::floor(turns);
++            return std::isfinite(turns);
+         });
+     size_t count = gradient.stops().size();
+     if (!ok || !count || count > 256)
+@@ -526,21 +534,17 @@ bool GraphicsContextOpenGPU::gradientFor(const Gradient& gradient, const AffineT
+     // cairo keeps its stops in order, those at one offset as they came
+     std::stable_sort(stops.begin(), stops.end(), [](auto& a, auto& b) { return a.offset < b.offset; });
+     m_stops.resize(count * 2);
+-    float firstAlpha = 0;
+     for (size_t i = 0; i < count; i++) {
+         auto [r, g, b, a] = stops[i].color.toColorTypeLossy<SRGBA<float>>().resolved();
+         a *= globalAlpha;
+-        if (!i)
+-            firstAlpha = a;
+-        else if (a != firstAlpha)
+-            return false;
+         float offset = std::clamp(stops[i].offset, 0.0f, 1.0f);
+         m_stops[i * 2] = static_cast<unsigned long>(std::lround(offset * 65536.0));
+         m_stops[i * 2 + 1] = premultiplied(r, g, b, a);
+     }
+     paint.hasGradient = true;
+     paint.gradient.kind = kind;
+-    switch (gradient.spreadMethod()) {
++    // cairo's conic mesh has no spread: it covers the turn once
++    switch (kind == OBGPU_CONIC ? GradientSpreadMethod::Pad : gradient.spreadMethod()) {
+     case GradientSpreadMethod::Pad:
+         paint.gradient.spread = OBGPU_PAD;
+         break;
+@@ -563,6 +567,74 @@ bool GraphicsContextOpenGPU::gradientFor(const Gradient& gradient, const AffineT
+     return true;
+ }
+ 
++// A picture's tile as paint: the tile's pixels to the user's space, and
++// filter 0 nearest, 1 bilinear. false when OpenGPU can't take it (not
++// ARGB32 or RGB24, past the fixed point).
++bool GraphicsContextOpenGPU::pictureFor(cairo_surface_t* surface, const IntRect& tile, const AffineTransform& tileToUser, int filter, Paint& paint)
++{
++    if (!surface || cairo_surface_get_type(surface) != CAIRO_SURFACE_TYPE_IMAGE)
++        return false;
++    cairo_format_t format = cairo_image_surface_get_format(surface);
++    if (format != CAIRO_FORMAT_ARGB32 && format != CAIRO_FORMAT_RGB24)
++        return false;
++    cairo_surface_flush(surface);
++    auto& p = paint.pattern;
++    p.source.address = reinterpret_cast<uintptr_t>(cairo_image_surface_get_data(surface));
++    p.source.bpr = cairo_image_surface_get_stride(surface);
++    p.source.w = cairo_image_surface_get_width(surface);
++    p.source.h = cairo_image_surface_get_height(surface);
++    p.source.format = format == CAIRO_FORMAT_RGB24 ? OBGPU_RGB : OBGPU_ARGB;
++    if (!p.source.address || tile.x() < 0 || tile.y() < 0 || tile.isEmpty() || tile.maxX() > p.source.w || tile.maxY() > p.source.h)
++        return false;
++    p.x = tile.x();
++    p.y = tile.y();
++    p.w = tile.width();
++    p.h = tile.height();
++    double m[6] = { tileToUser.a(), tileToUser.b(), tileToUser.c(), tileToUser.d(), tileToUser.e(), tileToUser.f() };
++    for (int i = 0; i < 6; i++) {
++        bool linear = i < 4;
++        if (!(std::abs(m[i]) < (linear ? 32767 : (1 << 22))))
++            return false;
++        p.m[i] = std::lround(m[i] * (linear ? 65536 : 256));
++    }
++    p.edge = OBGPU_PATTERN_REPEAT;
++    p.bilinear = filter;
++    p.alpha = 255;
++    paint.hasPattern = true;
++    paint.picture = surface;
++    return true;
++}
++
++// The picture a drawn paint uses, held until the batch is drawn.
++void GraphicsContextOpenGPU::keepPicture(const Paint& paint)
++{
++    if (paint.picture && obgpu_pending(m_gpu))
++        m_pictures.append(paint.picture);
++}
++
++// A pattern brush as PatternCairo.cpp makes it: the tile image under the
++// pattern's space, repeated (cairo's EXTEND_REPEAT), cairo's default
++// filter (GOOD: bilinear where the picture is not shrunk). Only where
++// OpenGPU draws what cairo does: repeated both ways (one way is cairo's
++// clip by the tile), no global alpha, and the picture neither shrunk nor
++// turned on the target (GOOD is not bilinear there).
++bool GraphicsContextOpenGPU::patternFor(const Pattern& pattern, float globalAlpha, Paint& paint)
++{
++    if (globalAlpha < 1 || !pattern.repeatX() || !pattern.repeatY())
++        return false;
++    auto image = pattern.tileNativeImage();
++    if (!image)
++        return false;
++    auto surface = image->platformImage();
++    if (!surface)
++        return false;
++    auto device = getCTM(PossiblyIncludeDeviceScale) * pattern.patternSpaceTransform();
++    if (device.b() || device.c() || device.a() < 1 || device.d() < 1)
++        return false;
++    IntRect tile(0, 0, cairo_image_surface_get_width(surface.get()), cairo_image_surface_get_height(surface.get()));
++    return pictureFor(surface.get(), tile, pattern.patternSpaceTransform(), 1, paint);
++}
++
+ // cairo's stroke state, as cairo_stroke reads it: the width given, and its
+ // context's caps, joins, miter limit and dashes (16.16 in the user's units).
+ bool GraphicsContextOpenGPU::strokeFor(double width, obgpu_stroke& stroke, long* dashes)
+@@ -643,17 +715,27 @@ bool GraphicsContextOpenGPU::beginPath(const Path& path)
+ 
+ bool GraphicsContextOpenGPU::fillPathWith(const Path& path, const Paint& paint, bool evenOdd, CompositeOperator op)
+ {
+-    return beginPath(path)
+-        && obgpu_fill_path(m_gpu, paint.argb, paint.hasGradient ? &paint.gradient : nullptr, evenOdd, static_cast<int>(op));
++    if (!beginPath(path))
++        return false;
++    bool drawn = paint.hasPattern ? obgpu_fill_path_pattern(m_gpu, &paint.pattern, evenOdd, static_cast<int>(op))
++        : obgpu_fill_path(m_gpu, paint.argb, paint.hasGradient ? &paint.gradient : nullptr, evenOdd, static_cast<int>(op));
++    if (drawn)
++        keepPicture(paint);
++    return drawn;
+ }
+ 
+ bool GraphicsContextOpenGPU::strokePathWith(const Path& path, const Paint& paint, double width)
+ {
+     obgpu_stroke stroke;
+     long dashes[64];
+-    return strokeFor(width, stroke, dashes) && beginPath(path)
+-        && obgpu_stroke_path(m_gpu, paint.argb, paint.hasGradient ? &paint.gradient : nullptr, &stroke,
+-            static_cast<int>(compositeOperation()));
++    if (!strokeFor(width, stroke, dashes) || !beginPath(path))
++        return false;
++    int op = static_cast<int>(compositeOperation());
++    bool drawn = paint.hasPattern ? obgpu_stroke_path_pattern(m_gpu, &paint.pattern, &stroke, op)
++        : obgpu_stroke_path(m_gpu, paint.argb, paint.hasGradient ? &paint.gradient : nullptr, &stroke, op);
++    if (drawn)
++        keepPicture(paint);
++    return drawn;
+ }
+ 
+ // A rectangle filled with a gradient: its path, non-zero.
+@@ -667,6 +749,17 @@ bool GraphicsContextOpenGPU::gradientRect(const FloatRect& rect, Gradient& gradi
+     return fillPathWith(path, paint, false, compositeOperation());
+ }
+ 
++// A rectangle filled with a pattern brush: its path, non-zero (Cairo::fillRect).
++bool GraphicsContextOpenGPU::patternRect(const FloatRect& rect, const Pattern& pattern, float globalAlpha)
++{
++    Paint paint;
++    if (!pathsWanted() || !patternFor(pattern, globalAlpha, paint))
++        return false;
++    Path path;
++    path.addRect(rect);
++    return fillPathWith(path, paint, false, compositeOperation());
++}
++
+ bool GraphicsContextOpenGPU::solidFill(const FloatRect& rect, const Color& color, CompositeOperator op, BlendMode blendMode)
+ {
+     long r[4];
+@@ -699,8 +792,11 @@ void GraphicsContextOpenGPU::fillRect(const FloatRect& rect, RequiresClipToRect
+         if (gradientRect(rect, *brush.gradient(), brush.gradientSpaceTransform(), alpha()))
+             return;
+         handOn(OBGPU_GRADIENT);
+-    } else
++    } else {
++        if (patternRect(rect, *brush.pattern(), alpha()))
++            return;
+         handOn(OBGPU_PATTERN);
++    }
+     m_cairo.fillRect(rect, requiresClipToRect);
+ }
+ 
+@@ -889,8 +985,51 @@ void GraphicsContextOpenGPU::drawEllipse(const FloatRect& rect)
+     m_cairo.drawEllipse(rect);
+ }
+ 
++// As CairoUtilities' drawPatternToCairoContext: the tile repeated under the
++// pattern transform from the phase, by the options' operator, over the
++// destination rectangle (cairo_fill: anti-aliased as the context, no
++// global alpha). Here: tiles on whole pixels of the picture, no spacing
++// (cairo makes a padded copy), normal blending, and cairo's filters where
++// OpenGPU has them: FAST nearest, BILINEAR, and GOOD or BEST only where
++// the picture is neither shrunk nor turned on the target.
+ void GraphicsContextOpenGPU::drawPattern(const NativeImage& image, const FloatRect& destRect, const FloatRect& tileRect, const AffineTransform& patternTransform, const FloatPoint& phase, const FloatSize& spacing, ImagePaintingOptions options)
+ {
++    cairo_surface_t* surface = image.platformImage().get();
++    if (surface && std::isfinite(phase.x()) && std::isfinite(phase.y()) && spacing.isZero()
++        && options.blendMode() == BlendMode::Normal && pathsWanted()) {
++        IntRect tile = enclosingIntRect(tileRect);
++        int filter = -1;
++        auto device = getCTM(PossiblyIncludeDeviceScale) * patternTransform;
++        switch (options.interpolationQuality()) {
++        case InterpolationQuality::DoNotInterpolate:
++        case InterpolationQuality::Low:
++            filter = 0;
++            break;
++        case InterpolationQuality::Default:
++            filter = 1;
++            break;
++        default:
++            if (!device.b() && !device.c() && device.a() >= 1 && device.d() >= 1)
++                filter = 1;
++            break;
++        }
++        // the tile's pixels to the user's space, the phase reduced by whole tiles as cairo's
++        double periodX = tileRect.width() * patternTransform.a(), periodY = tileRect.height() * patternTransform.d();
++        double phaseX = phase.x() + tileRect.x() * patternTransform.a(), phaseY = phase.y() + tileRect.y() * patternTransform.d();
++        if (periodX)
++            phaseX -= std::trunc(phaseX / periodX) * periodX;
++        if (periodY)
++            phaseY -= std::trunc(phaseY / periodY) * periodY;
++        AffineTransform tileToUser(patternTransform.a(), patternTransform.b(), patternTransform.c(), patternTransform.d(),
++            patternTransform.e() + phaseX, patternTransform.f() + phaseY);
++        Paint paint;
++        if (filter >= 0 && FloatRect(tile) == tileRect && pictureFor(surface, tile, tileToUser, filter, paint)) {
++            Path path;
++            path.addRect(destRect);
++            if (fillPathWith(path, paint, false, options.compositeOperator()))
++                return;
++        }
++    }
+     handOn(OBGPU_PATTERN);
+     m_cairo.drawPattern(image, destRect, tileRect, patternTransform, phase, spacing, options);
+ }
+diff --git a/Source/WebCore/platform/graphics/amiga/GraphicsContextOpenGPU.h b/Source/WebCore/platform/graphics/amiga/GraphicsContextOpenGPU.h
+index c9f921e..359eae9 100644
+--- a/Source/WebCore/platform/graphics/amiga/GraphicsContextOpenGPU.h
++++ b/Source/WebCore/platform/graphics/amiga/GraphicsContextOpenGPU.h
+@@ -5,7 +5,9 @@
+  * colour or a linear or radial gradient, anti-aliased or not, by any
+  * operator cairo bounds by the shape (copy and clear included) go into one
+  * OpenGPU batch
+- * (OpenGPUPaintAmiga.h); every other call goes to a GraphicsContextCairo
++ * (OpenGPUPaintAmiga.h); from 0079 also patterns (drawPattern, pattern
++ * brushes), conic gradients and stops of any alphas (mixed premultiplied,
++ * as CSS); every other call goes to a GraphicsContextCairo
+  * on the same pixels and the same state, after the batch is sent and drawn.
+  * The shell variable OB_PAINT=cairo, or no opengpu.library with stream
+  * v1.4's COMPOSITE_PD, keeps the window on cairo alone (isWanted()).
+@@ -101,11 +103,14 @@ public:
+     void drawDotsForDocumentMarker(const FloatRect&, DocumentMarkerLineStyle) final;
+ 
+ private:
+-    // What a path is painted with: a colour, or a gradient.
++    // What a path is painted with: a colour, a gradient, or a picture (0079).
+     struct Paint {
+         unsigned long argb { 0 };
+         bool hasGradient { false };
+         obgpu_gradient gradient { };
++        bool hasPattern { false };
++        obgpu_pattern pattern { };
++        cairo_surface_t* picture { nullptr };
+     };
+ 
+     static long submitBatch(void* user, const unsigned char* stream, long words);
+@@ -121,11 +126,15 @@ private:
+     bool pathsWanted();
+     bool paintFor(const SourceBrush&, Paint&);
+     bool gradientFor(const Gradient&, const AffineTransform& gradientSpaceTransform, float globalAlpha, Paint&);
++    bool patternFor(const Pattern&, float globalAlpha, Paint&);
++    bool pictureFor(cairo_surface_t*, const IntRect& tile, const AffineTransform& tileToUser, int filter, Paint&);
++    void keepPicture(const Paint&);
+     bool strokeFor(double width, obgpu_stroke&, long* dashes);
+     bool beginPath(const Path&);
+     bool fillPathWith(const Path&, const Paint&, bool evenOdd, CompositeOperator);
+     bool strokePathWith(const Path&, const Paint&, double width);
+     bool gradientRect(const FloatRect&, Gradient&, const AffineTransform&, float globalAlpha);
++    bool patternRect(const FloatRect&, const Pattern&, float globalAlpha);
+ 
+     mutable GraphicsContextCairo m_cairo;
+     cairo_surface_t* m_surface;
+diff --git a/Source/WebCore/platform/graphics/amiga/OpenGPULibraryAmiga.c b/Source/WebCore/platform/graphics/amiga/OpenGPULibraryAmiga.c
+index f1b4df0..9c4334f 100644
+--- a/Source/WebCore/platform/graphics/amiga/OpenGPULibraryAmiga.c
++++ b/Source/WebCore/platform/graphics/amiga/OpenGPULibraryAmiga.c
+@@ -18,6 +18,14 @@
+ #include <opengpu/opengpu.h>
+ #include <inline/opengpu.h>
+ 
++/* opengpu.library 0.24's flag query (stream.h), for headers from before it */
++#ifndef OGPU_QUERY_FLAG
++#define OGPU_QUERY_FLAG(op, bit) (0x01000000UL | ((unsigned long)((bit) & 31) << 16) | ((unsigned long)(op) & 0xFFFFUL))
++#endif
++#ifndef OGPU_PATH_ALIASED_BIT
++#define OGPU_PATH_ALIASED_BIT 14
++#endif
++
+ #include <pthread.h>
+ #include <stdlib.h>
+ 
+@@ -50,8 +58,11 @@ static void openOpenGPU(void)
+     s_caps = OBGPU_CAN_PD;
+     if (done(OGPU_Query(OGPU_OP_PATH_FILL, OGPU_FMT_ARGB32))) {
+         s_caps |= OBGPU_CAN_PATH;
+-        /* stream v1.8's OGPU_PATH_ALIASED is a flag, not an opcode: 0.23 has it */
+-        if (OBOpenGPUBase->lib_Version > 0 || OBOpenGPUBase->lib_Revision >= 23)
++        /* stream v1.8's OGPU_PATH_ALIASED is a flag, not an opcode: asked
++         * with opengpu.library 0.24's flag query, to which an older library
++         * or a driver that doesn't know the flag answers OGPU_NONE */
++        if (done(OGPU_Query(OGPU_QUERY_FLAG(OGPU_OP_PATH_FILL, OGPU_PATH_ALIASED_BIT), OGPU_FMT_ARGB32))
++            && done(OGPU_Query(OGPU_QUERY_FLAG(OGPU_OP_PATH_FILL, OGPU_PATH_ALIASED_BIT), OGPU_FMT_A8)))
+             s_caps |= OBGPU_CAN_ALIASED;
+     }
+     atexit(closeOpenGPU);
+diff --git a/Source/WebCore/platform/graphics/amiga/OpenGPUPaintAmiga.c b/Source/WebCore/platform/graphics/amiga/OpenGPUPaintAmiga.c
+index fc802ae..758274c 100644
+--- a/Source/WebCore/platform/graphics/amiga/OpenGPUPaintAmiga.c
++++ b/Source/WebCore/platform/graphics/amiga/OpenGPUPaintAmiga.c
+@@ -1063,7 +1063,7 @@ static int gradientOk(const struct obgpu_gradient *gr)
+ {
+     long last = 0;
+     int i;
+-    if ((gr->kind != OBGPU_LINEAR && gr->kind != OBGPU_RADIAL) || gr->spread < OBGPU_PAD || gr->spread > OBGPU_REFLECT
++    if (gr->kind < OBGPU_LINEAR || gr->kind > OBGPU_CONIC || gr->spread < OBGPU_PAD || gr->spread > OBGPU_REFLECT
+         || gr->stops < 1 || gr->stops > OBGPU_MAX_STOPS || !gr->stop)
+         return 0;
+     for (i = 0; i < gr->stops; i++) {
+@@ -1075,10 +1075,66 @@ static int gradientOk(const struct obgpu_gradient *gr)
+     return 1;
+ }
+ 
++static long magnitude(long v)
++{
++    return v < 0 ? -v : v;
++}
++
++static int patternOk(const struct obgpu_pattern *p)
++{
++    const struct obgpu_source *s = &p->source;
++    if (s->w <= 0 || s->h <= 0 || s->w > OBGPU_MAX_SIDE || s->h > OBGPU_MAX_SIDE || s->bpr < (long)s->w * 4
++        || s->bpr > 0x01000000L || (s->format != OBGPU_ARGB && s->format != OBGPU_RGB) || !s->address)
++        return 0;
++    if (p->x < 0 || p->y < 0 || p->w <= 0 || p->h <= 0 || p->x + p->w > s->w || p->y + p->h > s->h)
++        return 0;
++    return (p->edge == OBGPU_PATTERN_NONE || p->edge == OBGPU_PATTERN_REPEAT) && p->alpha <= 255;
++}
++
++/* The pattern's words in scratch at the batch's end, its picture in a slot:
++ * its matrix the transform times its own. 0 when they do not fit. */
++static int patternWords(struct obgpu *g, const struct obgpu_pattern *p, unsigned long *address)
++{
++    const long *c = current(g)->m, *m = p->m;
++    obgpu_s64 t[6];
++    unsigned long mw[6];
++    unsigned char *q;
++    int i, slot;
++    t[0] = mul1616(c[0], m[0]) + mul1616(c[2], m[1]);
++    t[1] = mul1616(c[1], m[0]) + mul1616(c[3], m[1]);
++    t[2] = mul1616(c[0], m[2]) + mul1616(c[2], m[3]);
++    t[3] = mul1616(c[1], m[2]) + mul1616(c[3], m[3]);
++    t[4] = mul16(c[0], m[4]) + mul16(c[2], m[5]) + c[4];
++    t[5] = mul16(c[1], m[4]) + mul16(c[3], m[5]) + c[5];
++    if (!matrixWords(t, mw))
++        return 0;
++    /* nearest: a pixel centre exactly between two of the picture's pixels
++     * takes the one before, as pixman's (its position less pixman_fixed_e):
++     * the picture moved by a 65536th of its own pixel, at least */
++    if (!p->bilinear) {
++        long sx = magnitude((long)mw[0]) + magnitude((long)mw[1]), sy = magnitude((long)mw[3]) + magnitude((long)mw[4]);
++        mw[2] = (unsigned long)((long)mw[2] + ((sx + 0xFFFF) >> 16) + 1);
++        mw[5] = (unsigned long)((long)mw[5] + ((sy + 0xFFFF) >> 16) + 1);
++    }
++    slot = slotOf(g, &p->source);
++    q = g->scratch + g->scratch_used * 4;
++    put(q, (unsigned long)slot);
++    put(q + 4, (p->edge == OBGPU_PATTERN_REPEAT ? OGPU_PATTERN_REPEAT : OGPU_PATTERN_NONE)
++        | (p->bilinear ? OGPU_PATTERN_BILINEAR : 0));
++    put(q + 8, xy(p->x, p->y));
++    put(q + 12, xy(p->w, p->h));
++    for (i = 0; i < 6; i++)
++        put(q + 16 + i * 4, mw[i]);
++    put(q + 40, p->alpha);
++    *address = g->scratch_address + (unsigned long)g->scratch_used * 4;
++    g->scratch_used += OGPU_PATTERN_WORDS;
++    return 1;
++}
++
+ /* The open path filled or stroked: PATH_FILL or PATH_STROKE with its words,
+  * the paint's and the dashes' after them in scratch. */
+-static int pathDraw(struct obgpu *g, unsigned long argb, const struct obgpu_gradient *gr, unsigned long flags,
+-    const struct obgpu_stroke *s, int op)
++static int pathDraw(struct obgpu *g, unsigned long argb, const struct obgpu_gradient *gr,
++    const struct obgpu_pattern *pat, unsigned long flags, const struct obgpu_stroke *s, int op)
+ {
+     const struct obgpu_level *l = current(g);
+     long start = g->path_start, len = g->scratch_used - start, extra = 0;
+@@ -1093,7 +1149,8 @@ static int pathDraw(struct obgpu *g, unsigned long argb, const struct obgpu_grad
+         return 0;
+     }
+     /* what follows the path in scratch, and the path itself, go if it is not drawn */
+-    if (!obgpu_drawable(g) || pd < 0 || (gr && !gradientOk(gr)) || (g->aliased && !(g->caps & OBGPU_CAN_ALIASED)))
++    if (!obgpu_drawable(g) || pd < 0 || (gr && !gradientOk(gr)) || (pat && !patternOk(pat))
++        || (g->aliased && !(g->caps & OBGPU_CAN_ALIASED)))
+         goto cairo;
+     if (g->aliased)
+         flags |= OGPU_PATH_ALIASED;
+@@ -1107,13 +1164,15 @@ static int pathDraw(struct obgpu *g, unsigned long argb, const struct obgpu_grad
+     /* nothing to draw: the operators here leave a pixel as it is where the
+      * paint is 0; an empty clip (CLIP's wh of 0 would be the whole target);
+      * a stroke of no width (cairo strokes nothing) */
+-    if (!g->path_any || (!gr && !paint && pd != OGPU_PD_CLEAR && pd != OGPU_PD_SRC) || l->cx1 <= l->cx0 || l->cy1 <= l->cy0
++    if (!g->path_any || (!gr && !pat && !paint && pd != OGPU_PD_CLEAR && pd != OGPU_PD_SRC) || l->cx1 <= l->cx0 || l->cy1 <= l->cy0
+         || (s && s->width <= 0)) {
+         g->scratch_used = start;
+         return 1;
+     }
+     if (gr)
+         extra += OGPU_GRAD_WORDS(gr->stops);
++    if (pat)
++        extra += OGPU_PATTERN_WORDS;
+     /* dashes of no length (dots) need the pattern on and off in turn: an
+      * odd count is written twice */
+     if (dashes & 1)
+@@ -1130,6 +1189,8 @@ static int pathDraw(struct obgpu *g, unsigned long argb, const struct obgpu_grad
+         pathDots(g, start, len);
+     if (gr && !gradientWords(g, gr, &paint))
+         goto cairo;
++    if (pat && !patternWords(g, pat, &paint))
++        goto cairo;
+     if (dashes) {
+         unsigned char *q = g->scratch + g->scratch_used * 4;
+         long d[128];
+@@ -1181,11 +1242,11 @@ static int pathDraw(struct obgpu *g, unsigned long argb, const struct obgpu_grad
+         emit(g, s ? OGPU_OP_PATH_STROKE : OGPU_OP_PATH_FILL, n, a);
+         g->drawn++;
+         g->counts->draws++;
+-        if (pd == OGPU_PD_CLEAR || (!gr && !paint))
++        if (pd == OGPU_PD_CLEAR || (!gr && !pat && !paint))
+             return 1;
+         pd = OGPU_PD_ADD;
+     }
+-    a[0] = (unsigned long)pd | flags | (gr ? OGPU_PATH_GRADIENT : 0);
++    a[0] = (unsigned long)pd | flags | (gr ? OGPU_PATH_GRADIENT : 0) | (pat ? OGPU_PATH_PATTERN : 0);
+     a[1] = paint;
+     emit(g, s ? OGPU_OP_PATH_STROKE : OGPU_OP_PATH_FILL, n, a);
+     g->drawn++;
+@@ -1198,13 +1259,23 @@ cairo:
+ 
+ int obgpu_fill_path(struct obgpu *g, unsigned long argb, const struct obgpu_gradient *gradient, int evenodd, int op)
+ {
+-    return pathDraw(g, argb, gradient, evenodd ? OGPU_PATH_EVENODD : 0, 0, op);
++    return pathDraw(g, argb, gradient, 0, evenodd ? OGPU_PATH_EVENODD : 0, 0, op);
++}
++
++int obgpu_fill_path_pattern(struct obgpu *g, const struct obgpu_pattern *pattern, int evenodd, int op)
++{
++    return pathDraw(g, 0, 0, pattern, evenodd ? OGPU_PATH_EVENODD : 0, 0, op);
++}
++
++int obgpu_stroke_path_pattern(struct obgpu *g, const struct obgpu_pattern *pattern, const struct obgpu_stroke *stroke, int op)
++{
++    return pathDraw(g, 0, 0, pattern, 0, stroke, op);
+ }
+ 
+ int obgpu_stroke_path(struct obgpu *g, unsigned long argb, const struct obgpu_gradient *gradient,
+     const struct obgpu_stroke *stroke, int op)
+ {
+-    return pathDraw(g, argb, gradient, 0, stroke, op);
++    return pathDraw(g, argb, gradient, 0, 0, stroke, op);
+ }
+ 
+ /* A rectangle with edges between pixels, or turned: its path, anti-aliased. */
+diff --git a/Source/WebCore/platform/graphics/amiga/OpenGPUPaintAmiga.h b/Source/WebCore/platform/graphics/amiga/OpenGPUPaintAmiga.h
+index 95f6fd4..1a0ad37 100644
+--- a/Source/WebCore/platform/graphics/amiga/OpenGPUPaintAmiga.h
++++ b/Source/WebCore/platform/graphics/amiga/OpenGPUPaintAmiga.h
+@@ -28,8 +28,9 @@ extern "C" {
+  * drawn here. */
+ #define OBGPU_CAN_PD    1
+ #define OBGPU_CAN_PATH  2
+-/* opengpu.library 0.23 (stream v1.8): paths without anti-aliasing
+- * (OGPU_PATH_ALIASED), as cairo's CAIRO_ANTIALIAS_NONE. */
++/* Paths without anti-aliasing (stream v1.8's OGPU_PATH_ALIASED), as
++ * cairo's CAIRO_ANTIALIAS_NONE: from 0079, where the back end says it takes
++ * the flag (opengpu.library 0.24's OGPU_QUERY_FLAG). */
+ #define OBGPU_CAN_ALIASED 4
+ 
+ /* WebCore's CompositeOperator, in its order (GraphicsTypes.h). */
+@@ -206,13 +207,18 @@ int obgpu_path_rect(struct obgpu *g, long x, long y, long w, long h);
+ /* The path dropped, when the caller can't finish it: it goes to cairo. */
+ void obgpu_path_cancel(struct obgpu *g);
+ 
+-/* A gradient, as stream.h's: linear (x0, y0, x1, y1) or radial (x0, y0,
+- * r0, x1, y1, r1), the geometry 16.16 in the gradient's space; m its
+- * space to the user's (a, b, c, d 16.16, e, f 24.8, as a transform); the
+- * stops' offsets (16.16, 0 to 0x10000, not decreasing) and premultiplied
+- * ARGB32 colours, in pairs. */
++/* A gradient, as stream.h's: linear (x0, y0, x1, y1), radial (x0, y0,
++ * r0, x1, y1, r1) or, from 0079, conic (cx, cy, the start angle in turns,
++ * 0x10000 a whole one, clockwise from the x axis), the geometry 16.16 in
++ * the gradient's space; m its space to the user's (a, b, c, d 16.16, e, f
++ * 24.8, as a transform); the stops' offsets (16.16, 0 to 0x10000, not
++ * decreasing) and premultiplied ARGB32 colours, in pairs. OpenGPU mixes
++ * the stops premultiplied, as CSS says; cairo (pixman) mixes them
++ * unpremultiplied, so stops of different alphas draw as CSS, not as cairo
++ * did (accepted, 1 November 2026). */
+ #define OBGPU_LINEAR    1
+ #define OBGPU_RADIAL    2
++#define OBGPU_CONIC     3
+ #define OBGPU_PAD       0
+ #define OBGPU_REPEAT    1
+ #define OBGPU_REFLECT   2
+@@ -224,6 +230,23 @@ struct obgpu_gradient {
+     const unsigned long *stop;
+ };
+ 
++/* A picture as paint (0079): the tile x, y, w, h (whole pixels of the
++ * picture), m the tile's pixels (its top-left pixel's corner at 0, 0) to
++ * the user's space (a, b, c, d 16.16, e, f 24.8, as a transform), tiled
++ * (OBGPU_PATTERN_REPEAT) or not (NONE: transparent outside), nearest or
++ * bilinear, times alpha (0-255). drawPattern, and fills and strokes with a
++ * pattern brush. The pixels must stay as they are until the batch has gone. */
++#define OBGPU_PATTERN_NONE      0
++#define OBGPU_PATTERN_REPEAT    2
++struct obgpu_pattern {
++    struct obgpu_source source;
++    int x, y, w, h;
++    long m[6];
++    int edge;
++    int bilinear;
++    unsigned alpha;
++};
++
+ /* A stroke, in the user's units: the width (16.16), cairo's cap (butt,
+  * round, square) and join (miter, round, bevel) numbers, the miter limit
+  * (16.16), and dashes (16.16 lengths, on, off, ...; 0 of them: solid; at
+@@ -256,6 +279,9 @@ struct obgpu_stroke {
+ int obgpu_fill_path(struct obgpu *g, unsigned long argb, const struct obgpu_gradient *gradient, int evenodd, int op);
+ int obgpu_stroke_path(struct obgpu *g, unsigned long argb, const struct obgpu_gradient *gradient,
+     const struct obgpu_stroke *stroke, int op);
++/* The same painted with a picture (0079). */
++int obgpu_fill_path_pattern(struct obgpu *g, const struct obgpu_pattern *pattern, int evenodd, int op);
++int obgpu_stroke_path_pattern(struct obgpu *g, const struct obgpu_pattern *pattern, const struct obgpu_stroke *stroke, int op);
+ /* The open path as a clip, as cairo_clip makes one: the clip so far times
+  * the path's coverage (OBGPU_CLIP_OUT: times 1 - the coverage, a clip-out),
+  * non-zero or even-odd, anti-aliased unless OBGPU_CLIP_ALIASED, in an A8
+-- 
+2.43.0
+

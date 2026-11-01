@@ -132,7 +132,8 @@ if (NOT EXISTS "${OB_OPENAMIGARTG_DIR}/include/opengpu/stream.h" OR NOT EXISTS "
 endif ()
 set_property(DIRECTORY APPEND PROPERTY CMAKE_CONFIGURE_DEPENDS "${OB_OPENAMIGARTG_DIR}/include/opengpu/stream.h")
 set_property(SOURCE "${WEBCORE_DIR}/platform/graphics/amiga/OpenGPUPaintAmiga.c"
-    "${WEBCORE_DIR}/platform/graphics/amiga/OpenGPULibraryAmiga.c" TARGET_DIRECTORY WebCore APPEND PROPERTY
+    "${WEBCORE_DIR}/platform/graphics/amiga/OpenGPULibraryAmiga.c"
+    "${WEBCORE_DIR}/platform/graphics/amiga/OpenGPUGlyphsAmiga.c" TARGET_DIRECTORY WebCore APPEND PROPERTY
     INCLUDE_DIRECTORIES "${OB_OPENAMIGARTG_DIR}/include")
 
 set(OB_FRAMEWORKS

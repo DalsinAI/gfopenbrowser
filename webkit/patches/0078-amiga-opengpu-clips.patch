@@ -1,0 +1,924 @@
+From 59e2c7075adc6574c6af45326a65ae54f798812e Mon Sep 17 00:00:00 2001
+From: SacredTrees <121399723+SacredTrees@users.noreply.github.com>
+Date: Sun, 1 Nov 2026 15:32:14 +0000
+Subject: [PATCH] WebCore: clips to paths, shapes without anti-aliasing, copy
+ and clear through OpenGPU
+
+GraphicsContextOpenGPU draws what cairo still did for it after 0077's
+paths (cairo-out item 1, openamigabrowser docs/STEP5-6-WEBCORE.md):
+
+- Clips to paths (clipPath, clipOut of a path or a rectangle, rounded
+  rectangle clips) and rectangle clips that are off whole pixels or
+  turned are A8 masks, as cairo_clip makes them: the clip so far (the
+  parent level's mask copied, or 255), the path drawn into it by
+  PATH_FILL with IN (a clip-out by OUT_REVERSE), even-odd or non-zero,
+  anti-aliased as Cairo::clipPath and clipOut enforce, or without
+  anti-aliasing for rectangles as Cairo::clip and clipOut(FloatRect)
+  draw them. The mask covers the clip's rectangle, which a clip-in
+  shrinks to the path's box first; a second clip at the same level is
+  drawn into the level's own mask. Everything drawn while it is the
+  clip goes through it: fills by COMPOSITE_PD's mask, paths and
+  pictures under a transform by PATH_MASK, pictures pixel for pixel
+  by COMPOSITE_PD's mask (with a global alpha, as a pattern). The mask
+  is freed at the level's restore or resetClip, after the batch that
+  reads it.
+- Shapes with shouldAntialias() off (SVG crispEdges and the like) are
+  drawn with stream v1.8's OGPU_PATH_ALIASED, each pixel by its centre,
+  as cairo's CAIRO_ANTIALIAS_NONE: opengpu.library 0.23 and later
+  (OBGPU_CAN_ALIASED, from its version: the bit is a flag, not an
+  opcode). Before 0.23 they stay cairo's.
+- Copy and clear on paths, and on rectangles off whole pixels or through
+  a mask, as cairo bounds them: what is there times 1 - the coverage
+  (destination-out of an opaque colour), then for copy the paint times
+  the coverage added, the two passes cairo's image compositor makes.
+
+The writer gets the masks' memory from the context (fastMalloc), which
+frees what is left when it goes.
+
+Tested on the host (openamigabrowser tests/test_opengpu_clip.c) against
+cairo 1.18 drawing the same calls: clips to paths on whole pixels by six
+operators, rectangle clips off whole pixels (plain, scaled, turned),
+clip-outs, copy and clear of rectangles and through masks the same
+pixels as cairo; circle clips, nested clips, copy and clear of circles
+the same away from the edges and edge pixels within 18 of cairo's (two
+anti-aliasing rasterisers); an aliased polygon 3 pixels differ.
+tests/test_opengpu_paint.c's 408 checks pass, the copy and clear cases
+there now checked against the coverage mix instead of handed on.
+
+Team 4
+---
+ .../graphics/amiga/GraphicsContextOpenGPU.cpp |  92 ++++-
+ .../graphics/amiga/GraphicsContextOpenGPU.h   |  10 +-
+ .../graphics/amiga/OpenGPULibraryAmiga.c      |   6 +-
+ .../graphics/amiga/OpenGPUPaintAmiga.c        | 371 +++++++++++++++++-
+ .../graphics/amiga/OpenGPUPaintAmiga.h        |  64 ++-
+ 5 files changed, 506 insertions(+), 37 deletions(-)
+
+diff --git a/Source/WebCore/platform/graphics/amiga/GraphicsContextOpenGPU.cpp b/Source/WebCore/platform/graphics/amiga/GraphicsContextOpenGPU.cpp
+index 90f641b..b7738e4 100644
+--- a/Source/WebCore/platform/graphics/amiga/GraphicsContextOpenGPU.cpp
++++ b/Source/WebCore/platform/graphics/amiga/GraphicsContextOpenGPU.cpp
+@@ -79,6 +79,7 @@ GraphicsContextOpenGPU::GraphicsContextOpenGPU(cairo_surface_t* surface, obgpu_c
+     auto* scratch = stream + streamWords * 4;
+     obgpu_init(m_gpu, stream, streamWords, scratch, reinterpret_cast<uintptr_t>(scratch), scratchWords, submitBatch, this,
+         caps, m_counts);
++    obgpu_masks(m_gpu, allocMask, freeMask, this);
+     if (cairo_surface_get_type(surface) != CAIRO_SURFACE_TYPE_IMAGE || cairo_image_surface_get_format(surface) != CAIRO_FORMAT_ARGB32
+         || !cairo_image_surface_get_data(surface)) {
+         m_gpu->broken = 1;
+@@ -91,6 +92,8 @@ GraphicsContextOpenGPU::GraphicsContextOpenGPU(cairo_surface_t* surface, obgpu_c
+ GraphicsContextOpenGPU::~GraphicsContextOpenGPU()
+ {
+     flush();
++    if (m_gpu)
++        obgpu_release_masks(m_gpu);
+     if (m_work)
+         fastFree(m_work);
+     if (m_gpu)
+@@ -109,6 +112,22 @@ long GraphicsContextOpenGPU::submitBatch(void* user, const unsigned char* stream
+     return result;
+ }
+ 
++// A clip mask's memory: the engine's own, as the batch's (the CPU back end
++// reads it where it is; a driver gets it through the library).
++unsigned char* GraphicsContextOpenGPU::allocMask(void*, unsigned long bytes, unsigned long* address)
++{
++    void* block = nullptr;
++    if (!tryFastMalloc(bytes).getValue(block))
++        return nullptr;
++    *address = reinterpret_cast<uintptr_t>(block);
++    return static_cast<unsigned char*>(block);
++}
++
++void GraphicsContextOpenGPU::freeMask(void*, unsigned char* block)
++{
++    fastFree(block);
++}
++
+ void GraphicsContextOpenGPU::flush() const
+ {
+     if (m_gpu && obgpu_pending(m_gpu))
+@@ -238,6 +257,8 @@ void GraphicsContextOpenGPU::clip(const FloatRect& rect)
+     m_cairo.clip(rect);
+     if (!m_gpu)
+         return;
++    // a rectangle off whole pixels or turned is a mask, drawn by PATH_FILL
++    ensureWork();
+     // as Cairo::clip clamps it
+     float limit = 1 << 22;
+     FloatRect clamped(std::max(rect.x(), -limit / 2), std::max(rect.y(), -limit / 2), std::min(rect.width(), limit), std::min(rect.height(), limit));
+@@ -248,37 +269,67 @@ void GraphicsContextOpenGPU::clip(const FloatRect& rect)
+         obgpu_clip_other(m_gpu);
+ }
+ 
++// A clip to a path, as cairo_clip makes it (Cairo::clipPath and clipOut):
++// an A8 mask of the clip so far times the path's coverage, or one minus it.
++void GraphicsContextOpenGPU::clipToPath(const Path& path, int flags)
++{
++    if (!m_gpu)
++        return;
++    if (!ensureWork() || !beginPath(path)) {
++        obgpu_clip_other(m_gpu);
++        return;
++    }
++    obgpu_clip_path(m_gpu, flags);
++}
++
+ void GraphicsContextOpenGPU::clipRoundedRect(const FloatRoundedRect& rect)
+ {
+     m_cairo.clipRoundedRect(rect);
+     if (!m_gpu)
+         return;
+     long r[4];
+-    if (!rect.hasNonZeroRadii() && fixedRect(rect.rect(), r))
++    if (!rect.hasNonZeroRadii() && fixedRect(rect.rect(), r)) {
++        ensureWork();
+         obgpu_clip(m_gpu, r[0], r[1], r[2], r[3]);
+-    else
+-        obgpu_clip_other(m_gpu);
++        return;
++    }
++    // GraphicsContext::clipRoundedRect: clipPath of its path, even-odd, anti-aliased
++    Path path;
++    path.addRoundedRect(rect);
++    clipToPath(path, OBGPU_CLIP_EVENODD);
+ }
+ 
+ void GraphicsContextOpenGPU::clipPath(const Path& path, WindRule windRule)
+ {
+     m_cairo.clipPath(path, windRule);
+-    if (m_gpu)
+-        obgpu_clip_other(m_gpu);
++    // anti-aliased, as Cairo::clipPath enforces
++    clipToPath(path, windRule == WindRule::EvenOdd ? OBGPU_CLIP_EVENODD : 0);
+ }
+ 
+ void GraphicsContextOpenGPU::clipOut(const FloatRect& rect)
+ {
+     m_cairo.clipOut(rect);
+-    if (m_gpu)
++    if (!m_gpu)
++        return;
++    // Cairo::clipOut: the clip's extents and the rectangle, even-odd, not anti-aliased
++    long r[4];
++    if (!fixedRect(rect, r) || !ensureWork() || !obgpu_path_begin(m_gpu)) {
++        obgpu_clip_other(m_gpu);
++        return;
++    }
++    if (!obgpu_path_rect(m_gpu, r[0], r[1], r[2], r[3])) {
++        obgpu_path_cancel(m_gpu);
+         obgpu_clip_other(m_gpu);
++        return;
++    }
++    obgpu_clip_path(m_gpu, OBGPU_CLIP_OUT | OBGPU_CLIP_EVENODD | OBGPU_CLIP_ALIASED);
+ }
+ 
+ void GraphicsContextOpenGPU::clipOut(const Path& path)
+ {
+     m_cairo.clipOut(path);
+-    if (m_gpu)
+-        obgpu_clip_other(m_gpu);
++    // Cairo::clipOut: the clip's extents and the path, even-odd, anti-aliased
++    clipToPath(path, OBGPU_CLIP_OUT | OBGPU_CLIP_EVENODD);
+ }
+ 
+ void GraphicsContextOpenGPU::clipToImageBuffer(ImageBuffer& buffer, const FloatRect& rect)
+@@ -400,8 +451,13 @@ bool GraphicsContextOpenGPU::ensureWork()
+ // blending, no shadow.
+ bool GraphicsContextOpenGPU::pathsWanted()
+ {
+-    return m_gpu && (m_gpu->caps & OBGPU_CAN_PATH) && blendMode() == BlendMode::Normal && !hasDropShadow() && shouldAntialias()
+-        && ensureWork();
++    if (!m_gpu || !(m_gpu->caps & OBGPU_CAN_PATH) || blendMode() != BlendMode::Normal || hasDropShadow())
++        return false;
++    // without anti-aliasing (cairo's CAIRO_ANTIALIAS_NONE) from opengpu.library 0.23
++    if (!shouldAntialias() && !(m_gpu->caps & OBGPU_CAN_ALIASED))
++        return false;
++    obgpu_set_antialias(m_gpu, shouldAntialias());
++    return ensureWork();
+ }
+ 
+ // A fill or stroke brush as cairo paints it (Cairo::FillSource and
+@@ -616,8 +672,10 @@ bool GraphicsContextOpenGPU::solidFill(const FloatRect& rect, const Color& color
+     long r[4];
+     if (!m_gpu || blendMode != BlendMode::Normal || hasDropShadow() || !fixedRect(rect, r))
+         return false;
+-    // edges between pixels are anti-aliased paths: only as cairo draws them
+-    if (!shouldAntialias() || !ensureWork()) {
++    // edges between pixels are paths, anti-aliased or not as cairo's
++    // (without PATH_FILL's work memory, only rectangles on whole pixels)
++    obgpu_set_antialias(m_gpu, shouldAntialias());
++    if (!ensureWork()) {
+         int caps = m_gpu->caps;
+         m_gpu->caps &= ~OBGPU_CAN_PATH;
+         bool drawn = obgpu_fill(m_gpu, r[0], r[1], r[2], r[3], premultiplied(color), static_cast<int>(op));
+@@ -661,8 +719,14 @@ void GraphicsContextOpenGPU::fillRect(const FloatRect& rect, const Color& color)
+ void GraphicsContextOpenGPU::clearRect(const FloatRect& rect)
+ {
+     long r[4];
+-    if (m_gpu && fixedRect(rect, r) && obgpu_fill(m_gpu, r[0], r[1], r[2], r[3], 0, OBGPU_OP_CLEAR))
+-        return;
++    if (m_gpu && fixedRect(rect, r)) {
++        // Cairo::clearRect fills the rectangle by CLEAR: off whole pixels a path,
++        // cleared by its coverage (0078)
++        obgpu_set_antialias(m_gpu, shouldAntialias());
++        ensureWork();
++        if (obgpu_fill(m_gpu, r[0], r[1], r[2], r[3], 0, OBGPU_OP_CLEAR))
++            return;
++    }
+     handOn(OBGPU_CLEAR);
+     m_cairo.clearRect(rect);
+ }
+diff --git a/Source/WebCore/platform/graphics/amiga/GraphicsContextOpenGPU.h b/Source/WebCore/platform/graphics/amiga/GraphicsContextOpenGPU.h
+index a84a5c3..c9f921e 100644
+--- a/Source/WebCore/platform/graphics/amiga/GraphicsContextOpenGPU.h
++++ b/Source/WebCore/platform/graphics/amiga/GraphicsContextOpenGPU.h
+@@ -1,7 +1,10 @@
+ /*
+  * The window's GraphicsContext on OpenGPU: rectangles of one colour,
+- * clearRect, rectangle clips, pictures, and paths filled and stroked with a
+- * colour or a linear or radial gradient go into one OpenGPU batch
++ * clearRect, clips (rectangles, and from 0078 paths, clip-outs and rounded
++ * rectangles as A8 masks), pictures, and paths filled and stroked with a
++ * colour or a linear or radial gradient, anti-aliased or not, by any
++ * operator cairo bounds by the shape (copy and clear included) go into one
++ * OpenGPU batch
+  * (OpenGPUPaintAmiga.h); every other call goes to a GraphicsContextCairo
+  * on the same pixels and the same state, after the batch is sent and drawn.
+  * The shell variable OB_PAINT=cairo, or no opengpu.library with stream
+@@ -106,6 +109,9 @@ private:
+     };
+ 
+     static long submitBatch(void* user, const unsigned char* stream, long words);
++    static unsigned char* allocMask(void* user, unsigned long bytes, unsigned long* address);
++    static void freeMask(void* user, unsigned char* block);
++    void clipToPath(const Path&, int flags);
+     // The batch sent, then a call of this kind counted for cairo.
+     void handOn(int kind) const;
+     void flush() const;
+diff --git a/Source/WebCore/platform/graphics/amiga/OpenGPULibraryAmiga.c b/Source/WebCore/platform/graphics/amiga/OpenGPULibraryAmiga.c
+index 017286b..f1b4df0 100644
+--- a/Source/WebCore/platform/graphics/amiga/OpenGPULibraryAmiga.c
++++ b/Source/WebCore/platform/graphics/amiga/OpenGPULibraryAmiga.c
+@@ -48,8 +48,12 @@ static void openOpenGPU(void)
+         return;
+     }
+     s_caps = OBGPU_CAN_PD;
+-    if (done(OGPU_Query(OGPU_OP_PATH_FILL, OGPU_FMT_ARGB32)))
++    if (done(OGPU_Query(OGPU_OP_PATH_FILL, OGPU_FMT_ARGB32))) {
+         s_caps |= OBGPU_CAN_PATH;
++        /* stream v1.8's OGPU_PATH_ALIASED is a flag, not an opcode: 0.23 has it */
++        if (OBOpenGPUBase->lib_Version > 0 || OBOpenGPUBase->lib_Revision >= 23)
++            s_caps |= OBGPU_CAN_ALIASED;
++    }
+     atexit(closeOpenGPU);
+ }
+ 
+diff --git a/Source/WebCore/platform/graphics/amiga/OpenGPUPaintAmiga.c b/Source/WebCore/platform/graphics/amiga/OpenGPUPaintAmiga.c
+index 9650827..fc802ae 100644
+--- a/Source/WebCore/platform/graphics/amiga/OpenGPUPaintAmiga.c
++++ b/Source/WebCore/platform/graphics/amiga/OpenGPUPaintAmiga.c
+@@ -21,9 +21,20 @@
+  *   (PAD edges, nearest or bilinear), which is premultiplied as cairo is.
+  *   COMPOSITE_AFFINE is not used: its blends are SDL's, on colours not
+  *   premultiplied.
++ * - clips to paths, clip-outs, and rectangle clips off whole pixels or
++ *   turned (0078): an A8 mask of the clip, made when the clip is (the
++ *   parent's mask copied, or 255, then the path drawn into it by IN, or by
++ *   OUT_REVERSE for a clip-out), kept until the level's restore, and
++ *   everything drawn while it is the clip multiplied by it (COMPOSITE_PD's
++ *   mask, PATH_FILL's PATH_MASK). Rectangles clip by their pixels' centres,
++ *   as cairo clips them without anti-aliasing (stream v1.8's
++ *   OGPU_PATH_ALIASED, opengpu.library 0.23).
++ * - shapes without anti-aliasing (setShouldAntialias(false)): v1.8's
++ *   OGPU_PATH_ALIASED.
++ * - copy and clear on a path or through a mask, as cairo's: what is there
++ *   times 1 - the coverage, then the paint times the coverage added.
+  * cairo bounds IN, OUT, DEST_IN and DEST_ATOP by the clip, not the shape,
+- * and PlusDarker and Difference are blend modes: those stay cairo's, as
+- * do clips that are not upright rectangles on whole pixels.
++ * and PlusDarker and Difference are blend modes: those stay cairo's.
+  *
+  * One batch: the target and the pictures in slots, each picture bound once
+  * a batch (a slot is bound again when all 15 are used: commands run in
+@@ -52,7 +63,7 @@ typedef long long obgpu_s64;
+ #define OBGPU_POINT_MAX     32767
+ 
+ /* The words a command may need at most: CLIP, SURFACE, PATH_FILL. */
+-#define OBGPU_CMD_MAX       (3 + 6 + 16)
++#define OBGPU_CMD_MAX       48      /* two PATH_STROKEs (copy on a path), or a clip mask's commands */
+ #define OBGPU_HEAD_WORDS    (6 + 2)
+ #define OBGPU_PATTERN_SCRATCH (OGPU_PATTERN_WORDS + 13)
+ 
+@@ -129,7 +140,7 @@ static void bindSlot(struct obgpu *g, int slot, const struct obgpu_source *s)
+     a[1] = s->address;
+     a[2] = (unsigned long)s->bpr;
+     a[3] = xy(s->w, s->h);
+-    a[4] = s->format == OBGPU_RGB ? OGPU_FMT_XRGB32 : OGPU_FMT_ARGB32;
++    a[4] = s->format == OBGPU_RGB ? OGPU_FMT_XRGB32 : s->format == OBGPU_A8 ? OGPU_FMT_A8 : OGPU_FMT_ARGB32;
+     emit(g, OGPU_OP_SURFACE, 5, a);
+     g->slot[slot] = *s;
+ }
+@@ -204,6 +215,18 @@ static int slotOf(struct obgpu *g, const struct obgpu_source *s)
+     return i;
+ }
+ 
++/* A mask's slot in this batch. */
++static int maskSlot(struct obgpu *g, const struct obgpu_mask *k)
++{
++    struct obgpu_source s;
++    s.address = k->address;
++    s.bpr = k->bpr;
++    s.w = k->w;
++    s.h = k->h;
++    s.format = OBGPU_A8;
++    return slotOf(g, &s);
++}
++
+ static const struct obgpu_level *current(const struct obgpu *g)
+ {
+     return &g->level[g->depth];
+@@ -273,6 +296,40 @@ void obgpu_work(struct obgpu *g, unsigned long address, unsigned long bytes)
+     g->work_bytes = bytes;
+ }
+ 
++static void dropMasks(struct obgpu *g, int depth);
++int obgpu_clip_path(struct obgpu *g, int flags);
++
++void obgpu_masks(struct obgpu *g, obgpu_alloc_fn alloc, obgpu_free_fn release, void *user)
++{
++    g->mask_alloc = alloc;
++    g->mask_free = release;
++    g->mask_user = user;
++}
++
++static void freeMask(struct obgpu *g, int i)
++{
++    if (g->mask[i].block && g->mask_free)
++        g->mask_free(g->mask_user, g->mask[i].block);
++    g->mask[i].block = 0;
++}
++
++void obgpu_release_masks(struct obgpu *g)
++{
++    dropMasks(g, 0);
++}
++
++void obgpu_set_antialias(struct obgpu *g, int on)
++{
++    g->aliased = !on;
++}
++
++/* The clip's mask, or 0. */
++static const struct obgpu_mask *clipMask(const struct obgpu *g)
++{
++    int i = g->level[g->depth].mask;
++    return i > 0 && i < OBGPU_MASKS && g->mask[i].block ? &g->mask[i] : 0;
++}
++
+ void obgpu_save(struct obgpu *g)
+ {
+     struct obgpu_level *from, *to;
+@@ -290,15 +347,32 @@ void obgpu_save(struct obgpu *g)
+     to->cx1 = from->cx1;
+     to->cy1 = from->cy1;
+     to->flags = from->flags;
++    to->mask = from->mask;
+     g->depth++;
+ }
+ 
++/* The masks a level made go with it; the batch that may read them is sent first. */
++static void dropMasks(struct obgpu *g, int depth)
++{
++    int i, sent = 0;
++    for (i = 1; i < OBGPU_MASKS; i++)
++        if (g->mask[i].block && g->mask[i].depth >= depth) {
++            if (!sent) {
++                obgpu_flush(g);
++                sent = 1;
++            }
++            freeMask(g, i);
++        }
++}
++
+ void obgpu_restore(struct obgpu *g)
+ {
+     if (g->lost)
+         g->lost--;
+-    else if (g->depth)
++    else if (g->depth) {
++        dropMasks(g, g->depth);
+         g->depth--;
++    }
+ }
+ 
+ void obgpu_set_matrix(struct obgpu *g, const long *m)
+@@ -363,6 +437,20 @@ static int visible(const struct obgpu_level *l, const obgpu_s64 *e, int *r)
+     return 1;
+ }
+ 
++/* A rectangle clip that isn't upright on whole pixels: its pixels by their
++ * centres in a mask (cairo clips rectangles without anti-aliasing). */
++static void clipRectMask(struct obgpu *g, long x, long y, long w, long h)
++{
++    if (obgpu_path_begin(g)) {
++        if (obgpu_path_rect(g, x, y, w, h)) {
++            obgpu_clip_path(g, OBGPU_CLIP_ALIASED);
++            return;
++        }
++        obgpu_path_cancel(g);
++    }
++    obgpu_clip_other(g);
++}
++
+ void obgpu_clip(struct obgpu *g, long x, long y, long w, long h)
+ {
+     struct obgpu_level *l = &g->level[g->depth];
+@@ -370,15 +458,15 @@ void obgpu_clip(struct obgpu *g, long x, long y, long w, long h)
+     int r[4];
+     if (g->lost || (l->flags & OBGPU_L_CLIP_OTHER))
+         return;
++    if (w < 0) { x += w; w = -w; }
++    if (h < 0) { y += h; h = -h; }
+     if (!upright(l)) {
+-        l->flags |= OBGPU_L_CLIP_OTHER;
++        clipRectMask(g, x, y, w, h);
+         return;
+     }
+-    if (w < 0) { x += w; w = -w; }
+-    if (h < 0) { y += h; h = -h; }
+     mapRect(l, x, y, w, h, e);
+     if (!visible(l, e, r)) {
+-        l->flags |= OBGPU_L_CLIP_OTHER;
++        clipRectMask(g, x, y, w, h);
+         return;
+     }
+     if (r[2] <= r[0] || r[3] <= r[1]) {
+@@ -408,6 +496,9 @@ void obgpu_reset_clip(struct obgpu *g)
+     struct obgpu_level *l = &g->level[g->depth];
+     if (g->lost)
+         return;
++    if (l->mask && g->mask[l->mask].depth == g->depth)
++        dropMasks(g, g->depth);
++    l->mask = 0;
+     l->cx0 = l->cy0 = 0;
+     l->cx1 = g->target_w;
+     l->cy1 = g->target_h;
+@@ -442,6 +533,40 @@ static int pdOperator(int op)
+ 
+ static int rectPath(struct obgpu *g, long x, long y, long w, long h, unsigned long argb, int op);
+ 
++/* COMPOSITE_PD of a solid colour over r through the clip's mask, as cairo
++ * composites through a clip mask: clear is the destination times 1 - the
++ * mask (destination-out of an opaque colour), copy that and then the
++ * colour times the mask added (cairo's lerp of the two). */
++static int maskedFill(struct obgpu *g, const int *r, unsigned long argb, int pd)
++{
++    const struct obgpu_mask *k = clipMask(g);
++    unsigned long a[7];
++    int slot = maskSlot(g, k), pass, passes = pd == OGPU_PD_SRC ? 2 : 1;
++    for (pass = 0; pass < passes; pass++) {
++        int op = pd;
++        unsigned long colour = argb;
++        if (pd == OGPU_PD_CLEAR || (pd == OGPU_PD_SRC && !pass)) {
++            op = OGPU_PD_OUT_REVERSE;
++            colour = 0xFF000000UL;
++        } else if (pd == OGPU_PD_SRC) {
++            op = OGPU_PD_ADD;
++            if (!argb)
++                break;
++        }
++        a[0] = (unsigned long)op | OGPU_PD_SOLID | OGPU_PD_MASK;
++        a[1] = colour;
++        a[2] = 0;
++        a[3] = (unsigned long)slot;
++        a[4] = xy(r[0] - k->x, r[1] - k->y);
++        a[5] = xy(r[0], r[1]);
++        a[6] = xy(r[2] - r[0], r[3] - r[1]);
++        emit(g, OGPU_OP_COMPOSITE_PD, 7, a);
++        g->drawn++;
++        g->counts->draws++;
++    }
++    return 1;
++}
++
+ int obgpu_fill(struct obgpu *g, long x, long y, long w, long h, unsigned long argb, int op)
+ {
+     const struct obgpu_level *l = current(g);
+@@ -468,6 +593,8 @@ int obgpu_fill(struct obgpu *g, long x, long y, long w, long h, unsigned long ar
+     if (!room(g, 0))
+         return 0;
+     sendClip(g);
++    if (clipMask(g))
++        return maskedFill(g, r, argb, pd);
+     a[0] = xy(r[0], r[1]);
+     a[1] = xy(r[2] - r[0], r[3] - r[1]);
+     if (pd == OGPU_PD_CLEAR || pd == OGPU_PD_SRC || (pd == OGPU_PD_OVER && alpha == 255)) {
+@@ -510,6 +637,12 @@ static int imageCopy(struct obgpu *g, const struct obgpu_source *s, const int *d
+     a[2] = xy(sx, sy);
+     a[3] = alpha;
+     a[4] = 0;
++    if (clipMask(g)) {              /* alpha is 255 here (obgpu_image) */
++        const struct obgpu_mask *k = clipMask(g);
++        a[0] = (unsigned long)pd | OGPU_PD_MASK;
++        a[3] = (unsigned long)maskSlot(g, k);
++        a[4] = xy(x0 - k->x, y0 - k->y);
++    }
+     a[5] = xy(x0, y0);
+     a[6] = xy(x1 - x0, y1 - y0);
+     emit(g, OGPU_OP_COMPOSITE_PD, 7, a);
+@@ -605,6 +738,12 @@ static int imageTransformed(struct obgpu *g, const struct obgpu_source *s, const
+     a[2] = 0;
+     a[3] = 0;
+     a[4] = 0;
++    if (clipMask(g)) {
++        const struct obgpu_mask *k = clipMask(g);
++        a[0] |= OGPU_PATH_MASK;
++        a[3] = (unsigned long)maskSlot(g, k);
++        a[4] = xy(k->x, k->y);
++    }
+     a[5] = path;
+     a[6] = 13;
+     a[7] = 0x10000;
+@@ -656,7 +795,8 @@ int obgpu_image(struct obgpu *g, const struct obgpu_source *s, const long *dst,
+             if (e[0] < -OBGPU_POINT_MAX * 256LL || e[1] < -OBGPU_POINT_MAX * 256LL
+                 || e[2] > OBGPU_POINT_MAX * 256LL || e[3] > OBGPU_POINT_MAX * 256LL)
+                 return 0;
+-            return imageCopy(g, s, r, (int)(src[0] / 256), (int)(src[1] / 256), pd, alpha);
++            if (!clipMask(g) || alpha == 255)
++                return imageCopy(g, s, r, (int)(src[0] / 256), (int)(src[1] / 256), pd, alpha);
+         }
+     }
+     return imageTransformed(g, s, dst, src, pd, alpha, bilinear);
+@@ -953,8 +1093,10 @@ static int pathDraw(struct obgpu *g, unsigned long argb, const struct obgpu_grad
+         return 0;
+     }
+     /* what follows the path in scratch, and the path itself, go if it is not drawn */
+-    if (!obgpu_drawable(g) || pd < 0 || pd == OGPU_PD_CLEAR || pd == OGPU_PD_SRC || (gr && !gradientOk(gr)))
++    if (!obgpu_drawable(g) || pd < 0 || (gr && !gradientOk(gr)) || (g->aliased && !(g->caps & OBGPU_CAN_ALIASED)))
+         goto cairo;
++    if (g->aliased)
++        flags |= OGPU_PATH_ALIASED;
+     if (s && (s->cap < OBGPU_CAP_BUTT || s->cap > OBGPU_CAP_SQUARE || s->join < OBGPU_JOIN_MITER
+         || s->join > OBGPU_JOIN_BEVEL || s->dashes < 0 || s->dashes > 64 || (s->dashes && !s->dash)))
+         goto cairo;
+@@ -965,7 +1107,8 @@ static int pathDraw(struct obgpu *g, unsigned long argb, const struct obgpu_grad
+     /* nothing to draw: the operators here leave a pixel as it is where the
+      * paint is 0; an empty clip (CLIP's wh of 0 would be the whole target);
+      * a stroke of no width (cairo strokes nothing) */
+-    if (!g->path_any || (!gr && !paint) || l->cx1 <= l->cx0 || l->cy1 <= l->cy0 || (s && s->width <= 0)) {
++    if (!g->path_any || (!gr && !paint && pd != OGPU_PD_CLEAR && pd != OGPU_PD_SRC) || l->cx1 <= l->cx0 || l->cy1 <= l->cy0
++        || (s && s->width <= 0)) {
+         g->scratch_used = start;
+         return 1;
+     }
+@@ -1006,11 +1149,15 @@ static int pathDraw(struct obgpu *g, unsigned long argb, const struct obgpu_grad
+         g->scratch_used += dashes;
+     }
+     sendClip(g);
+-    a[0] = (unsigned long)pd | flags | (gr ? OGPU_PATH_GRADIENT : 0);
+-    a[1] = paint;
+     a[2] = 0;
+     a[3] = 0;
+     a[4] = 0;
++    if (clipMask(g)) {
++        const struct obgpu_mask *k = clipMask(g);
++        flags |= OGPU_PATH_MASK;
++        a[3] = (unsigned long)maskSlot(g, k);
++        a[4] = xy(k->x, k->y);
++    }
+     a[5] = g->scratch_address + (unsigned long)start * 4;
+     a[6] = (unsigned long)len;
+     a[13] = g->work;
+@@ -1024,6 +1171,22 @@ static int pathDraw(struct obgpu *g, unsigned long argb, const struct obgpu_grad
+         a[20] = (unsigned long)s->dash_offset;
+         n = 21;
+     }
++    /* clear and copy as cairo bounds them by the shape: what is there times
++     * 1 - the coverage (destination-out of an opaque colour), then for copy
++     * the paint times the coverage added. PATH_FILL's own CLEAR and SRC act
++     * on the whole clip, as canvas's do. */
++    if (pd == OGPU_PD_CLEAR || pd == OGPU_PD_SRC) {
++        a[0] = (unsigned long)OGPU_PD_OUT_REVERSE | flags;
++        a[1] = 0xFF000000UL;
++        emit(g, s ? OGPU_OP_PATH_STROKE : OGPU_OP_PATH_FILL, n, a);
++        g->drawn++;
++        g->counts->draws++;
++        if (pd == OGPU_PD_CLEAR || (!gr && !paint))
++            return 1;
++        pd = OGPU_PD_ADD;
++    }
++    a[0] = (unsigned long)pd | flags | (gr ? OGPU_PATH_GRADIENT : 0);
++    a[1] = paint;
+     emit(g, s ? OGPU_OP_PATH_STROKE : OGPU_OP_PATH_FILL, n, a);
+     g->drawn++;
+     g->counts->draws++;
+@@ -1052,3 +1215,183 @@ static int rectPath(struct obgpu *g, long x, long y, long w, long h, unsigned lo
+     obgpu_path_rect(g, x, y, w, h);
+     return obgpu_fill_path(g, argb, 0, 0, op);
+ }
++
++/* ---- clips to paths -------------------------------------------------------------------- */
++
++/* A path word as the signed 24.8 it is. */
++static long sget(const unsigned char *p)
++{
++    unsigned long v = get(p);
++    return v & 0x80000000UL ? -(long)((~v & 0x7FFFFFFFUL) + 1) : (long)v;
++}
++
++/* The open path's box on the target, whole pixels (x0 <= x < x1), from its
++ * points and control points through the transform. 0 when it has none. */
++static int pathBox(struct obgpu *g, int *b)
++{
++    const long *m = current(g)->m;
++    const unsigned char *w = g->scratch + g->path_start * 4;
++    long len = g->scratch_used - g->path_start, at = 0;
++    obgpu_s64 x0 = 0, y0 = 0, x1 = 0, y1 = 0;
++    int any = 0, k, np;
++    while (at < len) {
++        unsigned long v = get(w + at * 4);
++        np = v == OGPU_PATH_QUAD ? 2 : v == OGPU_PATH_CUBIC ? 3 : v == OGPU_PATH_CLOSE ? 0 : 1;
++        for (at++, k = 0; k < np && at + 1 < len; k++, at += 2) {
++            long px = sget(w + at * 4), py = sget(w + at * 4 + 4);
++            obgpu_s64 tx = mapX(m, px, py), ty = mapY(m, px, py);
++            if (!any || tx < x0) x0 = tx;
++            if (!any || tx > x1) x1 = tx;
++            if (!any || ty < y0) y0 = ty;
++            if (!any || ty > y1) y1 = ty;
++            any = 1;
++        }
++    }
++    if (!any)
++        return 0;
++    /* a pixel round it for the anti-aliased edge */
++    x0 = floorShift(x0, 8) - 1;
++    y0 = floorShift(y0, 8) - 1;
++    x1 = floorShift(x1 + 255, 8) + 1;
++    y1 = floorShift(y1 + 255, 8) + 1;
++    b[0] = x0 < -OBGPU_MAX_SIDE ? -OBGPU_MAX_SIDE : (int)x0;
++    b[1] = y0 < -OBGPU_MAX_SIDE ? -OBGPU_MAX_SIDE : (int)y0;
++    b[2] = x1 > 2 * OBGPU_MAX_SIDE ? 2 * OBGPU_MAX_SIDE : (int)x1;
++    b[3] = y1 > 2 * OBGPU_MAX_SIDE ? 2 * OBGPU_MAX_SIDE : (int)y1;
++    return 1;
++}
++
++int obgpu_clip_path(struct obgpu *g, int flags)
++{
++    struct obgpu_level *l = &g->level[g->depth];
++    const struct obgpu_mask *parent = clipMask(g);
++    struct obgpu_mask *k;
++    long start = g->path_start, len;
++    int state = g->path_state, out = (flags & OBGPU_CLIP_OUT) != 0, own, i, b[4], slot, pslot = 0;
++    obgpu_s64 m[6];
++    unsigned long a[15];
++    g->path_state = 0;
++    if (state != OBGPU_PATH_OPEN) {
++        if (state)
++            g->scratch_used = start;
++        goto other;
++    }
++    if (!g->mask_alloc || !(g->caps & OBGPU_CAN_PATH) || !g->work || !obgpu_drawable(g)
++        || ((flags & OBGPU_CLIP_ALIASED) && !(g->caps & OBGPU_CAN_ALIASED)))
++        goto drop;
++    if (!g->path_any || !pathBox(g, b)) {
++        /* no area: clipped to nothing, or clipped out of nothing */
++        g->scratch_used = start;
++        if (!out) {
++            l->cx1 = l->cx0;
++            l->cy1 = l->cy0;
++        }
++        return 1;
++    }
++    /* clipping in, nothing outside the path's box is left */
++    if (!out) {
++        if (b[0] > l->cx0) l->cx0 = b[0];
++        if (b[1] > l->cy0) l->cy0 = b[1];
++        if (b[2] < l->cx1) l->cx1 = b[2];
++        if (b[3] < l->cy1) l->cy1 = b[3];
++        if (l->cx1 <= l->cx0 || l->cy1 <= l->cy0) {
++            l->cx1 = l->cx0;
++            l->cy1 = l->cy0;
++            g->scratch_used = start;
++            return 1;
++        }
++    } else if (b[2] <= l->cx0 || b[0] >= l->cx1 || b[3] <= l->cy0 || b[1] >= l->cy1) {
++        g->scratch_used = start;
++        return 1;
++    }
++    if (l->cx1 <= l->cx0 || l->cy1 <= l->cy0) {
++        g->scratch_used = start;
++        return 1;
++    }
++    /* this level's own mask takes the path itself; else a new one, from the
++     * clip so far */
++    own = l->mask && g->mask[l->mask].block && g->mask[l->mask].depth == g->depth;
++    if (own)
++        i = l->mask;
++    else {
++        unsigned long bytes, address = 0;
++        unsigned char *block;
++        long bpr = (long)((l->cx1 - l->cx0 + 3) & ~3);
++        for (i = 1; i < OBGPU_MASKS && g->mask[i].block; i++)
++            ;
++        if (i >= OBGPU_MASKS)
++            goto drop;
++        bytes = (unsigned long)bpr * (unsigned long)(l->cy1 - l->cy0);
++        if (!(block = g->mask_alloc(g->mask_user, bytes, &address)))
++            goto drop;
++        k = &g->mask[i];
++        k->block = block;
++        k->address = address;
++        k->bpr = bpr;
++        k->x = l->cx0;
++        k->y = l->cy0;
++        k->w = l->cx1 - l->cx0;
++        k->h = l->cy1 - l->cy0;
++        k->depth = g->depth;
++    }
++    k = &g->mask[i];
++    /* the path's points in the mask's pixels */
++    for (i = 0; i < 6; i++)
++        m[i] = l->m[i];
++    m[4] -= (obgpu_s64)k->x * 256;
++    m[5] -= (obgpu_s64)k->y * 256;
++    if (!matrixWords(m, a + 7))
++        goto dropNew;
++    if (!pathRoom(g, 0, 1))
++        goto dropNew;
++    start = g->path_start;
++    len = g->scratch_used - start;
++    slot = maskSlot(g, k);
++    if (!own && parent)
++        pslot = maskSlot(g, parent);
++    a[0] = (unsigned long)slot;
++    emit(g, OGPU_OP_TARGET, 1, a);
++    a[0] = xy(0, 0);
++    a[1] = xy(k->w, k->h);
++    emit(g, OGPU_OP_CLIP, 2, a);
++    g->clip_sent = 0;
++    if (!own) {
++        if (parent) {               /* the clip so far: the parent's mask, where they overlap */
++            a[0] = (unsigned long)pslot;
++            a[1] = xy(k->x - parent->x, k->y - parent->y);
++            a[2] = xy(0, 0);
++            a[3] = xy(k->w, k->h);
++            emit(g, OGPU_OP_COPY, 4, a);
++        } else {
++            a[0] = xy(0, 0);
++            a[1] = xy(k->w, k->h);
++            a[2] = 255;
++            emit(g, OGPU_OP_FILL, 3, a);
++        }
++    }
++    a[0] = (unsigned long)(out ? OGPU_PD_OUT_REVERSE : OGPU_PD_IN) | ((flags & OBGPU_CLIP_EVENODD) ? OGPU_PATH_EVENODD : 0)
++        | ((flags & OBGPU_CLIP_ALIASED) ? OGPU_PATH_ALIASED : 0);
++    a[1] = 0xFF000000UL;
++    a[2] = 0;
++    a[3] = 0;
++    a[4] = 0;
++    a[5] = g->scratch_address + (unsigned long)start * 4;
++    a[6] = (unsigned long)len;
++    a[13] = g->work;
++    a[14] = g->work_bytes;
++    emit(g, OGPU_OP_PATH_FILL, 15, a);
++    a[0] = 0;
++    emit(g, OGPU_OP_TARGET, 1, a);
++    g->drawn++;
++    g->counts->draws++;
++    l->mask = (int)(k - g->mask);
++    return 1;
++dropNew:
++    if (!own)
++        freeMask(g, (int)(k - g->mask));
++drop:
++    g->scratch_used = g->path_start;
++other:
++    l->flags |= OBGPU_L_CLIP_OTHER;
++    return 0;
++}
+diff --git a/Source/WebCore/platform/graphics/amiga/OpenGPUPaintAmiga.h b/Source/WebCore/platform/graphics/amiga/OpenGPUPaintAmiga.h
+index 8c06d92..95f6fd4 100644
+--- a/Source/WebCore/platform/graphics/amiga/OpenGPUPaintAmiga.h
++++ b/Source/WebCore/platform/graphics/amiga/OpenGPUPaintAmiga.h
+@@ -28,6 +28,9 @@ extern "C" {
+  * drawn here. */
+ #define OBGPU_CAN_PD    1
+ #define OBGPU_CAN_PATH  2
++/* opengpu.library 0.23 (stream v1.8): paths without anti-aliasing
++ * (OGPU_PATH_ALIASED), as cairo's CAIRO_ANTIALIAS_NONE. */
++#define OBGPU_CAN_ALIASED 4
+ 
+ /* WebCore's CompositeOperator, in its order (GraphicsTypes.h). */
+ enum {
+@@ -55,6 +58,7 @@ const char *obgpu_kind_name(int kind);
+  * with the first byte unused (cairo's RGB24 on the 68k). */
+ #define OBGPU_ARGB 0
+ #define OBGPU_RGB  1
++#define OBGPU_A8   2   /* coverage, one byte a pixel: the writer's clip masks */
+ struct obgpu_source {
+     unsigned long address;
+     long bpr;
+@@ -71,8 +75,26 @@ struct obgpu_level {
+     long m[6];                  /* a, b, c, d (16.16), e, f (24.8) */
+     int cx0, cy0, cx1, cy1;     /* the clip, target pixels, x0 <= x < x1 */
+     int flags;                  /* OBGPU_L_ in OpenGPUPaintAmiga.c */
++    int mask;                   /* the clip's A8 mask (an index into obgpu's mask), 0 none */
+ };
+ 
++/* A clip mask: A8 memory covering the clip's rectangle when it was made,
++ * its coverage multiplying everything drawn while it is the clip. */
++#define OBGPU_MASKS 17
++struct obgpu_mask {
++    unsigned char *block;       /* as the allocator gave it, 0 when free */
++    unsigned long address;      /* where the back end reaches it */
++    long bpr;
++    int x, y, w, h;             /* its rectangle on the target */
++    int depth;                  /* the level that made it, and frees it at its restore */
++};
++
++/* Memory for clip masks: bytes, aligned on 4, at an address the back end
++ * reaches (*address); 0 when there is none (the clip then stays cairo's).
++ * Freed only after the batches that use it have been drawn. */
++typedef unsigned char *(*obgpu_alloc_fn)(void *user, unsigned long bytes, unsigned long *address);
++typedef void (*obgpu_free_fn)(void *user, unsigned char *block);
++
+ /* Sends words of stream and waits until they are drawn; 0, or OpenGPU's error. */
+ typedef long (*obgpu_submit_fn)(void *user, const unsigned char *stream, long words);
+ 
+@@ -108,6 +130,12 @@ struct obgpu {
+     /* the state stack */
+     int depth, lost;
+     struct obgpu_level level[OBGPU_DEPTH];
++    /* clip masks (index 0 unused) and their memory */
++    struct obgpu_mask mask[OBGPU_MASKS];
++    obgpu_alloc_fn mask_alloc;
++    obgpu_free_fn mask_free;
++    void *mask_user;
++    int aliased;                /* shapes are drawn without anti-aliasing (cairo's CAIRO_ANTIALIAS_NONE) */
+     struct obgpu_counts *counts;
+     struct obgpu_counts own_counts;
+ };
+@@ -119,6 +147,14 @@ void obgpu_init(struct obgpu *g, unsigned char *stream, long stream_words, unsig
+     struct obgpu_counts *counts);
+ void obgpu_target(struct obgpu *g, unsigned long address, long bpr, int w, int h);
+ void obgpu_work(struct obgpu *g, unsigned long address, unsigned long bytes);
++/* Where clip masks come from; without it, clips to paths stay cairo's. */
++void obgpu_masks(struct obgpu *g, obgpu_alloc_fn alloc, obgpu_free_fn release, void *user);
++/* Every mask freed (the batch is sent first): before the context goes. */
++void obgpu_release_masks(struct obgpu *g);
++/* Anti-aliasing on (cairo's CAIRO_ANTIALIAS_DEFAULT) or off (NONE) for
++ * what is drawn from here: paths, and rectangles off whole pixels. Off
++ * needs OBGPU_CAN_ALIASED; without it such shapes go to cairo. */
++void obgpu_set_antialias(struct obgpu *g, int on);
+ 
+ void obgpu_save(struct obgpu *g);
+ void obgpu_restore(struct obgpu *g);
+@@ -126,7 +162,9 @@ void obgpu_restore(struct obgpu *g);
+  * nothing is drawn here until a restore or a transform that fits). */
+ void obgpu_set_matrix(struct obgpu *g, const long *m);
+ /* Clip to a rectangle (24.8, through the transform). One that is not on
+- * whole pixels, or not upright, makes the clip one only cairo has. */
++ * whole pixels, or not upright, is a mask of its pixels by their centres
++ * (cairo clips rectangles without anti-aliasing), or, without masks or
++ * OBGPU_CAN_ALIASED, a clip only cairo has. */
+ void obgpu_clip(struct obgpu *g, long x, long y, long w, long h);
+ /* A clip only cairo has (paths, clip-outs, masks), until the restore. */
+ void obgpu_clip_other(struct obgpu *g);
+@@ -206,14 +244,28 @@ struct obgpu_stroke {
+     long dash_offset;
+ };
+ 
+-/* The path filled (non-zero, or even-odd) or stroked, anti-aliased, with a
+- * colour (premultiplied ARGB32) or, when gradient is not 0, the gradient,
+- * by a WebCore operator that leaves the pixels outside the path as they
+- * are (source-over, source-atop, destination-over, destination-out, xor,
+- * plus-lighter). */
++/* The path filled (non-zero, or even-odd with OBGPU_EVENODD) or stroked,
++ * anti-aliased unless obgpu_set_antialias turned it off, with a colour
++ * (premultiplied ARGB32) or, when gradient is not 0, the gradient, by a
++ * WebCore operator cairo bounds by the shape: source-over, source-atop,
++ * destination-over, destination-out, xor, plus-lighter, and clear and
++ * copy, which cairo draws as a mix of what is there and the paint by the
++ * shape's coverage (two commands: destination-out of the coverage, then
++ * the paint added). */
++#define OBGPU_EVENODD   1
+ int obgpu_fill_path(struct obgpu *g, unsigned long argb, const struct obgpu_gradient *gradient, int evenodd, int op);
+ int obgpu_stroke_path(struct obgpu *g, unsigned long argb, const struct obgpu_gradient *gradient,
+     const struct obgpu_stroke *stroke, int op);
++/* The open path as a clip, as cairo_clip makes one: the clip so far times
++ * the path's coverage (OBGPU_CLIP_OUT: times 1 - the coverage, a clip-out),
++ * non-zero or even-odd, anti-aliased unless OBGPU_CLIP_ALIASED, in an A8
++ * mask kept until the restore. 1 when it is clipped here; 0 when it can't
++ * be (no masks, no memory, a path too large): the clip is then only
++ * cairo's and nothing is drawn here until the restore. Ends the path. */
++#define OBGPU_CLIP_EVENODD  1
++#define OBGPU_CLIP_ALIASED  2
++#define OBGPU_CLIP_OUT      4
++int obgpu_clip_path(struct obgpu *g, int flags);
+ 
+ /* Words waiting to be drawn. */
+ int obgpu_pending(const struct obgpu *g);
+-- 
+2.43.0
+

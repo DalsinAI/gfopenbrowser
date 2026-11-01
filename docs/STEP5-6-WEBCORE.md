@@ -342,6 +342,30 @@ experiment (`WEBCORE_PORT.md`).
    patterns, read from WebCore's own `Path` segments and `Gradient` stops,
    so `PathCairo` is not needed. Needs OpenGPU's rasteriser and v1.6
    strokes and gradients.
+   Patch 0077 (written, not yet built) does the paths, strokes and
+   gradients: `fillPath`, `strokePath`, `strokeRect`, `fillRoundedRect`,
+   `fillRectWithRoundedHole` and gradient fills through `PATH_FILL` and
+   `PATH_STROKE`, and rectangles of one colour off whole pixels or turned
+   as anti-aliased paths. Strokes take cairo's width, caps, joins, miter
+   limit and dashes from its context. Linear and radial gradients (an
+   elliptical one through its matrix) with pad, repeat and reflect, where
+   every stop has one alpha (pixman mixes stops unpremultiplied, OpenGPU
+   premultiplied: the same then). By source-over, source-atop,
+   destination-over, destination-out, xor and plus-lighter. Still cairo's:
+   clips to paths (next: A8 masks), patterns, conic gradients (cairo's
+   are a mesh), stops of different alphas, copy and clear on paths, paths
+   with anti-aliasing off, `drawLine`, `drawRect` and `drawEllipse`.
+   Tested on the host against the CPU core (`tests/test_opengpu_paint.c`,
+   a reference sampled 256 times a pixel; where a path crosses itself
+   inside a pixel the CPU core is within a quarter of it).
+   Patch 0078 (written, not yet built) does what 0077 left to cairo
+   but patterns and gradients: clips to paths, clip-outs and rounded
+   clips as A8 masks (and rectangle clips off whole pixels or turned, by
+   pixel centres as cairo's), shapes without anti-aliasing through stream
+   v1.8's `OGPU_PATH_ALIASED` (opengpu.library 0.23), and copy and clear
+   on paths and through masks as cairo's coverage mix. Tested on the host
+   against cairo 1.18 itself (`tests/test_opengpu_clip.c`): the same
+   pixels wherever both cover whole pixels, edges of curves within 18.
 4. **Text.** `drawGlyphs` as batched glyph runs from a glyph cache, with
    the glyph masks from step 3's OpenFont backend (or, if step 3 is not
    ready, from the FreeType face cairo-ft holds, as FreeType is still
@@ -370,3 +394,48 @@ Step 5 does not depend on step 6, and its patches 1 and 2 need nothing
 outside this repository. Step 6's patch 6 depends on step 3. Each of the
 six libraries leaves the map in exactly one patch: libpsl in 5.1, curl and
 nghttp2 in 5.5, libpng in 6.1, cairo and pixman in 6.6.
+
+## D. Cairo out (Team 4, from 1 November 2026)
+
+Dale, 1 Nov: cairo leaves openamigabrowser and what it did is offered by
+the SDK. PLAN.md step 6 (22 Oct): WebCore draws on OpenGPU directly;
+opengpu.library does all pixel work. Built on Team 3's open #104 (patch
+0076) and #115 (patch 0077), never rewriting them. One PR per item, in this
+order; each browser branch is stacked on the one before it, the first on
+#115's branch.
+
+| # | Repo | What | Stacked on |
+|---|---|---|---|
+| 1 | openamigartg | stream v1.8: `OGPU_PATH_ALIASED` (paths without anti-aliasing, cairo's `CAIRO_ANTIALIAS_NONE`), opengpu.library 0.23. The only new pixel work cairo did that OpenGPU lacked; everything else (A8 clip masks, patterns, conic gradients, blur, layers by `COMPOSITE_PD`) is in v1.6 already | main |
+| 2 | openamigasdk | opengpu.library in the Open SDK: its headers and SFD gathered from openamigartg (one source: `include/opengpu/`), its AutoDocs in `Docs/`, an example in `Examples/` | main (pins 1's commit) |
+| 3 | openamigabrowser | patch 0078 , item 1: clips to paths as A8 masks (clipPath, clipOut, rounded and off-pixel rectangle clips), aliased paths, copy and clear on paths (cairo's bounded lerp, two passes) | #115 |
+| 4 | openamigabrowser | patch 0079, item 2: patterns (drawPattern, pattern fills and strokes; tiles on whole pixels, no spacing, both-way repeat for brushes), conic gradients, stops of different alphas (premultiplied, as CSS: Dale, 1 Nov), aliased paths asked with `OGPU_QUERY_FLAG` | 3 |
+| 5 | openamigabrowser | patch 0080, item 3: drawLine, drawRect, drawEllipse, focus rings, text decorations, document markers | 4 |
+| 6 | openamigabrowser | patch 0081, item 4: shadows (OpenGPU BLUR) and transparency layers (offscreen surface, then COMPOSITE_PD by opacity, operator and blend mode), clipToImageBuffer | 5 |
+| 7 | openamigabrowser | patch 0082, item 5: glyph runs through openfont.library 1.5's `OF_DrawGlyphsA`, whose glyph cache is inside openfont (Dale, 1 Nov; openamigafont #24) | 6 |
+| 8 | openamigabrowser | item 6: PNG out is already the PNG datatype's (patch 0074, #93): libpng is linked only for cairo, and leaves with it in 9 | - |
+| 9 | openamigabrowser | patch 0083, item 7: cairo, pixman and libpng out of the engine's map; GraphicsContextCairo goes | 7 |
+
+Tests for each: the engine's stream writer (OpenGPUPaintAmiga.c) on
+openamigartg's CPU core against host cairo 1.18 pixel for pixel where the
+two rasterisers can agree (rectangles, pixel-aligned clips, compositing),
+counted where they can't (anti-aliased edges, curves), plus the 408 checks
+of #115 still passing. The C++ in the patches can't be compiled outside the
+WebKit build PC; what wasn't built or run on an Amiga is said in each PR.
+
+State on 1 November: 1 is openamigartg #157 (merged), 2 is openamigasdk
+#35, 3 is the PR adding this section. On the way, the CPU core's inverse
+matrices (gradients, patterns, COMPOSITE_AFFINE) turned out miscompiled by
+GCC for the 68k: openamigartg #159 fixes it for GCC 16 and 13, checked on
+a lab Amiga; with GCC 6.5 (the os32 stove, which openamigartg's
+`library/build.sh` uses for opengpu.library) strokes painted with
+gradients or patterns still differ from the host's. Items 2 (patterns,
+gradients) and later wait on that.
+
+Later on 1 November: the shipped opengpu.library is built with
+OpenAmigaGCC 16.2.0-open4 (openamigartg #160; its OpenGPUVectorCRC matches
+the host on a lab Amiga), so the GCC 6.5 difference no longer reaches
+users. openamigartg #161 (opengpu.library 0.24) adds `OGPU_QUERY_FLAG`, the
+query 0079 uses for `OGPU_PATH_ALIASED`. Gradient stops of different
+alphas are mixed premultiplied, as CSS says, where pixman mixed them
+unpremultiplied: Dale accepts OpenGPU's behaviour. Patch 0079 is item 4.
