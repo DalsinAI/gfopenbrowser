@@ -14,6 +14,8 @@
 #   OUT_DIR/Unicode/icudt78b.dat   ICU's data, for LOCALE:Unicode/, LIBS:Unicode/
 #                                  or a program's own Unicode/ drawer
 #   OUT_DIR/tests/UnicodeTest      the self-test (tests/UnicodeTest.c)
+#   OUT_DIR/tests/UnicodeProps     checksums of the property and case calls
+#                                  (tests/UnicodeProps.c), to compare with ICU's
 #   OUT_DIR/icu/                   for building programs on the library:
 #                                  ICU's headers and ul_client.h; lib/libicuuc.a
 #                                  sends each of ICU's calls to the library,
@@ -27,6 +29,8 @@
 #                   library links its static libraries and ships its data
 #   TOOLCHAIN_DIR   the GFOpenAmigaGCC release, or STOVE (os32-gcc16)
 #   NDK_INCLUDE     GFOpenNDK's Include_H
+#   UCD_DIR         the Unicode Character Database 17.0.0 our own code is made
+#                   from (scripts/fetch-ucd.sh), by default $OAB_DEPS/ucd-17.0.0
 set -eu
 HERE=$(CDPATH= cd -- "$(dirname -- "$0")/.." && pwd)
 OUT=${1:-"$HERE/build/unicode-library"}
@@ -47,10 +51,19 @@ LIB="$HERE/src/unicodelib"
 for f in lib/libicuuc.a lib/libicui18n.a include/unicode/utypes.h share/icudt78b.dat; do
     [ -f "$ICU/$f" ] || { echo "build-unicode-library.sh: no $ICU/$f (scripts/build-icu.sh)" >&2; exit 2; }
 done
+UCD=${UCD_DIR:-"$OAB_DEPS/ucd-17.0.0"}
+# in GitHub's CI the UCD is fetched here, pinned (elsewhere: scripts/fetch-ucd.sh first)
+if [ ! -f "$UCD/UnicodeData.txt" ] && [ "${GITHUB_ACTIONS:-}" = true ]; then
+    sh "$HERE/scripts/fetch-ucd.sh" "$UCD"
+fi
+[ -f "$UCD/UnicodeData.txt" ] ||
+    { echo "build-unicode-library.sh: no Unicode 17.0.0 UCD in $UCD (scripts/fetch-ucd.sh $UCD, or set UCD_DIR)" >&2; exit 2; }
 
 rm -rf "$OUT"
 mkdir -p "$OUT/obj" "$OUT/gen" "$OUT/tests" "$OUT/Unicode" "$OUT/icu/lib"
-python3 "$LIB/gen_calls.py" "$LIB/calls.txt" "$OUT/gen"
+python3 "$LIB/gen_calls.py" "$LIB/calls.txt" "$OUT/gen" "$LIB/own.txt"
+# our own code's tables, from the UCD (src/unicodelib/own)
+python3 "$LIB/own/gen_props.py" "$UCD" "$ICU/include" "$OUT/gen"
 
 # As build-icu.sh builds ICU for the engine
 CPU="-m68040 -m68881"
@@ -64,12 +77,20 @@ INC="-I$OUT/gen -I$LIB -I$LIB/sdk/Include_H -I$ICU/include -I$NDK_INCLUDE"
 "$CC" $CPU -O2 -std=gnu99 -fno-delete-null-pointer-checks -fno-common -fno-builtin $WARN $INC \
     -c "$LIB/ul_runtime.c" -o "$OUT/obj/ul_runtime.o"
 "$CC" $CPU -O2 -c "$OUT/gen/ul_table.c" -o "$OUT/obj/ul_table.o"
+OWN=
+for f in uo_props uo_case; do
+    "$CC" $CPU -O2 -std=gnu99 -fno-delete-null-pointer-checks -fno-common $WARN $INC -I"$LIB/own" \
+        -c "$LIB/own/$f.c" -o "$OUT/obj/$f.o"
+    OWN="$OWN $OUT/obj/$f.o"
+done
+"$CC" $CPU -O2 -std=gnu99 -fno-common $WARN $INC -c "$OUT/gen/uo_data.c" -o "$OUT/obj/uo_data.o"
+OWN="$OWN $OUT/obj/uo_data.o"
 # ul_start.o first: its code is the file's first. ICU's archives, then the
 # pure parts of libstdc++, libnix and libm; ul_runtime.o's own versions of
 # the rest come first and win. The duplicate-section notes are ICU's inline
 # functions, compiled in several files.
 "$CXX" $CPU -nostartfiles -o "$OUT/unicode.library" \
-    "$OUT/obj/ul_start.o" "$OUT/obj/unicode_lib.o" "$OUT/obj/ul_runtime.o" "$OUT/obj/ul_table.o" \
+    "$OUT/obj/ul_start.o" "$OUT/obj/unicode_lib.o" "$OUT/obj/ul_runtime.o" "$OUT/obj/ul_table.o" $OWN \
     "$ICU/lib/libicui18n.a" "$ICU/lib/libicuuc.a" -lstdc++ -lm -lgcc \
     -Wl,-Map,"$OUT/unicode.library.map" 2>"$OUT/obj/link.log" ||
     { grep -v 'duplicate section\|has different contents' "$OUT/obj/link.log" >&2; exit 1; }
@@ -110,6 +131,10 @@ cp -R "$ICU/lib/pkgconfig" "$OUT/icu/lib/" 2>/dev/null || true
     -Wno-pointer-sign -Wno-format -I"$OUT/icu/include" -I"$NDK_INCLUDE" \
     "$LIB/tests/UnicodeTest.c" -L"$OUT/icu/lib" -licuuc -lm -o "$OUT/tests/UnicodeTest"
 
-for f in unicode.library Unicode/icudt78b.dat tests/UnicodeTest icu/lib/libicuuc.a; do
+"$CC" $CPU -O2 -std=gnu99 -fno-delete-null-pointer-checks -fno-common -Wall -Wextra -Wno-unused-parameter \
+    -I"$OUT/icu/include" -I"$NDK_INCLUDE" \
+    "$LIB/tests/UnicodeProps.c" -L"$OUT/icu/lib" -licuuc -lm -o "$OUT/tests/UnicodeProps"
+
+for f in unicode.library Unicode/icudt78b.dat tests/UnicodeTest tests/UnicodeProps icu/lib/libicuuc.a; do
     printf '%s %s bytes\n' "$OUT/$f" "$(wc -c < "$OUT/$f")"
 done
