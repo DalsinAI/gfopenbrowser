@@ -412,6 +412,7 @@ order; each browser branch is stacked on the one before it, the first on
 | 4 | openamigabrowser | patch 0079, item 2: patterns (drawPattern, pattern fills and strokes; tiles on whole pixels, no spacing, both-way repeat for brushes), conic gradients, stops of different alphas (premultiplied, as CSS: Dale, 1 Nov), aliased paths asked with `OGPU_QUERY_FLAG` | 3 |
 | 5 | openamigabrowser | patch 0080, item 3: drawLine, drawRect, drawEllipse, focus rings, text decorations, document markers | 4 |
 | 6 | openamigabrowser | patch 0081, item 4: shadows (OpenGPU BLUR) and transparency layers (offscreen surface, then COMPOSITE_PD by opacity, operator and blend mode), clipToImageBuffer | 5 |
+| 6b | openamigabrowser | patch 0082b, item 4's shadows: ShadowBlur's (box sizes from calculateLobes: CSS blur x 0.88, canvas 2/3; Dale, 1 Nov) as an A8 layer, OpenGPU `BLUR` asked for those sizes, the colour through it | 7 |
 | 7 | openamigabrowser | patch 0082, item 5: glyph runs through openfont.library 1.5's `OF_DrawGlyphsA`, whose glyph cache is inside openfont (Dale, 1 Nov; openamigafont #24) | 6 |
 | 8 | openamigabrowser | item 6: PNG out is already the PNG datatype's (patch 0074, #93): libpng is linked only for cairo, and leaves with it in 9 | - |
 | 9 | openamigabrowser | patch 0083, item 7: cairo, pixman and libpng out of the engine's map; GraphicsContextCairo goes | 7 |

@@ -72,6 +72,8 @@ python3 "$HERE/tools/patch-files.py" "$HERE/webkit/patches/0081-amiga-opengpu-la
     "$OUT/opengpu" OpenGPUPaintAmiga.c OpenGPUPaintAmiga.h
 python3 "$HERE/tools/patch-files.py" "$HERE/webkit/patches/0082-amiga-opengpu-glyphs.patch" \
     "$OUT/opengpu" OpenGPUPaintAmiga.c OpenGPUPaintAmiga.h
+python3 "$HERE/tools/patch-files.py" "$HERE/webkit/patches/0082b-amiga-opengpu-shadows.patch" \
+    "$OUT/opengpu" OpenGPUPaintAmiga.c OpenGPUPaintAmiga.h
 "$CC" $FLAGS -I"$OUT/opengpu" -I"$RTG/include" -I"$RTG/library/opengpu" "$OUT/opengpu/OpenGPUPaintAmiga.c" \
     "$RTG/library/opengpu/ogpu_core.c" "$HERE/tests/test_opengpu_paint.c" -lm -o "$OUT/test_opengpu_paint"
 # 0078's clips, masks, aliased shapes, copy and clear, against cairo drawing
@@ -95,6 +97,10 @@ if pkg-config --exists cairo 2>/dev/null; then
     "$CC" $FLAGS -D_DEFAULT_SOURCE $(pkg-config --cflags cairo) -I"$OUT/opengpu" -I"$RTG/include" -I"$RTG/library/opengpu" \
         "$OUT/opengpu/OpenGPUPaintAmiga.c" "$RTG/library/opengpu/ogpu_core.c" "$HERE/tests/test_opengpu_layer.c" \
         $(pkg-config --libs cairo) -lm -o "$OUT/test_opengpu_layer"
+    # 0082b's drop shadows against ShadowBlur's (its box sizes and blur, ported)
+    "$CC" $FLAGS -D_DEFAULT_SOURCE $(pkg-config --cflags cairo) -I"$OUT/opengpu" -I"$RTG/include" -I"$RTG/library/opengpu" \
+        "$OUT/opengpu/OpenGPUPaintAmiga.c" "$RTG/library/opengpu/ogpu_core.c" "$HERE/tests/test_opengpu_shadow.c" \
+        $(pkg-config --libs cairo) -lm -o "$OUT/test_opengpu_shadow"
     CLIP_TEST=1
 fi
 "$OUT/test_wl_html" > "$OUT/test_wl_html.log" || { cat "$OUT/test_wl_html.log"; exit 1; }
@@ -108,7 +114,7 @@ rm -rf "$OUT/httpcache"
 "$OUT/test_ob_httpcache" "$OUT/httpcache"
 "$OUT/test_public_suffixes" "$HERE/data/public-suffixes" "$HERE/tests/public-suffix-cases.txt"
 "$OUT/test_opengpu_paint"
-if [ "$CLIP_TEST" = 1 ]; then "$OUT/test_opengpu_clip"; "$OUT/test_opengpu_pattern" | tail -1; "$OUT/test_opengpu_lines" | tail -1; "$OUT/test_opengpu_layer" | tail -1; else echo "test_opengpu_clip, test_opengpu_pattern, test_opengpu_lines, test_opengpu_layer: skipped (no cairo headers)"; fi
+if [ "$CLIP_TEST" = 1 ]; then "$OUT/test_opengpu_clip"; "$OUT/test_opengpu_pattern" | tail -1; "$OUT/test_opengpu_lines" | tail -1; "$OUT/test_opengpu_layer" | tail -1; "$OUT/test_opengpu_shadow" | tail -1; else echo "test_opengpu_clip, test_opengpu_pattern, test_opengpu_lines, test_opengpu_layer, test_opengpu_shadow: skipped (no cairo headers)"; fi
 # fewer operations under the sanitizers, which are slower
 R=200000
 [ "${SANITIZE:-0}" = 1 ] && R=50000
