@@ -34,9 +34,9 @@
  * Once the small blocks have gone, libnix's chunk list is short, and its
  * memory goes back to exec when the program ends, which AllocVec's would not.
  *
- * One lock covers the small heap. On a single CPU a bit set by BSET is atomic
- * against task switches (BSET, unlike TAS, needs no read-modify-write cycle,
- * so the lock may live in any memory), and the fast path is that bit and a
+ * One lock covers the small heap: a bit set by TAS, atomic on one CPU and,
+ * as a host atomic, across AmigaChrome's task cores too (until 1 Nov 2026 it
+ * was BSET, atomic on one CPU only), and the fast path is that bit and a
  * clear: no Forbid, no library call. A task that finds the bit set queues
  * itself and Wait()s under Forbid, which lets the holder run whatever its
  * priority; unlocking clears the bit and signals the first waiter. Nothing
@@ -128,7 +128,13 @@ static struct {
 static inline int os32_try(void)
 {
     unsigned char was;
-    __asm__ __volatile__("bset #7,%1\n\tsne %0" : "=d"(was), "+m"(os32.held) : : "cc", "memory");
+    /* TAS, not BSET (1 Nov 2026): BSET is atomic against task switches on
+     * one CPU only; AmigaChrome's task cores run tasks on other host cores at
+     * the same time, and there TAS (with CAS and CAS2) is a host atomic,
+     * BSET is not. The heap is in fast RAM (the engine needs tens of MB), so
+     * TAS's read-modify-write cycle never reaches the chip bus. Bit 7 is the
+     * only bit used, so N after TAS says what BSET's Z said. */
+    __asm__ __volatile__("tas %1\n\tsmi %0" : "=d"(was), "+m"(os32.held) : : "cc", "memory");
     return !was;
 }
 #define OS32_RELEASE() __asm__ __volatile__("clr.b %0" : "=m"(os32.held) : : "memory")
