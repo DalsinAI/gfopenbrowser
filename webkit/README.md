@@ -356,6 +356,13 @@ The patches, in order:
   chunks, as the PNG of its default image. A GIF whose first frame does not
   cover the screen goes as that frame alone and is put back in a
   screen-sized picture, transparent around it.
+- `0064-amiga-cjk-tables-without-icu.patch`: the CJK decoders
+  (TextCodecCJK) use the Encoding Standard's own indexes for JIS X 0208,
+  JIS X 0212, Big5, EUC-KR and gb18030 (319,956 bytes of constant data)
+  in place of indexes built at first use from ICU's converters, which the
+  engine's trimmed ICU data does not have: the first Shift_JIS, EUC-JP or
+  ISO-2022-JP text aborted the engine, and Big5, EUC-KR and GBK came out
+  as rubbish. `tests/pages/cjk-decoders.html` checks 46 inputs.
 - `0070-amiga-public-suffixes-without-libpsl.patch`: public suffixes
   (cookies, sites, `document.domain`) from our own reader of Mozilla's
   Public Suffix List (`PublicSuffixAmiga.c`) in place of libpsl, which is
