@@ -1,0 +1,37 @@
+# The calls of calls.txt that our own code answers (src/unicodelib/own/),
+# in place of ICU's: gen_calls.py points their table entries at uo_<call>.
+# The rest are still ICU's (PLAN.md step 7, one piece at a time).
+#
+# Piece 1, properties and case (1 November 2026). Still ICU's from this
+# group: u_strToTitle (needs word breaking, piece 2), the uset_* calls,
+# u_strFromUTF8, u_strToUTF8 and uscript_getCode; inside ours, Greek
+# uppercasing (locale "el") and the properties WebKit never asks for
+# (see own/uo_props.c) still go to ICU's own function.
+u_charDirection
+u_charMirror
+u_charType
+u_countChar32
+u_errorName
+u_foldCase
+u_getCombiningClass
+u_getIntPropertyValue
+u_getPropertyValueEnum
+u_getVersion
+u_hasBinaryProperty
+u_isalnum
+u_isalpha
+u_isdigit
+u_isprint
+u_ispunct
+u_isUWhiteSpace
+u_strFoldCase
+u_strToLower
+u_strToUpper
+u_tolower
+u_totitle
+u_toupper
+ublock_getCode
+uscript_getScript
+uscript_getShortName
+uscript_hasScript
+uscript_isRightToLeft
