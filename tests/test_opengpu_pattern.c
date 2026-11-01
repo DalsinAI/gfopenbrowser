@@ -525,6 +525,99 @@ static void makeDense(int n, const double (*st)[5])
     }
 }
 
+
+/* Diagnostics for the mesh comparisons (pixman 0.46 differs from 0.42
+ * there): the pixels differing by more than 16, with their angle (turns
+ * from the gradient's start, as CSS counts it), their radius, both sides,
+ * the background and the angle's own colour, and counts by kind. */
+static unsigned long conicExpected(int x, int y, double cx, double cy, double angle, int n, const double (*st)[5], double *tOut, double *rOut)
+{
+    double dx = x + 0.5 - cx, dy = y + 0.5 - cy, t, c[4], u, inv;
+    int i = 0, k;
+    unsigned long bg = background(x, y), out = 0;
+    t = (atan2(dy, dx) - (angle - M_PI / 2)) / (2 * M_PI);
+    t -= floor(t);
+    *tOut = t;
+    *rOut = sqrt(dx * dx + dy * dy);
+    while (i + 1 < n - 1 && t > st[i + 1][0])
+        i++;
+    u = (t - st[i][0]) / (st[i + 1][0] - st[i][0]);
+    u = u < 0 ? 0 : u > 1 ? 1 : u;
+    for (k = 0; k < 3; k++)
+        c[k + 1] = (1 - u) * st[i][k + 1] * st[i][4] + u * st[i + 1][k + 1] * st[i + 1][4];
+    c[0] = (1 - u) * st[i][4] + u * st[i + 1][4];
+    inv = 1 - c[0];
+    for (k = 0; k < 4; k++) {
+        double d = ((bg >> (24 - 8 * k)) & 255) / 255.0, v = (c[k] + d * inv) * 255;
+        out = out << 8 | (unsigned long)lround(v);
+    }
+    return out;
+}
+
+static void meshDiag(const char *what, double cx, double cy, double angle, int n, const double (*st)[5], double rx0, double ry0, double rx1, double ry1)
+{
+    const unsigned int *c;
+    int x, y, stride, shown = 0, big = 0, bgSeam = 0, nearJoin = 0, nearQuad = 0, oursRight = 0, cairoRight = 0;
+    int bands[5] = { 0, 0, 0, 0, 0 }, maxOurs = 0, maxCairo = 0;
+    obgpu_flush(&G);
+    cairo_surface_flush(cs);
+    c = (const unsigned int *)cairo_image_surface_get_data(cs);
+    stride = cairo_image_surface_get_stride(cs) / 4;
+    printf("  MESHDIAG %s (cairo %s, centre %.2f,%.2f)\n", what, cairo_version_string(), cx, cy);
+    for (y = 0; y < H; y++)
+        for (x = 0; x < W; x++) {
+            const unsigned char *p = arena + TARGET + y * BPR + x * 4;
+            unsigned long here = (unsigned long)p[0] << 24 | (unsigned long)p[1] << 16 | (unsigned long)p[2] << 8 | p[3];
+            unsigned long v = c[y * stride + x], bg = background(x, y), want;
+            double t, r, j, q, dev;
+            int d = 0, k, dOurs = 0, dCairo = 0;
+            for (k = 0; k < 32; k += 8) {
+                int a = (int)((v >> k) & 255), b = (int)((here >> k) & 255);
+                if (abs(a - b) > d)
+                    d = abs(a - b);
+            }
+            /* away from the filled rectangle's own (anti-aliased) edges */
+            if (x < rx0 + 1 || y < ry0 + 1 || x + 1 > rx1 - 1 || y + 1 > ry1 - 1)
+                continue;
+            want = conicExpected(x, y, cx, cy, angle, n, st, &t, &r);
+            if (r < exR)
+                continue;
+            for (k = 0; k < 32; k += 8) {
+                int w = (int)((want >> k) & 255);
+                if (abs(w - (int)((here >> k) & 255)) > dOurs) dOurs = abs(w - (int)((here >> k) & 255));
+                if (abs(w - (int)((v >> k) & 255)) > dCairo) dCairo = abs(w - (int)((v >> k) & 255));
+            }
+            /* both against the angle's colour, near the start line too (a pixel there mixes both ends) */
+            if (t * 2 * M_PI * r >= 1.5 && (1 - t) * 2 * M_PI * r >= 1.5) {
+                if (dOurs > maxOurs) maxOurs = dOurs;
+                if (dCairo > maxCairo) maxCairo = dCairo;
+            }
+            if (d <= 16)
+                continue;
+            big++;
+            oursRight += dOurs <= 4;
+            cairoRight += dCairo <= 4;
+            bgSeam += v == bg;
+            /* distance to the nearest sector join (stops every 1/(n-1) turn), in pixels along the arc */
+            j = (t * (n - 1) - floor(t * (n - 1) + 0.5)) / (n - 1);
+            nearJoin += fabs(j) * 2 * M_PI * r < 1.0;
+            /* distance to the nearest quadrant line of the device (cairo's sector centres move there) */
+            dev = atan2(y + 0.5 - cy, x + 0.5 - cx) / (M_PI / 2);
+            q = dev - floor(dev + 0.5);
+            nearQuad += fabs(q) * (M_PI / 2) * r < 1.0;
+            bands[r < 10 ? 0 : r < 20 ? 1 : r < 40 ? 2 : r < 80 ? 3 : 4]++;
+            if (shown < 12) {
+                printf("    MESHDIAG %d,%d t=%.4f r=%.1f cairo=%08lx here=%08lx bg=%08lx angle-colour=%08lx (ours off %d, cairo off %d)\n",
+                    x, y, t, r, v, here, bg, want, dOurs, dCairo);
+                shown++;
+            }
+        }
+    printf("  MESHDIAG %s: %d pixels off by more than 16; cairo left the background in %d; within a pixel of a sector join %d, "
+        "of a quadrant line %d; ours within 4 of the angle colour %d, cairo's %d; by radius <10 %d, <20 %d, <40 %d, <80 %d, more %d\n",
+        what, big, bgSeam, nearJoin, nearQuad, oursRight, cairoRight, bands[0], bands[1], bands[2], bands[3], bands[4]);
+    printf("  MESHDIAG %s: largest difference from the angle's colour (off the start line): ours %d, cairo's %d\n", what, maxOurs, maxCairo);
+}
+
 int main(void)
 {
     const int all = OBGPU_CAN_PD | OBGPU_CAN_PATH | OBGPU_CAN_ALIASED;
@@ -648,11 +741,13 @@ int main(void)
         begin(all);
         bothConic(48, 32, 0, 25, (const double (*)[5])dense, 0, 0, 96, 64);
         exX = 48; exY = 32; exR = 6;
+        meshDiag("conic, 25 stops", 48, 32, 0, 25, (const double (*)[5])dense, 0, 0, 96, 64);
         compare("conic, 25 stops, against cairo's mesh (6 px from the centre)", 0, 16);
         begin(all);
         bothMatrix(1, 0, 0, 1, 5.5, -3.25);
         bothConic(40, 34, 2.5, 25, (const double (*)[5])dense, 0, 4, 90, 56);
         exX = 45.5; exY = 30.75;
+        meshDiag("conic, 25 stops, under a transform", 45.5, 30.75, 2.5, 25, (const double (*)[5])dense, 5.5, 0.75, 95.5, 56.75);
         compare("conic, 25 stops, under a transform, against cairo's mesh", 0, 16);
         exR = 0;
     }
