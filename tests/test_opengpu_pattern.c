@@ -412,6 +412,7 @@ static void conicSector(cairo_pattern_t *g, double cx, double cy, double r, doub
 }
 
 /* a conic gradient (WebCore's angle: from the top) on both; stops at 0 and 1 included, as createConic makes them */
+static double meshRadius = 4096;     /* WebKit's (GradientCairo's createConic) */
 static void bothConic(double cx, double cy, double angle, int n, const double (*st)[5], double x, double y, double w, double h)
 {
     double geo[6] = { cx, cy, 0, 0, 0, 0 }, turns = angle / (2 * M_PI) - 0.25;
@@ -420,7 +421,7 @@ static void bothConic(double cx, double cy, double angle, int n, const double (*
     geo[2] = turns - floor(turns);
     bothGradientRect(OBGPU_CONIC, geo, n, st, x, y, w, h, 0);
     for (i = 0; i + 1 < n; i++)
-        conicSector(p, cx, cy, 4096, angle, st[i], st[i + 1]);
+        conicSector(p, cx, cy, meshRadius, angle, st[i], st[i + 1]);
     cairo_set_source(cr, p);
     cairo_rectangle(cr, x, y, w, h);
     cairo_fill(cr);
@@ -742,6 +743,31 @@ int main(void)
         bothConic(48, 32, 0, 25, (const double (*)[5])dense, 0, 0, 96, 64);
         exX = 48; exY = 32; exR = 6;
         meshDiag("conic, 25 stops", 48, 32, 0, 25, (const double (*)[5])dense, 0, 0, 96, 64);
+        {   /* the same mesh at other radii: pixels cairo leaves as the background */
+            static const double radii[] = { 4096, 2048, 1024, 512, 320, 160 };
+            int ri;
+            for (ri = 0; ri < 6; ri++) {
+                cairo_pattern_t *mp = cairo_pattern_create_mesh();
+                const unsigned int *cc;
+                int x, y, st2, unpainted = 0, i;
+                cairo_surface_t *probe = cairo_image_surface_create(CAIRO_FORMAT_ARGB32, W, H);
+                cairo_t *pc = cairo_create(probe);
+                for (i = 0; i + 1 < 25; i++)
+                    conicSector(mp, 48, 32, radii[ri], 0, dense[i], dense[i + 1]);
+                cairo_set_source(pc, mp);
+                cairo_paint(pc);
+                cairo_destroy(pc);
+                cairo_pattern_destroy(mp);
+                cairo_surface_flush(probe);
+                cc = (const unsigned int *)cairo_image_surface_get_data(probe);
+                st2 = cairo_image_surface_get_stride(probe) / 4;
+                for (y = 1; y < H - 1; y++)
+                    for (x = 1; x < W - 1; x++)
+                        unpainted += (cc[y * st2 + x] >> 24) != 255;
+                printf("  MESHDIAG radius %.0f: %d pixels not painted opaque\n", radii[ri], unpainted);
+                cairo_surface_destroy(probe);
+            }
+        }
         compare("conic, 25 stops, against cairo's mesh (6 px from the centre)", 0, 16);
         begin(all);
         bothMatrix(1, 0, 0, 1, 5.5, -3.25);
