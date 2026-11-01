@@ -4,7 +4,8 @@
  * mode allow, a stored copy answers when it is still fresh; a stale one
  * gets If-None-Match and If-Modified-Since, and a 304 answer reuses it.
  * Responses are stored as their body arrives, without the headers that
- * must not come back (cookies, and the length and encoding curl undid).
+ * must not come back (cookies, and the length and encoding the transport
+ * undid).
  * MIT, Copyright (c) 2026 AmigaChrome Team.
  */
 #include "config.h"
@@ -13,7 +14,6 @@
 #include "AmigaNetwork.h"
 #include "ob_httpcache.h"
 
-#include <WebCore/CurlResponse.h>
 #include <WebCore/HTTPHeaderNames.h>
 #include <WebCore/ResourceRequest.h>
 #include <WebCore/ResourceResponse.h>
@@ -74,7 +74,7 @@ public:
 
     ResourceResponse cachedResponse() final
     {
-        CurlResponse stored;
+        AmigaResponseHead stored;
         stored.url = URL { String::fromUTF8(m_url.legacyCStringPointer()) };
         stored.statusCode = 200;
         stored.expectedContentLength = m_body ? m_body->size() : 0;
@@ -180,7 +180,7 @@ public:
 
 private:
     // Headers that must not come back with a stored copy: cookies, and the
-    // length and encoding curl undid.
+    // length and encoding the transport undid.
     static bool isStoredHeader(const HTTPHeaderMap::HTTPHeaderMapConstIterator::KeyValue& header)
     {
         if (auto name = header.keyAsHTTPHeaderName) {

@@ -57,9 +57,10 @@ LIBS:WebBrowser/Fonts/                 the TrueType fonts
 LIBS:openfont.library                  1.4 or newer: the engine's text
 ```
 
-The engine keeps its cookies in `LIBS:WebBrowser/Cookies.db` and its TLS
-sessions in `LIBS:WebBrowser/TLSSessions`. Without the fonts it stops at
-the first page.
+The engine keeps its cookies in `LIBS:WebBrowser/Cookies.db`. It kept its
+TLS sessions in `LIBS:WebBrowser/TLSSessions` until WebKit patch 0075
+(curl's session cache); openweb.fetch keeps none yet. Without the fonts it
+stops at the first page.
 
 Not installed, OpenBrowser still works from its drawer as unpacked: the
 launcher opens `PROGDIR:Libs/webbrowser.library`, and the library starts

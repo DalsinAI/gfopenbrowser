@@ -19,7 +19,7 @@ layer, the way MorphOS's and Haiku's browsers did it:
 | Drawing | cairo image surfaces with pixman | Proven on big-endian CPUs; Skia refuses to build for them |
 | Text | FreeType, HarfBuzz and fontconfig | WebCore's Cairo backend uses all three |
 | Fonts | Liberation and DejaVu, in `PROGDIR:Fonts` | Free licences; Liberation has the metrics of Arial, Times and Courier |
-| Network | libcurl on OpenTLS (opentls.library), HTTP/2 through nghttp2 | WebCore's curl backend handles cookies and redirects; curl does TLS (AmiSSL 5 until 19 October 2026) |
+| Network | openweb.fetch (openamigaservice): a services card, a Cradle, or the Amiga's own TCP/IP with OpenTLS and HTTP/2 | `ResourceHandleAmiga.cpp` handles cookies and redirects; libcurl on OpenTLS did the loads until WebKit patch 0075 (AmiSSL 5 until 19 October 2026) |
 | Images | the system's datatypes | Our rule: the formats are the ones the user has datatypes for |
 | JavaScript | JavaScriptCore's C-loop interpreter | No JIT on 68k |
 
@@ -376,9 +376,10 @@ what to draw is the rest. A screen's commands are a few kilobytes against
 host) would cut painting by 4 to 25 times.
 
 **Fetching through the PC.** With `OB_FETCH_PROXY` set (patch 0010,
-`scripts/ob-fetch-proxy.py`), another PC makes the connections and the TLS
-handshakes. AmigaChrome does not let an instance reach the PC it runs on, so
-the proxy ran on a second PC on the LAN. example.com took 38 s from the
+`scripts/ob-fetch-proxy.py`; both gone with curl in patch 0075, where
+openweb.fetch's card does this job), another PC makes the connections and
+the TLS handshakes. AmigaChrome does not let an instance reach the PC it
+runs on, so the proxy ran on a second PC on the LAN. example.com took 38 s from the
 Shell command with TLS on the 68k and 27 s through the proxy: each new https
 site costs the 68k about 10 seconds of TLS. Wikipedia's Amiga article
 fetched all its files quickly either way and was still loading after 7

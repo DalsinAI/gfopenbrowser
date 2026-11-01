@@ -64,39 +64,57 @@ elseif (NOT OB_ICU_DATA STREQUAL "linked")
     message(FATAL_ERROR "OB_ICU_DATA must be file, linked or library")
 endif ()
 
-# openservice.device (DalsinAI/openamigaservice, checked out beside this
-# repository, or OPENSERVICE_DIR): page pictures decoded by a board or a
-# paired Cradle when one offers it (ob_media.c). Its TLS key provider was for
-# AmiSSL, which the browser no longer uses: curl does TLS through OpenTLS.
+# openservice.device and openweb.fetch (DalsinAI/openamigaservice, checked
+# out beside this repository, or OPENSERVICE_DIR). Required: every load of
+# the engine goes through openweb.fetch (WebKit patch 0075, no curl).
+# Page pictures are also decoded by a board or a paired Cradle when one
+# offers it (ob_media.c).
 set(OB_OPENSERVICE_DIR "$ENV{OPENSERVICE_DIR}")
 if (NOT EXISTS "${OB_OPENSERVICE_DIR}/include/devices/openservice.h")
     set(OB_OPENSERVICE_DIR "${CMAKE_CURRENT_SOURCE_DIR}/../../../openamigaservice")
 endif ()
-if (EXISTS "${OB_OPENSERVICE_DIR}/include/devices/openservice.h")
-    list(APPEND OB_CORE_SOURCES ob_media.c)
-    set(OB_OPENSERVICE 1)
+if (NOT EXISTS "${OB_OPENSERVICE_DIR}/include/devices/openservice.h" OR NOT EXISTS "${OB_OPENSERVICE_DIR}/src/webfetch.c")
+    message(FATAL_ERROR "openamigaservice not found at ${OB_OPENSERVICE_DIR}: the engine's network is "
+        "openweb.fetch (include/openweb/webfetch.h, src/webfetch.c, src/wfnet*.c). Check out "
+        "DalsinAI/openamigaservice beside this repository, or set OPENSERVICE_DIR.")
+endif ()
+set_property(DIRECTORY APPEND PROPERTY CMAKE_CONFIGURE_DEPENDS "${OB_OPENSERVICE_DIR}/include/openweb/webfetch.h")
+file(STRINGS "${OB_OPENSERVICE_DIR}/include/openweb/webfetch.h" OB_WEBFETCH_ASYNC REGEX "wf_async_start")
+if (NOT OB_WEBFETCH_ASYNC)
+    message(FATAL_ERROR "${OB_OPENSERVICE_DIR}/include/openweb/webfetch.h has no wf_async_start: "
+        "openamigaservice is older than openweb.fetch protocol 2 (#14); update it.")
+endif ()
+list(APPEND OB_CORE_SOURCES ob_media.c)
+set(OB_OPENSERVICE 1)
+
+# The datatypes' stream class (DalsinAI/opendatatypes, checked out beside
+# this repository, or OPENDATATYPES_DIR): the native transport undoes gzip,
+# deflate and br through stream.datatype, gzip.datatype and brotli.datatype
+# (openamigaservice's src/wfnet_dec.c), so wfnet_amiga.c needs
+# datatypes/streamclass.h.
+set(OB_OPENDATATYPES_DIR "$ENV{OPENDATATYPES_DIR}")
+if (NOT EXISTS "${OB_OPENDATATYPES_DIR}/Datatypes/include/datatypes/streamclass.h")
+    set(OB_OPENDATATYPES_DIR "${CMAKE_CURRENT_SOURCE_DIR}/../../../opendatatypes")
+endif ()
+if (NOT EXISTS "${OB_OPENDATATYPES_DIR}/Datatypes/include/datatypes/streamclass.h")
+    message(FATAL_ERROR "opendatatypes not found at ${OB_OPENDATATYPES_DIR}: openweb.fetch's native "
+        "transport needs Datatypes/include/datatypes/streamclass.h. Check out DalsinAI/opendatatypes "
+        "beside this repository, or set OPENDATATYPES_DIR.")
 endif ()
 
 # openweb.fetch's client and its native transport (openamigaservice's
-# src/webfetch.c and src/wfnet*.c), for WebCore's second network backend
-# (patch 0073: the Shell variable OB_NET=openweb, curl otherwise). WebCore's
-# OpenWebFetchAmiga.c is given the client's headers; without them it builds
-# empty and curl does every load, as it does with a checkout older than
-# the asynchronous calls (wf_async_start, protocol v2). The native
-# transport reaches opentls.library through OpenTLS's headers.
-set(OB_WEBFETCH_ASYNC "")
-if (OB_OPENSERVICE AND EXISTS "${OB_OPENSERVICE_DIR}/src/webfetch.c")
-    set_property(DIRECTORY APPEND PROPERTY CMAKE_CONFIGURE_DEPENDS "${OB_OPENSERVICE_DIR}/include/openweb/webfetch.h")
-    file(STRINGS "${OB_OPENSERVICE_DIR}/include/openweb/webfetch.h" OB_WEBFETCH_ASYNC REGEX "wf_async_start")
-endif ()
-if (OB_WEBFETCH_ASYNC)
-    file(GLOB OB_WFNET_SOURCES "${OB_OPENSERVICE_DIR}/src/wfnet*.c")
-    list(APPEND OB_CORE_SOURCES "${OB_OPENSERVICE_DIR}/src/webfetch.c" ${OB_WFNET_SOURCES})
-    set_property(SOURCE "${OB_OPENSERVICE_DIR}/src/wfnet_amiga.c" APPEND PROPERTY
-        INCLUDE_DIRECTORIES "${CMAKE_CURRENT_SOURCE_DIR}/../../third_party/opentls/include")
-    set_property(SOURCE "${WEBCORE_DIR}/platform/network/amiga/OpenWebFetchAmiga.c" TARGET_DIRECTORY WebCore APPEND PROPERTY
-        INCLUDE_DIRECTORIES "${OB_OPENSERVICE_DIR}/include")
-endif ()
+# src/webfetch.c and src/wfnet*.c), WebCore's network backend. WebCore's
+# OpenWebFetchAmiga.c is given the client's headers. The native transport
+# reaches opentls.library through OpenTLS's headers and the datatypes
+# through opendatatypes' (wfnet_amiga.c and wfnet_dec.c only).
+file(GLOB OB_WFNET_SOURCES "${OB_OPENSERVICE_DIR}/src/wfnet*.c")
+list(APPEND OB_CORE_SOURCES "${OB_OPENSERVICE_DIR}/src/webfetch.c" ${OB_WFNET_SOURCES})
+set_property(SOURCE "${OB_OPENSERVICE_DIR}/src/wfnet_amiga.c" APPEND PROPERTY
+    INCLUDE_DIRECTORIES "${CMAKE_CURRENT_SOURCE_DIR}/../../third_party/opentls/include")
+set_property(SOURCE "${OB_OPENSERVICE_DIR}/src/wfnet_amiga.c" "${OB_OPENSERVICE_DIR}/src/wfnet_dec.c" APPEND PROPERTY
+    INCLUDE_DIRECTORIES "${OB_OPENDATATYPES_DIR}/Datatypes/include")
+set_property(SOURCE "${WEBCORE_DIR}/platform/network/amiga/OpenWebFetchAmiga.c" TARGET_DIRECTORY WebCore APPEND PROPERTY
+    INCLUDE_DIRECTORIES "${OB_OPENSERVICE_DIR}/include")
 
 set(OB_FRAMEWORKS
     JavaScriptCore
@@ -112,9 +130,7 @@ set(OB_PRIVATE_INCLUDE_DIRECTORIES
     # AmigaNetwork.h: the Amiga network layer's hooks (not a public header)
     ${WEBCORE_DIR}/platform/network/amiga
 )
-if (OB_OPENSERVICE)
-    list(APPEND OB_PRIVATE_INCLUDE_DIRECTORIES ${OB_OPENSERVICE_DIR}/include)
-endif ()
+list(APPEND OB_PRIVATE_INCLUDE_DIRECTORIES ${OB_OPENSERVICE_DIR}/include)
 if (OB_ICU_DATA STREQUAL "library")
     list(APPEND OB_PRIVATE_INCLUDE_DIRECTORIES ${OB_UNICODE_DIR}/include)
 endif ()
@@ -126,18 +142,10 @@ set(OB_SYSTEM_INCLUDE_DIRECTORIES
 
 # Static archives that depend on each other (WebCore, JavaScriptCore, WTF,
 # cairo, pixman...) are linked as one group, so their order does not
-# matter, followed by what libnix programs need. curl (openamigacurl, on
-# OpenTLS) opens opentls.library itself: there is no TLS library to link.
-# openamigacurl builds curl's HTTP/2 with nghttp2 (libnghttp2.a beside
-# libcurl.a); a curl built before that has none, and links without it. A new
-# libcurl.a makes CMake look again; build-webcore.sh also does when
-# libnghttp2.a comes or goes (it reads OB_NGHTTP2 from the cache).
-set_property(DIRECTORY APPEND PROPERTY CMAKE_CONFIGURE_DEPENDS "${AC_WEBCORE_DEPS}/lib/libcurl.a")
-if (EXISTS "${AC_WEBCORE_DEPS}/lib/libnghttp2.a")
-    set(OB_NGHTTP2 nghttp2 CACHE INTERNAL "nghttp2 linked after curl")
-else ()
-    set(OB_NGHTTP2 "" CACHE INTERNAL "nghttp2 linked after curl")
-endif ()
+# matter, followed by what libnix programs need. No curl or nghttp2 (WebKit
+# patch 0075): openweb.fetch's native transport opens bsdsocket.library,
+# opentls.library and datatypes.library itself, so there is no network or
+# TLS library to link.
 macro(OB_LINK _target)
     # OB_ICU_DATA=library: icui18n, icuuc and icudata are the library's stubs
     if (OB_ICU_DATA STREQUAL "library")
@@ -151,7 +159,7 @@ macro(OB_LINK _target)
     target_link_libraries(${_target} PRIVATE
         -Wl,--start-group
         OBCore WebCore PAL JavaScriptCore WTF bmalloc
-        cairo pixman-1 png z oxp sqlite3 curl ${OB_NGHTTP2}
+        cairo pixman-1 png z oxp sqlite3
         icui18n icuuc icudata
         amiga pthread atomic stdc++ m
         -Wl,--end-group

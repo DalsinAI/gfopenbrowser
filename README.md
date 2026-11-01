@@ -6,8 +6,8 @@ A WebKit-based web browser for AmigaOS 3.2. Needs a 68040 with FPU.
 AmigaOS 3.2.3. It lays out HTML and CSS, runs the page's JavaScript
 (JavaScriptCore) and paints with cairo, FreeType and HarfBuzz into a 32-bit
 bitmap; pictures are decoded by the system's datatypes. The browser window,
-**OpenBrowser** (GadTools), and its network layer (libcurl on OpenTLS; AmiSSL 5
-until 19 October 2026) are
+**OpenBrowser** (GadTools), and its network layer (openweb.fetch, from
+openamigaservice; libcurl on OpenTLS until WebKit patch 0075) are
 built and being brought up on the test instance. See
 [docs/WEBCORE_PORT.md](docs/WEBCORE_PORT.md).
 
@@ -95,19 +95,21 @@ The JavaScript engine:
 4. Run `WEBKIT_SOURCE=... scripts/build-jsc.sh`.
 
 OpenBrowser on WebCore needs, besides the compiler and ICU above, the
-libraries from the OpenAmiga ports (cairo and pixman, libxml2, SQLite, curl,
-libpsl, zlib and libpng; see
-https://github.com/DalsinAI/openamiga) built into one prefix, with curl from
-openamigacurl's main branch, which does TLS through OpenTLS, and with
-nghttp2 (`libnghttp2.a`, pinned and built by openamigacurl) for curl's
-HTTP/2. No AmiSSL SDK is needed (until 19 October 2026 the engine used
-AmiSSL 5). cairo is built without FreeType (openamigacairo, `CAIRO_FONTS=user`)
-and the prefix holds openfont.library's SDK (openamigafont): the engine's
-text is drawn and shaped with openfont.library 1.4, which the Amiga needs in
-`LIBS:`. Then apply the patches in `webkit/` and run
-`WEBKIT_SOURCE=... OAB_DEPS=... scripts/build-webcore.sh`.
-For https:// the Amiga needs opentls.library 1.2 or newer and its CA bundle
-in `S:OpenTLS/ca-bundle.pem`.
+libraries from the OpenAmiga ports (cairo and pixman, libxml2, SQLite, zlib
+and libpng; see
+https://github.com/DalsinAI/openamiga) built into one prefix. No curl,
+nghttp2, libpsl or AmiSSL: the network is openweb.fetch, so
+DalsinAI/openamigaservice and DalsinAI/opendatatypes must be checked out
+beside this repository (or named by `OPENSERVICE_DIR` and
+`OPENDATATYPES_DIR`). cairo is built without FreeType (openamigacairo,
+`CAIRO_FONTS=user`) and the prefix holds openfont.library's SDK
+(openamigafont): the engine's text is drawn and shaped with openfont.library
+1.4, which the Amiga needs in `LIBS:`. Then apply the patches in `webkit/`
+and run `WEBKIT_SOURCE=... OAB_DEPS=... scripts/build-webcore.sh`.
+Without a services card or a Cradle, the Amiga needs a TCP/IP stack, and
+for https:// opentls.library 1.2 or newer and its CA bundle in
+`S:OpenTLS/ca-bundle.pem`; stream.datatype, gzip.datatype and
+brotli.datatype undo compressed pages.
 The programs are large (about 76 MB each, stripped) and need a 68040 with
 FPU (hard float, `-m68881`) and plenty of Fast RAM. OpenBrowser's package
 (`scripts/package-browser.sh`) carries one of them: `WebBrowserEngine`,

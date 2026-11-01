@@ -121,6 +121,30 @@
     (copylib (source "OpenBrowser/Libs/unicode.library") (dest "LIBS:") (nogauge)
         (prompt "Installing unicode.library") (help @copylib-help) (confirm "expert")))
 
+; Compressed pages: openweb.fetch's native transport decodes gzip and br
+; through the datatypes stream class: z.library 53.12 (gzip.datatype opens
+; it), stream.datatype, gzip.datatype and brotli.datatype 47.1 or newer in
+; SYS:Classes/DataTypes, and their descriptors in DEVS:DataTypes. An older
+; one is renamed .before-20261031 (kept), then the drawer's goes in; a
+; descriptor goes in when missing. Without them pages still load,
+; uncompressed.
+(procedure P_newer #file #src #destdir #want
+    (if (< (getversion #file) #want)
+        (
+            (if (exists #file)
+                (if (= 0 (rename #file (cat #file ".before-20261031")))
+                    (abort (cat "Could not rename the old " #file "."))))
+            (copyfiles (source #src) (dest #destdir) (nogauge)))))
+(P_newer "LIBS:z.library" "OpenBrowser/Libs/z.library" "LIBS:" 3473420)
+(makedir "SYS:Classes/DataTypes")
+(P_newer "SYS:Classes/DataTypes/stream.datatype" "OpenBrowser/Classes/DataTypes/stream.datatype" "SYS:Classes/DataTypes" 3080193)
+(P_newer "SYS:Classes/DataTypes/gzip.datatype" "OpenBrowser/Classes/DataTypes/gzip.datatype" "SYS:Classes/DataTypes" 3080193)
+(P_newer "SYS:Classes/DataTypes/brotli.datatype" "OpenBrowser/Classes/DataTypes/brotli.datatype" "SYS:Classes/DataTypes" 3080193)
+(if (not (exists "DEVS:DataTypes/GZip"))
+    (copyfiles (source "OpenBrowser/Devs/DataTypes/GZip") (dest "DEVS:DataTypes") (nogauge)))
+(if (not (exists "DEVS:DataTypes/Brotli"))
+    (copyfiles (source "OpenBrowser/Devs/DataTypes/Brotli") (dest "DEVS:DataTypes") (nogauge)))
+
 ; 3. The Unicode data, for every program that reads it, when LOCALE: has room
 ;    for it and 2,000,000 bytes more; the engine in the drawer carries its own
 ;    copy as well (Libs/WebBrowser/Unicode, which it reads when LOCALE:Unicode

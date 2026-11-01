@@ -532,8 +532,8 @@ static int findDirective(const char *value, const char *name, long *number)
     return 0;
 }
 
-/* Vary names no request header but Accept-Encoding (curl sends the same
- * one each time and decodes the body). */
+/* Vary names no request header but Accept-Encoding (openweb.fetch sends the
+ * same one each time and decodes the body). */
 static int varyIsHarmless(const char *vary)
 {
     while (*vary) {
