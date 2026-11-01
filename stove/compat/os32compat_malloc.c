@@ -22,7 +22,8 @@
  * any class, unless it is the only page its class has room in (so that a
  * block allocated and freed over and over does not move pages about). An
  * arena with nothing left in use goes back to libnix, unless fewer than
- * eight empty pages would be left in the pool. With every block freed, the
+ * eight empty pages would be left in the pool, and that includes one just
+ * taken by a task while others filled the pool. With every block freed, the
  * pages kept are at most one for each class and 15 in the pool: 1.5 MB, in
  * at most five arenas. In use, the overhead is the header, the rounding
  * and the tail of a page (at most 6%); pooled pages wait for any
@@ -336,7 +337,14 @@ static char* os32_take(unsigned c)
     return slot;
 }
 
-/* a new arena's pages into the pool; 0 when libnix has no memory */
+/* a new arena's pages into the pool; 0 when libnix has no memory.
+ * libnix's malloc runs with the lock released, and other tasks that found the
+ * pool empty can be taking arenas at the same time, or freeing pages into the
+ * pool. A new arena is empty, so it is held to free()'s rule: it goes straight
+ * back to libnix when the pool already holds a whole arena's worth of pages.
+ * Kept, it would sit empty in the pool, and only a free() of one of its own
+ * blocks would look at it again (until 1 Nov 2026 three of them could be left
+ * there with every block freed). */
 static int os32_grow(void)
 {
     struct os32_arena* a = (struct os32_arena*)__real_malloc(sizeof *a + OS32_PAGES * OS32_PAGE + 8);
@@ -348,6 +356,11 @@ static int os32_grow(void)
     a->pooled = 0;
     base = (char*)(((uintptr_t)(a + 1) + 7) & ~(uintptr_t)7);
     os32_lock();
+    if (os32.nempty >= OS32_PAGES) {
+        os32_unlock();
+        __real_free(a);
+        return 1; /* the caller takes a page from the pool */
+    }
     for (i = 0; i < OS32_PAGES; i++) {
         struct os32_page* pg = &a->page[i];
         pg->base = base + i * OS32_PAGE;
