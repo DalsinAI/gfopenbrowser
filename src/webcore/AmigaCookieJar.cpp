@@ -1,5 +1,5 @@
 /*
- * OpenBrowser: the cookie jar (see AmigaCookieJar.h). The cookie string
+ * GFOpenBrowser: the cookie jar (see AmigaCookieJar.h). The cookie string
  * logic follows WebKit's curl network session (NetworkStorageSessionCurl).
  * MIT, Copyright (c) 2026 AmigaChrome Team.
  */
@@ -14,7 +14,7 @@
 #include <wtf/text/MakeString.h>
 #include <wtf/text/StringBuilder.h>
 
-namespace OpenBrowser {
+namespace GFOpenBrowser {
 
 using namespace WebCore;
 
@@ -121,4 +121,4 @@ void AmigaCookieJar::deleteCookie(const Document&, const URL& url, const String&
     completionHandler();
 }
 
-} // namespace OpenBrowser
+} // namespace GFOpenBrowser

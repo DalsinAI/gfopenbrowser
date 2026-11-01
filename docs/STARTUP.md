@@ -1,11 +1,11 @@
-# OpenBrowser's start-up and size: what to cut, what to make Amiga-centric
+# GFOpenBrowser's start-up and size: what to cut, what to make Amiga-centric
 
-Measured 6 October 2026 on OpenBrowser 0.4 (68040 build), Instance-24
+Measured 6 October 2026 on GFOpenBrowser 0.4 (68040 build), Instance-24
 (AmigaOS 3.2.3, the current AC090 emulator).
 
 ## Where the bytes are
 
-`OpenBrowser.engine` is 102 MB stripped (116 MB with symbols): 64 MB of code,
+`GFOpenBrowser.engine` is 102 MB stripped (116 MB with symbols): 64 MB of code,
 13 MB of data, nearly all of it read and relocated by LoadSeg at every start.
 
 | Part | Size | What it is |
@@ -45,13 +45,13 @@ Together roughly 102 MB → 85–90 MB. The program stays big: the engine itself
 
 ## Making it Amiga-centric
 
-- **Resident engine.** The launcher keeps `OpenBrowser.engine` loaded after
+- **Resident engine.** The launcher keeps `GFOpenBrowser.engine` loaded after
   the first start (a resident segment, as `Resident` does for commands), so
   the second start skips the 102 MB read entirely: near instant on any Amiga.
   This is the biggest start-up win, larger than any cut.
 - **pixman.** It is small (0.5 MB); its cost is per-pixel compositing at run
   time, 75–96 % of paint time. Keep it for anti-aliased shapes and text, and
-  hand the bulk work to what the Amiga has: on AmigaChrome AC090's magic
+  hand the bulk work to what the Amiga has: on AmiCradle AC090's magic
   pixman (native code, planned in the bridge thread); on real Amigas solid
   fills, copies and scaled pictures through graphics.library and the RTG
   card (`FillPixelArray`, `BltBitMapRastPort`, `ScalePixelArray`), which use
@@ -67,6 +67,6 @@ Together roughly 102 MB → 85–90 MB. The program stays big: the engine itself
 1. Resident engine (start-up).
 2. ICU trim: converters and dictionaries (size, RAM).
 3. pixman fast paths through graphics.library/RTG on real Amigas; magic
-   pixman with the bridge thread on AmigaChrome.
+   pixman with the bridge thread on AmiCradle.
 4. Glyph cache with the picture cache.
 5. WebCore trims (Inspector, accessibility, unused APIs), measured one by one.

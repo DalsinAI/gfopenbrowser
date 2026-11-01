@@ -1,4 +1,4 @@
-# The AmigaChrome Team. Lab only: build.ninja tweaks for the m68k-linux jsc host build
+# The AmiCradle Team. Lab only: build.ninja tweaks for the m68k-linux jsc host build
 # (rerun after every cmake regen). JSJIT_BUILD, ICU_LIB and DEFSYMS set the paths.
 # defsyms.txt maps the asm's _names to C names both ways; make it from the LLInt object:
 #   m68k-linux-gnu-nm LowLevelInterpreter.cpp.o > nm.txt

@@ -93,7 +93,7 @@ int main(void)
 {
     static const char html[] =
         "<!doctype html><html><head>"
-        "<title>OpenBrowser &amp; OpenLayout</title>"
+        "<title>GFOpenBrowser &amp; GFOpenLayout</title>"
         "<link rel=\"stylesheet\" href=\"/site.css\">"
         "<style>body{color:#202020} h1{color:#112233;font-size:28px}"
         ".lead{background:#eeeeee;padding:4px} #mainlink{color:red}"
@@ -138,7 +138,7 @@ int main(void)
     MARK("parsed");
     CHECK(r.document != NULL);
     CHECK(r.title != NULL);
-    CHECK(strcmp(r.title, "OpenBrowser & OpenLayout") == 0);
+    CHECK(strcmp(r.title, "GFOpenBrowser & GFOpenLayout") == 0);
     CHECK(r.saw_script == 1);
     CHECK(r.saw_style == 1);
     CHECK(r.nstylesheets == 1);

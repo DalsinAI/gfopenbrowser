@@ -1,17 +1,17 @@
 /*
- * OpenBrowser Lite: the main window, GadTools.
+ * GFOpenBrowser Lite: the main window, GadTools.
  *
  *   [Back] [Reload] [ address ............................ ] [Go]
  *   the page, laid out: headings, lists, links, pictures, CSS colours
  *   [Links...]  the status line
  *
- * Pages come over HTTP/HTTPS (ob_http, on OpenMail's bsdsocket/OpenTLS
+ * Pages come over HTTP/HTTPS (ob_http, on GFOpenMail's bsdsocket/GFOpenTLS
  * layer). weblayout (weblayout/weblayout.h, the bones of weblayout.library)
  * lays them out and draws them: this file fetches what a page asks for
  * (its stylesheets and pictures) and hands it over. Click a link to follow
  * it, or pick one from Links....
- * Other programs open addresses on the ARexx port AMIGACHROME.BROWSER
- * with OPENURL <address> (the hook OpenMail uses).
+ * Other programs open addresses on the ARexx port AMICRADLE.BROWSER
+ * with OPENURL <address> (the hook GFOpenMail uses).
  *
  * MIT, Copyright (c) 2026 AmigaChrome Team.
  */
@@ -51,9 +51,9 @@ struct Library *WebLayoutBase = NULL;
 
 struct Library *GadToolsBase = NULL;
 
-#define VERSION_TEXT "OpenBrowserLite 0.4.1 (19.10.2026)"
+#define VERSION_TEXT "GFOpenBrowserLite 0.4.1 (19.10.2026)"
 static const char version[] __attribute__((used)) = "$VER: " VERSION_TEXT;
-#define PORT_NAME "AMIGACHROME.BROWSER"
+#define PORT_NAME "AMICRADLE.BROWSER"
 #define HOME_PAGE "http://example.com/"
 #define HISTORY_MAX 32
 
@@ -187,7 +187,7 @@ static void load_page_images(void)
         }
         if (resp.status == 200 &&
             (!resp.content_type[0] || !strncasecmp(resp.content_type, "image/", 6))) {
-            snprintf(path, sizeof page_image_path[0], "T:OpenBrowser-%08lx-%ld.%s",
+            snprintf(path, sizeof page_image_path[0], "T:GFOpenBrowser-%08lx-%ld.%s",
                      (unsigned long)page_image_generation, (long)res.wr_ID,
                      image_suffix(resp.content_type));
             if (save_image_body(path, &resp) &&
@@ -429,7 +429,7 @@ static int show_text(const char *utf8)
     return show_page(utf8, strlen(utf8), WLKIND_TEXT);
 }
 
-/* links as OpenMail's converter gives them (one per line) made absolute */
+/* links as GFOpenMail's converter gives them (one per line) made absolute */
 static void take_links(const char *list)
 {
     const char *p = list;
@@ -502,7 +502,7 @@ static void open_url(const char *u, BOOL remember)
         oam_html_to_text(oam_buf_str(&utf8), utf8.len, &text, &linklist);
         take_links(oam_buf_str(&linklist));
         if (!show_html(oam_buf_str(&utf8), utf8.len))
-            show_text("OpenBrowser could not lay out this page.");
+            show_text("GFOpenBrowser could not lay out this page.");
     } else if (!strncmp(resp.content_type, "text/", 5)) {
         free_links();
         show_text(oam_buf_str(&utf8));
@@ -510,7 +510,7 @@ static void open_url(const char *u, BOOL remember)
         char message[256];
         free_links();
         snprintf(message, sizeof message,
-                 "This page is %s (%lu bytes), which OpenBrowser cannot show yet.",
+                 "This page is %s (%lu bytes), which GFOpenBrowser cannot show yet.",
                  resp.content_type, (unsigned long)resp.body.len);
         show_text(message);
     }
@@ -618,7 +618,7 @@ static BOOL open_window(void)
     if ((menu = CreateMenus(menus, TAG_DONE))) LayoutMenus(menu, vi, GTMN_NewLookMenus, TRUE, TAG_DONE);
     w = scr->Width * 9 / 10;
     h = scr->Height * 8 / 10;
-    win = OpenWindowTags(NULL, WA_Title, (ULONG)"OpenBrowser Lite", WA_ScreenTitle, (ULONG)VERSION_TEXT,
+    win = OpenWindowTags(NULL, WA_Title, (ULONG)"GFOpenBrowser Lite", WA_ScreenTitle, (ULONG)VERSION_TEXT,
                          WA_PubScreen, (ULONG)scr, WA_Width, w, WA_Height, h,
                          WA_Left, (scr->Width - w) / 2, WA_Top, (scr->Height - h) / 2,
                          WA_MinWidth, cw * 40, WA_MinHeight, (fh + 6) * 8, WA_MaxWidth, ~0, WA_MaxHeight, ~0,
@@ -655,7 +655,7 @@ static void close_window(void)
 
 static void about(void)
 {
-    struct EasyStruct es = { sizeof(struct EasyStruct), 0, (UBYTE *)"OpenBrowser Lite",
+    struct EasyStruct es = { sizeof(struct EasyStruct), 0, (UBYTE *)"GFOpenBrowser Lite",
         (UBYTE *)VERSION_TEXT "\n\nA web browser for AmigaOS 3.2.\nMIT licence, Copyright (c) 2026 AmigaChrome Team.", (UBYTE *)"OK" };
     EasyRequestArgs(win, &es, NULL, NULL);
 }
@@ -788,7 +788,7 @@ static BOOL images_poll(void)
     }
 }
 
-/* OPENURL <address>, OPENFILE <path>, QUIT on AMIGACHROME.BROWSER */
+/* OPENURL <address>, OPENFILE <path>, QUIT on AMICRADLE.BROWSER */
 static void rexx_events(void)
 {
     struct RexxMsg *rm;
@@ -832,17 +832,17 @@ static int browser_main(int argc, char **argv)
 #ifdef OB_WEBLAYOUT_LIBRARY
     WebLayoutBase = OpenLibrary((CONST_STRPTR)WEBLAYOUT_NAME, WEBLAYOUT_VERSION);
     if (!WebLayoutBase) {
-        PutStr((STRPTR)"OpenBrowser needs weblayout.library 1 and openlayout.library 2 or later\n");
+        PutStr((STRPTR)"GFOpenBrowser needs weblayout.library 1 and gfopenlayout.library 2 or later\n");
         return 20;
     }
 #endif
     if (!WL_Open()) {
-        PutStr((STRPTR)"OpenBrowser needs openlayout.library 2 or later\n");
+        PutStr((STRPTR)"GFOpenBrowser needs gfopenlayout.library 2 or later\n");
         close_weblayout();
         return 20;
     }
     if (!(GadToolsBase = OpenLibrary((STRPTR)"gadtools.library", 39))) {
-        PutStr((STRPTR)"OpenBrowser needs AmigaOS 3.0 or later (gadtools.library 39)\n");
+        PutStr((STRPTR)"GFOpenBrowser needs AmigaOS 3.0 or later (gadtools.library 39)\n");
         close_weblayout();
         return 20;
     }
@@ -854,7 +854,7 @@ static int browser_main(int argc, char **argv)
     }
     Permit();
     if (!open_window()) {
-        PutStr((STRPTR)"OpenBrowser: the window could not open\n");
+        PutStr((STRPTR)"GFOpenBrowser: the window could not open\n");
         close_window();
         if (rexx_port) { RemPort(rexx_port); DeleteMsgPort(rexx_port); }
         CloseLibrary(GadToolsBase);
@@ -864,9 +864,9 @@ static int browser_main(int argc, char **argv)
     ob_http_progress = progress;
     if (!oam_net_init(err, sizeof err)) {
         set_status("No network: %s", err);
-        show_text("OpenBrowser could not reach the network.\n\n"
+        show_text("GFOpenBrowser could not reach the network.\n\n"
                   "Check that a TCP/IP stack is running (bsdsocket.library) and that\n"
-                  "OpenTLS (opentls.library, OpenUp's OpenTLS part) is installed.");
+                  "GFOpenTLS (gfopentls.library, GFOpenUp's GFOpenTLS part) is installed.");
     } else {
         open_url(argc > 1 ? argv[1] : HOME_PAGE, TRUE);
     }

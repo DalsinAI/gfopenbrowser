@@ -1,4 +1,4 @@
-# test262 slice for OpenBrowser's jsc runs (tools/bench/test262_slice.py)
+# test262 slice for GFOpenBrowser's jsc runs (tools/bench/test262_slice.py)
 # test262: https://github.com/tc39/test262, BSD-3-Clause; fetched at run time, not kept here.
 # commit d53ebc8b1931d9f1541e43d59650776e4b766248
 # sha256 path

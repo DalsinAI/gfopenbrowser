@@ -62,7 +62,7 @@ index d741d61..e31d1a3 100644
 -    if (!m_gpu || !(m_gpu->caps & OBGPU_CAN_PATH) || blendMode() != BlendMode::Normal || hasDropShadow())
 +    if (!m_gpu || !(m_gpu->caps & OBGPU_CAN_PATH) || blendMode() != BlendMode::Normal || (drawsShadow && hasDropShadow()))
          return false;
-     // without anti-aliasing (cairo's CAIRO_ANTIALIAS_NONE) from opengpu.library 0.23
+     // without anti-aliasing (cairo's CAIRO_ANTIALIAS_NONE) from gfopengpu.library 0.23
      if (!shouldAntialias() && !(m_gpu->caps & OBGPU_CAN_ALIASED))
 @@ -965,24 +968,223 @@ void GraphicsContextOpenGPU::strokePath(const Path& path)
      m_cairo.strokePath(path);

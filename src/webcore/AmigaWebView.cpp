@@ -1,5 +1,5 @@
 /*
- * OpenBrowser: one web page in a view (see AmigaWebView.h).
+ * GFOpenBrowser: one web page in a view (see AmigaWebView.h).
  * MIT, Copyright (c) 2026 AmigaChrome Team.
  */
 #include "config.h"
@@ -50,7 +50,7 @@
 #include <wtf/TZoneMallocInlines.h>
 #include <wtf/text/CString.h>
 
-namespace OpenBrowser {
+namespace GFOpenBrowser {
 
 using namespace WebCore;
 
@@ -284,8 +284,8 @@ bool WebView::paint(unsigned char* argb, int stride, const IntRect& rect, bool l
         if (view)
             view->paint(context, area);
     };
-    // Through OpenGPU, where it can draw the call, unless OB_PAINT=cairo
-    // (or no opengpu.library); the context draws the last batch as it goes.
+    // Through GFOpenGPU, where it can draw the call, unless OB_PAINT=cairo
+    // (or no gfopengpu.library); the context draws the last batch as it goes.
     if (GraphicsContextOpenGPU::isWanted()) {
         GraphicsContextOpenGPU context(surface, &m_paintCounts);
         paintWith(context);
@@ -658,4 +658,4 @@ void WebView::resourceEnded(const String& url, const String& error)
     m_callbacks.resource(m_callbacks.context, cString(utf8URL), 0, error.isNull() ? nullptr : cString(utf8Error));
 }
 
-} // namespace OpenBrowser
+} // namespace GFOpenBrowser

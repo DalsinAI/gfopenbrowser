@@ -1,5 +1,5 @@
 /*
- * OpenBrowser: JavaScriptCore options from the environment, for tests.
+ * GFOpenBrowser: JavaScriptCore options from the environment, for tests.
  * JavaScriptCore reads JSC_<name> with getenv(), but in the engine that
  * getenv() is libnix's inside the JavaScriptEngine image, whose environ is
  * never filled in, so JSC_ variables never reached it. The variable OBJSC

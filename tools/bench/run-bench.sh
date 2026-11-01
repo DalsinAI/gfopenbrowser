@@ -1,13 +1,13 @@
 #!/bin/sh
-# OpenBrowser (DalsinAI/openamigabrowser)
+# GFOpenBrowser (DalsinAI/openamigabrowser)
 # Copyright (c) 2026 The AmigaChrome Team. MIT licence, see LICENSE.
 #
-# Run a staged benchmark (tools/bench/stage.py) on an AmigaChrome test
+# Run a staged benchmark (tools/bench/stage.py) on an AmiCradle test
 # instance, one page per job through DH1:Probe/runner.script (see
 # tools/runner.script), and collect the logs and pictures.
-#   INSTANCE_ROOT    the AmigaChrome instance folder (required)
+#   INSTANCE_ROOT    the AmiCradle instance folder (required)
 #   RUNTIME_PORT     the instance's runtime port (required)
-#   AMIGACHROME_ROOT the AmigaChrome install (default $HOME/AmigaChrome)
+#   AMICRADLE_ROOT the AmiCradle install (default $HOME/AmiCradle)
 #   BENCH_DRAWER     the drawer in DH1 that stage.py filled (default Bench)
 #   BENCH_TIMEOUT    seconds a page may take before the instance is
 #                    restarted and the next page started (default 900)
@@ -18,7 +18,7 @@ set -eu
 OUT=${1:?usage: run-bench.sh OUT_DIR [page-id ...]}; shift
 I=${INSTANCE_ROOT:?set INSTANCE_ROOT}
 PORT=${RUNTIME_PORT:?set RUNTIME_PORT}
-AC=${AMIGACHROME_ROOT:-$HOME/AmigaChrome}
+AC=${AMICRADLE_ROOT:-$HOME/AmiCradle}
 DRAWER=${BENCH_DRAWER:-Bench}
 TMO=${BENCH_TIMEOUT:-900}
 DH1=$I/devices/harddisks/DH1

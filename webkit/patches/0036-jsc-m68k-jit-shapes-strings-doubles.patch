@@ -26,7 +26,7 @@ Subject: [PATCH] JavaScriptCore: property shape tables, getters, strings and
   the frame only.
 - op_check_traps gets a plain fast path.
 
-The AmigaChrome Team.
+The AmiCradle Team.
 ---
  Source/JavaScriptCore/bytecode/CodeBlock.cpp  |   4 +
  .../JavaScriptCore/llint/M68KTemplateJIT.cpp  | 828 +++++++++++++++++-

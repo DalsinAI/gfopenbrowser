@@ -3,7 +3,7 @@
  *
  *   WebLayoutLibTest
  *
- * Opens weblayout.library 1 (which opens openlayout.library 2), then runs
+ * Opens weblayout.library 1 (which opens gfopenlayout.library 2), then runs
  * its calls on a small page laid out and drawn into an off-screen RastPort
  * with topaz 8: title, stylesheet and picture resources, layout, drawing,
  * the link under a point (in a paragraph with bold text after the link),
@@ -102,7 +102,7 @@ int main(void)
 
     WebLayoutBase = OpenLibrary((CONST_STRPTR)WEBLAYOUT_NAME, WEBLAYOUT_VERSION);
     if (!WebLayoutBase) {
-        printf("WEBLAYOUTLIB FAIL: no weblayout.library %d in LIBS: (or no openlayout.library 2)\n",
+        printf("WEBLAYOUTLIB FAIL: no weblayout.library %d in LIBS: (or no gfopenlayout.library 2)\n",
                WEBLAYOUT_VERSION);
         return 20;
     }

@@ -6,7 +6,7 @@
  * blurLayerImage with calculateLobes' box sizes (canvas: 2/3 of the blur;
  * CSS: sigma = blur / 2 times 3 sqrt(2 pi) / 4 times 0.88), ported here
  * line for line, then the shadow colour times the global alpha through it,
- * and the shape drawn by cairo over it. The writer asks OpenGPU's BLUR for
+ * and the shape drawn by cairo over it. The writer asks GFOpenGPU's BLUR for
  * the same box sizes (obgpu_blur_radius_for_box).
  *   test_opengpu_shadow          (needs cairo's headers and library)
  * MIT, Copyright (c) 2026 AmigaChrome Team.
@@ -438,7 +438,7 @@ int main(void)
     static const double red[4] = { 0.85, 0.1, 0.1, 1 }, blueHalf[4] = { 0.1, 0.2, 0.9, 0.5 }, black[4] = { 0, 0, 0, 0.75 },
         navy[4] = { 0.0, 0.1, 0.4, 1 };
     int k;
-    printf("ShadowBlur's box sizes, and OpenGPU's for the radius asked\n");
+    printf("ShadowBlur's box sizes, and GFOpenGPU's for the radius asked\n");
     {
         static const float radii[] = { 1, 2, 3, 4, 5, 7.5f, 10, 13, 20, 33, 64, 128 };
         int i, bad = 0;
@@ -452,7 +452,7 @@ int main(void)
                     bad++;
             }
         check(!bad, "each ShadowBlur box size asked of BLUR comes back the same");
-        printf("  blur 10: canvas box %d, CSS box %d (OpenGPU's own for 10 would be %d)\n", boxSize(10, 1), boxSize(10, 0),
+        printf("  blur 10: canvas box %d, CSS box %d (GFOpenGPU's own for 10 would be %d)\n", boxSize(10, 1), boxSize(10, 0),
             (int)(((((long long)160) << 11) * 123207 + 0x80000000LL) >> 32));
     }
     printf("shadows against ShadowBlur's\n");

@@ -2,7 +2,7 @@
 # Copyright (c) 2026 AmigaChrome Team. MIT licence (see LICENSE at the repository root).
 """openjson_lib.c's vector table against sfd/json_lib.sfd: the same calls in
 the same order, and each slot's LVO comment right. The SDK headers are made
-from the SFD by OpenNDK's ndkgen.py (scripts/gen-jsonlib-sdk.sh)."""
+from the SFD by GFOpenNDK's ndkgen.py (scripts/gen-jsonlib-sdk.sh)."""
 import os
 import re
 import sys

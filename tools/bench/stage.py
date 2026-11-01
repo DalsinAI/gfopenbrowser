@@ -1,14 +1,14 @@
 #!/usr/bin/env python3
-# OpenBrowser (DalsinAI/openamigabrowser)
+# GFOpenBrowser (DalsinAI/openamigabrowser)
 # Copyright (c) 2026 The AmigaChrome Team. MIT licence, see LICENSE.
-"""Stage OpenBrowser's benchmark in a folder the Amiga sees as a drawer
+"""Stage GFOpenBrowser's benchmark in a folder the Amiga sees as a drawer
 (normally DH1:Bench of a test instance): the programs, fonts, the pages of
 tests/bench/pages.txt and AmigaDOS scripts that run them.
 
   stage.py --out DIR [options]
 
   DIR/OBBench        runs every page in turn ("Execute OBBench" in DIR)
-  DIR/jobs/<id>      one page: obcore-view, then OpenBrowser Lite's obfetch
+  DIR/jobs/<id>      one page: obcore-view, then GFOpenBrowser Lite's obfetch
                      (live pages, when staged), each between two obstamp
                      lines; the output goes to DIR/logs/<id>.log, the picture
                      to DIR/png/<id>.png
@@ -22,11 +22,11 @@ Programs (left out with --no-programs, for restaging only the pages):
                 $OBSTAMP_CC (default $OS32_GCC16/prefix/bin/m68k-amigaos-gcc)
   Fonts/        the .ttf files of --fonts (default $OB_FONTS); needed unless
                 DIR/Fonts already has them
-  Libs/openfont.library   --openfont FILE (default $OPENFONT_LIB), optional:
-                the engine draws its text with openfont.library 1.4 (WebKit
+  Libs/gfopenfont.library   --openfont FILE (default $OPENFONT_LIB), optional:
+                the engine draws its text with gfopenfont.library 1.4 (WebKit
                 patch 0090) and opens this one when LIBS: has none or an
                 older one
-  OpenBrowserLite, obfetch   from --lite (default $OB_LITE_DIR), optional
+  GFOpenBrowserLite, obfetch   from --lite (default $OB_LITE_DIR), optional
 
 See docs/BENCHMARKS.md.
 """
@@ -68,7 +68,7 @@ def job_script(page, opts, have_fetch, lite_gui):
     if page["url"]:
         view.append("-url")
     view += [benchlib.amiga_quote(target), str(width), str(height), "png/%s.png" % ident]
-    out = ["; OpenBrowser benchmark job %s (staged by tools/bench/stage.py)" % ident,
+    out = ["; GFOpenBrowser benchmark job %s (staged by tools/bench/stage.py)" % ident,
            "FailAt 1000",
            "Stack 400000",
            "Echo %s >%s" % (benchlib.amiga_quote("OBBENCH_PAGE id=%s set=%s target=%s" % (ident, page["set"], page["target"])), log)]
@@ -88,14 +88,14 @@ def job_script(page, opts, have_fetch, lite_gui):
                     "Search T:obbench-fetch.txt FETCH_ NONUM >>%s" % log]
         out.append("Delete T:obbench-fetch.txt QUIET")
     if page["url"] and page["lite"] and lite_gui:
-        # Experimental: OpenBrowser Lite's window, given lite_gui seconds,
+        # Experimental: GFOpenBrowser Lite's window, given lite_gui seconds,
         # then stopped with Ctrl-C (Break), which it takes as Quit.
         out += ["Echo \"OBBENCH_RUN lite 1\" >>%s" % log,
                 "obstamp lite-start >>%s" % log,
-                "Run >NIL: OpenBrowserLite %s" % benchlib.amiga_quote(page["target"]),
+                "Run >NIL: GFOpenBrowserLite %s" % benchlib.amiga_quote(page["target"]),
                 "Wait %d" % lite_gui,
                 "obstamp lite-open >>%s" % log,
-                "Status >ENV:obbenchcli COMMAND=OpenBrowserLite",
+                "Status >ENV:obbenchcli COMMAND=GFOpenBrowserLite",
                 "Break $obbenchcli C",
                 "Echo \"OBBENCH_RC lite $RC\" >>%s" % log,
                 "Wait 3",
@@ -106,7 +106,7 @@ def job_script(page, opts, have_fetch, lite_gui):
 
 
 def main_script(pages):
-    out = ["; OpenBrowser benchmark (tools/bench/stage.py). From this drawer:",
+    out = ["; GFOpenBrowser benchmark (tools/bench/stage.py). From this drawer:",
            ";   Execute OBBench",
            "; Each page logs to logs/<id>.log; this script's own log is OBBench.log.",
            "FailAt 1000",
@@ -120,7 +120,7 @@ def main_script(pages):
 
 
 def stove_tool(name):
-    stove = os.environ.get("OS32_GCC16", os.path.expanduser("~/AmigaChrome/stoves/os32-gcc16"))
+    stove = os.environ.get("OS32_GCC16", os.path.expanduser("~/AmiCradle/stoves/os32-gcc16"))
     path = os.path.join(stove, "prefix", "bin", name)
     return path if os.path.exists(path) else None
 
@@ -167,13 +167,13 @@ def stage_programs(opts, out, info):
     openfont = opts.openfont or os.environ.get("OPENFONT_LIB")
     if openfont:
         os.makedirs(os.path.join(out, "Libs"), exist_ok=True)
-        shutil.copyfile(openfont, os.path.join(out, "Libs", "openfont.library"))
-        info.append("openfont.library %s" % sha256_file(openfont))
+        shutil.copyfile(openfont, os.path.join(out, "Libs", "gfopenfont.library"))
+        info.append("gfopenfont.library %s" % sha256_file(openfont))
     shutil.copyfile(os.path.join(ROOT, "src", "webcore", "blocklist"), os.path.join(out, "blocklist"))
 
     lite = opts.lite or os.environ.get("OB_LITE_DIR")
     have = {}
-    for name in ("obfetch", "OpenBrowserLite"):
+    for name in ("obfetch", "GFOpenBrowserLite"):
         src = os.path.join(lite, name) if lite else None
         if src and os.path.isfile(src):
             copy_program(src, os.path.join(out, name), strip=False)
@@ -193,11 +193,11 @@ def main(argv=None):
     p.add_argument("--size", default="800x600", help="viewport WxH (default 800x600)")
     p.add_argument("--bin", help="folder holding obcore-view")
     p.add_argument("--fonts", help="folder of .ttf files (default $OB_FONTS)")
-    p.add_argument("--openfont", help="openfont.library to stage in Libs/ (default $OPENFONT_LIB)")
-    p.add_argument("--lite", help="folder holding OpenBrowserLite and/or obfetch (default $OB_LITE_DIR)")
+    p.add_argument("--openfont", help="gfopenfont.library to stage in Libs/ (default $OPENFONT_LIB)")
+    p.add_argument("--lite", help="folder holding GFOpenBrowserLite and/or obfetch (default $OB_LITE_DIR)")
     p.add_argument("--obstamp", help="a built obstamp")
     p.add_argument("--lite-gui", type=int, default=0, metavar="SECONDS",
-                   help="also open OpenBrowserLite's window on live pages for SECONDS (experimental)")
+                   help="also open GFOpenBrowserLite's window on live pages for SECONDS (experimental)")
     p.add_argument("--no-programs", action="store_true", help="stage pages and scripts only")
     opts = p.parse_args(argv)
     if not opts.out:
@@ -227,11 +227,11 @@ def main(argv=None):
     info = ["staged %s" % time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()), "commit %s" % (commit or "unknown"),
             "size %dx%d repeat %d wait %d" % (opts.size[0], opts.size[1], opts.repeat, opts.wait)]
     if opts.no_programs:
-        have = {n: os.path.isfile(os.path.join(out, n)) for n in ("obfetch", "OpenBrowserLite")}
+        have = {n: os.path.isfile(os.path.join(out, n)) for n in ("obfetch", "GFOpenBrowserLite")}
     else:
         have = stage_programs(opts, out, info)
-    if opts.lite_gui and not have.get("OpenBrowserLite"):
-        p.error("--lite-gui needs OpenBrowserLite in --lite")
+    if opts.lite_gui and not have.get("GFOpenBrowserLite"):
+        p.error("--lite-gui needs GFOpenBrowserLite in --lite")
 
     for page in pages:
         if not page["url"]:

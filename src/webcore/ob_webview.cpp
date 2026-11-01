@@ -1,5 +1,5 @@
 /*
- * OpenBrowser: the C interface to WebCore pages (see ob_webview.h), and the
+ * GFOpenBrowser: the C interface to WebCore pages (see ob_webview.h), and the
  * translation of Amiga input into WebCore's events.
  * MIT, Copyright (c) 2026 AmigaChrome Team.
  */
@@ -63,7 +63,7 @@ using namespace WebCore;
 struct OBWebView {
     WTF_MAKE_TZONE_ALLOCATED(OBWebView);
 public:
-    std::unique_ptr<OpenBrowser::WebView> view;
+    std::unique_ptr<GFOpenBrowser::WebView> view;
 };
 
 WTF_MAKE_TZONE_ALLOCATED_IMPL(OBWebView);
@@ -106,7 +106,7 @@ static void initializeEngine(WebCore::LoaderStrategy* loader)
     WTF::initializeMainThread();
     initializeCommonAtomStrings();
     populateJITOperations();
-    OpenBrowser::initializePlatformStrategies(loader);
+    GFOpenBrowser::initializePlatformStrategies(loader);
     // Decoded pictures, style sheets and scripts kept for reuse: 16 MB.
     MemoryCache::singleton().setCapacities(1024 * 1024, 8 * 1024 * 1024, 16 * 1024 * 1024);
     resetFPCR();
@@ -123,9 +123,9 @@ int ob_webcore_init(void)
     return 1;
 }
 
-static RefPtr<OpenBrowser::AmigaCookieJar>& cookieJar()
+static RefPtr<GFOpenBrowser::AmigaCookieJar>& cookieJar()
 {
-    static NeverDestroyed<RefPtr<OpenBrowser::AmigaCookieJar>> jar;
+    static NeverDestroyed<RefPtr<GFOpenBrowser::AmigaCookieJar>> jar;
     return jar.get();
 }
 
@@ -138,7 +138,7 @@ int ob_webcore_init_with_network(const char* cookieDatabase)
 #endif
     if (!ob_network_open())
         return 0;
-    initializeEngine(OpenBrowser::networkLoaderStrategy());
+    initializeEngine(GFOpenBrowser::networkLoaderStrategy());
 
     // The network thread runs a step above the browser (AmigaNetworkSetup.c).
     AmigaNetworkThreadHooks threadHooks;
@@ -146,21 +146,21 @@ int ob_webcore_init_with_network(const char* cookieDatabase)
     setAmigaNetworkThreadHooks(threadHooks);
 
     // One cookie jar for the network and for document.cookie.
-    cookieJar() = OpenBrowser::AmigaCookieJar::create(String::fromUTF8(cookieDatabase ? cookieDatabase : ":memory:"));
+    cookieJar() = GFOpenBrowser::AmigaCookieJar::create(String::fromUTF8(cookieDatabase ? cookieDatabase : ":memory:"));
     AmigaCookieHooks cookieHooks;
     cookieHooks.cookieHeader = [](const URL& firstParty, const URL& url) {
-        auto* jar = OpenBrowser::AmigaCookieJar::shared();
+        auto* jar = GFOpenBrowser::AmigaCookieJar::shared();
         return jar ? jar->cookieHeaderForRequest(firstParty, url) : String();
     };
     cookieHooks.storeFromResponse = [](const URL& firstParty, const URL& url, const String& setCookie) {
-        if (auto* jar = OpenBrowser::AmigaCookieJar::shared())
+        if (auto* jar = GFOpenBrowser::AmigaCookieJar::shared())
             jar->storeFromResponse(firstParty, url, setCookie);
     };
     setAmigaCookieHooks(WTF::move(cookieHooks));
 
     // Pages seen before load their files from the disk (ob_httpcache.h:
     // ENV:OB_HTTP_CACHE=0 turns this off).
-    OpenBrowser::initializeHttpCache("PROGDIR:Cache");
+    GFOpenBrowser::initializeHttpCache("PROGDIR:Cache");
     return 1;
 }
 
@@ -193,7 +193,7 @@ void ob_webcore_shutdown(void)
     // The network thread ends first: the program cannot exit while it runs.
     stopAmigaNetwork();
     ob_webcore_stop_threads();
-    OpenBrowser::closeHttpCache();
+    GFOpenBrowser::closeHttpCache();
     cookieJar() = nullptr;
     ob_network_close();
 }
@@ -234,7 +234,7 @@ OBWebView* ob_webview_create(int width, int height, const OBWebViewCallbacks* ca
 {
     OBWebViewCallbacks none { };
     auto* handle = new OBWebView;
-    handle->view = makeUnique<OpenBrowser::WebView>(callbacks ? *callbacks : none, IntSize(width, height));
+    handle->view = makeUnique<GFOpenBrowser::WebView>(callbacks ? *callbacks : none, IntSize(width, height));
     return handle;
 }
 

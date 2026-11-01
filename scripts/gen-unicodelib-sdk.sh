@@ -1,8 +1,8 @@
 #!/bin/sh
-# OpenBrowser (DalsinAI/openamigabrowser)
+# GFOpenBrowser (DalsinAI/openamigabrowser)
 # Copyright (c) 2026 AmigaChrome Team. MIT licence, see LICENSE.
 #
-# src/unicodelib/sdk from sfd/unicode_lib.sfd with OpenNDK's ndkgen.py
+# src/unicodelib/sdk from sfd/unicode_lib.sfd with GFOpenNDK's ndkgen.py
 # (libraries/unicode.h is written by hand). OPENSDK_SRC: an openamigasdk
 # checkout (default: beside this repository).
 set -eu

@@ -1,5 +1,5 @@
 /*
- * obcore-view: load a page into an OpenBrowser view without a window, run
+ * obcore-view: load a page into a GFOpenBrowser view without a window, run
  * WebCore until the page has loaded, then paint the view into a 32-bit
  * buffer and save it as PNG. A test of the browser's page layer (frame
  * loader, chrome and editor clients, run loop, painting) from C.
@@ -25,7 +25,7 @@
  *
  * At the end it prints one OBVIEW_BENCH line of timings and memory for
  * tools/bench (see docs/BENCHMARKS.md and the block marked "Benchmark"),
- * with how long the page took to paint and what painted it (OpenGPU's draws
+ * with how long the page took to paint and what painted it (GFOpenGPU's draws
  * and batches and the calls cairo drew, ob_webview_paint_report()).
  *
  * MIT, Copyright (c) 2026 AmigaChrome Team.

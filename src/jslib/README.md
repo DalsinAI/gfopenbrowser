@@ -50,7 +50,7 @@ keeps it. Keeping the 68k template JIT's code beside it is the next step.
 | `jsl_os.h`, `jsl_os_exec.c`, `jsl_os_posix.c` | What the core needs from the system: a script thread (a pthread) and its mailbox (an Exec port on AmigaOS). The POSIX layer is for the tests. |
 | `jsl_engine.h`, `jsl_engine_amiga.h` | The table, and the engine's port, shared by the library and the engine. |
 | `JS.c` | The Shell command: `print`, `readFile`, `writeFile`, `arguments`. |
-| `sfd/javascript_lib.sfd`, `sdk/` | The calls (LVO -30 to -204), and the SDK OpenNDK's `ndkgen.py` makes from them (`scripts/gen-jslib-sdk.sh`); `sdk/Include_H/libraries/javascript.h` by hand. |
+| `sfd/javascript_lib.sfd`, `sdk/` | The calls (LVO -30 to -204), and the SDK GFOpenNDK's `ndkgen.py` makes from them (`scripts/gen-jslib-sdk.sh`); `sdk/Include_H/libraries/javascript.h` by hand. |
 | `check_vectors.py` | The library's vector table against the SFD. |
 
 A **script task** is a thread with its own JavaScriptCore VM, heap and
@@ -70,7 +70,7 @@ DOS calls are fine. A slot function returns a new value (`JS_New*`,
 ## Building and testing
 
 - Library and JS: `scripts/build-javascript-library.sh` (os32-gcc16 or the
-  OpenAmigaGCC release, OpenNDK). CI: `.github/workflows/jslib.yml`.
+  GFOpenAmigaGCC release, GFOpenNDK). CI: `.github/workflows/jslib.yml`.
 - Engine: `scripts/build-webcore.sh build-javascript` in the browser's
   build folder. JavaScriptEngine is then built on the browser's own
   JavaScriptCore, with the same patches (the 68k JIT included) and flags
@@ -90,5 +90,5 @@ Install: `javascript.library` in `LIBS:`, `JavaScriptEngine` in
 `LIBS:JavaScript/`, `JS` in `C:`.
 
 Next (the design's phases): the 68k code kept with the translation, then
-the host classes proved on OpenBrowser Lite, then OpenBrowser itself on the
+the host classes proved on GFOpenBrowser Lite, then GFOpenBrowser itself on the
 library.

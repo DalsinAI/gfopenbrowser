@@ -46,7 +46,7 @@ run_cases "host, sanitizers" "$tmp/t"
 
 # the shell's vector table follows sfd/json_lib.sfd; with OPENSDK_SRC (an
 # openamigasdk checkout), so do the SDK headers, and the shell and JSONTest
-# compile against OpenNDK (with an m68k cross GCC, as plain C: REG is a
+# compile against GFOpenNDK (with an m68k cross GCC, as plain C: REG is a
 # plain parameter there, the Amiga GCC's register arguments aside)
 if res=$(python3 -I "$src/check_vectors.py"); then echo "ok   $res"; else echo "FAIL $res"; fail=1; fi
 if [ -n "${OPENSDK_SRC:-}" ]; then
@@ -56,9 +56,9 @@ if [ -n "${OPENSDK_SRC:-}" ]; then
            -Wall -Wextra -Werror -Wno-unused-parameter -I"$ndk" -I"$src/sdk/Include_H" -I"$src" "$src/openjson_lib.c" &&
        "${prefix}gcc" -m68040 -Os -std=gnu99 -fsyntax-only -Wall -Wextra -Werror -Wno-pointer-sign -Wno-format \
            -I"$ndk" -I"$src/sdk/Include_H" "$src/tests/JSONTest.c"; then
-        echo "ok   the SDK headers follow the SFD; the shell and JSONTest compile against OpenNDK"
+        echo "ok   the SDK headers follow the SFD; the shell and JSONTest compile against GFOpenNDK"
     else
-        echo "FAIL the SDK headers or the OpenNDK compile"; fail=1
+        echo "FAIL the SDK headers or the GFOpenNDK compile"; fail=1
     fi
 fi
 

@@ -35,10 +35,10 @@ If the engine crashes, the programs waiting on it get `WBERR_NOENGINE`, and
 the engine prints the code offsets of the crash (for its link map) on its
 output.
 
-## OpenBrowser uses it too
+## GFOpenBrowser uses it too
 
-The OpenBrowser icon starts a small launcher that calls `WB_OpenBrowser()`:
-the engine opens OpenBrowser's window (the same code as the stand-alone
+The GFOpenBrowser icon starts a small launcher that calls `WB_OpenBrowser()`:
+the engine opens GFOpenBrowser's window (the same code as the stand-alone
 browser, `src/webcore/ob_browser.c`), or shows the page in the window
 already open. The first launch loads the engine (about 8 s on the 68040
 bench); later launches, while it is in memory, open in about 2 s. Closing
@@ -54,7 +54,7 @@ gives its memory back, and the next call starts it again.
 LIBS:webbrowser.library
 LIBS:WebBrowser/WebBrowserEngine
 LIBS:WebBrowser/Fonts/                 the TrueType fonts
-LIBS:openfont.library                  1.4 or newer: the engine's text
+LIBS:gfopenfont.library                  1.4 or newer: the engine's text
 ```
 
 The engine keeps its cookies in `LIBS:WebBrowser/Cookies.db`. It kept its
@@ -62,13 +62,13 @@ TLS sessions in `LIBS:WebBrowser/TLSSessions` until WebKit patch 0075
 (curl's session cache); openweb.fetch keeps none yet. Without the fonts it
 stops at the first page.
 
-Not installed, OpenBrowser still works from its drawer as unpacked: the
+Not installed, GFOpenBrowser still works from its drawer as unpacked: the
 launcher opens `PROGDIR:Libs/webbrowser.library`, and the library starts
 `PROGDIR:Libs/WebBrowser/WebBrowserEngine` when `LIBS:WebBrowser` has no
 engine.
 
-Since 0.8.2 this is the one engine OpenBrowser's package carries (there is
-no `OpenBrowser.engine` beside the launcher), and Install keeps it in the
+Since 0.8.2 this is the one engine GFOpenBrowser's package carries (there is
+no `GFOpenBrowser.engine` beside the launcher), and Install keeps it in the
 drawer: `Libs/WebBrowser/` holds `WebBrowserEngine` with the one copy of
 `Fonts/`, `fontconfig/fonts.conf`, `blocklist`, `Unicode/icudt78b.dat` and
 `Network/public-suffixes` (patch 0070).
@@ -76,11 +76,11 @@ The engine finds them through its own `PROGDIR:` (fontconfig's
 `FONTCONFIG_PATH` is `PROGDIR:fontconfig`, the built-in fonts dir
 `PROGDIR:Fonts`; `AmigaFrameLoaderClient.cpp` reads `PROGDIR:blocklist`;
 `ob_icudata.c` tries `LOCALE:Unicode/`, then `PROGDIR:Unicode/`; patch 0070
-reads `PROGDIR:Network/public-suffixes`, then `ENVARC:OpenBrowser/`). Install
+reads `PROGDIR:Network/public-suffixes`, then `ENVARC:GFOpenBrowser/`). Install
 renames an older `LIBS:WebBrowser/WebBrowserEngine` (an engine, or the
 two-line script 0.8.0 and 0.8.1 test wrote there) to
 `WebBrowserEngine.before-20261023b`, so the library runs the drawer's
-engine for the OpenBrowser launcher. A program elsewhere that uses the
+engine for the GFOpenBrowser launcher. A program elsewhere that uses the
 library then needs an engine in `LIBS:WebBrowser` of its own.
 
 ## Calls
@@ -103,7 +103,7 @@ library then needs an engine in `LIBS:WebBrowser` of its own.
 | `WB_Key(view, down, rawKey, text, qualifiers)` | -108 | |
 | `WB_Scroll(view, dx, dy)` | -114 | |
 | `WB_Shutdown()` | -120 | ends the engine |
-| `WB_OpenBrowser(url, tags)` | -126 | OpenBrowser's window (1.1); tags `WBA_Scripts`, `WBA_Pictures`, `WBA_WebFonts`, `WBA_Lite` |
+| `WB_OpenBrowser(url, tags)` | -126 | GFOpenBrowser's window (1.1); tags `WBA_Scripts`, `WBA_Pictures`, `WBA_WebFonts`, `WBA_Lite` |
 
 Headers: `src/webbrowser/include` (`libraries/webbrowser.h`,
 `proto/webbrowser.h`, `inline/webbrowser.h`, `clib/webbrowser_protos.h`).

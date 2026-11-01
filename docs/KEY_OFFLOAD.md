@@ -3,7 +3,7 @@
 Status: design, 5 October 2026. Nothing here is built yet beyond the probe.
 
 Note, 19 October 2026: the engine no longer uses AmiSSL (curl does TLS through
-OpenTLS, WebKit patch 0022), so the AmiSSL provider path below is out of the
+GFOpenTLS, WebKit patch 0022), so the AmiSSL provider path below is out of the
 browser's build. The measurements still stand.
 
 ## What we want
@@ -70,7 +70,7 @@ have taken anyway.
 
 | Path | Where | Trust |
 | --- | --- | --- |
-| Internal: bridge | AmigaChrome's bridge board, service `opentls.key/1` | The host is the machine; trusted |
+| Internal: bridge | AmiCradle's bridge board, service `opentls.key/1` | The host is the machine; trusted |
 | Internal: Emu68 | PiStorm's ARM through an Emu68 call | The machine itself; trusted |
 | Nursery | A Cradle on the LAN, found by mDNS, paired once | Trusted only after pairing |
 | Local | AmiSSL on the 68k | Always there |
@@ -94,7 +94,7 @@ service (`opentls.key/1` here, `media.decode/1` for the media work) and does
 not know where it runs. On the Amiga that API is one Exec device behind an
 AutoConfig card, as in the bridge plan:
 
-- Where the Amiga is emulated, the card is virtual: AmigaChrome's bridge
+- Where the Amiga is emulated, the card is virtual: AmiCradle's bridge
   board on an x86 PC, and the same card presented by Emu68 on a PiStorm's
   Pi. The work then runs natively on that machine's own CPU.
 - On a real Amiga without one, it can be a physical card that does the work
@@ -115,7 +115,7 @@ desktop Cradle, an appliance, or a small box that does nothing else.
   The Amiga sends one mDNS query to 224.0.0.251 and reads the answers. ACNet
   already allows exactly this group and nothing else.
 - **Seeing what is there.** A small Amiga command, `Nursery`, lists every
-  nursery found, its services, and whether it is paired. OpenBrowser uses
+  nursery found, its services, and whether it is paired. GFOpenBrowser uses
   the same code in the background at start-up and never waits for it.
 - **Pairing.** Once per Amiga and nursery: the nursery shows a short code,
   the user types it on the Amiga, and both keep a shared 32-byte key in
@@ -123,8 +123,8 @@ desktop Cradle, an appliance, or a small box that does nothing else.
   which is cheap symmetric work, so connecting to the nursery does not cost
   a handshake of its own. Discovery only reads; nothing is used until
   paired.
-- **AmigaChrome's rule stays.** A guest cannot reach its own PC, so inside
-  AmigaChrome the internal bridge path is used, and the nursery is for real
+- **AmiCradle's rule stays.** A guest cannot reach its own PC, so inside
+  AmiCradle the internal bridge path is used, and the nursery is for real
   Amigas and PiStorms, or a Cradle on another machine.
 
 ## Order of work (each a draft PR, on Dale's word)
@@ -133,7 +133,7 @@ desktop Cradle, an appliance, or a small box that does nothing else.
    The Cradle side belongs to the bridge and appliance thread.
 2. **The `obkey` provider with only the local path:** TLS goes through it
    and nothing gets faster yet; proves it with curl on real sites.
-3. **Internal path:** `opentls.key/1` on AmigaChrome's bridge, with the
+3. **Internal path:** `opentls.key/1` on AmiCradle's bridge, with the
    bridge thread. Measure a page from several servers.
 4. **Nursery path with pairing,** for real Amigas.
 5. **Emu68 path,** when the bridge thread has an Emu68 call.

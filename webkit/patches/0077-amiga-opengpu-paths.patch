@@ -5,7 +5,7 @@ Subject: [PATCH] WebCore: paths, strokes and gradients through OpenGPU
 
 GraphicsContextOpenGPU draws fillPath, strokePath, strokeRect,
 fillRoundedRect, fillRectWithRoundedHole and gradient fills itself, as
-opengpu.library's PATH_FILL and PATH_STROKE (stream v1.6), where cairo
+gfopengpu.library's PATH_FILL and PATH_STROKE (stream v1.6), where cairo
 used to take them. Rectangles of one colour whose edges fall between
 pixels, or that are turned, are anti-aliased paths too.
 
@@ -514,7 +514,7 @@ index 9f2fe7fb74c..a84a5c39ada 100644
 + * colour or a linear or radial gradient go into one OpenGPU batch
   * (OpenGPUPaintAmiga.h); every other call goes to a GraphicsContextCairo
   * on the same pixels and the same state, after the batch is sent and drawn.
-  * The shell variable OB_PAINT=cairo, or no opengpu.library with stream
+  * The shell variable OB_PAINT=cairo, or no gfopengpu.library with stream
 @@ -97,12 +98,28 @@ public:
      void drawDotsForDocumentMarker(const FloatRect&, DocumentMarkerLineStyle) final;
  

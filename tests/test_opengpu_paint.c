@@ -806,10 +806,10 @@ static void refPaint(unsigned long argb, const struct tgrad *gr, int pd)
                 t = 3 + d;
             } else
                 p = colour(argb);
-            /* the area near an edge: sampled here, and OpenGPU's curves cut within 1/16 pixel */
+            /* the area near an edge: sampled here, and GFOpenGPU's curves cut within 1/16 pixel */
             if (edge)
                 t += refCurved ? 22 : 10;
-            /* where a path crosses itself inside a pixel, OpenGPU's CPU core
+            /* where a path crosses itself inside a pixel, GFOpenGPU's CPU core
              * finds the winding per quarter of its height */
             if (edge && refCrossing)
                 t += 64;
@@ -1421,7 +1421,7 @@ static void testImages(void)
     reset(OBGPU_CAN_PD, 4096, 1024);
     tImage("pixel for pixel without paths", 0, 0, 0, 24, 20, 0, 0, 24, 20, OBGPU_OP_SOURCE_OVER, 255, 1, 1);
     tImage("scaled without paths", 0, 30, 0, 48, 40, 0, 0, 24, 20, OBGPU_OP_SOURCE_OVER, 255, 1, 0);
-    verify("an OpenGPU with no paths");
+    verify("a GFOpenGPU with no paths");
 }
 
 static void testBatches(void)

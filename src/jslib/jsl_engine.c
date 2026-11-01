@@ -30,7 +30,7 @@
 #include "ob_icudata.h"
 #endif
 
-static const char version[] __attribute__((used)) = "$VER: JavaScriptEngine 1.0 (22.10.2026) AmigaChrome Team";
+static const char version[] __attribute__((used)) = "$VER: JavaScriptEngine 1.0 (22.10.2026) AmiCradle Team";
 
 static struct JSEnginePort *enginePort;
 

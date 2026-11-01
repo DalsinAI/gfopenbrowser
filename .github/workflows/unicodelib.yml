@@ -2,7 +2,7 @@ name: unicode.library
 
 # unicode.library (src/unicodelib, PLAN.md step 7): ICU 78.3 built for the
 # 68040 as scripts/build-icu.sh builds it for the engine, the library and
-# its stubs with the OpenAmigaGCC release and OpenNDK (pinned as
+# its stubs with the GFOpenAmigaGCC release and GFOpenNDK (pinned as
 # jsonlib.yml pins them), then UnicodeTest run against the library in
 # amitools' vamos (68040). The ICU build is cached on its inputs.
 on:

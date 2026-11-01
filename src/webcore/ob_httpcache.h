@@ -1,5 +1,5 @@
 /*
- * OpenBrowser: the engine's HTTP disk cache (ob_httpcache.c), so a page
+ * GFOpenBrowser: the engine's HTTP disk cache (ob_httpcache.c), so a page
  * seen before loads its style sheets, scripts and pictures from the disk
  * instead of the network. WebCore's own disk cache (NetworkCache) belongs
  * to WebKit's network process, which the Amiga port does not have.

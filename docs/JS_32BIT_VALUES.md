@@ -1,6 +1,6 @@
 # 32-bit JavaScript values for the 68k: design 0.1
 
-The AmigaChrome Team, 20 Oct 2026.
+The AmiCradle Team, 20 Oct 2026.
 Status: design only. Stage J3 (32-bit integer fast paths in the JIT) comes first and is what
 we measure against; this is the follow-on that changes the engine's value layout.
 

@@ -1,5 +1,5 @@
 /*
- * OpenBrowser: ICU's data read from a file at start (ob_icudata.h).
+ * GFOpenBrowser: ICU's data read from a file at start (ob_icudata.h).
  *
  * With OB_ICU_DATA=file the programs link ob_icustub.c instead of the
  * 5 MB of tables in libicudata.a, and this reads the same tables, ICU's
@@ -24,7 +24,7 @@ int ob_icu_data_load(void)
 
     if (code == UL_OPEN_OK)
         return 1;
-    fprintf(stderr, "OpenBrowser: %s\n", ul_client_error(code));
+    fprintf(stderr, "GFOpenBrowser: %s\n", ul_client_error(code));
     return 0;
 }
 
@@ -82,7 +82,7 @@ int ob_icu_data_load(void)
             continue;
         udata_setCommonData(data, &error);
         if (U_FAILURE(error)) {
-            fprintf(stderr, "OpenBrowser: %s is not ICU " U_ICU_VERSION " data (%s)\n", path, u_errorName(error));
+            fprintf(stderr, "GFOpenBrowser: %s is not ICU " U_ICU_VERSION " data (%s)\n", path, u_errorName(error));
             free(data);
             continue;
         }
@@ -90,7 +90,7 @@ int ob_icu_data_load(void)
         loaded = 1;
         return 1;
     }
-    fprintf(stderr, "OpenBrowser: no Unicode data, put " OB_ICU_DATA_FILE_NAME " in LOCALE:Unicode/ or PROGDIR:Unicode/\n");
+    fprintf(stderr, "GFOpenBrowser: no Unicode data, put " OB_ICU_DATA_FILE_NAME " in LOCALE:Unicode/ or PROGDIR:Unicode/\n");
     return 0;
 }
 

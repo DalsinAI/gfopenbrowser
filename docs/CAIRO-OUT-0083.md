@@ -16,13 +16,13 @@ checked here against the patches 0001 to 0093 and `src/webcore`.
 | `NativeImage` / `PlatformImagePtr` | a `cairo_surface_t` (image surface) | an engine image: premultiplied ARGB32 pixels, stride, size, refcounted (`NativeImageAmiga`); the datatypes decoder (`DatatypesImageDecoder`, `ImageBackingStoreCairo.cpp` in 0002) fills it |
 | `ImageBuffer` backends | `ImageBufferCairoImageSurfaceBackend` | an ARGB32 memory backend whose `GraphicsContext` is a `GraphicsContextOpenGPU` on its pixels (canvas, filters, layers) |
 | `Path` | `PathCairo` | WebKit's platform-independent `PathStream` (what ports without a path library use); `GraphicsContextOpenGPU::beginPath` already reads `Path` elements |
-| `Gradient`, `Pattern` | `GradientCairo` (`createPattern`), `PatternCairo` | nothing platform-side: 0079 builds OpenGPU's gradient and pattern words from WebCore's own `Gradient` and `Pattern` |
+| `Gradient`, `Pattern` | `GradientCairo` (`createPattern`), `PatternCairo` | nothing platform-side: 0079 builds GFOpenGPU's gradient and pattern words from WebCore's own `Gradient` and `Pattern` |
 | Fonts (0090) | `FontPlatformData`'s `cairo_scaled_font_t` and the cairo user font face whose callbacks fill openfont outlines; extents through `cairo_scaled_font_glyph_extents` | glyph extents and advances from openfont (`OF_GlyphExtents`, `OF_GlyphAdvancePx`, already used by `OpenFontFace`); drawing is 0082's `OF_DrawGlyphsA`; colour emoji through `OF_GlyphColorBitmap` into a picture drawn by `obgpu_image` |
 | `ImageUtilitiesCairo.cpp` (0074) | reads the `cairo_surface_t` to encode PNG through the datatype | the same `obdt_encode_png` on the engine image's pixels |
 | `src/webcore/AmigaWebView.cpp` | wraps the window's ARGB32 pixels in a cairo image surface for `GraphicsContextOpenGPU`, and the display-list check replays with cairo | the context takes the pixels (address, stride, size) directly; the display-list check replays into a second `GraphicsContextOpenGPU` |
 | `src/webcore/obcore_view.c`, `DumpMain.cpp` | `cairo_surface_write_to_png` for test PNGs, a cairo surface to paint into | `obdt_encode_png` (as 0074), the pixels directly |
 | `src/webcore/CMakeLists.txt` | links `cairo pixman-1 png` and adds `include/cairo` | gone; `OB_PAINT=cairo` goes with it |
-| `scripts/build-webcore.sh`, `OAB_DEPS` | cairo, pixman and libpng from the OpenAmiga ports prefix | dropped from the prefix's list; `OptionsAmiga.cmake`: `USE_CAIRO` off |
+| `scripts/build-webcore.sh`, `OAB_DEPS` | cairo, pixman and libpng from the GFOpenAmiga ports prefix | dropped from the prefix's list; `OptionsAmiga.cmake`: `USE_CAIRO` off |
 
 libpng is linked only for cairo (PNG out is the PNG datatype's since 0074,
 #93), and pixman only through cairo, so both leave with it.
@@ -30,7 +30,7 @@ libpng is linked only for cairo (PNG out is the PNG datatype's since 0074,
 ## Order on the build PC
 
 1. `NativeImage`, `ImageBuffer` backend, `PathStream`: the engine builds
-   with `USE(CAIRO)` off and draws nothing but what OpenGPU draws today.
+   with `USE(CAIRO)` off and draws nothing but what GFOpenGPU draws today.
 2. Fonts without the cairo face (0090's `FontPlatformDataOpenFont.cpp`,
    `OpenFontFace.cpp`, `SimpleFontDataOpenFont.cpp`).
 3. The fallbacks in `GraphicsContextOpenGPU`, one by one, each with a host

@@ -1,5 +1,5 @@
 #!/bin/sh
-# OpenBrowser (DalsinAI/openamigabrowser)
+# GFOpenBrowser (DalsinAI/openamigabrowser)
 # Copyright (c) 2026 AmigaChrome Team. MIT licence, see LICENSE.
 #
 # ICU 78.3 for AmigaOS 3.x with the os32-gcc16 stove: static libraries with the
@@ -19,7 +19,7 @@ HERE=$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)
 ROOT=$(CDPATH= cd -- "$HERE/.." && pwd)
 : "${ICU_SRC:?set ICU_SRC to the patched icu folder}"
 : "${ICU_HOST_BUILD:?set ICU_HOST_BUILD to a host ICU 78.3 build}"
-S=${OS32_GCC16:-"$HOME/AmigaChrome/stoves/os32-gcc16"}
+S=${OS32_GCC16:-"$HOME/AmiCradle/stoves/os32-gcc16"}
 P=$S/prefix
 OUT=${OAB_DEPS:-"$HOME/openbrowser-deps"}
 JOBS=${JOBS:-2}
@@ -48,7 +48,7 @@ gmake install > install.log 2>&1
 D=$WORK/icudata-incbin
 mkdir -p "$D"
 cp data/out/icudt78b.dat "$D/"
-# Keep only the data OpenBrowser uses: every program carries it, and loading
+# Keep only the data GFOpenBrowser uses: every program carries it, and loading
 # it is part of each start.
 KEEP=${ICU_DATA_KEEP:-"$ROOT/icu/data-keep.lst"}
 if [ "$KEEP" != all ]; then

@@ -1,5 +1,5 @@
 /*
- * OpenBrowser: WebCore's loader strategy with the network. Subresources are
+ * GFOpenBrowser: WebCore's loader strategy with the network. Subresources are
  * queued per host and started through ResourceHandle (openweb.fetch), at
  * most a few at a time for each host; local files and data: addresses start
  * at once.
@@ -60,11 +60,11 @@
 #include <wtf/TZoneMallocInlines.h>
 #include <wtf/text/StringHash.h>
 
-namespace OpenBrowser {
+namespace GFOpenBrowser {
 
 using namespace WebCore;
 
-static constexpr auto errorDomain = "OpenBrowser"_s;
+static constexpr auto errorDomain = "GFOpenBrowser"_s;
 
 // Requests handed to the network at once for one host, as desktop browsers
 // do. openweb.fetch keeps up to six connections per host (its native
@@ -314,12 +314,12 @@ private:
     ResourceError blockedError(const ResourceRequest& request) const final { return error(request.url(), 3, "blocked"_s); }
     bool isBlockedError(const ResourceError& error) const final { return error.domain() == errorDomain && error.errorCode() == 3; }
     ResourceError blockedByContentBlockerError(const ResourceRequest& request) const final { return error(request.url(), 4, "blocked by a content blocker"_s); }
-    ResourceError cannotShowURLError(const ResourceRequest& request) const final { return error(request.url(), 5, "OpenBrowser cannot show this address"_s); }
+    ResourceError cannotShowURLError(const ResourceRequest& request) const final { return error(request.url(), 5, "GFOpenBrowser cannot show this address"_s); }
     ResourceError interruptedForPolicyChangeError(const ResourceRequest& request) const final { return error(request.url(), 6, "interrupted"_s, ResourceError::Type::Cancellation); }
 #if ENABLE(CONTENT_FILTERING)
     ResourceError blockedByContentFilterError(const ResourceRequest& request) const final { return error(request.url(), 7, "blocked by a content filter"_s); }
 #endif
-    ResourceError cannotShowMIMETypeError(const ResourceResponse& response) const final { return error(response.url(), 8, "OpenBrowser cannot show this type of file"_s); }
+    ResourceError cannotShowMIMETypeError(const ResourceResponse& response) const final { return error(response.url(), 8, "GFOpenBrowser cannot show this type of file"_s); }
     ResourceError fileDoesNotExistError(const ResourceResponse& response) const final { return error(response.url(), 9, "file not found"_s); }
     ResourceError httpsUpgradeRedirectLoopError(const ResourceRequest& request) const final { return error(request.url(), 10, "HTTPS upgrade loop"_s); }
     ResourceError httpNavigationWithHTTPSOnlyError(const ResourceRequest& request) const final { return error(request.url(), 11, "HTTPS only"_s); }
@@ -345,4 +345,4 @@ LoaderStrategy* networkLoaderStrategy()
     return &strategy.get();
 }
 
-} // namespace OpenBrowser
+} // namespace GFOpenBrowser

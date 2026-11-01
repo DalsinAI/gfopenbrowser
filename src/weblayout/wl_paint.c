@@ -1,5 +1,5 @@
 /*
- * weblayout: an OpenLayout display list painted into a RastPort.
+ * weblayout: a GFOpenLayout display list painted into a RastPort.
  * MIT, Copyright (c) 2026 AmigaChrome Team.
  */
 #include "wl_paint.h"
@@ -313,7 +313,7 @@ const char *wl_view_hit_link(const wl_view *view, WORD mouse_x, WORD mouse_y)
         href = node ? ol_node_href(node) : NULL;
         if (href && *href) return href;
     }
-    /* a link with nothing drawn in it: OpenLayout's own hit test */
+    /* a link with nothing drawn in it: GFOpenLayout's own hit test */
     node = ol_hit_action(view->document, x, y, OL_ACTION_ACTIVATE);
     href = node ? ol_node_href(node) : NULL;
     return href && *href ? href : NULL;

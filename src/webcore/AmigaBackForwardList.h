@@ -1,5 +1,5 @@
 /*
- * OpenBrowser: the page's back/forward list.
+ * GFOpenBrowser: the page's back/forward list.
  *
  * Adapted from WebKitLegacy's BackForwardList, under this licence:
  *
@@ -36,7 +36,7 @@
 #include <wtf/HashSet.h>
 #include <wtf/Vector.h>
 
-namespace OpenBrowser {
+namespace GFOpenBrowser {
 
 class AmigaBackForwardList final : public WebCore::BackForwardClient {
 public:
@@ -70,4 +70,4 @@ private:
     unsigned m_current { noCurrentItemIndex };
 };
 
-} // namespace OpenBrowser
+} // namespace GFOpenBrowser

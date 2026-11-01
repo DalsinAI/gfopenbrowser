@@ -1,7 +1,7 @@
 /*
- * weblayout: HTML to an OpenLayout semantic tree (HTML Lite).
- * Derived in approach from OpenMail's small MIT HTML-to-text tokenizer,
- * but emits an OpenLayout tree rather than flattening the document.
+ * weblayout: HTML to a GFOpenLayout semantic tree (HTML Lite).
+ * Derived in approach from GFOpenMail's small MIT HTML-to-text tokenizer,
+ * but emits a GFOpenLayout tree rather than flattening the document.
  * MIT, Copyright (c) 2026 AmigaChrome Team.
  */
 #include "wl_html.h"

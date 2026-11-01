@@ -1,11 +1,11 @@
 #!/bin/sh
-# OpenBrowser (DalsinAI/openamigabrowser)
+# GFOpenBrowser (DalsinAI/openamigabrowser)
 # Copyright (c) 2026 AmigaChrome Team. MIT licence, see LICENSE.
 #
-# For an AmigaChrome test instance whose DH1 is a host folder and whose
+# For an AmiCradle test instance whose DH1 is a host folder and whose
 # S:User-Startup runs DH1:Probe/runner.script (see tools/runner.script).
-#   INSTANCE_ROOT    the AmigaChrome instance folder (required)
-#   AMIGACHROME_ROOT the AmigaChrome install (default $HOME/AmigaChrome)
+#   INSTANCE_ROOT    the AmiCradle instance folder (required)
+#   AMICRADLE_ROOT the AmiCradle install (default $HOME/AmiCradle)
 #   RUNTIME_PORT     the instance's runtime port (required)
 # Run one probe on the test instance through DH1:Probe/runner.script.
 # usage: run-probe.sh <local-binary> <guest-name> <timeout-seconds> [stack] [args...]
@@ -17,7 +17,7 @@ BIN=$1; NAME=$2; TMO=$3; STACK=${4:-1048576}; shift 4 2>/dev/null || shift $#
 ARGS="$*"
 I=${INSTANCE_ROOT:?set INSTANCE_ROOT}
 PORT=${RUNTIME_PORT:?set RUNTIME_PORT}
-AC=${AMIGACHROME_ROOT:-$HOME/AmigaChrome}
+AC=${AMICRADLE_ROOT:-$HOME/AmiCradle}
 DH1=$I/devices/harddisks/DH1/Probe
 lifecycle() {
     (cd "$AC" && python3 -c "

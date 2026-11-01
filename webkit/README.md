@@ -1,4 +1,4 @@
-# WebKit for OpenBrowser
+# WebKit for GFOpenBrowser
 
 WebKit is not copied into this repository. Use the pinned upstream revision
 in `UPSTREAM` and apply the patches in `patches/` in order.
@@ -85,10 +85,10 @@ The patches, in order:
   byte for byte. No build step of the Amiga port runs Ruby now.
 
 - `0022-amiga-webcore-curl-opentls.patch`: the engine without OpenSSL. curl
-  does TLS through OpenTLS (openamigacurl's main branch), so `USE(OPENSSL)`
+  does TLS through GFOpenTLS (openamigacurl's main branch), so `USE(OPENSSL)`
   is off and WebCore links no AmiSSL: curl's OpenSSL-only files are left
-  out, and no cipher list, curve list or CA file is set (OpenTLS picks its
-  own suites and reads `S:OpenTLS/ca-bundle.pem`). Responses carry no
+  out, and no cipher list, curve list or CA file is set (GFOpenTLS picks its
+  own suites and reads `S:GFOpenTLS/ca-bundle.pem`). Responses carry no
   certificate details, and WebCrypto (`crypto/amiga/CryptoAmiga.cpp`)
   offers the SHA-1 and SHA-2 digests only.
 
@@ -387,7 +387,7 @@ The patches, in order:
   asynchronous calls (protocol 2); without them the engine has curl only.
 - `0074-amiga-png-out-through-datatype.patch`: canvas `toDataURL` and
   `toBlob` write PNG through a PNG datatype's write (`DTM_WRITE` with
-  `DTWM_RAW`, by `SaveDTObjectA()`, openpng.datatype first, then
+  `DTWM_RAW`, by `SaveDTObjectA()`, gfopenpng.datatype first, then
   png.datatype), not cairo's libpng writer; the browser writes no PNG itself
   and WebCore no longer finds or links libpng. Without a PNG datatype that
   writes, the picture is not encoded. `obcore-dump` writes its page PNG the
@@ -411,9 +411,9 @@ The patches, in order:
 - `0076-amiga-graphicscontext-opengpu.patch`: the window is painted through
   `GraphicsContextOpenGPU` (`platform/graphics/amiga`), which
   `AmigaWebView::paint()` uses unless the Shell variable `OB_PAINT=cairo`
-  is set or opengpu.library is missing or has no `COMPOSITE_PD`. Solid
+  is set or gfopengpu.library is missing or has no `COMPOSITE_PD`. Solid
   rectangles, `clearRect`, rectangle clips on whole pixels and pictures go
-  into one OpenGPU batch per paint (`FILL`, `COMPOSITE_PD`, and a
+  into one GFOpenGPU batch per paint (`FILL`, `COMPOSITE_PD`, and a
   `PATH_FILL` with the picture as a pattern when it is scaled or turned);
   every other call goes to a `GraphicsContextCairo` on the same pixels and
   state, after the batch is drawn, and is counted by kind. The stream is
@@ -442,31 +442,31 @@ The patches, in order:
   `PATH_FILL` with `IN` (clip-outs `OUT_REVERSE`), kept until the level's
   restore, and everything drawn while they are the clip goes through them
   (`COMPOSITE_PD`'s mask, `PATH_MASK`). Shapes with anti-aliasing off use
-  stream v1.8's `OGPU_PATH_ALIASED` (opengpu.library 0.23 and later).
+  stream v1.8's `OGPU_PATH_ALIASED` (gfopengpu.library 0.23 and later).
   Copy and clear on paths and through masks as cairo bounds them: the
   destination times 1 - the coverage, then the paint times the coverage
   added. Tested on the host against cairo 1.18 drawing the same calls
   (`tests/test_opengpu_clip.c`) and with 0076's and 0077's checks.
-- `0090-amiga-text-openfont.patch`: text on openfont.library 1.3
+- `0090-amiga-text-openfont.patch`: text on gfopenfont.library 1.3
   (`USE_OPENFONT`) in place of FreeType, fontconfig and HarfBuzz, which are
-  no longer found or linked. Families are matched with OpenFont's
+  no longer found or linked. Families are matched with GFOpenFont's
   `OFA_Exact`, with the aliases the old `fonts.conf` gave kept in
   `FontCacheOpenFont.cpp`; glyphs are drawn through cairo user fonts that
-  fill OpenFont's outlines (cairo built with `CAIRO_FONTS=user`, no
+  fill GFOpenFont's outlines (cairo built with `CAIRO_FONTS=user`, no
   FreeType backend); metrics follow FreeType's rules from the raw tables;
   complex runs are itemised by script with ICU and shaped with
   `OF_ShapeUTF16`. Emoji in fonts that keep them as PNG images (CBDT,
   sbix) are drawn through cairo's colour glyph callback from
-  openfont.library 1.4's `OF_GlyphColorBitmap`, which decodes them through
+  gfopenfont.library 1.4's `OF_GlyphColorBitmap`, which decodes them through
   the PNG datatype, so neither FreeType nor libpng is linked.
-  `LIBS:openfont.library` 1.3 must be installed; 1.4 for emoji.
+  `LIBS:gfopenfont.library` 1.3 must be installed; 1.4 for emoji.
 - `0091-amiga-openfont-shape-lock.patch`: the complex text path holds
   `OpenFontFace::lock()` only while it shapes, not while it asks cairo for
   glyph extents. cairo takes its scaled font's lock and then renderGlyph
   takes this one, so holding both the other way round could deadlock two
   tasks drawing the same font.
 - `0092-amiga-openfont-library-from-drawer.patch`: without
-  `LIBS:openfont.library`, the engine also opens the package's copy from
+  `LIBS:gfopenfont.library`, the engine also opens the package's copy from
   `PROGDIR:/`, the drawer's `Libs/` above the engine's `Libs/WebBrowser/`.
   Before this it found no library there, so no face, and stopped at
   `lastResortFallbackFont`'s assert on most pages.
@@ -485,7 +485,7 @@ The patches, in order:
 
 `0001-amiga-m68k-jsconly.patch` is one combined patch. It holds:
 
-- the m68k CPU and AROS platform layer from the AmigaChrome AROS m68k port;
+- the m68k CPU and AROS platform layer from the AmiCradle AROS m68k port;
 - the AmigaOS 3.x platform layer (`OS(AMIGAOS3)`, and `OS(AMIGA)` for code
   shared with AROS);
 - the big-endian and m68k-alignment fixes (see `../docs/PORT_NOTES.md`).

@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-# OpenBrowser (DalsinAI/openamigabrowser)
+# GFOpenBrowser (DalsinAI/openamigabrowser)
 # Copyright (c) 2026 AmigaChrome Team. MIT licence, see LICENSE.
 """jsimage: link a program against JavaScriptEngine's code instead of its
 own copy of JavaScriptCore, WTF and bmalloc.

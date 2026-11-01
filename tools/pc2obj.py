@@ -1,10 +1,10 @@
 #!/usr/bin/env python3
-# OpenBrowser (DalsinAI/openamigabrowser). Copyright (c) 2026 AmigaChrome Team. MIT licence, see LICENSE.
+# GFOpenBrowser (DalsinAI/openamigabrowser). Copyright (c) 2026 AmigaChrome Team. MIT licence, see LICENSE.
 """pc2obj.py MAP NMFILE MAIN_RUNTIME_ADDR ADDR... : find the object a runtime
 code address falls in (from the link map) and the nearest symbol inside that
 object, local (static) ones included, by running nm on the object itself."""
 import bisect, os, re, subprocess, sys
-NM = os.path.join(os.environ.get("OS32_GCC16", os.path.expanduser("~/AmigaChrome/stoves/os32-gcc16")), "prefix/bin/m68k-amigaos-nm")
+NM = os.path.join(os.environ.get("OS32_GCC16", os.path.expanduser("~/AmiCradle/stoves/os32-gcc16")), "prefix/bin/m68k-amigaos-nm")
 mp, nmfile, mainrt, addrs = sys.argv[1], sys.argv[2], int(sys.argv[3], 16), [int(x, 16) for x in sys.argv[4:]]
 main = next(int(l.split()[0], 16) for l in open(nmfile) if l.split()[-1:] == ["_main"])
 base = mainrt - main

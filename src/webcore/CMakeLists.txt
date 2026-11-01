@@ -1,4 +1,4 @@
-# OpenBrowser's WebCore programs, built inside the WebKit build tree
+# GFOpenBrowser's WebCore programs, built inside the WebKit build tree
 # (Source/PlatformAmiga.cmake adds this folder when OPENBROWSER_WEBCORE_DIR
 # names it), so they share WebKit's flags and link its static libraries.
 # MIT, Copyright (c) 2026 AmigaChrome Team.
@@ -65,7 +65,7 @@ elseif (NOT OB_ICU_DATA STREQUAL "linked")
     message(FATAL_ERROR "OB_ICU_DATA must be file, linked or library")
 endif ()
 
-# openservice.device and openweb.fetch (DalsinAI/openamigaservice, checked
+# gfopenservice.device and openweb.fetch (DalsinAI/openamigaservice, checked
 # out beside this repository, or OPENSERVICE_DIR). Required: every load of
 # the engine goes through openweb.fetch (WebKit patch 0075, no curl).
 # Page pictures are also decoded by a board or a paired Cradle when one
@@ -106,7 +106,7 @@ endif ()
 # openweb.fetch's client and its native transport (openamigaservice's
 # src/webfetch.c and src/wfnet*.c), WebCore's network backend. WebCore's
 # OpenWebFetchAmiga.c is given the client's headers. The native transport
-# reaches opentls.library through OpenTLS's headers and the datatypes
+# reaches gfopentls.library through GFOpenTLS's headers and the datatypes
 # through opendatatypes' (wfnet_amiga.c and wfnet_dec.c only).
 file(GLOB OB_WFNET_SOURCES "${OB_OPENSERVICE_DIR}/src/wfnet*.c")
 list(APPEND OB_CORE_SOURCES "${OB_OPENSERVICE_DIR}/src/webfetch.c" ${OB_WFNET_SOURCES})
@@ -117,9 +117,9 @@ set_property(SOURCE "${OB_OPENSERVICE_DIR}/src/wfnet_amiga.c" "${OB_OPENSERVICE_
 set_property(SOURCE "${WEBCORE_DIR}/platform/network/amiga/OpenWebFetchAmiga.c" TARGET_DIRECTORY WebCore APPEND PROPERTY
     INCLUDE_DIRECTORIES "${OB_OPENSERVICE_DIR}/include")
 
-# opengpu.library's stream and inline calls (DalsinAI/openamigartg, checked
+# gfopengpu.library's stream and inline calls (DalsinAI/openamigartg, checked
 # out beside this repository, or OPENAMIGARTG_DIR): the window is painted
-# through OpenGPU (WebKit patch 0076), which the engine opens at run time.
+# through GFOpenGPU (WebKit patch 0076), which the engine opens at run time.
 # Headers only: nothing is linked.
 set(OB_OPENAMIGARTG_DIR "$ENV{OPENAMIGARTG_DIR}")
 if (NOT EXISTS "${OB_OPENAMIGARTG_DIR}/include/opengpu/stream.h")
@@ -127,7 +127,7 @@ if (NOT EXISTS "${OB_OPENAMIGARTG_DIR}/include/opengpu/stream.h")
 endif ()
 if (NOT EXISTS "${OB_OPENAMIGARTG_DIR}/include/opengpu/stream.h" OR NOT EXISTS "${OB_OPENAMIGARTG_DIR}/include/inline/opengpu.h")
     message(FATAL_ERROR "openamigartg not found at ${OB_OPENAMIGARTG_DIR}: the engine paints through "
-        "opengpu.library (include/opengpu/stream.h, include/inline/opengpu.h). Check out "
+        "gfopengpu.library (include/opengpu/stream.h, include/inline/opengpu.h). Check out "
         "DalsinAI/openamigartg beside this repository, or set OPENAMIGARTG_DIR.")
 endif ()
 set_property(DIRECTORY APPEND PROPERTY CMAKE_CONFIGURE_DEPENDS "${OB_OPENAMIGARTG_DIR}/include/opengpu/stream.h")
@@ -164,7 +164,7 @@ set(OB_SYSTEM_INCLUDE_DIRECTORIES
 # cairo, pixman...) are linked as one group, so their order does not
 # matter, followed by what libnix programs need. No curl or nghttp2 (WebKit
 # patch 0075): openweb.fetch's native transport opens bsdsocket.library,
-# opentls.library and datatypes.library itself, so there is no network or
+# gfopentls.library and datatypes.library itself, so there is no network or
 # TLS library to link.
 macro(OB_LINK _target)
     # OB_ICU_DATA=library: icui18n, icuuc and icudata are the library's stubs
@@ -244,7 +244,7 @@ WEBKIT_EXECUTABLE_DECLARE(WebBrowserEngine)
 WEBKIT_EXECUTABLE(WebBrowserEngine)
 OB_LINK(WebBrowserEngine)
 
-# OpenBrowser.engine: the browser window (GadTools) around the page layer, as
+# GFOpenBrowser.engine: the browser window (GadTools) around the page layer, as
 # a program of its own that runs without webbrowser.library. The package
 # does not carry it: WebBrowserEngine above is the one engine there, with the
 # same window (ob_browser_engine.c). Kept for tests that run the window
@@ -255,7 +255,7 @@ set(OpenBrowser_SOURCES
     ob_browser.c
     ob_splash.c
 )
-set(OpenBrowser_OUTPUT_NAME OpenBrowser.engine)
+set(OpenBrowser_OUTPUT_NAME GFOpenBrowser.engine)
 set(OpenBrowser_FRAMEWORKS ${OB_FRAMEWORKS})
 set(OpenBrowser_PRIVATE_INCLUDE_DIRECTORIES ${OB_PRIVATE_INCLUDE_DIRECTORIES})
 set(OpenBrowser_SYSTEM_INCLUDE_DIRECTORIES ${OB_SYSTEM_INCLUDE_DIRECTORIES})
@@ -324,12 +324,12 @@ target_link_libraries(JavaScriptEngine PRIVATE
 add_library(JSImageClient OBJECT ${CMAKE_CURRENT_SOURCE_DIR}/../jslib/jsimage_client.c)
 target_compile_options(JSImageClient PRIVATE -ffreestanding -fno-builtin)
 
-# OpenBrowser: the small program the icon starts. It shows a title window at
+# GFOpenBrowser: the small program the icon starts. It shows a title window at
 # once and asks webbrowser.library (LIBS:, or the drawer's Libs before
 # Install) for a browser window, which WebBrowserEngine opens. It needs nothing of WebKit's, only the C library,
 # the stove's compat library (the toolchain wraps malloc) and libpthread
 # (the toolchain links with -fexceptions, whose frame tables use it).
 add_executable(OpenBrowserLauncher ob_launcher.c ob_splash.c)
 target_include_directories(OpenBrowserLauncher PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/../webbrowser/include)
-set_target_properties(OpenBrowserLauncher PROPERTIES OUTPUT_NAME OpenBrowser)
+set_target_properties(OpenBrowserLauncher PROPERTIES OUTPUT_NAME GFOpenBrowser)
 target_link_libraries(OpenBrowserLauncher PRIVATE -L${AC_OS32_STOVE}/compat -los32compat pthread)

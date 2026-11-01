@@ -1,10 +1,10 @@
-# OpenBrowser Lite 0.3 qualification
+# GFOpenBrowser Lite 0.3 qualification
 
-> History. Since OpenBrowser Lite 0.4.1 (19 October 2026) TLS is OpenTLS (AmiSSL is gone), the engine is `src/weblayout/` and the build is `scripts/build-openbrowser.sh`; see `docs/RELEASE_0.4.1.md`.
+> History. Since GFOpenBrowser Lite 0.4.1 (19 October 2026) TLS is GFOpenTLS (AmiSSL is gone), the engine is `src/weblayout/` and the build is `scripts/build-openbrowser.sh`; see `docs/RELEASE_0.4.1.md`.
 
 Date: 7 October 2026
 
-OpenBrowser Lite 0.3 adds datatype-backed page images without adding image decoders to the browser or to OpenLayout.
+GFOpenBrowser Lite 0.3 adds datatype-backed page images without adding image decoders to the browser or to GFOpenLayout.
 
 ## Architecture
 
@@ -13,7 +13,7 @@ The image path is:
 ```text
 <img src>
    |
-OpenBrowser URL resolution + HTTP/HTTPS
+GFOpenBrowser URL resolution + HTTP/HTTPS
    |
 temporary page-image file
    |
@@ -23,20 +23,20 @@ picture.datatype subclass
    |
 screen-remapped bitmap
    |
-OpenLayout image display op
+GFOpenLayout image display op
    |
 GadTools/RastPort viewport
 ```
 
-OpenLayout continues to know only image identity and geometry. Network and decoding remain browser responsibilities.
+GFOpenLayout continues to know only image identity and geometry. Network and decoding remain browser responsibilities.
 
 The viewport has an image-provider callback. If no suitable datatype is installed or an image fails to load, the previous bordered alt-text placeholder remains visible rather than making the page fail.
 
 ## Datatype policy
 
-OpenBrowser consumes the user's datatype ecosystem.
+GFOpenBrowser consumes the user's datatype ecosystem.
 
-The standard AmigaOS 3.2.3 image provides PNG, JPEG and GIF datatypes. OpenImage adds WebP and other formats. OpenBrowser does not carry private PNG/JPEG/GIF/WebP decoders.
+The standard AmigaOS 3.2.3 image provides PNG, JPEG and GIF datatypes. GFOpenImage adds WebP and other formats. GFOpenBrowser does not carry private PNG/JPEG/GIF/WebP decoders.
 
 The picture object is kept alive while the page is displayed so remapped pens remain valid. Where supported, PDTM_SCALE is requested before layout; a datatype that does not implement scaling remains a valid image source.
 
@@ -53,25 +53,25 @@ GIF   PASS source=64x48 bitmap=64x48
 WebP  PASS source=64x48 bitmap=64x48
 ```
 
-Network-to-datatype integration used the same OpenBrowser HTTP/AmiSSL stack and the installed OpenImage WebP datatype:
+Network-to-datatype integration used the same GFOpenBrowser HTTP/AmiSSL stack and the installed GFOpenImage WebP datatype:
 
 ```text
 IMGNET FETCH status=200 type=image/webp bytes=9532
 IMGNET PASS source=480x269 bitmap=480x269 mask=no
 ```
 
-The final release chain also reran the static HTML test, resident openlayout.library HTML test and HTTPS test successfully.
+The final release chain also reran the static HTML test, resident gfopenlayout.library HTML test and HTTPS test successfully.
 
-The actual OpenBrowser 0.3 executable was then launched against `https://www.wikipedia.org/`. After the qualification delay AmigaDOS still reported:
+The actual GFOpenBrowser 0.3 executable was then launched against `https://www.wikipedia.org/`. After the qualification delay AmigaDOS still reported:
 
 ```text
-Process 4: Loaded as command: DH1:OB02/OpenBrowser
+Process 4: Loaded as command: DH1:OB02/GFOpenBrowser
 ```
 
 ## Qualified build
 
-- OpenBrowser 0.3: 77,468 bytes
-- openlayout.library 2.0: 11,272 bytes
+- GFOpenBrowser 0.3: 77,468 bytes
+- gfopenlayout.library 2.0: 11,272 bytes
 - obfetch: 44,484 bytes
 - datatype image probe: about 15 KiB
 - network + datatype image probe: about 47 KiB
@@ -85,4 +85,4 @@ Process 4: Loaded as command: DH1:OB02/OpenBrowser
 - alpha uses the datatype mask/bitmap facilities supplied by the installed picture class;
 - full CSS image sizing and responsive images come later.
 
-These are browser-layer limits, not OpenLayout ABI changes.
+These are browser-layer limits, not GFOpenLayout ABI changes.

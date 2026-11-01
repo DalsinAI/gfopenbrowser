@@ -1,6 +1,6 @@
 # Third-party notices
 
-OpenBrowser's own code is MIT (see LICENSE). These parts are not ours and keep
+GFOpenBrowser's own code is MIT (see LICENSE). These parts are not ours and keep
 their own licences:
 
 | Path | What | Licence |
@@ -37,15 +37,15 @@ under the Mozilla Public License 2.0 (https://mozilla.org/MPL/2.0/); the
 list as published is its source form. `tests/public-suffix-cases.txt` is
 the list's own test file (public domain, CC0) in the same form.
 
-`third_party/openmail/` comes from OpenMail (AmigaChrome Team's mail client,
+`third_party/openmail/` comes from GFOpenMail (AmiCradle Team's mail client,
 MIT, same copyright); see its `FROM` and `LICENSE`.
 
-OpenBrowser Lite links, at build time, libnix and libamiga from bebbo's
-amiga-gcc and uses OpenTLS (opentls.library) when it runs; until 19 October
+GFOpenBrowser Lite links, at build time, libnix and libamiga from bebbo's
+amiga-gcc and uses GFOpenTLS (gfopentls.library) when it runs; until 19 October
 2026 it used AmiSSL 5 (OpenSSL 3, Apache-2.0).
 
 The package (`scripts/package-browser.sh`) carries, for compressed pages,
-z.library (OpenZlib, AmigaChrome Team, MIT, with zlib inside under the zlib
+z.library (GFOpenZlib, AmigaChrome Team, MIT, with zlib inside under the zlib
 licence) and opendatatypes' stream.datatype, gzip.datatype and
 brotli.datatype (AmigaChrome Team, MIT; brotli.datatype is our own decoder,
 written from RFC 7932, with the static dictionary taken from the RFC's
@@ -63,4 +63,4 @@ repository):
 A `jsc` binary built from this repository is a combined work that includes
 LGPL-licensed JavaScriptCore; distribute it under the LGPL's terms (source and
 relinking information available). JavaScriptCore stays a separate program; it
-is not part of AmigaChrome's own core.
+is not part of AmiCradle's own core.

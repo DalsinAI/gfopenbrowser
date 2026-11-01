@@ -81,8 +81,8 @@ JIT) on AmigaOS 3.2.3 on a 68040, 4 Oct 2026. Upstream WebKit is pinned at
 
 ## Test bench notes
 
-- AmigaChrome AC090 (68040). Its JIT's x87 path looped on FPU instructions it
+- AmiCradle AC090 (68040). Its JIT's x87 path looped on FPU instructions it
   hands back to the interpreter in non-default FPCR modes. It is fixed in
-  AmigaChrome; until that is deployed, run with `JIT_NOX87=1`.
+  AmiCradle; until that is deployed, run with `JIT_NOX87=1`.
 - `jsc` is a 71 MB hunk file with three hunks. It starts in about 30 seconds
   under the AC090 JIT and needs `Stack 4194304`.

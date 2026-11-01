@@ -1,4 +1,4 @@
-/* OpenBrowser (DalsinAI/openamigabrowser). Copyright (c) 2026 AmigaChrome Team. MIT licence, see LICENSE. */
+/* GFOpenBrowser (DalsinAI/openamigabrowser). Copyright (c) 2026 AmigaChrome Team. MIT licence, see LICENSE. */
 /* jsimagetasks: run beside a jsimage client (the browser's engine linked
  * against JavaScriptEngine, src/jslib/jsimage.h) that has stopped, to see
  * where every task is. For each running jsimage client it prints the

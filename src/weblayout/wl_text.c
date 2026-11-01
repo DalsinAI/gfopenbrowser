@@ -1,13 +1,13 @@
 /*
- * weblayout: UTF-8 to ISO-8859-1 (see wl_text.h). The converter OpenMail's
+ * weblayout: UTF-8 to ISO-8859-1 (see wl_text.h). The converter GFOpenMail's
  * oam_text.c has (oam_utf8_to_latin1), brought into weblayout as its own so
- * the library needs nothing of OpenMail.
+ * the library needs nothing of GFOpenMail.
  * MIT, Copyright (c) 2026 AmigaChrome Team.
  */
 #include "wl_text.h"
 
 /* U+0100-U+017F (Latin Extended-A) to its base letter, for Latin-1 fonts
- * (generated from Unicode's decompositions; OpenMail's oam_charsets.h) */
+ * (generated from Unicode's decompositions; GFOpenMail's oam_charsets.h) */
 static const char latin_ext_a_base[129] =
     "AaAaAaCcCcCcCcDd"
     "DdEeEeEeEeEeGgGg"

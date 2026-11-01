@@ -1,5 +1,5 @@
 /*
- * OpenBrowser: WebCore's frame loader client (one per frame).
+ * GFOpenBrowser: WebCore's frame loader client (one per frame).
  * MIT, Copyright (c) 2026 AmigaChrome Team.
  */
 #pragma once
@@ -11,10 +11,10 @@ class FrameLoader;
 class LocalFrameLoaderClient;
 }
 
-namespace OpenBrowser {
+namespace GFOpenBrowser {
 
 class WebView;
 
 UniqueRef<WebCore::LocalFrameLoaderClient> createFrameLoaderClient(WebCore::FrameLoader&, WebView&);
 
-} // namespace OpenBrowser
+} // namespace GFOpenBrowser

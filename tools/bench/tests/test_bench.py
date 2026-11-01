@@ -1,4 +1,4 @@
-# OpenBrowser (DalsinAI/openamigabrowser)
+# GFOpenBrowser (DalsinAI/openamigabrowser)
 # Copyright (c) 2026 The AmigaChrome Team. MIT licence, see LICENSE.
 """Host self-tests for tools/bench:  python3 -m unittest discover -s tools/bench/tests -v"""
 import csv
@@ -157,7 +157,7 @@ class Stage(unittest.TestCase):
         for p in benchlib.load_manifest():
             self.assertIn("Execute jobs/%s\n" % p["id"], main)
             job = self.read("jobs", p["id"])
-            self.assertTrue(job.startswith("; OpenBrowser benchmark job"))
+            self.assertTrue(job.startswith("; GFOpenBrowser benchmark job"))
             self.assertIn("obstamp view-start >>logs/%s.log" % p["id"], job)
             self.assertIn("OBBENCH_END id=%s" % p["id"], job)
             self.assertNotIn("obfetch", job)
@@ -174,23 +174,23 @@ class Stage(unittest.TestCase):
         write(os.path.join(self.tmp, "engine-fingerprint"), "231d9aeeb64ac959\n")
         write(os.path.join(fonts, "LiberationSans-Regular.ttf"), "font")
         write(os.path.join(lite, "obfetch"), "fetch")
-        write(os.path.join(lite, "OpenBrowserLite"), "lite")
+        write(os.path.join(lite, "GFOpenBrowserLite"), "lite")
         write(os.path.join(self.tmp, "obstamp"), "stamp")
-        write(os.path.join(self.tmp, "openfont.library"), "openfont")
+        write(os.path.join(self.tmp, "gfopenfont.library"), "openfont")
         self.assertEqual(self.stage("--bin", bin_dir, "--fonts", fonts, "--lite", lite, "--obstamp",
-                                    os.path.join(self.tmp, "obstamp"), "--openfont", os.path.join(self.tmp, "openfont.library"),
+                                    os.path.join(self.tmp, "obstamp"), "--openfont", os.path.join(self.tmp, "gfopenfont.library"),
                                     "--sets", "live", "--pages", "example,hn",
                                     "--repeat", "2", "--lite-gui", "15"), 0)
         job = self.read("jobs", "example")
         self.assertEqual(job.count("obcore-view -wait"), 2)
         self.assertEqual(job.count('obfetch "https://example.com/" >T:obbench-fetch.txt'), 2)
-        self.assertIn('Run >NIL: OpenBrowserLite "https://example.com/"', job)
+        self.assertIn('Run >NIL: GFOpenBrowserLite "https://example.com/"', job)
         self.assertIn("Wait 15", job)
         info = self.read("stage-info.txt")
         self.assertIn("engine-fingerprint 231d9aeeb64ac959", info)
         self.assertIn("obfetch " + hashlib.sha256(b"fetch").hexdigest(), info)
-        self.assertIn("openfont.library " + hashlib.sha256(b"openfont").hexdigest(), info)
-        for name in ("obcore-view", "obstamp", "obfetch", "Fonts/LiberationSans-Regular.ttf", "Libs/openfont.library", "blocklist"):
+        self.assertIn("gfopenfont.library " + hashlib.sha256(b"openfont").hexdigest(), info)
+        for name in ("obcore-view", "obstamp", "obfetch", "Fonts/LiberationSans-Regular.ttf", "Libs/gfopenfont.library", "blocklist"):
             self.assertTrue(os.path.isfile(os.path.join(self.tmp, "Bench", name)), name)
         self.assertEqual(self.read("OBBench").count("Execute jobs/"), 2)
 

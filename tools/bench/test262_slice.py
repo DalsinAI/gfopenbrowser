@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-# OpenBrowser (DalsinAI/openamigabrowser)
+# GFOpenBrowser (DalsinAI/openamigabrowser)
 # Copyright (c) 2026 The AmigaChrome Team. MIT licence, see LICENSE.
 """A pinned slice of test262 for jsc on the Amiga, fetched at run time.
 
@@ -117,7 +117,7 @@ def read_slice(path):
 
 
 def select(checkout, per_dir, commit):
-    out = ["# test262 slice for OpenBrowser's jsc runs (tools/bench/test262_slice.py)",
+    out = ["# test262 slice for GFOpenBrowser's jsc runs (tools/bench/test262_slice.py)",
            "# test262: https://github.com/tc39/test262, BSD-3-Clause; fetched at run time, not kept here.",
            "# commit %s" % commit,
            "# sha256 path"]

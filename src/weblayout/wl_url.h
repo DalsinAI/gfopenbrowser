@@ -1,6 +1,6 @@
 /*
  * weblayout: addresses on a page made absolute. Plain C, no Amiga headers:
- * OpenBrowser Lite's HTTP layer uses it for redirects too.
+ * GFOpenBrowser Lite's HTTP layer uses it for redirects too.
  * MIT, Copyright (c) 2026 AmigaChrome Team.
  */
 #ifndef WL_URL_H

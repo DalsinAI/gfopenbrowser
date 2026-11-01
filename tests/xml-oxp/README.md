@@ -45,7 +45,7 @@ a non-fatal error and an element with no namespace, as libxml2 does
 | `../pages/xml-svg.svg` | `obcore-view xml-svg.svg 400 300 xml-svg.png` | An SVG with `xlink:href`, a gradient and text | Draws the picture; compare with a desktop browser |
 
 Not run yet. The patch now applies last, on top of the Ruby-free WebKit
-toolchain (0019, 0021) and the OpenTLS curl (0022); the next engine build
+toolchain (0019, 0021) and the GFOpenTLS curl (0022); the next engine build
 with OXP in the dependency prefix runs them.
 
 ## Building with it

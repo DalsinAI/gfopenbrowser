@@ -1,12 +1,12 @@
 # Benchmarks: speed and compatibility
 
-How fast OpenBrowser (WebKit's WebCore on AmigaOS 3.2, 68040) and
-OpenBrowser Lite load and draw pages, how much memory they use, and how
+How fast GFOpenBrowser (WebKit's WebCore on AmigaOS 3.2, 68040) and
+GFOpenBrowser Lite load and draw pages, how much memory they use, and how
 much of the web they understand. The tools are in `tools/bench/`, the pages
 in `tests/bench/`.
 
 **Emulator numbers are not 68040 numbers.** The lab runs an emulated Amiga
-(AmigaChrome instances with a JIT and hundreds of MB of Fast RAM). Its
+(AmiCradle instances with a JIT and hundreds of MB of Fast RAM). Its
 times depend on the host PC, the JIT settings (`PROBE_ENV`), what else the
 host is doing and the network. Use them to compare one build with another
 on the same instance, never as what a real A4000/040 or A1200/040 would
@@ -18,9 +18,9 @@ For every page in `tests/bench/pages.txt` (sets `local`, `compat`, `live`):
 
 1. **obcore-view** (the engine without a window) loads the page, runs it
    until it has loaded, paints it at 800x600 and saves `png/<id>.png`.
-2. **obfetch** (OpenBrowser Lite's network layer and its HTML-to-text, no
+2. **obfetch** (GFOpenBrowser Lite's network layer and its HTML-to-text, no
    layout), for `live` pages, when it is staged.
-3. Optionally (`--lite-gui SECONDS`, experimental) **OpenBrowserLite**'s
+3. Optionally (`--lite-gui SECONDS`, experimental) **GFOpenBrowserLite**'s
    window on `live` pages: opened, given that many seconds, then stopped
    with Ctrl-C. This gives Lite's memory with a page open, not a time: Lite
    says nothing when it has drawn a page.
@@ -31,7 +31,7 @@ Each program run sits between two `obstamp` lines (time and free memory).
 
 | Set | Pages | Why |
 | --- | --- | --- |
-| `local` | `text` (long text), `table` (300 rows), `grid` (CSS grid and flexbox cards), `images` (120 small `data:` PNG and SVG pictures), `dom` (JavaScript building, sorting and changing the DOM), `jsbench`, `jsops`, `test1` | Fixed pages from this repository, no network: the numbers move only when OpenBrowser does |
+| `local` | `text` (long text), `table` (300 rows), `grid` (CSS grid and flexbox cards), `images` (120 small `data:` PNG and SVG pictures), `dom` (JavaScript building, sorting and changing the DOM), `jsbench`, `jsops`, `test1` | Fixed pages from this repository, no network: the numbers move only when GFOpenBrowser does |
 | `compat` | `features` (our CSS/HTML/JS feature probe), `acid3` (http://acid3.acidtests.org/) | What the engine supports |
 | `live` | about 20 common sites: Wikipedia, BBC News, the Guardian, GitHub, Google, YouTube, Amazon, Reddit, Hacker News, MDN, Stack Overflow, eBay, GOV.UK, W3C, DuckDuckGo (HTML), amiga.org, EAB, Aminet, example.com | Real pages over https://, fetched read-only, one request for the page and whatever it loads |
 
@@ -77,7 +77,7 @@ built before `OBVIEW_BENCH` still works: times then come from its
 
 On the lab machine, from a checkout of this branch, with the engine and
 `obcore-view` built (`scripts/build-webcore.sh build-tests`: only
-OpenBrowser's own files recompile) and an instance whose
+GFOpenBrowser's own files recompile) and an instance whose
 `S:User-Startup` runs `DH1:Probe/runner.script` (`tools/runner.script`):
 
 ```sh
@@ -159,6 +159,6 @@ python3 -m unittest discover -s tools/bench/tests -v
 
 They run in CI (`.github/workflows/bench.yml`) with the test262 slice's
 hashes checked against the network, `obstamp` built and `obcore_view.c`
-compiled for syntax with OpenAmigaGCC.
+compiled for syntax with GFOpenAmigaGCC.
 
 MIT, Copyright (c) 2026 The AmigaChrome Team.

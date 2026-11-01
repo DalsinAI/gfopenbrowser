@@ -1,10 +1,10 @@
 #!/bin/sh
-# OpenBrowser (DalsinAI/openamigabrowser)
+# GFOpenBrowser (DalsinAI/openamigabrowser)
 # Copyright (c) 2026 AmigaChrome Team. MIT licence, see LICENSE.
 #
 # weblayout.library 1 (src/weblayout as a resident library) and its Amiga
 # test program, for AmigaOS 3.2 on a 68040 with its FPU. The library uses
-# the resident openlayout.library 2 (DalsinAI/openamigalayout) and links
+# the resident gfopenlayout.library 2 (DalsinAI/openamigalayout) and links
 # with no C library: an Exec pool per document and its own string calls.
 #
 #   build-weblayout-library.sh [OUT_DIR]     (default build/weblayout-library)
@@ -25,14 +25,14 @@ OUT=${1:-"$HERE/build/weblayout-library"}
 if [ -n "${TOOLCHAIN_DIR:-}" ]; then
     BIN="$TOOLCHAIN_DIR/bin"
 else
-    BIN="${STOVE:-"$HOME/AmigaChrome/stoves/os32-gcc16"}/prefix/bin"
+    BIN="${STOVE:-"$HOME/AmiCradle/stoves/os32-gcc16"}/prefix/bin"
 fi
 CC="$BIN/m68k-amigaos-gcc"
 OL=${OPENLAYOUT_SRC:-"$HERE/../openamigalayout"}
 WL="$HERE/src/weblayout"
 LIB="$WL/library"
 [ -x "$CC" ] || { echo "build-weblayout-library.sh: no compiler at $CC (set TOOLCHAIN_DIR or STOVE)" >&2; exit 2; }
-[ -f "$OL/include/libraries/openlayout.h" ] || { echo "build-weblayout-library.sh: no OpenLayout at $OL (set OPENLAYOUT_SRC)" >&2; exit 2; }
+[ -f "$OL/include/libraries/openlayout.h" ] || { echo "build-weblayout-library.sh: no GFOpenLayout at $OL (set OPENLAYOUT_SRC)" >&2; exit 2; }
 
 if [ -n "${OPENSDK_SRC:-}" ]; then
     # the headers are made from the SFD; a stale one fails the build
@@ -47,7 +47,7 @@ mkdir -p "$OUT/tests"
 
 # The library: wl_library.c first (its start() is the first code), the
 # engine with an Exec pool per document (WL_EXEC_POOLS) and the resident
-# OpenLayout, and the library's own string calls. -nostdlib: nothing of a C
+# GFOpenLayout, and the library's own string calls. -nostdlib: nothing of a C
 # library; -fno-tree-loop-distribute-patterns: no memset/memcpy calls made
 # out of the runtime's own loops.
 "$CC" $CPU -mcrt=nix20 -O2 -std=gnu99 -fno-delete-null-pointer-checks -fno-common \

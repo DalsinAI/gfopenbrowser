@@ -1,5 +1,5 @@
 /*
- * OpenBrowser: an empty ICU common data block (OB_ICU_DATA=file).
+ * GFOpenBrowser: an empty ICU common data block (OB_ICU_DATA=file).
  *
  * ICU's code refers to its linked-in data by one symbol. A program that
  * reads the data from a file (ob_icudata.c) defines that symbol here with

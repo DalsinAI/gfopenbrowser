@@ -1,7 +1,7 @@
 name: Benchmark tools
 
 # tools/bench (the benchmark's staging, report and render comparison) on the
-# host, and its Amiga parts with the OpenAmigaGCC release and OpenNDK, pinned
+# host, and its Amiga parts with the GFOpenAmigaGCC release and GFOpenNDK, pinned
 # as openamigacurl's CI pins them: obstamp is built, and obcore-view's source
 # is compiled for syntax (WebKit's own build links it on the lab machine).
 on:
