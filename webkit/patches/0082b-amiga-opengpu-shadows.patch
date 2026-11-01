@@ -1,0 +1,548 @@
+From cd04bddeba75fc4405a7cdfaf5610db561acf52e Mon Sep 17 00:00:00 2001
+From: SacredTrees <121399723+SacredTrees@users.noreply.github.com>
+Date: Sun, 1 Nov 2026 18:31:18 +0000
+Subject: [PATCH] WebCore: drop shadows through OpenGPU, ShadowBlur's sizes
+
+Fills and strokes with a drop shadow no longer go to cairo whole
+(cairo-out item 4, shadows). They cast it as WebKit's ShadowBlur does,
+with ShadowBlur's blur sizes, which is Dale's decision of 1 November 2026.
+
+- OpenGPUPaintAmiga: obgpu_set_shadow, applied by the next path fill or
+  stroke, in one batch:
+  1. an A8 layer over the shape's box, moved by the offset and grown by
+     the blur;
+  2. the shape drawn into it by PATH_FILL/PATH_STROKE, its coverage times
+     the mask alpha;
+  3. BLUR with ShadowBlur's box sizes, each turned into the radius whose
+     box OpenGPU computes is that size (obgpu_blur_radius_for_box);
+  4. the layer multiplied by the clip's mask;
+  5. the shadow colour times the global alpha drawn through it,
+     source-over, under the clip.
+  The shape is drawn after. Layers are freed once the batch is drawn.
+- GraphicsContextOpenGPU::shadowHere uses ShadowBlur's calculateLobes:
+  - canvas shadows (shadowsIgnoreTransforms): a box of 2/3 of the blur;
+  - CSS shadows: sigma = blur / 2, times 3 sqrt(2 pi) / 4 times 0.88,
+    rounded;
+  - at least 2, and blurs above 128 are drawn as 128.
+  ShadowBlur's rectangle shadows (fillRect with a colour, fillRoundedRect)
+  use the shape's coverage. Its path shadows (fillRect and fillPath with
+  a FillSource, strokePath, strokeRect) use the coverage times the paint
+  colour's own alpha. Taken when the transform only moves,
+  compositing is source-over with normal blending, and the paint is a
+  colour.
+
+Still cairo's: shadows under other transforms, of gradients and
+patterns, inset shadows (fillRectWithRoundedHole), text and image
+shadows.
+---
+ .../graphics/amiga/GraphicsContextOpenGPU.cpp | 114 ++++++++++--
+ .../graphics/amiga/GraphicsContextOpenGPU.h   |   8 +-
+ .../graphics/amiga/OpenGPUPaintAmiga.c        | 175 +++++++++++++++++-
+ .../graphics/amiga/OpenGPUPaintAmiga.h        |  30 +++
+ 4 files changed, 309 insertions(+), 18 deletions(-)
+
+diff --git a/Source/WebCore/platform/graphics/amiga/GraphicsContextOpenGPU.cpp b/Source/WebCore/platform/graphics/amiga/GraphicsContextOpenGPU.cpp
+index e9365ff..c9dd375 100644
+--- a/Source/WebCore/platform/graphics/amiga/GraphicsContextOpenGPU.cpp
++++ b/Source/WebCore/platform/graphics/amiga/GraphicsContextOpenGPU.cpp
+@@ -755,26 +755,82 @@ bool GraphicsContextOpenGPU::beginPath(const Path& path)
+     return fits;
+ }
+ 
+-bool GraphicsContextOpenGPU::fillPathWith(const Path& path, const Paint& paint, bool evenOdd, CompositeOperator op)
++// The context's drop shadow for the next fill or stroke, as WebKit's
++// ShadowBlur casts it (0082b): shadowMaskAlpha -1 for a call whose cairo
++// form casts none, 255 for ShadowBlur's rectangle shadows (fillRect with a
++// colour, fillRoundedRect), the paint colour's own alpha for its path
++// shadows (fills and strokes through a FillSource or StrokeSource). The
++// box sizes are ShadowBlur's (calculateLobes, Dale's choice): a canvas
++// shadow (shadowsIgnoreTransforms) 2/3 of the blur, a CSS one sigma =
++// blur / 2 times 3 sqrt(2 pi) / 4 times 0.88, rounded, at least 2; blurs
++// over 128 as 128. Drawn here under a transform that only moves (ShadowBlur
++// scales blurs and offsets under others), source-over, normal blending.
++// false when it can't be: the caller hands the call to cairo.
++bool GraphicsContextOpenGPU::shadowHere(int shadowMaskAlpha)
++{
++    obgpu_set_shadow(m_gpu, nullptr);
++    if (shadowMaskAlpha < 0 || !hasDropShadow())
++        return true;
++    auto shadow = dropShadow();
++    // ShadowState::isVisible: none to cast
++    if (!shadow || !shadow->color.isVisible() || (!shadow->offset.width() && !shadow->offset.height() && !shadow->radius))
++        return true;
++    auto ctm = getCTM(PossiblyIncludeDeviceScale);
++    if (ctm.a() != 1 || ctm.b() || ctm.c() || ctm.d() != 1 || compositeOperation() != CompositeOperator::SourceOver
++        || blendMode() != BlendMode::Normal || !(std::abs(shadow->offset.width()) < 32767) || !(std::abs(shadow->offset.height()) < 32767))
++        return false;
++    float radius = std::min(shadow->radius, 128.0f);
++    int box = 0;
++    if (radius > 0) {
++        if (shadowsIgnoreTransforms())
++            box = std::max(2, static_cast<int>(floorf((2 / 3.f) * radius)));
++        else {
++            float stdDev = radius / 2;
++            const float gaussianKernelFactor = 3 / 4.f * sqrtf(2 * std::numbers::pi_v<float>);
++            const float fudgeFactor = 0.88f;
++            box = std::max(2, static_cast<int>(floorf(stdDev * gaussianKernelFactor * fudgeFactor + 0.5f)));
++        }
++    }
++    obgpu_shadow s;
++    s.dx = std::lround(shadow->offset.width() * 256);
++    s.dy = std::lround(shadow->offset.height() * 256);
++    s.box_x = s.box_y = box;
++    s.argb = premultiplied(alpha() < 1 ? shadow->color.colorWithAlphaMultipliedBy(alpha()) : shadow->color);
++    s.mask_alpha = static_cast<unsigned>(shadowMaskAlpha);
++    obgpu_set_shadow(m_gpu, &s);
++    return true;
++}
++
++bool GraphicsContextOpenGPU::fillPathWith(const Path& path, const Paint& paint, bool evenOdd, CompositeOperator op, int shadowMaskAlpha)
+ {
+-    if (!beginPath(path))
++    if (!shadowHere(shadowMaskAlpha))
++        return false;
++    if (!beginPath(path)) {
++        obgpu_set_shadow(m_gpu, nullptr);
+         return false;
++    }
+     bool drawn = paint.hasPattern ? obgpu_fill_path_pattern(m_gpu, &paint.pattern, evenOdd, static_cast<int>(op))
+         : obgpu_fill_path(m_gpu, paint.argb, paint.hasGradient ? &paint.gradient : nullptr, evenOdd, static_cast<int>(op));
++    obgpu_set_shadow(m_gpu, nullptr);
+     if (drawn)
+         keepPicture(paint);
+     return drawn;
+ }
+ 
+-bool GraphicsContextOpenGPU::strokePathWith(const Path& path, const Paint& paint, double width)
++bool GraphicsContextOpenGPU::strokePathWith(const Path& path, const Paint& paint, double width, int shadowMaskAlpha)
+ {
+     obgpu_stroke stroke;
+     long dashes[64];
+-    if (!strokeFor(width, stroke, dashes) || !beginPath(path))
++    if (!strokeFor(width, stroke, dashes) || !shadowHere(shadowMaskAlpha))
++        return false;
++    if (!beginPath(path)) {
++        obgpu_set_shadow(m_gpu, nullptr);
+         return false;
++    }
+     int op = static_cast<int>(compositeOperation());
+     bool drawn = paint.hasPattern ? obgpu_stroke_path_pattern(m_gpu, &paint.pattern, &stroke, op)
+         : obgpu_stroke_path(m_gpu, paint.argb, paint.hasGradient ? &paint.gradient : nullptr, &stroke, op);
++    obgpu_set_shadow(m_gpu, nullptr);
+     if (drawn)
+         keepPicture(paint);
+     return drawn;
+@@ -802,6 +858,29 @@ bool GraphicsContextOpenGPU::patternRect(const FloatRect& rect, const Pattern& p
+     return fillPathWith(path, paint, false, compositeOperation());
+ }
+ 
++// The mask alpha of ShadowBlur's path shadow for a brush (drawPathShadow
++// fills the shape with the paint, NoAdjustment: a colour's own alpha,
++// without the global alpha). Gradients and patterns cast none here: 255,
++// and the writer leaves such a shadow to cairo.
++int GraphicsContextOpenGPU::brushShadowAlpha(const SourceBrush& brush)
++{
++    if (brush.gradient() || brush.pattern())
++        return 255;
++    return static_cast<int>(premultiplied(brush.color()) >> 24);
++}
++
++// A rectangle of one colour with the context's shadow: its path.
++bool GraphicsContextOpenGPU::shadowedRect(const FloatRect& rect, const Color& color, int shadowMaskAlpha)
++{
++    if (!pathsWanted(false))
++        return false;
++    Paint paint;
++    paint.argb = premultiplied(color);
++    Path path;
++    path.addRect(rect);
++    return fillPathWith(path, paint, false, compositeOperation(), shadowMaskAlpha);
++}
++
+ bool GraphicsContextOpenGPU::solidFill(const FloatRect& rect, const Color& color, CompositeOperator op, BlendMode blendMode)
+ {
+     long r[4];
+@@ -826,7 +905,11 @@ void GraphicsContextOpenGPU::fillRect(const FloatRect& rect, RequiresClipToRect
+     if (!brush.gradient() && !brush.pattern()) {
+         // as Cairo::fillRect with a FillSource: the colour times the global alpha
+         Color color = alpha() < 1 ? fillColor().colorWithAlphaMultipliedBy(alpha()) : fillColor();
+-        if (solidFill(rect, color, compositeOperation(), blendMode()))
++        if (hasDropShadow()) {
++            // Cairo::fillRect with a FillSource: drawPathShadow, the colour's own alpha
++            if (shadowedRect(rect, color, static_cast<int>(premultiplied(fillColor()) >> 24)))
++                return;
++        } else if (solidFill(rect, color, compositeOperation(), blendMode()))
+             return;
+         handOn(OBGPU_FILL);
+     } else if (brush.gradient()) {
+@@ -848,7 +931,8 @@ void GraphicsContextOpenGPU::fillRect(const FloatRect& rect, const Color& color)
+     // invisible colour over
+     if (!color.isVisible() && compositeOperation() == CompositeOperator::SourceOver && blendMode() == BlendMode::Normal && !hasDropShadow())
+         return;
+-    if (solidFill(rect, color, compositeOperation(), blendMode()))
++    // with a shadow: ShadowBlur's rectangle shadow, of the rectangle's coverage
++    if (hasDropShadow() ? shadowedRect(rect, color, 255) : solidFill(rect, color, compositeOperation(), blendMode()))
+         return;
+     handOn(OBGPU_FILL);
+     m_cairo.fillRect(rect, color);
+@@ -939,13 +1023,14 @@ void GraphicsContextOpenGPU::fillRect(const FloatRect& rect, Gradient& gradient,
+ 
+ void GraphicsContextOpenGPU::fillRoundedRectImpl(const FloatRoundedRect& rect, const Color& color)
+ {
+-    // as Cairo::fillRoundedRect: the colour as it is, no global alpha
+-    if (pathsWanted()) {
++    // as Cairo::fillRoundedRect: the colour as it is, no global alpha;
++    // its shadow ShadowBlur's rectangle shadow (0082b)
++    if (pathsWanted(false)) {
+         Paint paint;
+         paint.argb = premultiplied(color);
+         Path path;
+         path.addRoundedRect(rect);
+-        if (fillPathWith(path, paint, false, compositeOperation()))
++        if (fillPathWith(path, paint, false, compositeOperation(), 255))
+             return;
+     }
+     handOn(OBGPU_ROUNDED);
+@@ -975,10 +1060,11 @@ void GraphicsContextOpenGPU::fillRectWithRoundedHole(const FloatRect& rect, cons
+ void GraphicsContextOpenGPU::strokeRect(const FloatRect& rect, float lineWidth)
+ {
+     Paint paint;
+-    if (pathsWanted() && paintFor(strokeBrush(), paint)) {
++    // the shadow ShadowBlur's path shadow (0082b), the stroke colour's alpha
++    if (pathsWanted(false) && paintFor(strokeBrush(), paint)) {
+         Path path;
+         path.addRect(rect);
+-        if (strokePathWith(path, paint, lineWidth))
++        if (strokePathWith(path, paint, lineWidth, brushShadowAlpha(strokeBrush())))
+             return;
+     }
+     handOn(OBGPU_STROKE);
+@@ -990,7 +1076,8 @@ void GraphicsContextOpenGPU::fillPath(const Path& path)
+     if (path.isEmpty())
+         return;
+     Paint paint;
+-    if (pathsWanted() && paintFor(fillBrush(), paint) && fillPathWith(path, paint, fillRule() == WindRule::EvenOdd, compositeOperation()))
++    if (pathsWanted(false) && paintFor(fillBrush(), paint)
++        && fillPathWith(path, paint, fillRule() == WindRule::EvenOdd, compositeOperation(), brushShadowAlpha(fillBrush())))
+         return;
+     handOn(OBGPU_PATH);
+     m_cairo.fillPath(path);
+@@ -1001,7 +1088,8 @@ void GraphicsContextOpenGPU::strokePath(const Path& path)
+     if (path.isEmpty())
+         return;
+     Paint paint;
+-    if (pathsWanted() && paintFor(strokeBrush(), paint) && strokePathWith(path, paint, cairo_get_line_width(m_cairo.cr())))
++    if (pathsWanted(false) && paintFor(strokeBrush(), paint)
++        && strokePathWith(path, paint, cairo_get_line_width(m_cairo.cr()), brushShadowAlpha(strokeBrush())))
+         return;
+     handOn(OBGPU_STROKE);
+     m_cairo.strokePath(path);
+diff --git a/Source/WebCore/platform/graphics/amiga/GraphicsContextOpenGPU.h b/Source/WebCore/platform/graphics/amiga/GraphicsContextOpenGPU.h
+index 1626b47..e3e4bc0 100644
+--- a/Source/WebCore/platform/graphics/amiga/GraphicsContextOpenGPU.h
++++ b/Source/WebCore/platform/graphics/amiga/GraphicsContextOpenGPU.h
+@@ -145,8 +145,12 @@ private:
+     void keepPicture(const Paint&);
+     bool strokeFor(double width, obgpu_stroke&, long* dashes);
+     bool beginPath(const Path&);
+-    bool fillPathWith(const Path&, const Paint&, bool evenOdd, CompositeOperator);
+-    bool strokePathWith(const Path&, const Paint&, double width);
++    // shadowMaskAlpha: -1, no shadow; else as shadowHere (0082b)
++    bool fillPathWith(const Path&, const Paint&, bool evenOdd, CompositeOperator, int shadowMaskAlpha = -1);
++    bool strokePathWith(const Path&, const Paint&, double width, int shadowMaskAlpha = -1);
++    bool shadowHere(int shadowMaskAlpha);
++    bool shadowedRect(const FloatRect&, const Color&, int shadowMaskAlpha);
++    static int brushShadowAlpha(const SourceBrush&);
+     bool gradientRect(const FloatRect&, Gradient&, const AffineTransform&, float globalAlpha);
+     bool patternRect(const FloatRect&, const Pattern&, float globalAlpha);
+ 
+diff --git a/Source/WebCore/platform/graphics/amiga/OpenGPUPaintAmiga.c b/Source/WebCore/platform/graphics/amiga/OpenGPUPaintAmiga.c
+index c34fe09..671edaf 100644
+--- a/Source/WebCore/platform/graphics/amiga/OpenGPUPaintAmiga.c
++++ b/Source/WebCore/platform/graphics/amiga/OpenGPUPaintAmiga.c
+@@ -180,6 +180,11 @@ long obgpu_flush(struct obgpu *g)
+     g->words = 0;
+     g->drawn = 0;
+     g->scratch_used = 0;
++    while (g->temps > 0) {
++        g->temps--;
++        if (g->mask_free)
++            g->mask_free(g->mask_user, g->temp[g->temps]);
++    }
+     return r;
+ }
+ 
+@@ -317,6 +322,7 @@ static void freeMask(struct obgpu *g, int i)
+ void obgpu_release_masks(struct obgpu *g)
+ {
+     dropMasks(g, 0);
++    obgpu_flush(g);
+ }
+ 
+ void obgpu_set_antialias(struct obgpu *g, int on)
+@@ -879,7 +885,7 @@ int obgpu_image(struct obgpu *g, const struct obgpu_source *s, const long *dst,
+ static int pathRoom(struct obgpu *g, long n, int cmd)
+ {
+     long len = g->scratch_used - g->path_start, i;
+-    if (g->scratch_used + n <= g->scratch_cap && (!cmd || g->words + OBGPU_CMD_MAX <= g->stream_cap))
++    if (g->scratch_used + n <= g->scratch_cap && (!cmd || g->words + (long)cmd * OBGPU_CMD_MAX <= g->stream_cap))
+         return 1;
+     if (len + n > g->scratch_cap)
+         return 0;
+@@ -1184,6 +1190,161 @@ static int patternWords(struct obgpu *g, const struct obgpu_pattern *p, unsigned
+     return 1;
+ }
+ 
++static int pathBox(struct obgpu *g, int *b);
++
++void obgpu_set_shadow(struct obgpu *g, const struct obgpu_shadow *s)
++{
++    g->has_shadow = s != 0;
++    if (!s)
++        return;
++    g->shadow_dx = s->dx;
++    g->shadow_dy = s->dy;
++    g->shadow_box_x = s->box_x;
++    g->shadow_box_y = s->box_y;
++    g->shadow_argb = s->argb & 0xFFFFFFFFUL;
++    g->shadow_mask_alpha = s->mask_alpha > 255 ? 255 : s->mask_alpha;
++}
++
++/* the core's box size for a radius (stream.h: sigma = radius / 2, d = sigma
++ * 3 sqrt(2 pi) / 4 + 1/2, rounded down), as ogpu_core.c works it out */
++static int boxOf(unsigned long r)
++{
++    return (int)((((obgpu_s64)r << 11) * 123207 + 0x80000000LL) >> 32);
++}
++
++unsigned long obgpu_blur_radius_for_box(int box)
++{
++    obgpu_s64 r;
++    if (box < 2)
++        return 0;
++    r = (((obgpu_s64)box << 32) - 0x80000000LL) / ((obgpu_s64)123207 << 11);
++    if (r < 0)
++        r = 0;
++    while (r < 0xFFFF && boxOf((unsigned long)r) < box)
++        r++;
++    while (r > 0 && boxOf((unsigned long)r - 1) >= box)
++        r--;
++    return r > 0xFFFF ? 0xFFFF : (unsigned long)r;
++}
++
++/* The shadow of the open path (its words at a[5], a[6], drawn by a[] as the
++ * shape will be): into an A8 layer over its box moved by the offset and
++ * grown by the blur, blurred, times the clip's mask, then the shadow's
++ * colour through it. 0 when it can't be cast (nothing added then). */
++static int castShadow(struct obgpu *g, const int *box, const unsigned long *a, int n, unsigned long flags, const struct obgpu_stroke *s)
++{
++    const struct obgpu_level *l = current(g);
++    const struct obgpu_mask *k = clipMask(g);
++    unsigned long b2[21], radii;
++    unsigned char *block;
++    unsigned long address = 0;
++    long grow = 2, w, h, bx, by, x1, y1, pad;
++    int i, slot, kslot = 0, d = g->shadow_box_x > g->shadow_box_y ? g->shadow_box_x : g->shadow_box_y;
++    obgpu_s64 m[6];
++    if (!box)
++        return 1;
++    if (s) {
++        /* the stroke's reach past the path, through the transform */
++        obgpu_s64 scale = 0;
++        for (i = 0; i < 4; i++)
++            if ((l->m[i] < 0 ? -(obgpu_s64)l->m[i] : l->m[i]) > scale)
++                scale = l->m[i] < 0 ? -(obgpu_s64)l->m[i] : l->m[i];
++        grow += (long)(((obgpu_s64)s->width * scale >> 16) * (s->join == OBGPU_JOIN_MITER && s->miter > 0x10000 ? s->miter >> 16 : 1) / 65536) + 2;
++    }
++    pad = d < 2 ? 1 : 3 * d / 2 + 2;
++    bx = box[0] - grow + floorShift(g->shadow_dx, 8) - pad;
++    by = box[1] - grow + floorShift(g->shadow_dy, 8) - pad;
++    x1 = box[2] + grow + floorShift(g->shadow_dx + 255, 8) + pad;
++    y1 = box[3] + grow + floorShift(g->shadow_dy + 255, 8) + pad;
++    /* only what can reach the clip */
++    if (bx < l->cx0 - pad) bx = l->cx0 - pad;
++    if (by < l->cy0 - pad) by = l->cy0 - pad;
++    if (x1 > l->cx1 + pad) x1 = l->cx1 + pad;
++    if (y1 > l->cy1 + pad) y1 = l->cy1 + pad;
++    w = x1 - bx;
++    h = y1 - by;
++    if (w <= 0 || h <= 0)
++        return 1;
++    if (w > OBGPU_MAX_SIDE || h > OBGPU_MAX_SIDE || (unsigned long)(w + 4) * 32 > g->work_bytes
++        || (unsigned long)(w > h ? w : h) * 8 > g->work_bytes)
++        return 0;
++    block = g->mask_alloc(g->mask_user, (unsigned long)((w + 3) & ~3L) * (unsigned long)h, &address);
++    if (!block)
++        return 0;
++    g->temp[g->temps++] = block;
++    {
++        struct obgpu_source src;
++        src.address = address;
++        src.bpr = (w + 3) & ~3L;
++        src.w = (int)w;
++        src.h = (int)h;
++        src.format = OBGPU_A8;
++        slot = slotOf(g, &src);
++    }
++    if (k)
++        kslot = maskSlot(g, k);
++    /* the layer, cleared */
++    b2[0] = (unsigned long)slot;
++    emit(g, OGPU_OP_TARGET, 1, b2);
++    b2[0] = xy(0, 0);
++    b2[1] = xy(w, h);
++    emit(g, OGPU_OP_CLIP, 2, b2);
++    b2[2] = 0;
++    emit(g, OGPU_OP_FILL, 3, b2);
++    /* the shape, moved, its coverage times the mask alpha */
++    for (i = 0; i < n; i++)
++        b2[i] = a[i];
++    for (i = 0; i < 6; i++)
++        m[i] = l->m[i];
++    m[4] += g->shadow_dx - bx * 256;
++    m[5] += g->shadow_dy - by * 256;
++    if (!matrixWords(m, b2 + 7))
++        return 0;
++    b2[0] = (unsigned long)OGPU_PD_OVER | (flags & ~(unsigned long)OGPU_PATH_MASK);
++    b2[1] = (unsigned long)g->shadow_mask_alpha << 24;
++    b2[2] = 0;
++    b2[3] = 0;
++    b2[4] = 0;
++    emit(g, s ? OGPU_OP_PATH_STROKE : OGPU_OP_PATH_FILL, n, b2);
++    /* ShadowBlur's three boxes each way */
++    if (g->shadow_box_x >= 2 || g->shadow_box_y >= 2) {
++        radii = obgpu_blur_radius_for_box(g->shadow_box_x) << 16 | obgpu_blur_radius_for_box(g->shadow_box_y);
++        b2[0] = xy(0, 0);
++        b2[1] = xy(w, h);
++        b2[2] = radii;
++        b2[3] = g->work;
++        b2[4] = g->work_bytes;
++        emit(g, OGPU_OP_BLUR, 5, b2);
++    }
++    /* outside the clip's mask nothing is drawn */
++    if (k) {
++        b2[0] = OGPU_PD_IN_REVERSE;
++        b2[1] = (unsigned long)kslot;
++        b2[2] = xy(bx - k->x, by - k->y);
++        b2[3] = 0;
++        b2[4] = 0;
++        b2[5] = xy(0, 0);
++        b2[6] = xy(w, h);
++        emit(g, OGPU_OP_COMPOSITE_PD, 7, b2);
++    }
++    /* the colour through it, on the target */
++    b2[0] = 0;
++    emit(g, OGPU_OP_TARGET, 1, b2);
++    g->clip_sent = 0;
++    sendClip(g);
++    b2[0] = (unsigned long)OGPU_PD_OVER | OGPU_PD_SOLID | OGPU_PD_MASK;
++    b2[1] = g->shadow_argb;
++    b2[2] = 0;
++    b2[3] = (unsigned long)slot;
++    b2[4] = xy(0, 0);
++    b2[5] = xy(bx, by);
++    b2[6] = xy(w, h);
++    emit(g, OGPU_OP_COMPOSITE_PD, 7, b2);
++    g->drawn++;
++    g->counts->draws++;
++    return 1;
++}
++
+ /* The open path filled or stroked: PATH_FILL or PATH_STROKE with its words,
+  * the paint's and the dashes' after them in scratch. */
+ static int pathDraw(struct obgpu *g, unsigned long argb, const struct obgpu_gradient *gr,
+@@ -1194,7 +1355,7 @@ static int pathDraw(struct obgpu *g, unsigned long argb, const struct obgpu_grad
+     int state = g->path_state, pd = pdOperator(op), i, n = 15;
+     obgpu_s64 m[6];
+     unsigned long a[21], paint = argb & 0xFFFFFFFFUL, dash = 0;
+-    int dashes = s ? s->dashes : 0;
++    int dashes = s ? s->dashes : 0, shadowBox[4], shadowAny = 0;
+     g->path_state = 0;
+     if (state != OBGPU_PATH_OPEN) {
+         if (state)
+@@ -1205,6 +1366,9 @@ static int pathDraw(struct obgpu *g, unsigned long argb, const struct obgpu_grad
+     if (!obgpu_drawable(g) || pd < 0 || (gr && !gradientOk(gr)) || (pat && !patternOk(pat))
+         || (g->aliased && !(g->caps & OBGPU_CAN_ALIASED)))
+         goto cairo;
++    /* ShadowBlur's shadows: source-over, a colour's (0082b) */
++    if (g->has_shadow && (pd != OGPU_PD_OVER || gr || pat || !g->mask_alloc || g->temps >= 16))
++        goto cairo;
+     if (g->aliased)
+         flags |= OGPU_PATH_ALIASED;
+     if (s && (s->cap < OBGPU_CAP_BUTT || s->cap > OBGPU_CAP_SQUARE || s->join < OBGPU_JOIN_MITER
+@@ -1235,11 +1399,14 @@ static int pathDraw(struct obgpu *g, unsigned long argb, const struct obgpu_grad
+                 break;
+             }
+     extra += dashes;
+-    if (!pathRoom(g, extra, 1))
++    if (!pathRoom(g, extra, g->has_shadow ? 4 : 1))
+         goto cairo;
+     start = g->path_start;
+     if (s && s->cap != OBGPU_CAP_BUTT)
+         pathDots(g, start, len);
++    /* the shadow's box, from the path's words alone (the paint's and the dashes' follow them) */
++    if (g->has_shadow)
++        shadowAny = pathBox(g, shadowBox);
+     if (gr && !gradientWords(g, gr, &paint))
+         goto cairo;
+     if (pat && !patternWords(g, pat, &paint))
+@@ -1285,6 +1452,8 @@ static int pathDraw(struct obgpu *g, unsigned long argb, const struct obgpu_grad
+         a[20] = (unsigned long)s->dash_offset;
+         n = 21;
+     }
++    if (g->has_shadow && !castShadow(g, shadowAny ? shadowBox : 0, a, n, flags, s))
++        goto cairo;
+     /* clear and copy as cairo bounds them by the shape: what is there times
+      * 1 - the coverage (destination-out of an opaque colour), then for copy
+      * the paint times the coverage added. PATH_FILL's own CLEAR and SRC act
+diff --git a/Source/WebCore/platform/graphics/amiga/OpenGPUPaintAmiga.h b/Source/WebCore/platform/graphics/amiga/OpenGPUPaintAmiga.h
+index 61271a7..ebd11a8 100644
+--- a/Source/WebCore/platform/graphics/amiga/OpenGPUPaintAmiga.h
++++ b/Source/WebCore/platform/graphics/amiga/OpenGPUPaintAmiga.h
+@@ -143,6 +143,15 @@ struct obgpu {
+     void *mask_user;
+     int aliased;                /* shapes are drawn without anti-aliasing (cairo's CAIRO_ANTIALIAS_NONE) */
+     int ox, oy;                 /* the target's pixel (0, 0) on the device (a group's surface: 0081) */
++    /* the shadow the next fills and strokes cast (obgpu_set_shadow), and the
++     * A8 layers of the batch's shadows, freed once it is drawn */
++    int has_shadow;
++    long shadow_dx, shadow_dy;
++    int shadow_box_x, shadow_box_y;
++    unsigned long shadow_argb;
++    unsigned shadow_mask_alpha;
++    unsigned char *temp[16];
++    int temps;
+     struct obgpu_counts *counts;
+     struct obgpu_counts own_counts;
+ };
+@@ -326,6 +335,27 @@ int obgpu_glyphs_here(const struct obgpu *g, struct obgpu_glyphs *out);
+ /* A point (24.8, the user's space) on the target (24.8); 0 past the fixed point. */
+ int obgpu_map(const struct obgpu *g, long x, long y, long *tx, long *ty);
+ 
++/* A drop shadow (0082b) as WebKit's ShadowBlur draws it: the shape's
++ * coverage times mask_alpha (255 for ShadowBlur's rectangle shadows, the
++ * paint's alpha for its path shadows) moved by dx, dy (24.8 target pixels),
++ * blurred by three box blurs of ShadowBlur's box sizes box_x and box_y
++ * (calculateLobes' diameters; under 2: not blurred), then argb (the shadow
++ * colour times the global alpha, premultiplied) drawn through it,
++ * source-over, under the clip, before the shape itself. Set before
++ * obgpu_fill_path or obgpu_stroke_path; 0 clears it. A fill or stroke with a
++ * shadow it can't cast (no masks, a layer too large, another operator)
++ * returns 0 and adds nothing. */
++struct obgpu_shadow {
++    long dx, dy;
++    int box_x, box_y;
++    unsigned long argb;
++    unsigned mask_alpha;
++};
++void obgpu_set_shadow(struct obgpu *g, const struct obgpu_shadow *s);
++/* The BLUR radius (12.4) whose box size (stream.h's feGaussianBlur sizes)
++ * is box: how a ShadowBlur box size is asked of OpenGPU. */
++unsigned long obgpu_blur_radius_for_box(int box);
++
+ /* Words waiting to be drawn. */
+ int obgpu_pending(const struct obgpu *g);
+ /* Sends the batch and waits for it, if it draws anything; 0, or the error. */
+-- 
+2.43.0
+
