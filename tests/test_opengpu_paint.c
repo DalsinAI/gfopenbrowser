@@ -1884,8 +1884,7 @@ static void testGradients(void)
     pEllipse(48, 32, 10, 10);
     tPathFill("stops out of order", 0, 0, &gr, OBGPU_OP_SOURCE_OVER, 0);
     gr.offset[1] = 1;
-    gr.kind = 3;
-    tPathFill("a conic gradient", 0, 0, &gr, OBGPU_OP_SOURCE_OVER, 0);
+    /* a conic gradient (kind 3) is drawn from 0079: tests/test_opengpu_pattern.c */
     gr.kind = OBGPU_LINEAR;
     gr.stops = 0;
     tPathFill("no stops", 0, 0, &gr, OBGPU_OP_SOURCE_OVER, 0);
