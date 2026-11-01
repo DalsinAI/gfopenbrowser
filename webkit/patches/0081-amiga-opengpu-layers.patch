@@ -1,0 +1,305 @@
+From b60bde82b70aa255fc3870536e7e167dd92630c6 Mon Sep 17 00:00:00 2001
+From: SacredTrees <121399723+SacredTrees@users.noreply.github.com>
+Date: Sun, 1 Nov 2026 18:00:49 +0000
+Subject: [PATCH] WebCore: drawing inside transparency layers through OpenGPU
+
+Transparency layers (beginTransparencyLayer with an opacity, or with an
+operator and blend mode) used to send everything inside them to cairo.
+Cairo still pushes its group (an ARGB32 image surface over the clip's
+extents) and, at endTransparencyLayer, puts it on the window. What is drawn
+inside the layer now goes into that group's pixels on OpenGPU
+(cairo-out item 4, openamigabrowser docs/STEP5-6-WEBCORE.md).
+
+- OpenGPUPaintAmiga: obgpu_group_surface retargets the writer to a group's
+  surface.
+  - The batch so far is sent first.
+  - The surface's pixel (0, 0) is placed at the group's device offset.
+    The level's transform and clip move onto its pixels, and later
+    transforms are moved the same way.
+  - The restore sends what was drawn and goes back to the outer target.
+  - Groups nest. A clip mask from outside the group leaves the group to
+    cairo (obgpu_group, as before).
+- GraphicsContextOpenGPU: after cairo pushes the group,
+  cairo_get_group_target gives its surface. It must be ARGB32 with whole
+  pixels and no device scale, otherwise the group stays cairo's. The batch
+  is sent and marked on the surface it draws into.
+
+Still cairo's: putting the group on the window (cairo_pop_group and
+paint_with_alpha), clipToImageBuffer's group, and shadows (WebKit's
+ShadowBlur).
+---
+ .../graphics/amiga/GraphicsContextOpenGPU.cpp | 60 +++++++++++++++----
+ .../graphics/amiga/GraphicsContextOpenGPU.h   | 10 +++-
+ .../graphics/amiga/OpenGPUPaintAmiga.c        | 55 ++++++++++++++++-
+ .../graphics/amiga/OpenGPUPaintAmiga.h        | 14 +++++
+ 4 files changed, 124 insertions(+), 15 deletions(-)
+
+diff --git a/Source/WebCore/platform/graphics/amiga/GraphicsContextOpenGPU.cpp b/Source/WebCore/platform/graphics/amiga/GraphicsContextOpenGPU.cpp
+index e31d1a3..81c030a 100644
+--- a/Source/WebCore/platform/graphics/amiga/GraphicsContextOpenGPU.cpp
++++ b/Source/WebCore/platform/graphics/amiga/GraphicsContextOpenGPU.cpp
+@@ -109,10 +109,12 @@ long GraphicsContextOpenGPU::submitBatch(void* user, const unsigned char* stream
+ {
+     auto& context = *static_cast<GraphicsContextOpenGPU*>(user);
+     // cairo's own drawing finished first; afterwards it must not trust
+-    // anything it remembers of these pixels
+-    cairo_surface_flush(context.m_surface);
++    // anything it remembers of these pixels (the window's, or from 0081 a
++    // transparency layer's group)
++    cairo_surface_t* surface = context.m_drawSurface ? context.m_drawSurface : context.m_surface;
++    cairo_surface_flush(surface);
+     long result = ob_opengpu_run(stream, words);
+-    cairo_surface_mark_dirty(context.m_surface);
++    cairo_surface_mark_dirty(surface);
+     context.m_pictures.shrink(0);
+     return result;
+ }
+@@ -351,16 +353,43 @@ IntRect GraphicsContextOpenGPU::clipBounds() const
+     return m_cairo.clipBounds();
+ }
+ 
++// A transparency layer: cairo pushes a group (its own image surface over
++// the clip's extents) and, at the end, puts it on the window by the
++// opacity, operator and blend mode (counted as a layer cairo drew). From
++// 0081 what is drawn inside goes into that group's pixels here.
++void GraphicsContextOpenGPU::groupHere()
++{
++    if (!m_gpu)
++        return;
++    obgpu_save(m_gpu);
++    m_layers.append({ false, m_drawSurface });
++    cairo_surface_t* group = cairo_get_group_target(m_cairo.cr());
++    double dx = 0, dy = 0, sx = 1, sy = 1;
++    if (group && cairo_surface_get_type(group) == CAIRO_SURFACE_TYPE_IMAGE) {
++        cairo_surface_get_device_offset(group, &dx, &dy);
++        cairo_surface_get_device_scale(group, &sx, &sy);
++    }
++    if (!group || cairo_surface_get_type(group) != CAIRO_SURFACE_TYPE_IMAGE || cairo_image_surface_get_format(group) != CAIRO_FORMAT_ARGB32
++        || !cairo_image_surface_get_data(group) || sx != 1 || sy != 1 || dx != std::round(dx) || dy != std::round(dy)
++        || !(std::abs(dx) < 32767) || !(std::abs(dy) < 32767)) {
++        obgpu_group(m_gpu);
++        return;
++    }
++    // the group's pixel (0, 0) is device (-dx, -dy)
++    if (obgpu_group_surface(m_gpu, reinterpret_cast<uintptr_t>(cairo_image_surface_get_data(group)), cairo_image_surface_get_stride(group),
++        cairo_image_surface_get_width(group), cairo_image_surface_get_height(group), static_cast<int>(-dx), static_cast<int>(-dy))) {
++        m_layers.last().first = true;
++        m_drawSurface = group;
++    }
++}
++
+ void GraphicsContextOpenGPU::beginTransparencyLayer(float opacity)
+ {
+     handOn(OBGPU_LAYER);
+     GraphicsContext::beginTransparencyLayer(opacity);
+     m_cairo.beginTransparencyLayer(opacity);
+     GraphicsContext::save(GraphicsContextState::Purpose::TransparencyLayer);
+-    if (m_gpu) {
+-        obgpu_save(m_gpu);
+-        obgpu_group(m_gpu);
+-    }
++    groupHere();
+ }
+ 
+ void GraphicsContextOpenGPU::beginTransparencyLayer(CompositeOperator compositeOperator, BlendMode blendMode)
+@@ -369,20 +398,25 @@ void GraphicsContextOpenGPU::beginTransparencyLayer(CompositeOperator compositeO
+     GraphicsContext::beginTransparencyLayer(compositeOperator, blendMode);
+     static_cast<GraphicsContext&>(m_cairo).beginTransparencyLayer(compositeOperator, blendMode);
+     GraphicsContext::save(GraphicsContextState::Purpose::TransparencyLayer);
+-    if (m_gpu) {
+-        obgpu_save(m_gpu);
+-        obgpu_group(m_gpu);
+-    }
++    groupHere();
+ }
+ 
+ void GraphicsContextOpenGPU::endTransparencyLayer()
+ {
++    // what was drawn into the group goes first (obgpu_restore sends it),
++    // then cairo puts the group on the window
++    if (m_gpu) {
++        obgpu_restore(m_gpu);
++        if (!m_layers.isEmpty()) {
++            auto layer = m_layers.takeLast();
++            if (layer.first)
++                m_drawSurface = layer.second;
++        }
++    }
+     flush();
+     GraphicsContext::endTransparencyLayer();
+     m_cairo.endTransparencyLayer();
+     GraphicsContext::restore(GraphicsContextState::Purpose::TransparencyLayer);
+-    if (m_gpu)
+-        obgpu_restore(m_gpu);
+ }
+ 
+ void GraphicsContextOpenGPU::setLineCap(LineCap lineCap)
+diff --git a/Source/WebCore/platform/graphics/amiga/GraphicsContextOpenGPU.h b/Source/WebCore/platform/graphics/amiga/GraphicsContextOpenGPU.h
+index 8dcbd31..200bd0b 100644
+--- a/Source/WebCore/platform/graphics/amiga/GraphicsContextOpenGPU.h
++++ b/Source/WebCore/platform/graphics/amiga/GraphicsContextOpenGPU.h
+@@ -5,7 +5,8 @@
+  * colour or a linear or radial gradient, anti-aliased or not, by any
+  * operator cairo bounds by the shape (copy and clear included) go into one
+  * OpenGPU batch
+- * (OpenGPUPaintAmiga.h); from 0080 drawRect, drawLine, drawEllipse,
++ * (OpenGPUPaintAmiga.h); from 0081 also what is drawn inside transparency
++ * layers (into cairo's group); from 0080 drawRect, drawLine, drawEllipse,
+  * focus rings, text decorations and spelling markers; from 0079 also patterns (drawPattern, pattern
+  * brushes), conic gradients and stops of any alphas (mixed premultiplied,
+  * as CSS); every other call goes to a GraphicsContextCairo
+@@ -118,6 +119,8 @@ private:
+     static unsigned char* allocMask(void* user, unsigned long bytes, unsigned long* address);
+     static void freeMask(void* user, unsigned char* block);
+     void clipToPath(const Path&, int flags);
++    // After cairo pushed a group: draw into its surface here (0081).
++    void groupHere();
+     // The batch sent, then a call of this kind counted for cairo.
+     void handOn(int kind) const;
+     void flush() const;
+@@ -156,6 +159,11 @@ private:
+     Vector<unsigned long> m_stops;
+     // The pictures in the batch, kept until it is drawn.
+     mutable Vector<RefPtr<cairo_surface_t>, 16> m_pictures;
++    // the cairo surface the batch draws into: null the window's, else a
++    // transparency layer's group (0081); the ones outside it
++    cairo_surface_t* m_drawSurface { nullptr };
++    // each layer begun here: whether its group is drawn into here, and the surface outside it
++    Vector<std::pair<bool, cairo_surface_t*>, 4> m_layers;
+ };
+ 
+ } // namespace WebCore
+diff --git a/Source/WebCore/platform/graphics/amiga/OpenGPUPaintAmiga.c b/Source/WebCore/platform/graphics/amiga/OpenGPUPaintAmiga.c
+index 758274c..7af5a94 100644
+--- a/Source/WebCore/platform/graphics/amiga/OpenGPUPaintAmiga.c
++++ b/Source/WebCore/platform/graphics/amiga/OpenGPUPaintAmiga.c
+@@ -57,6 +57,7 @@ typedef long long obgpu_s64;
+ #define OBGPU_L_MATRIX_BAD  1   /* the transform does not fit the fixed point */
+ #define OBGPU_L_CLIP_OTHER  2   /* a clip only cairo has */
+ #define OBGPU_L_GROUP       4   /* cairo draws into a group of its own */
++#define OBGPU_L_SURFACE     8   /* drawn into a group's surface (obgpu_group_surface) */
+ 
+ /* The largest target or picture side, and a point OpenGPU takes (16 bits). */
+ #define OBGPU_MAX_SIDE      OGPU_MAX_SIZE
+@@ -346,7 +347,7 @@ void obgpu_save(struct obgpu *g)
+     to->cy0 = from->cy0;
+     to->cx1 = from->cx1;
+     to->cy1 = from->cy1;
+-    to->flags = from->flags;
++    to->flags = from->flags & ~OBGPU_L_SURFACE;
+     to->mask = from->mask;
+     g->depth++;
+ }
+@@ -370,11 +371,60 @@ void obgpu_restore(struct obgpu *g)
+     if (g->lost)
+         g->lost--;
+     else if (g->depth) {
++        struct obgpu_level *l = &g->level[g->depth];
+         dropMasks(g, g->depth);
++        if (l->flags & OBGPU_L_SURFACE) {
++            /* what was drawn into the group goes before cairo puts it on the window */
++            obgpu_flush(g);
++            g->target = l->outer_target;
++            g->target_bpr = l->outer_bpr;
++            g->target_w = l->outer_w;
++            g->target_h = l->outer_h;
++            g->ox = l->outer_ox;
++            g->oy = l->outer_oy;
++        }
+         g->depth--;
+     }
+ }
+ 
++int obgpu_group_surface(struct obgpu *g, unsigned long address, long bpr, int w, int h, int ox, int oy)
++{
++    struct obgpu_level *l = &g->level[g->depth];
++    long dx, dy;
++    if (g->lost)
++        return 0;
++    if (!address || w <= 0 || h <= 0 || w > OBGPU_MAX_SIDE || h > OBGPU_MAX_SIDE || bpr < (long)w * 4
++        || ox < -OBGPU_POINT_MAX || ox > OBGPU_POINT_MAX || oy < -OBGPU_POINT_MAX || oy > OBGPU_POINT_MAX || l->mask
++        || (l->flags & OBGPU_L_SURFACE)) {
++        obgpu_group(g);
++        return 0;
++    }
++    obgpu_flush(g);
++    l->flags |= OBGPU_L_SURFACE;
++    l->outer_target = g->target;
++    l->outer_bpr = g->target_bpr;
++    l->outer_w = g->target_w;
++    l->outer_h = g->target_h;
++    l->outer_ox = g->ox;
++    l->outer_oy = g->oy;
++    dx = ox - g->ox;
++    dy = oy - g->oy;
++    g->target = address;
++    g->target_bpr = bpr;
++    g->target_w = w;
++    g->target_h = h;
++    g->ox = ox;
++    g->oy = oy;
++    /* the transform and the clip in the surface's pixels */
++    l->m[4] -= dx * 256;
++    l->m[5] -= dy * 256;
++    l->cx0 = l->cx0 - dx < 0 ? 0 : l->cx0 - dx > w ? w : (int)(l->cx0 - dx);
++    l->cy0 = l->cy0 - dy < 0 ? 0 : l->cy0 - dy > h ? h : (int)(l->cy0 - dy);
++    l->cx1 = l->cx1 - dx < 0 ? 0 : l->cx1 - dx > w ? w : (int)(l->cx1 - dx);
++    l->cy1 = l->cy1 - dy < 0 ? 0 : l->cy1 - dy > h ? h : (int)(l->cy1 - dy);
++    return 1;
++}
++
+ void obgpu_set_matrix(struct obgpu *g, const long *m)
+ {
+     struct obgpu_level *l = &g->level[g->depth];
+@@ -387,6 +437,9 @@ void obgpu_set_matrix(struct obgpu *g, const long *m)
+     }
+     for (i = 0; i < 6; i++)
+         l->m[i] = m[i];
++    /* the device's transform, onto a group's surface */
++    l->m[4] -= (long)g->ox * 256;
++    l->m[5] -= (long)g->oy * 256;
+     l->flags &= ~OBGPU_L_MATRIX_BAD;
+ }
+ 
+diff --git a/Source/WebCore/platform/graphics/amiga/OpenGPUPaintAmiga.h b/Source/WebCore/platform/graphics/amiga/OpenGPUPaintAmiga.h
+index 1a0ad37..c7940a4 100644
+--- a/Source/WebCore/platform/graphics/amiga/OpenGPUPaintAmiga.h
++++ b/Source/WebCore/platform/graphics/amiga/OpenGPUPaintAmiga.h
+@@ -77,6 +77,11 @@ struct obgpu_level {
+     int cx0, cy0, cx1, cy1;     /* the clip, target pixels, x0 <= x < x1 */
+     int flags;                  /* OBGPU_L_ in OpenGPUPaintAmiga.c */
+     int mask;                   /* the clip's A8 mask (an index into obgpu's mask), 0 none */
++    /* a level that draws into a group's surface (obgpu_group_surface): the
++     * target and origin to go back to at its restore */
++    unsigned long outer_target;
++    long outer_bpr;
++    int outer_w, outer_h, outer_ox, outer_oy;
+ };
+ 
+ /* A clip mask: A8 memory covering the clip's rectangle when it was made,
+@@ -137,6 +142,7 @@ struct obgpu {
+     obgpu_free_fn mask_free;
+     void *mask_user;
+     int aliased;                /* shapes are drawn without anti-aliasing (cairo's CAIRO_ANTIALIAS_NONE) */
++    int ox, oy;                 /* the target's pixel (0, 0) on the device (a group's surface: 0081) */
+     struct obgpu_counts *counts;
+     struct obgpu_counts own_counts;
+ };
+@@ -173,6 +179,14 @@ void obgpu_clip_other(struct obgpu *g);
+  * mask) until the restore: nothing is drawn here. */
+ void obgpu_group(struct obgpu *g);
+ void obgpu_reset_clip(struct obgpu *g);
++/* cairo draws into a group from here (a transparency layer) until the
++ * restore, and its surface is premultiplied ARGB32 at address (bpr, w x h),
++ * its pixel (0, 0) at ox, oy on the device (0081): what is drawn here from
++ * now on goes into that surface, through the same transforms and clips,
++ * until the restore; cairo puts the group on the window then. The batch so
++ * far is sent first. A clip mask from outside the group leaves the group to
++ * cairo (as obgpu_group). 1 when the group's surface is drawn into here. */
++int obgpu_group_surface(struct obgpu *g, unsigned long address, long bpr, int w, int h, int ox, int oy);
+ /* 1 when the state lets anything be drawn here. */
+ int obgpu_drawable(const struct obgpu *g);
+ 
+-- 
+2.43.0
+
