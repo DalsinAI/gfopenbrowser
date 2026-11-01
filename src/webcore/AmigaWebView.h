@@ -9,6 +9,7 @@
 #include "ob_webview.h"
 
 #include <WebCore/IntRect.h>
+#include <WebCore/OpenGPUPaintAmiga.h>
 #include <WebCore/IntSize.h>
 #include <WebCore/Timer.h>
 #include <wtf/Forward.h>
@@ -60,6 +61,9 @@ public:
     // layout is still due is not painted but kept dirty (returns false).
     bool paint(unsigned char* argb, int stride, const WebCore::IntRect&, bool layOut = true);
     void reportDisplayList(unsigned char* direct, unsigned char* replayed, int stride, const WebCore::IntRect&);
+    // What painted the window since the last call, for OBVIEW_BENCH
+    // (ob_webview_paint_report); then counts again from 0.
+    int takePaintReport(char* buffer, int size);
     WebCore::IntRect takeDirtyRect();
     unsigned takeDirtyRects(WebCore::IntRect*, unsigned max);
     bool renderingUpdatePending() const { return m_renderingUpdateTimer.isActive(); }
@@ -106,6 +110,7 @@ private:
     bool m_loading { false };
     bool m_liteMode { false };
     unsigned long long m_bytesReceived { 0 };
+    obgpu_counts m_paintCounts { }; // OpenGPU's draws and batches, and the calls cairo drew
 };
 
 } // namespace OpenBrowser

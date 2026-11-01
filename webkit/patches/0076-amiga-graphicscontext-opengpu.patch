@@ -1,0 +1,1710 @@
+From 317b96a1ac9fbc86f6a43bd602fb8757f30e78f0 Mon Sep 17 00:00:00 2001
+From: SacredTrees <121399723+SacredTrees@users.noreply.github.com>
+Date: Fri, 23 Oct 2026 10:42:33 +0000
+Subject: [PATCH] WebCore: the window painted through a GraphicsContext on
+ OpenGPU
+
+GraphicsContextOpenGPU (platform/graphics/amiga) is the window's context
+on the Amiga. Solid rectangles, clearRect, rectangle clips and pictures go
+into one opengpu.library batch per paint; every other call goes to a
+GraphicsContextCairo on the same pixels, which gets every state change as
+it happens, after the batch is sent and drawn. The calls cairo draws are
+counted by kind for the browser's OBVIEW_BENCH line.
+
+OpenGPU draws, as cairo would:
+- fillRect with a solid colour (the global alpha as cairo applies it) and
+  clearRect, under a translate or scale, where the edges the clip leaves
+  visible fall on whole pixels: FILL for copy, clear and opaque
+  source-over, COMPOSITE_PD with a solid source for translucent
+  source-over, source-atop, destination-over, destination-out, xor and
+  plus-lighter;
+- clips to rectangles on whole pixels, nested, with save and restore;
+- drawNativeImage of a cairo ARGB32 or RGB24 image surface, with the
+  global alpha, by the same operators but clear: pixel for pixel through
+  COMPOSITE_PD from a slot; scaled or turned (nearest for
+  DoNotInterpolate, bilinear for Low), a PATH_FILL of its rectangle
+  painted with it as a PAD pattern, premultiplied as cairo is.
+cairo keeps source-in, source-out, destination-in, destination-atop,
+plus-darker, difference and the blend modes, gradients, patterns, paths,
+strokes, rounded rectangles, glyphs, text lines, focus rings, shadows,
+transparency layers, clipToImageBuffer, other clips, fractional edges,
+pictures under GOOD or BEST filtering that are not drawn pixel for pixel,
+and callers of platformContext().
+
+The batch goes before any call cairo draws (consecutive cairo calls cost
+one), when the stream or its scratch words are full, after drawing an
+ImageBuffer (its pixels may change), and at the end; the cairo target is
+flushed before it and marked dirty after it, and the pictures in it are
+held until then. A failed batch leaves the rest of the paint to cairo.
+
+OpenGPUPaintAmiga.c turns the state and the calls into stream words:
+plain C, no WebKit, no floating point, tested on the host against
+openamigartg's CPU core (openamigabrowser tests/test_opengpu_paint.c).
+OpenGPULibraryAmiga.c opens opengpu.library once at run time through
+openamigartg's inline calls; nothing more is linked. Without it, with a
+library that answers OGPU_NONE for COMPOSITE_PD, or with the Shell
+variable OB_PAINT=cairo, the browser paints with cairo as before.
+PlatformAmiga.cmake lists the new files; the browser's build gives the
+two C files openamigartg's headers.
+
+Team 3
+---
+ Source/WebCore/PlatformAmiga.cmake            |  10 +
+ .../graphics/amiga/GraphicsContextOpenGPU.cpp | 578 ++++++++++++++++
+ .../graphics/amiga/GraphicsContextOpenGPU.h   | 120 ++++
+ .../graphics/amiga/OpenGPULibraryAmiga.c      |  76 ++
+ .../graphics/amiga/OpenGPUPaintAmiga.c        | 652 ++++++++++++++++++
+ .../graphics/amiga/OpenGPUPaintAmiga.h        | 158 +++++
+ 6 files changed, 1594 insertions(+)
+ create mode 100644 Source/WebCore/platform/graphics/amiga/GraphicsContextOpenGPU.cpp
+ create mode 100644 Source/WebCore/platform/graphics/amiga/GraphicsContextOpenGPU.h
+ create mode 100644 Source/WebCore/platform/graphics/amiga/OpenGPULibraryAmiga.c
+ create mode 100644 Source/WebCore/platform/graphics/amiga/OpenGPUPaintAmiga.c
+ create mode 100644 Source/WebCore/platform/graphics/amiga/OpenGPUPaintAmiga.h
+
+diff --git a/Source/WebCore/PlatformAmiga.cmake b/Source/WebCore/PlatformAmiga.cmake
+index b315e7ab109..50d4da6d261 100644
+--- a/Source/WebCore/PlatformAmiga.cmake
++++ b/Source/WebCore/PlatformAmiga.cmake
+@@ -94,7 +94,14 @@ list(APPEND WebCore_SOURCES
+     platform/generic/KeyedDecoderGeneric.cpp
+     platform/generic/KeyedEncoderGeneric.cpp
+ 
++    # The window is painted through opengpu.library, opened at run time
++    # (cairo for what it doesn't draw, and with OB_PAINT=cairo). The
++    # browser's build gives the two C files openamigartg's OpenGPU headers
++    # (src/webcore/CMakeLists.txt); nothing more is linked.
++    platform/graphics/amiga/GraphicsContextOpenGPU.cpp
+     platform/graphics/amiga/GraphicsLayerAmiga.cpp
++    platform/graphics/amiga/OpenGPULibraryAmiga.c
++    platform/graphics/amiga/OpenGPUPaintAmiga.c
+     platform/graphics/amiga/SystemFontDatabaseAmiga.cpp
+ 
+     # Pictures in pages are decoded by the system's datatypes.
+@@ -130,6 +137,9 @@ list(APPEND WebCore_PRIVATE_FRAMEWORK_HEADERS
+ 
+     platform/amiga/PlatformScreenAmiga.h
+ 
++    platform/graphics/amiga/GraphicsContextOpenGPU.h
++    platform/graphics/amiga/OpenGPUPaintAmiga.h
++
+     platform/graphics/adwaita/Adwaita.h
+     platform/graphics/adwaita/ButtonControlAdwaita.h
+     platform/graphics/adwaita/ControlAdwaita.h
+diff --git a/Source/WebCore/platform/graphics/amiga/GraphicsContextOpenGPU.cpp b/Source/WebCore/platform/graphics/amiga/GraphicsContextOpenGPU.cpp
+new file mode 100644
+index 00000000000..3b339abd151
+--- /dev/null
++++ b/Source/WebCore/platform/graphics/amiga/GraphicsContextOpenGPU.cpp
+@@ -0,0 +1,578 @@
++/*
++ * The window's GraphicsContext on OpenGPU (GraphicsContextOpenGPU.h).
++ *
++ * Every state change goes to the cairo context too, as it happens, so
++ * cairo can take any call at any time: the batch is sent and waited for
++ * first (one flush however many cairo calls follow), and its pictures are
++ * held until then. What OpenGPU draws is checked against cairo's rules in
++ * OpenGPUPaintAmiga.c: the fill colour as cairo turns it into 8 bits, the
++ * global alpha only where cairo applies it, no shadow, normal blending,
++ * edges on whole pixels.
++ * MIT, Copyright (c) 2026 AmigaChrome Team.
++ * SPDX-License-Identifier: MIT
++ */
++#include "config.h"
++#include "GraphicsContextOpenGPU.h"
++
++#if USE(CAIRO)
++
++#include "AffineTransform.h"
++#include "Color.h"
++#include "FloatRoundedRect.h"
++#include "Gradient.h"
++#include "ImageBuffer.h"
++#include "NativeImage.h"
++#include "Path.h"
++#include <algorithm>
++#include <cairo.h>
++#include <cmath>
++#include <stdio.h>
++#include <stdlib.h>
++#include <wtf/FastMalloc.h>
++#include <wtf/text/StringCommon.h>
++#include <wtf/text/WTFString.h>
++
++namespace WebCore {
++
++// The batch: 8 KB of commands (some 250 draws) and 6 KB of patterns and
++// paths (64 pictures under a scale or a turn).
++static constexpr long streamWords = 2048;
++static constexpr long scratchWords = 1536;
++// PATH_FILL's work memory: 32 bytes a pixel of the width for each row of a
++// band, at most 128 KB.
++static constexpr unsigned long maxWorkBytes = 128 * 1024;
++
++bool GraphicsContextOpenGPU::isWanted()
++{
++    static const bool wanted = [] {
++        const char* value = getenv("OB_PAINT");
++        if (value && equalLettersIgnoringASCIICase(String::fromLatin1(value), "cairo"_s))
++            return false;
++        if (!(ob_opengpu_caps() & OBGPU_CAN_PD)) {
++            fprintf(stderr, "OpenBrowser: no opengpu.library with COMPOSITE_PD; the window is painted with cairo\n");
++            return false;
++        }
++        return true;
++    }();
++    return wanted;
++}
++
++static size_t gpuBytes()
++{
++    return (sizeof(obgpu) + 7) & ~static_cast<size_t>(7);
++}
++
++GraphicsContextOpenGPU::GraphicsContextOpenGPU(cairo_surface_t* surface, obgpu_counts* counts)
++    : m_cairo(surface)
++    , m_surface(surface)
++    , m_counts(counts ? counts : &m_ownCounts)
++{
++    void* block = nullptr;
++    int caps = ob_opengpu_caps();
++    if (!caps || !tryFastMalloc(gpuBytes() + (streamWords + scratchWords) * 4).getValue(block))
++        return;
++    m_gpu = static_cast<obgpu*>(block);
++    auto* stream = static_cast<unsigned char*>(block) + gpuBytes();
++    auto* scratch = stream + streamWords * 4;
++    obgpu_init(m_gpu, stream, streamWords, scratch, reinterpret_cast<uintptr_t>(scratch), scratchWords, submitBatch, this,
++        caps, m_counts);
++    if (cairo_surface_get_type(surface) != CAIRO_SURFACE_TYPE_IMAGE || cairo_image_surface_get_format(surface) != CAIRO_FORMAT_ARGB32
++        || !cairo_image_surface_get_data(surface)) {
++        m_gpu->broken = 1;
++        return;
++    }
++    obgpu_target(m_gpu, reinterpret_cast<uintptr_t>(cairo_image_surface_get_data(surface)), cairo_image_surface_get_stride(surface),
++        cairo_image_surface_get_width(surface), cairo_image_surface_get_height(surface));
++}
++
++GraphicsContextOpenGPU::~GraphicsContextOpenGPU()
++{
++    flush();
++    if (m_work)
++        fastFree(m_work);
++    if (m_gpu)
++        fastFree(m_gpu);
++}
++
++long GraphicsContextOpenGPU::submitBatch(void* user, const unsigned char* stream, long words)
++{
++    auto& context = *static_cast<GraphicsContextOpenGPU*>(user);
++    // cairo's own drawing finished first; afterwards it must not trust
++    // anything it remembers of these pixels
++    cairo_surface_flush(context.m_surface);
++    long result = ob_opengpu_run(stream, words);
++    cairo_surface_mark_dirty(context.m_surface);
++    context.m_pictures.shrink(0);
++    return result;
++}
++
++void GraphicsContextOpenGPU::flush() const
++{
++    if (m_gpu && obgpu_pending(m_gpu))
++        obgpu_flush(m_gpu);
++}
++
++void GraphicsContextOpenGPU::handOn(int kind) const
++{
++    flush();
++    m_counts->handed[kind]++;
++}
++
++GraphicsContextCairo* GraphicsContextOpenGPU::platformContext() const
++{
++    handOn(OBGPU_PLATFORM);
++    return &m_cairo;
++}
++
++void GraphicsContextOpenGPU::didUpdateState(GraphicsContextState& state)
++{
++    m_cairo.mergeLastChanges(state);
++    state.didApplyChanges();
++}
++
++// ---- the state ------------------------------------------------------------------------
++
++// A transform as OpenGPUPaintAmiga.h's fixed point: none when it does not fit.
++void GraphicsContextOpenGPU::syncMatrix()
++{
++    if (!m_gpu)
++        return;
++    auto ctm = m_cairo.getCTM(PossiblyIncludeDeviceScale);
++    double linear[4] = { ctm.a(), ctm.b(), ctm.c(), ctm.d() };
++    double move[2] = { ctm.e(), ctm.f() };
++    long m[6];
++    for (int i = 0; i < 4; i++) {
++        if (!(std::abs(linear[i]) < 32767)) {
++            obgpu_set_matrix(m_gpu, nullptr);
++            return;
++        }
++        m[i] = std::lround(linear[i] * 65536);
++    }
++    for (int i = 0; i < 2; i++) {
++        if (!(std::abs(move[i]) < 8388000)) {
++            obgpu_set_matrix(m_gpu, nullptr);
++            return;
++        }
++        m[4 + i] = std::lround(move[i] * 256);
++    }
++    obgpu_set_matrix(m_gpu, m);
++}
++
++// A rectangle in 24.8: false when it is too large for it (cairo's own limit).
++static bool fixedRect(const FloatRect& rect, long* out)
++{
++    float v[4] = { rect.x(), rect.y(), rect.width(), rect.height() };
++    for (int i = 0; i < 4; i++) {
++        if (!(std::abs(v[i]) < (1 << 22)))
++            return false;
++        out[i] = std::lround(v[i] * 256.0);
++    }
++    return true;
++}
++
++void GraphicsContextOpenGPU::save(GraphicsContextState::Purpose purpose)
++{
++    GraphicsContext::save(purpose);
++    m_cairo.save(purpose);
++    if (m_gpu)
++        obgpu_save(m_gpu);
++}
++
++void GraphicsContextOpenGPU::restore(GraphicsContextState::Purpose purpose)
++{
++    if (!stackSize())
++        return;
++    GraphicsContext::restore(purpose);
++    m_cairo.restore(purpose);
++    if (m_gpu)
++        obgpu_restore(m_gpu);
++}
++
++void GraphicsContextOpenGPU::scale(const FloatSize& size)
++{
++    m_cairo.scale(size);
++    syncMatrix();
++}
++
++void GraphicsContextOpenGPU::rotate(float angleInRadians)
++{
++    m_cairo.rotate(angleInRadians);
++    syncMatrix();
++}
++
++void GraphicsContextOpenGPU::translate(float x, float y)
++{
++    m_cairo.translate(x, y);
++    syncMatrix();
++}
++
++void GraphicsContextOpenGPU::concatCTM(const AffineTransform& transform)
++{
++    m_cairo.concatCTM(transform);
++    syncMatrix();
++}
++
++void GraphicsContextOpenGPU::setCTM(const AffineTransform& transform)
++{
++    m_cairo.setCTM(transform);
++    syncMatrix();
++}
++
++AffineTransform GraphicsContextOpenGPU::getCTM(IncludeDeviceScale includeScale) const
++{
++    return m_cairo.getCTM(includeScale);
++}
++
++void GraphicsContextOpenGPU::resetClip()
++{
++    m_cairo.resetClip();
++    if (m_gpu)
++        obgpu_reset_clip(m_gpu);
++}
++
++void GraphicsContextOpenGPU::clip(const FloatRect& rect)
++{
++    m_cairo.clip(rect);
++    if (!m_gpu)
++        return;
++    // as Cairo::clip clamps it
++    float limit = 1 << 22;
++    FloatRect clamped(std::max(rect.x(), -limit / 2), std::max(rect.y(), -limit / 2), std::min(rect.width(), limit), std::min(rect.height(), limit));
++    long r[4];
++    if (fixedRect(clamped, r))
++        obgpu_clip(m_gpu, r[0], r[1], r[2], r[3]);
++    else
++        obgpu_clip_other(m_gpu);
++}
++
++void GraphicsContextOpenGPU::clipRoundedRect(const FloatRoundedRect& rect)
++{
++    m_cairo.clipRoundedRect(rect);
++    if (!m_gpu)
++        return;
++    long r[4];
++    if (!rect.hasNonZeroRadii() && fixedRect(rect.rect(), r))
++        obgpu_clip(m_gpu, r[0], r[1], r[2], r[3]);
++    else
++        obgpu_clip_other(m_gpu);
++}
++
++void GraphicsContextOpenGPU::clipPath(const Path& path, WindRule windRule)
++{
++    m_cairo.clipPath(path, windRule);
++    if (m_gpu)
++        obgpu_clip_other(m_gpu);
++}
++
++void GraphicsContextOpenGPU::clipOut(const FloatRect& rect)
++{
++    m_cairo.clipOut(rect);
++    if (m_gpu)
++        obgpu_clip_other(m_gpu);
++}
++
++void GraphicsContextOpenGPU::clipOut(const Path& path)
++{
++    m_cairo.clipOut(path);
++    if (m_gpu)
++        obgpu_clip_other(m_gpu);
++}
++
++void GraphicsContextOpenGPU::clipToImageBuffer(ImageBuffer& buffer, const FloatRect& rect)
++{
++    // cairo draws into a group from here, put on the window at the restore
++    handOn(OBGPU_LAYER);
++    m_cairo.clipToImageBuffer(buffer, rect);
++    if (m_gpu)
++        obgpu_group(m_gpu);
++}
++
++IntRect GraphicsContextOpenGPU::clipBounds() const
++{
++    return m_cairo.clipBounds();
++}
++
++void GraphicsContextOpenGPU::beginTransparencyLayer(float opacity)
++{
++    handOn(OBGPU_LAYER);
++    GraphicsContext::beginTransparencyLayer(opacity);
++    m_cairo.beginTransparencyLayer(opacity);
++    GraphicsContext::save(GraphicsContextState::Purpose::TransparencyLayer);
++    if (m_gpu) {
++        obgpu_save(m_gpu);
++        obgpu_group(m_gpu);
++    }
++}
++
++void GraphicsContextOpenGPU::beginTransparencyLayer(CompositeOperator compositeOperator, BlendMode blendMode)
++{
++    handOn(OBGPU_LAYER);
++    GraphicsContext::beginTransparencyLayer(compositeOperator, blendMode);
++    static_cast<GraphicsContext&>(m_cairo).beginTransparencyLayer(compositeOperator, blendMode);
++    GraphicsContext::save(GraphicsContextState::Purpose::TransparencyLayer);
++    if (m_gpu) {
++        obgpu_save(m_gpu);
++        obgpu_group(m_gpu);
++    }
++}
++
++void GraphicsContextOpenGPU::endTransparencyLayer()
++{
++    flush();
++    GraphicsContext::endTransparencyLayer();
++    m_cairo.endTransparencyLayer();
++    GraphicsContext::restore(GraphicsContextState::Purpose::TransparencyLayer);
++    if (m_gpu)
++        obgpu_restore(m_gpu);
++}
++
++void GraphicsContextOpenGPU::setLineCap(LineCap lineCap)
++{
++    m_cairo.setLineCap(lineCap);
++}
++
++void GraphicsContextOpenGPU::setLineDash(const DashArray& dashes, float dashOffset)
++{
++    m_cairo.setLineDash(dashes, dashOffset);
++}
++
++void GraphicsContextOpenGPU::setLineJoin(LineJoin lineJoin)
++{
++    m_cairo.setLineJoin(lineJoin);
++}
++
++void GraphicsContextOpenGPU::setMiterLimit(float limit)
++{
++    m_cairo.setMiterLimit(limit);
++}
++
++RenderingMode GraphicsContextOpenGPU::renderingMode() const
++{
++    return m_cairo.renderingMode();
++}
++
++// ---- what OpenGPU draws -----------------------------------------------------------------
++
++// A colour as cairo puts it in an ARGB32 pixel: its 16-bit channels,
++// premultiplied, then the top 8 bits of each.
++static unsigned long premultiplied(const Color& color)
++{
++    auto [r, g, b, a] = color.toColorTypeLossy<SRGBA<float>>().resolved();
++    auto channel = [](double v) {
++        v = v < 0 ? 0 : v > 1 ? 1 : v;
++        return static_cast<unsigned long>(v * 65535.0 + 0.5) >> 8;
++    };
++    double alpha = a < 0 ? 0 : a > 1 ? 1 : a;
++    return channel(alpha) << 24 | channel(r * alpha) << 16 | channel(g * alpha) << 8 | channel(b * alpha);
++}
++
++bool GraphicsContextOpenGPU::solidFill(const FloatRect& rect, const Color& color, CompositeOperator op, BlendMode blendMode)
++{
++    long r[4];
++    if (!m_gpu || blendMode != BlendMode::Normal || hasDropShadow() || !fixedRect(rect, r))
++        return false;
++    return obgpu_fill(m_gpu, r[0], r[1], r[2], r[3], premultiplied(color), static_cast<int>(op));
++}
++
++void GraphicsContextOpenGPU::fillRect(const FloatRect& rect, RequiresClipToRect requiresClipToRect)
++{
++    auto& brush = fillBrush();
++    if (!brush.gradient() && !brush.pattern()) {
++        // as Cairo::fillRect with a FillSource: the colour times the global alpha
++        Color color = alpha() < 1 ? fillColor().colorWithAlphaMultipliedBy(alpha()) : fillColor();
++        if (solidFill(rect, color, compositeOperation(), blendMode()))
++            return;
++        handOn(OBGPU_FILL);
++    } else
++        handOn(brush.gradient() ? OBGPU_GRADIENT : OBGPU_PATTERN);
++    m_cairo.fillRect(rect, requiresClipToRect);
++}
++
++void GraphicsContextOpenGPU::fillRect(const FloatRect& rect, const Color& color)
++{
++    // as Cairo::fillRect with a colour: no global alpha, nothing for an
++    // invisible colour over
++    if (!color.isVisible() && compositeOperation() == CompositeOperator::SourceOver && blendMode() == BlendMode::Normal && !hasDropShadow())
++        return;
++    if (solidFill(rect, color, compositeOperation(), blendMode()))
++        return;
++    handOn(OBGPU_FILL);
++    m_cairo.fillRect(rect, color);
++}
++
++void GraphicsContextOpenGPU::clearRect(const FloatRect& rect)
++{
++    long r[4];
++    if (m_gpu && fixedRect(rect, r) && obgpu_fill(m_gpu, r[0], r[1], r[2], r[3], 0, OBGPU_OP_CLEAR))
++        return;
++    handOn(OBGPU_CLEAR);
++    m_cairo.clearRect(rect);
++}
++
++void GraphicsContextOpenGPU::drawNativeImage(const NativeImage& image, const FloatRect& destRect, const FloatRect& srcRect, ImagePaintingOptions options)
++{
++    cairo_surface_t* surface = image.platformImage().get();
++    if (m_gpu && surface && options.orientation() == ImageOrientation::Orientation::None && options.blendMode() == BlendMode::Normal
++        && !hasDropShadow() && cairo_surface_get_type(surface) == CAIRO_SURFACE_TYPE_IMAGE) {
++        cairo_format_t format = cairo_image_surface_get_format(surface);
++        if (format == CAIRO_FORMAT_ARGB32 || format == CAIRO_FORMAT_RGB24) {
++            cairo_surface_flush(surface);
++            obgpu_source source;
++            source.address = reinterpret_cast<uintptr_t>(cairo_image_surface_get_data(surface));
++            source.bpr = cairo_image_surface_get_stride(surface);
++            source.w = cairo_image_surface_get_width(surface);
++            source.h = cairo_image_surface_get_height(surface);
++            source.format = format == CAIRO_FORMAT_RGB24 ? OBGPU_RGB : OBGPU_ARGB;
++            if (!m_work && (m_gpu->caps & OBGPU_CAN_PATH) && m_gpu->target_w > 0) {
++                // a band of rows as large as fits in maxWorkBytes
++                unsigned long row = 32UL * static_cast<unsigned long>(m_gpu->target_w + 4);
++                unsigned long rows = std::max(1UL, std::min(16UL, maxWorkBytes / row));
++                void* work = nullptr;
++                if (tryFastMalloc(row * rows).getValue(work)) {
++                    m_work = static_cast<unsigned char*>(work);
++                    obgpu_work(m_gpu, reinterpret_cast<uintptr_t>(work), row * rows);
++                }
++            }
++            // as Cairo::drawSurface's filters: nearest, bilinear, or (GOOD and
++            // BEST, which are not bilinear when they shrink) pixel for pixel only
++            int filter = -1;
++            switch (imageInterpolationQualityForOptions(options)) {
++            case InterpolationQuality::DoNotInterpolate:
++                filter = 0;
++                break;
++            case InterpolationQuality::Low:
++                filter = 1;
++                break;
++            default:
++                break;
++            }
++            float globalAlpha = std::clamp(alpha(), 0.0f, 1.0f);
++            unsigned alpha8 = globalAlpha >= 1 ? 255 : static_cast<unsigned>(globalAlpha * 65535.0 + 0.5) >> 8;
++            long dst[4], src[4];
++            if (source.address && fixedRect(destRect, dst) && fixedRect(srcRect, src)
++                && obgpu_image(m_gpu, &source, dst, src, static_cast<int>(options.compositeOperator()), alpha8, filter)) {
++                if (obgpu_pending(m_gpu))
++                    m_pictures.append(surface);
++                return;
++            }
++        }
++    }
++    handOn(OBGPU_IMAGE);
++    m_cairo.drawNativeImage(image, destRect, srcRect, options);
++}
++
++void GraphicsContextOpenGPU::drawImageBuffer(ImageBuffer& buffer, const FloatRect& destination, const FloatRect& source, ImagePaintingOptions options)
++{
++    // The picture is the buffer's own pixels, which may be drawn into again
++    // before the batch would go: it goes now.
++    GraphicsContext::drawImageBuffer(buffer, destination, source, options);
++    flush();
++}
++
++// ---- what cairo draws -------------------------------------------------------------------
++
++void GraphicsContextOpenGPU::fillRect(const FloatRect& rect, Gradient& gradient)
++{
++    handOn(OBGPU_GRADIENT);
++    m_cairo.fillRect(rect, gradient);
++}
++
++void GraphicsContextOpenGPU::fillRect(const FloatRect& rect, Gradient& gradient, const AffineTransform& gradientSpaceTransform, RequiresClipToRect requiresClipToRect)
++{
++    handOn(OBGPU_GRADIENT);
++    m_cairo.fillRect(rect, gradient, gradientSpaceTransform, requiresClipToRect);
++}
++
++void GraphicsContextOpenGPU::fillRoundedRectImpl(const FloatRoundedRect& rect, const Color& color)
++{
++    handOn(OBGPU_ROUNDED);
++    m_cairo.fillRoundedRectImpl(rect, color);
++}
++
++void GraphicsContextOpenGPU::fillRectWithRoundedHole(const FloatRect& rect, const FloatRoundedRect& hole, const Color& color)
++{
++    handOn(OBGPU_ROUNDED);
++    m_cairo.fillRectWithRoundedHole(rect, hole, color);
++}
++
++void GraphicsContextOpenGPU::strokeRect(const FloatRect& rect, float lineWidth)
++{
++    handOn(OBGPU_STROKE);
++    m_cairo.strokeRect(rect, lineWidth);
++}
++
++void GraphicsContextOpenGPU::drawRect(const FloatRect& rect, float borderThickness)
++{
++    handOn(OBGPU_STROKE);
++    m_cairo.drawRect(rect, borderThickness);
++}
++
++void GraphicsContextOpenGPU::drawLine(const FloatPoint& from, const FloatPoint& to)
++{
++    handOn(OBGPU_STROKE);
++    m_cairo.drawLine(from, to);
++}
++
++void GraphicsContextOpenGPU::drawEllipse(const FloatRect& rect)
++{
++    handOn(OBGPU_PATH);
++    m_cairo.drawEllipse(rect);
++}
++
++void GraphicsContextOpenGPU::fillPath(const Path& path)
++{
++    handOn(OBGPU_PATH);
++    m_cairo.fillPath(path);
++}
++
++void GraphicsContextOpenGPU::strokePath(const Path& path)
++{
++    handOn(OBGPU_STROKE);
++    m_cairo.strokePath(path);
++}
++
++void GraphicsContextOpenGPU::drawPattern(const NativeImage& image, const FloatRect& destRect, const FloatRect& tileRect, const AffineTransform& patternTransform, const FloatPoint& phase, const FloatSize& spacing, ImagePaintingOptions options)
++{
++    handOn(OBGPU_PATTERN);
++    m_cairo.drawPattern(image, destRect, tileRect, patternTransform, phase, spacing, options);
++}
++
++void GraphicsContextOpenGPU::drawFocusRing(const Path& path, float outlineWidth, const Color& color, float zoomFactor)
++{
++    handOn(OBGPU_FOCUS);
++    m_cairo.drawFocusRing(path, outlineWidth, color, zoomFactor);
++}
++
++void GraphicsContextOpenGPU::drawFocusRing(const Vector<FloatRect>& rects, float outlineWidth, const Color& color, float zoomFactor)
++{
++    handOn(OBGPU_FOCUS);
++    m_cairo.drawFocusRing(rects, outlineWidth, color, zoomFactor);
++}
++
++void GraphicsContextOpenGPU::drawGlyphs(const Font& font, std::span<const GlyphBufferGlyph> glyphs, std::span<const GlyphBufferAdvance> advances, const FloatPoint& point, FontSmoothingMode smoothing)
++{
++    handOn(OBGPU_GLYPHS);
++    m_cairo.drawGlyphs(font, glyphs, advances, point, smoothing);
++}
++
++void GraphicsContextOpenGPU::drawGlyphsImmediate(const FontBase& font, std::span<const GlyphBufferGlyph> glyphs, std::span<const GlyphBufferAdvance> advances, const FloatPoint& point, FontSmoothingMode smoothing)
++{
++    handOn(OBGPU_GLYPHS);
++    m_cairo.drawGlyphsImmediate(font, glyphs, advances, point, smoothing);
++}
++
++void GraphicsContextOpenGPU::drawLinesForText(const FloatPoint& point, float thickness, std::span<const FloatSegment> segments, bool isPrinting, bool doubleLines, StrokeStyle style)
++{
++    handOn(OBGPU_TEXT_LINES);
++    m_cairo.drawLinesForText(point, thickness, segments, isPrinting, doubleLines, style);
++}
++
++void GraphicsContextOpenGPU::drawDotsForDocumentMarker(const FloatRect& rect, DocumentMarkerLineStyle style)
++{
++    handOn(OBGPU_TEXT_LINES);
++    m_cairo.drawDotsForDocumentMarker(rect, style);
++}
++
++} // namespace WebCore
++
++#endif // USE(CAIRO)
+diff --git a/Source/WebCore/platform/graphics/amiga/GraphicsContextOpenGPU.h b/Source/WebCore/platform/graphics/amiga/GraphicsContextOpenGPU.h
+new file mode 100644
+index 00000000000..9f2fe7fb74c
+--- /dev/null
++++ b/Source/WebCore/platform/graphics/amiga/GraphicsContextOpenGPU.h
+@@ -0,0 +1,120 @@
++/*
++ * The window's GraphicsContext on OpenGPU: rectangles of one colour,
++ * clearRect, rectangle clips and pictures go into one OpenGPU batch
++ * (OpenGPUPaintAmiga.h); every other call goes to a GraphicsContextCairo
++ * on the same pixels and the same state, after the batch is sent and drawn.
++ * The shell variable OB_PAINT=cairo, or no opengpu.library with stream
++ * v1.4's COMPOSITE_PD, keeps the window on cairo alone (isWanted()).
++ * MIT, Copyright (c) 2026 AmigaChrome Team.
++ * SPDX-License-Identifier: MIT
++ */
++#pragma once
++
++#if USE(CAIRO)
++
++#include "GraphicsContextCairo.h"
++#include "OpenGPUPaintAmiga.h"
++#include "RefPtrCairo.h"
++#include <wtf/Vector.h>
++
++namespace WebCore {
++
++class WEBCORE_EXPORT GraphicsContextOpenGPU final : public GraphicsContext {
++    WTF_MAKE_NONCOPYABLE(GraphicsContextOpenGPU);
++public:
++    // An ARGB32 cairo image surface; counts may be null.
++    GraphicsContextOpenGPU(cairo_surface_t*, obgpu_counts*);
++    ~GraphicsContextOpenGPU();
++
++    // OpenGPU is there and OB_PAINT does not say cairo.
++    static bool isWanted();
++
++    bool hasPlatformContext() const final { return true; }
++    // cairo's, for callers that draw with it themselves: after the batch.
++    GraphicsContextCairo* platformContext() const final;
++
++    void didUpdateState(GraphicsContextState&) final;
++
++    void save(GraphicsContextState::Purpose = GraphicsContextState::Purpose::SaveRestore) final;
++    void restore(GraphicsContextState::Purpose = GraphicsContextState::Purpose::SaveRestore) final;
++
++    void drawRect(const FloatRect&, float borderThickness = 1) final;
++    void drawLine(const FloatPoint&, const FloatPoint&) final;
++    void drawEllipse(const FloatRect&) final;
++    void fillPath(const Path&) final;
++    void strokePath(const Path&) final;
++
++    void beginTransparencyLayer(float opacity) final;
++    void beginTransparencyLayer(CompositeOperator, BlendMode) final;
++    void endTransparencyLayer() final;
++
++    using GraphicsContext::fillRect;
++    void fillRect(const FloatRect&, RequiresClipToRect = RequiresClipToRect::Yes) final;
++    void fillRect(const FloatRect&, const Color&) final;
++    void fillRect(const FloatRect&, Gradient&) final;
++    void fillRect(const FloatRect&, Gradient&, const AffineTransform&, RequiresClipToRect = RequiresClipToRect::Yes) final;
++    void fillRoundedRectImpl(const FloatRoundedRect&, const Color&) final;
++    void fillRectWithRoundedHole(const FloatRect&, const FloatRoundedRect&, const Color&) final;
++    void clearRect(const FloatRect&) final;
++    void strokeRect(const FloatRect&, float lineWidth) final;
++
++    RenderingMode renderingMode() const final;
++
++    void resetClip() final;
++    void clip(const FloatRect&) final;
++    void clipRoundedRect(const FloatRoundedRect&) final;
++    void clipPath(const Path&, WindRule = WindRule::EvenOdd) final;
++    void clipOut(const FloatRect&) final;
++    void clipOut(const Path&) final;
++    void clipToImageBuffer(ImageBuffer&, const FloatRect&) final;
++    IntRect clipBounds() const final;
++
++    void setLineCap(LineCap) final;
++    void setLineDash(const DashArray&, float dashOffset) final;
++    void setLineJoin(LineJoin) final;
++    void setMiterLimit(float) final;
++
++    void drawNativeImage(const NativeImage&, const FloatRect& destRect, const FloatRect& srcRect, ImagePaintingOptions = { }) final;
++    using GraphicsContext::drawImageBuffer;
++    void drawImageBuffer(ImageBuffer&, const FloatRect& destination, const FloatRect& source, ImagePaintingOptions = { }) final;
++    using GraphicsContext::drawPattern;
++    void drawPattern(const NativeImage&, const FloatRect& destRect, const FloatRect& tileRect, const AffineTransform& patternTransform, const FloatPoint& phase, const FloatSize& spacing, ImagePaintingOptions = { }) final;
++
++    using GraphicsContext::scale;
++    void scale(const FloatSize&) final;
++    void rotate(float angleInRadians) final;
++    void translate(float x, float y) final;
++    void concatCTM(const AffineTransform&) final;
++    void setCTM(const AffineTransform&) final;
++    AffineTransform getCTM(IncludeDeviceScale = PossiblyIncludeDeviceScale) const final;
++
++    void drawFocusRing(const Path&, float outlineWidth, const Color&, float zoomFactor) final;
++    void drawFocusRing(const Vector<FloatRect>&, float outlineWidth, const Color&, float zoomFactor) final;
++
++    void drawGlyphs(const Font&, std::span<const GlyphBufferGlyph>, std::span<const GlyphBufferAdvance>, const FloatPoint&, FontSmoothingMode) final;
++    void drawGlyphsImmediate(const FontBase&, std::span<const GlyphBufferGlyph>, std::span<const GlyphBufferAdvance>, const FloatPoint&, FontSmoothingMode) final;
++    void drawLinesForText(const FloatPoint&, float thickness, std::span<const FloatSegment>, bool isPrinting, bool doubleLines, StrokeStyle) final;
++    void drawDotsForDocumentMarker(const FloatRect&, DocumentMarkerLineStyle) final;
++
++private:
++    static long submitBatch(void* user, const unsigned char* stream, long words);
++    // The batch sent, then a call of this kind counted for cairo.
++    void handOn(int kind) const;
++    void flush() const;
++    void syncMatrix();
++    bool solidFill(const FloatRect&, const Color&, CompositeOperator, BlendMode);
++
++    mutable GraphicsContextCairo m_cairo;
++    cairo_surface_t* m_surface;
++    obgpu_counts m_ownCounts { };
++    obgpu_counts* m_counts;
++    // the state, the stream and the scratch words in one block (not on the stack)
++    obgpu* m_gpu { nullptr };
++    unsigned char* m_work { nullptr };
++    // The pictures in the batch, kept until it is drawn.
++    mutable Vector<RefPtr<cairo_surface_t>, 16> m_pictures;
++};
++
++} // namespace WebCore
++
++#endif // USE(CAIRO)
+diff --git a/Source/WebCore/platform/graphics/amiga/OpenGPULibraryAmiga.c b/Source/WebCore/platform/graphics/amiga/OpenGPULibraryAmiga.c
+new file mode 100644
+index 00000000000..017286bfac2
+--- /dev/null
++++ b/Source/WebCore/platform/graphics/amiga/OpenGPULibraryAmiga.c
+@@ -0,0 +1,76 @@
++/*
++ * opengpu.library for GraphicsContextOpenGPU (OpenGPUPaintAmiga.h's
++ * ob_opengpu_caps and ob_opengpu_run). Opened at run time, once, through
++ * openamigartg's inline calls; nothing is linked. A missing library, or one
++ * older than stream v1.4 (it answers OGPU_NONE for COMPOSITE_PD), leaves
++ * the engine on cairo.
++ * MIT, Copyright (c) 2026 AmigaChrome Team.
++ * SPDX-License-Identifier: MIT
++ */
++#include "OpenGPUPaintAmiga.h"
++
++#include <exec/types.h>
++#include <exec/libraries.h>
++#include <proto/exec.h>
++
++/* The engine's own base: a program's OpenGPUBase is left alone. */
++#define OPENGPU_BASE_NAME OBOpenGPUBase
++#include <opengpu/opengpu.h>
++#include <inline/opengpu.h>
++
++#include <pthread.h>
++#include <stdlib.h>
++
++static struct Library *OBOpenGPUBase;
++static int s_caps;
++static pthread_once_t s_openOnce = PTHREAD_ONCE_INIT;
++
++static void closeOpenGPU(void)
++{
++    if (OBOpenGPUBase) {
++        CloseLibrary(OBOpenGPUBase);
++        OBOpenGPUBase = NULL;
++    }
++}
++
++static int done(ULONG answer)
++{
++    return OGPU_ANSWER(answer) != OGPU_NONE;
++}
++
++static void openOpenGPU(void)
++{
++    OBOpenGPUBase = OpenLibrary((CONST_STRPTR)OPENGPU_NAME, OPENGPU_VERSION);
++    if (!OBOpenGPUBase)
++        return;
++    if (!done(OGPU_Query(OGPU_OP_COMPOSITE_PD, OGPU_FMT_ARGB32))) {
++        closeOpenGPU();
++        return;
++    }
++    s_caps = OBGPU_CAN_PD;
++    if (done(OGPU_Query(OGPU_OP_PATH_FILL, OGPU_FMT_ARGB32)))
++        s_caps |= OBGPU_CAN_PATH;
++    atexit(closeOpenGPU);
++}
++
++int ob_opengpu_caps(void)
++{
++    pthread_once(&s_openOnce, openOpenGPU);
++    return s_caps;
++}
++
++long ob_opengpu_run(const unsigned char *stream, long words)
++{
++    ULONG fence = 0;
++    LONG r, w;
++    if (!OBOpenGPUBase)
++        return OGPU_ERR_DEVICE;
++    /* the CPU has drawn it when this returns; a driver may still be busy */
++    r = OGPU_Submit((APTR)stream, (ULONG)words, &fence);
++    if (fence) {
++        w = OGPU_Wait(fence);
++        if (!r)
++            r = w;
++    }
++    return r;
++}
+diff --git a/Source/WebCore/platform/graphics/amiga/OpenGPUPaintAmiga.c b/Source/WebCore/platform/graphics/amiga/OpenGPUPaintAmiga.c
+new file mode 100644
+index 00000000000..60e597dc53c
+--- /dev/null
++++ b/Source/WebCore/platform/graphics/amiga/OpenGPUPaintAmiga.c
+@@ -0,0 +1,652 @@
++/*
++ * GraphicsContextOpenGPU's drawing as OpenGPU stream words
++ * (OpenGPUPaintAmiga.h; the stream is openamigartg's include/opengpu/stream.h).
++ *
++ * What is drawn here, as cairo draws it:
++ * - a rectangle of one colour whose visible edges fall on whole pixels,
++ *   under a transform that keeps it upright: FILL (copy, clear, or an
++ *   opaque colour over) or COMPOSITE_PD with a solid source (the other
++ *   operators cairo bounds by the rectangle). Edges between pixels need
++ *   anti-aliasing (step 6.3, the paths).
++ * - a picture drawn pixel for pixel: COMPOSITE_PD from its slot, with the
++ *   global alpha as a solid mask; scaled or under any other transform, a
++ *   PATH_FILL of its rectangle painted with the picture as a pattern
++ *   (PAD edges, nearest or bilinear), which is premultiplied as cairo is.
++ *   COMPOSITE_AFFINE is not used: its blends are SDL's, on colours not
++ *   premultiplied.
++ * cairo bounds IN, OUT, DEST_IN and DEST_ATOP by the clip, not the shape,
++ * and PlusDarker and Difference are blend modes: those stay cairo's, as
++ * do clips that are not upright rectangles on whole pixels.
++ *
++ * One batch: the target and the pictures in slots, each picture bound once
++ * a batch (a slot is bound again when all 15 are used: commands run in
++ * order), the clip sent when it changes, until the caller flushes or the
++ * stream is full.
++ * MIT, Copyright (c) 2026 AmigaChrome Team.
++ * SPDX-License-Identifier: MIT
++ */
++#include "OpenGPUPaintAmiga.h"
++
++#include <opengpu/stream.h>
++
++#if OBGPU_SLOTS != OGPU_MAX_SLOTS
++#error "OBGPU_SLOTS is OpenGPU's OGPU_MAX_SLOTS"
++#endif
++
++/* 64-bit products, once a call: libgcc's on the 68k, never per pixel. */
++typedef long long obgpu_s64;
++
++#define OBGPU_L_MATRIX_BAD  1   /* the transform does not fit the fixed point */
++#define OBGPU_L_CLIP_OTHER  2   /* a clip only cairo has */
++#define OBGPU_L_GROUP       4   /* cairo draws into a group of its own */
++
++/* The largest target or picture side, and a point OpenGPU takes (16 bits). */
++#define OBGPU_MAX_SIDE      OGPU_MAX_SIZE
++#define OBGPU_POINT_MAX     32767
++
++/* The words a command may need at most: CLIP, SURFACE, PATH_FILL. */
++#define OBGPU_CMD_MAX       (3 + 6 + 16)
++#define OBGPU_HEAD_WORDS    (6 + 2)
++#define OBGPU_PATTERN_SCRATCH (OGPU_PATTERN_WORDS + 13)
++
++static const char *const kindNames[OBGPU_KINDS] = {
++    "fill", "clear", "image", "pattern", "gradient", "rounded", "path",
++    "stroke", "glyphs", "textlines", "focus", "layer", "platform"
++};
++
++const char *obgpu_kind_name(int kind)
++{
++    return kind >= 0 && kind < OBGPU_KINDS ? kindNames[kind] : "other";
++}
++
++/* ---- fixed point --------------------------------------------------------------------- */
++
++/* floor(v / 2^n), for n of 8 or 16, with no shift of a negative number. */
++static obgpu_s64 floorShift(obgpu_s64 v, int n)
++{
++    obgpu_s64 one = (obgpu_s64)1 << n;
++    return v >= 0 ? v / one : -((-v + one - 1) / one);
++}
++
++/* A 16.16 times a 24.8, as 24.8, rounded. */
++static obgpu_s64 mul16(long f, obgpu_s64 v)
++{
++    return floorShift((obgpu_s64)f * v + 0x8000, 16);
++}
++
++static int whole(obgpu_s64 v8)
++{
++    return floorShift(v8, 8) * 256 == v8;
++}
++
++static obgpu_s64 mapX(const long *m, long x, long y)
++{
++    return mul16(m[0], x) + mul16(m[2], y) + m[4];
++}
++
++static obgpu_s64 mapY(const long *m, long x, long y)
++{
++    return mul16(m[1], x) + mul16(m[3], y) + m[5];
++}
++
++/* ---- the stream ---------------------------------------------------------------------- */
++
++static void put(unsigned char *p, unsigned long v)
++{
++    p[0] = (unsigned char)(v >> 24);
++    p[1] = (unsigned char)(v >> 16);
++    p[2] = (unsigned char)(v >> 8);
++    p[3] = (unsigned char)v;
++}
++
++static unsigned long xy(long x, long y)
++{
++    return OGPU_XY((unsigned long)x, (unsigned long)y);
++}
++
++/* One command: its opcode and n words after the header. */
++static void emit(struct obgpu *g, int op, int n, const unsigned long *a)
++{
++    unsigned char *p = g->stream + g->words * 4;
++    int i;
++    put(p, OGPU_HDR(op, n + 1));
++    for (i = 0; i < n; i++)
++        put(p + 4 + i * 4, a[i]);
++    g->words += 1 + n;
++}
++
++static void bindSlot(struct obgpu *g, int slot, const struct obgpu_source *s)
++{
++    unsigned long a[5];
++    a[0] = (unsigned long)slot;
++    a[1] = s->address;
++    a[2] = (unsigned long)s->bpr;
++    a[3] = xy(s->w, s->h);
++    a[4] = s->format == OBGPU_RGB ? OGPU_FMT_XRGB32 : OGPU_FMT_ARGB32;
++    emit(g, OGPU_OP_SURFACE, 5, a);
++    g->slot[slot] = *s;
++}
++
++static void begin(struct obgpu *g)
++{
++    struct obgpu_source t;
++    unsigned long a[1];
++    int i;
++    t.address = g->target;
++    t.bpr = g->target_bpr;
++    t.w = g->target_w;
++    t.h = g->target_h;
++    t.format = OBGPU_ARGB;
++    for (i = 0; i < OBGPU_SLOTS; i++)
++        g->slot[i].address = 0;
++    g->words = 0;
++    g->drawn = 0;
++    g->scratch_used = 0;
++    bindSlot(g, 0, &t);
++    a[0] = 0;
++    emit(g, OGPU_OP_TARGET, 1, a);
++    g->next_slot = 1;
++    g->clip_sent = 0;
++}
++
++long obgpu_flush(struct obgpu *g)
++{
++    long r = 0;
++    if (g->drawn && g->submit) {
++        r = g->submit(g->user, g->stream, g->words);
++        g->counts->flushes++;
++        if (r)
++            g->broken = 1;
++    }
++    g->words = 0;
++    g->drawn = 0;
++    g->scratch_used = 0;
++    return r;
++}
++
++int obgpu_pending(const struct obgpu *g)
++{
++    return g->drawn;
++}
++
++/* Room for a command of at most OBGPU_CMD_MAX words and scratch words:
++ * the batch is sent first when it is short of either. */
++static int room(struct obgpu *g, long scratch)
++{
++    if (g->words && (g->words + OBGPU_CMD_MAX > g->stream_cap || g->scratch_used + scratch > g->scratch_cap))
++        obgpu_flush(g);
++    if (g->broken)
++        return 0;
++    if (!g->words)
++        begin(g);
++    return 1;
++}
++
++/* The slot a picture has in this batch, bound if new. */
++static int slotOf(struct obgpu *g, const struct obgpu_source *s)
++{
++    int i;
++    for (i = 1; i < OBGPU_SLOTS; i++) {
++        const struct obgpu_source *b = &g->slot[i];
++        if (b->address == s->address && b->bpr == s->bpr && b->w == s->w && b->h == s->h && b->format == s->format)
++            return i;
++    }
++    i = g->next_slot;
++    g->next_slot = i + 1 < OBGPU_SLOTS ? i + 1 : 1;
++    bindSlot(g, i, s);
++    return i;
++}
++
++static const struct obgpu_level *current(const struct obgpu *g)
++{
++    return &g->level[g->depth];
++}
++
++/* The core clips each command to the last CLIP: keep it the state's. */
++static void sendClip(struct obgpu *g)
++{
++    const struct obgpu_level *l = current(g);
++    unsigned long a[2];
++    if (g->clip_sent && g->sx0 == l->cx0 && g->sy0 == l->cy0 && g->sx1 == l->cx1 && g->sy1 == l->cy1)
++        return;
++    a[0] = xy(l->cx0, l->cy0);
++    a[1] = xy(l->cx1 - l->cx0, l->cy1 - l->cy0);
++    emit(g, OGPU_OP_CLIP, 2, a);
++    g->clip_sent = 1;
++    g->sx0 = l->cx0;
++    g->sy0 = l->cy0;
++    g->sx1 = l->cx1;
++    g->sy1 = l->cy1;
++}
++
++/* ---- the state ----------------------------------------------------------------------- */
++
++void obgpu_init(struct obgpu *g, unsigned char *stream, long stream_words, unsigned char *scratch,
++    unsigned long scratch_address, long scratch_words, obgpu_submit_fn submit, void *user, int caps,
++    struct obgpu_counts *counts)
++{
++    unsigned char *p = (unsigned char *)g;
++    unsigned long i;
++    for (i = 0; i < sizeof *g; i++)
++        p[i] = 0;
++    g->stream = stream;
++    g->stream_cap = stream_words;
++    g->scratch = scratch;
++    g->scratch_address = scratch_address;
++    g->scratch_cap = scratch_words;
++    g->submit = submit;
++    g->user = user;
++    g->caps = caps;
++    g->counts = counts ? counts : &g->own_counts;
++    if (stream_words < OBGPU_HEAD_WORDS + OBGPU_CMD_MAX || !(caps & OBGPU_CAN_PD))
++        g->broken = 1;
++    if (scratch_words < OBGPU_PATTERN_SCRATCH)
++        g->caps &= ~OBGPU_CAN_PATH;
++    g->level[0].m[0] = 0x10000;
++    g->level[0].m[3] = 0x10000;
++}
++
++void obgpu_target(struct obgpu *g, unsigned long address, long bpr, int w, int h)
++{
++    struct obgpu_level *l = &g->level[g->depth];
++    g->target = address;
++    g->target_bpr = bpr;
++    g->target_w = w;
++    g->target_h = h;
++    l->cx0 = l->cy0 = 0;
++    l->cx1 = w;
++    l->cy1 = h;
++    if (w <= 0 || h <= 0 || w > OBGPU_MAX_SIDE || h > OBGPU_MAX_SIDE || bpr < (long)w * 4)
++        g->broken = 1;
++}
++
++void obgpu_work(struct obgpu *g, unsigned long address, unsigned long bytes)
++{
++    g->work = address;
++    g->work_bytes = bytes;
++}
++
++void obgpu_save(struct obgpu *g)
++{
++    struct obgpu_level *from, *to;
++    int i;
++    if (g->lost || g->depth + 1 >= OBGPU_DEPTH) {
++        g->lost++;
++        return;
++    }
++    from = &g->level[g->depth];
++    to = from + 1;
++    for (i = 0; i < 6; i++)
++        to->m[i] = from->m[i];
++    to->cx0 = from->cx0;
++    to->cy0 = from->cy0;
++    to->cx1 = from->cx1;
++    to->cy1 = from->cy1;
++    to->flags = from->flags;
++    g->depth++;
++}
++
++void obgpu_restore(struct obgpu *g)
++{
++    if (g->lost)
++        g->lost--;
++    else if (g->depth)
++        g->depth--;
++}
++
++void obgpu_set_matrix(struct obgpu *g, const long *m)
++{
++    struct obgpu_level *l = &g->level[g->depth];
++    int i;
++    if (g->lost)
++        return;
++    if (!m) {
++        l->flags |= OBGPU_L_MATRIX_BAD;
++        return;
++    }
++    for (i = 0; i < 6; i++)
++        l->m[i] = m[i];
++    l->flags &= ~OBGPU_L_MATRIX_BAD;
++}
++
++static int upright(const struct obgpu_level *l)
++{
++    return !(l->flags & OBGPU_L_MATRIX_BAD) && !l->m[1] && !l->m[2];
++}
++
++/* A rectangle (24.8) through an upright transform: its edges on the
++ * target, 24.8, left to right and top to bottom. */
++static void mapRect(const struct obgpu_level *l, long x, long y, long w, long h, obgpu_s64 *e)
++{
++    obgpu_s64 t;
++    e[0] = mapX(l->m, x, 0);
++    e[2] = mapX(l->m, x + w, 0);
++    e[1] = mapY(l->m, 0, y);
++    e[3] = mapY(l->m, 0, y + h);
++    if (e[0] > e[2]) { t = e[0]; e[0] = e[2]; e[2] = t; }
++    if (e[1] > e[3]) { t = e[1]; e[1] = e[3]; e[3] = t; }
++}
++
++/* Edges e (24.8) within the clip, as whole pixels in r, when every edge
++ * the clip leaves visible falls on a whole pixel. 0: an edge needs
++ * anti-aliasing. r empty (r[2] <= r[0] or r[3] <= r[1]): nothing to draw. */
++static int visible(const struct obgpu_level *l, const obgpu_s64 *e, int *r)
++{
++    obgpu_s64 c[4];
++    int i;
++    c[0] = (obgpu_s64)l->cx0 * 256;
++    c[1] = (obgpu_s64)l->cy0 * 256;
++    c[2] = (obgpu_s64)l->cx1 * 256;
++    c[3] = (obgpu_s64)l->cy1 * 256;
++    /* wholly outside: nothing to draw, wherever its edges are */
++    if (e[2] <= c[0] || e[0] >= c[2] || e[3] <= c[1] || e[1] >= c[3] || c[2] <= c[0] || c[3] <= c[1]) {
++        r[0] = r[2] = l->cx0;
++        r[1] = r[3] = l->cy0;
++        return 1;
++    }
++    for (i = 0; i < 4; i++) {
++        int outside = i < 2 ? e[i] <= c[i] : e[i] >= c[i];
++        if (outside)
++            r[i] = (int)(c[i] / 256);
++        else if (!whole(e[i]))
++            return 0;
++        else
++            r[i] = (int)(e[i] / 256);
++    }
++    return 1;
++}
++
++void obgpu_clip(struct obgpu *g, long x, long y, long w, long h)
++{
++    struct obgpu_level *l = &g->level[g->depth];
++    obgpu_s64 e[4];
++    int r[4];
++    if (g->lost || (l->flags & OBGPU_L_CLIP_OTHER))
++        return;
++    if (!upright(l)) {
++        l->flags |= OBGPU_L_CLIP_OTHER;
++        return;
++    }
++    if (w < 0) { x += w; w = -w; }
++    if (h < 0) { y += h; h = -h; }
++    mapRect(l, x, y, w, h, e);
++    if (!visible(l, e, r)) {
++        l->flags |= OBGPU_L_CLIP_OTHER;
++        return;
++    }
++    if (r[2] <= r[0] || r[3] <= r[1]) {
++        r[2] = r[0];
++        r[3] = r[1];
++    }
++    l->cx0 = r[0];
++    l->cy0 = r[1];
++    l->cx1 = r[2];
++    l->cy1 = r[3];
++}
++
++void obgpu_clip_other(struct obgpu *g)
++{
++    if (!g->lost)
++        g->level[g->depth].flags |= OBGPU_L_CLIP_OTHER;
++}
++
++void obgpu_group(struct obgpu *g)
++{
++    if (!g->lost)
++        g->level[g->depth].flags |= OBGPU_L_GROUP;
++}
++
++void obgpu_reset_clip(struct obgpu *g)
++{
++    struct obgpu_level *l = &g->level[g->depth];
++    if (g->lost)
++        return;
++    l->cx0 = l->cy0 = 0;
++    l->cx1 = g->target_w;
++    l->cy1 = g->target_h;
++    l->flags &= ~OBGPU_L_CLIP_OTHER;
++}
++
++int obgpu_drawable(const struct obgpu *g)
++{
++    return !g->broken && !g->lost && !(current(g)->flags & (OBGPU_L_MATRIX_BAD | OBGPU_L_CLIP_OTHER | OBGPU_L_GROUP));
++}
++
++/* ---- the operators ------------------------------------------------------------------- */
++
++/* WebCore's operator as COMPOSITE_PD's, where cairo bounds it by the shape
++ * drawn (pixman's operators, as cairo's): -1 otherwise. */
++static int pdOperator(int op)
++{
++    switch (op) {
++    case OBGPU_OP_CLEAR: return OGPU_PD_CLEAR;
++    case OBGPU_OP_COPY: return OGPU_PD_SRC;
++    case OBGPU_OP_SOURCE_OVER: return OGPU_PD_OVER;
++    case OBGPU_OP_SOURCE_ATOP: return OGPU_PD_ATOP;
++    case OBGPU_OP_DESTINATION_OVER: return OGPU_PD_OVER_REVERSE;
++    case OBGPU_OP_DESTINATION_OUT: return OGPU_PD_OUT_REVERSE;
++    case OBGPU_OP_XOR: return OGPU_PD_XOR;
++    case OBGPU_OP_PLUS_LIGHTER: return OGPU_PD_ADD;
++    default: return -1;
++    }
++}
++
++/* ---- drawing ------------------------------------------------------------------------- */
++
++int obgpu_fill(struct obgpu *g, long x, long y, long w, long h, unsigned long argb, int op)
++{
++    const struct obgpu_level *l = current(g);
++    obgpu_s64 e[4];
++    int r[4], pd = pdOperator(op);
++    unsigned long a[7];
++    unsigned alpha = (unsigned)(argb >> 24) & 255;
++    argb &= 0xFFFFFFFFUL;
++    if (!obgpu_drawable(g) || pd < 0 || !upright(l))
++        return 0;
++    if (w < 0) { x += w; w = -w; }
++    if (h < 0) { y += h; h = -h; }
++    if (!w || !h)
++        return 1;
++    mapRect(l, x, y, w, h, e);
++    if (!visible(l, e, r))
++        return 0;
++    if (r[2] <= r[0] || r[3] <= r[1])
++        return 1;
++    if ((pd == OGPU_PD_OVER || pd == OGPU_PD_ADD || pd == OGPU_PD_OVER_REVERSE) && !argb)
++        return 1;
++    if (!room(g, 0))
++        return 0;
++    sendClip(g);
++    a[0] = xy(r[0], r[1]);
++    a[1] = xy(r[2] - r[0], r[3] - r[1]);
++    if (pd == OGPU_PD_CLEAR || pd == OGPU_PD_SRC || (pd == OGPU_PD_OVER && alpha == 255)) {
++        a[2] = pd == OGPU_PD_CLEAR ? 0 : argb;
++        emit(g, OGPU_OP_FILL, 3, a);
++    } else {
++        a[0] = (unsigned long)pd | OGPU_PD_SOLID;
++        a[1] = argb;
++        a[2] = 0;
++        a[3] = 0;
++        a[4] = 0;
++        a[5] = xy(r[0], r[1]);
++        a[6] = xy(r[2] - r[0], r[3] - r[1]);
++        emit(g, OGPU_OP_COMPOSITE_PD, 7, a);
++    }
++    g->drawn++;
++    g->counts->draws++;
++    return 1;
++}
++
++/* A picture pixel for pixel: COMPOSITE_PD from its slot. */
++static int imageCopy(struct obgpu *g, const struct obgpu_source *s, const int *d, int sx, int sy, int pd,
++    unsigned alpha)
++{
++    const struct obgpu_level *l = current(g);
++    int x0 = d[0], y0 = d[1], x1 = d[2], y1 = d[3], slot;
++    unsigned long a[7];
++    if (x0 < l->cx0) { sx += l->cx0 - x0; x0 = l->cx0; }
++    if (y0 < l->cy0) { sy += l->cy0 - y0; y0 = l->cy0; }
++    if (x1 > l->cx1) x1 = l->cx1;
++    if (y1 > l->cy1) y1 = l->cy1;
++    if (x1 <= x0 || y1 <= y0)
++        return 1;
++    if (!room(g, 0))
++        return 0;
++    sendClip(g);
++    slot = slotOf(g, s);
++    a[0] = (unsigned long)pd | (alpha < 255 ? OGPU_PD_MASK_SOLID : 0);
++    a[1] = (unsigned long)slot;
++    a[2] = xy(sx, sy);
++    a[3] = alpha;
++    a[4] = 0;
++    a[5] = xy(x0, y0);
++    a[6] = xy(x1 - x0, y1 - y0);
++    emit(g, OGPU_OP_COMPOSITE_PD, 7, a);
++    g->drawn++;
++    g->counts->draws++;
++    return 1;
++}
++
++static int fits32(obgpu_s64 v)
++{
++    return v > -0x7FFFFFFFLL && v < 0x7FFFFFFFLL;
++}
++
++/* A picture under any transform: PATH_FILL of the destination's corners
++ * on the target, painted with the picture's rectangle as a pattern. As
++ * cairo does it: the source rectangle widened to whole pixels (its
++ * subsurface), PAD beyond them, mapped onto the destination. */
++static int imageTransformed(struct obgpu *g, const struct obgpu_source *s, const long *dst, const long *src, int pd,
++    unsigned alpha, int bilinear)
++{
++    const struct obgpu_level *l = current(g);
++    const long *m = l->m;
++    obgpu_s64 kx, ky, tx, ty, p[6], cx[4], cy[4];
++    long psx, psy, psw, psh;
++    unsigned char *q;
++    unsigned long a[15], pattern, path;
++    int i, slot;
++    /* Operators that act outside the shape on PATH_FILL (CLEAR, SRC) stay cairo's. */
++    if (!(g->caps & OBGPU_CAN_PATH) || pd == OGPU_PD_CLEAR || pd == OGPU_PD_SRC || bilinear < 0)
++        return 0;
++    if (!g->work || g->work_bytes < (unsigned long)(g->target_w + 4) * 32)
++        return 0;
++    /* the destination's size over the source's, 16.16 */
++    kx = (obgpu_s64)dst[2] * 65536 / src[2];
++    ky = (obgpu_s64)dst[3] * 65536 / src[3];
++    psx = (long)floorShift(src[0], 8);
++    psy = (long)floorShift(src[1], 8);
++    psw = (long)floorShift(src[0] + src[2] + 255, 8) - psx;
++    psh = (long)floorShift(src[1] + src[3] + 255, 8) - psy;
++    if (psx + psw > s->w)
++        psw = s->w - psx;
++    if (psy + psh > s->h)
++        psh = s->h - psy;
++    if (psw <= 0 || psh <= 0)
++        return 1;
++    /* the pattern's pixel (0, 0) in the destination's space, 24.8 */
++    tx = dst[0] + floorShift((obgpu_s64)(psx * 256 - src[0]) * kx + 0x8000, 16);
++    ty = dst[1] + floorShift((obgpu_s64)(psy * 256 - src[1]) * ky + 0x8000, 16);
++    /* the pattern's pixels to the target, 16.16 */
++    p[0] = floorShift((obgpu_s64)m[0] * kx + 0x8000, 16);
++    p[1] = floorShift((obgpu_s64)m[2] * ky + 0x8000, 16);
++    p[3] = floorShift((obgpu_s64)m[1] * kx + 0x8000, 16);
++    p[4] = floorShift((obgpu_s64)m[3] * ky + 0x8000, 16);
++    p[2] = (mul16(m[0], tx) + mul16(m[2], ty) + m[4]) * 256;
++    p[5] = (mul16(m[1], tx) + mul16(m[3], ty) + m[5]) * 256;
++    for (i = 0; i < 6; i++)
++        if (!fits32(p[i]))
++            return 0;
++    /* the destination's corners on the target, 24.8 */
++    for (i = 0; i < 4; i++) {
++        long x = dst[0] + (i == 1 || i == 2 ? dst[2] : 0), y = dst[1] + (i >= 2 ? dst[3] : 0);
++        cx[i] = mapX(m, x, y);
++        cy[i] = mapY(m, x, y);
++        if (cx[i] <= -0x7FFFFF00LL || cx[i] >= 0x7FFFFF00LL || cy[i] <= -0x7FFFFF00LL || cy[i] >= 0x7FFFFF00LL)
++            return 0;
++    }
++    if (!room(g, OBGPU_PATTERN_SCRATCH))
++        return 0;
++    sendClip(g);
++    slot = slotOf(g, s);
++    /* the pattern, then the path, in scratch */
++    pattern = g->scratch_address + (unsigned long)g->scratch_used * 4;
++    q = g->scratch + g->scratch_used * 4;
++    put(q, (unsigned long)slot);
++    put(q + 4, OGPU_PATTERN_PAD | (bilinear ? OGPU_PATTERN_BILINEAR : 0));
++    put(q + 8, xy(psx, psy));
++    put(q + 12, xy(psw, psh));
++    for (i = 0; i < 6; i++)
++        put(q + 16 + i * 4, (unsigned long)(long)p[i]);
++    put(q + 40, alpha);
++    q += OGPU_PATTERN_WORDS * 4;
++    path = pattern + OGPU_PATTERN_WORDS * 4;
++    for (i = 0; i < 4; i++) {
++        put(q, i ? OGPU_PATH_LINE : OGPU_PATH_MOVE);
++        put(q + 4, (unsigned long)(long)cx[i]);
++        put(q + 8, (unsigned long)(long)cy[i]);
++        q += 12;
++    }
++    put(q, OGPU_PATH_CLOSE);
++    g->scratch_used += OBGPU_PATTERN_SCRATCH;
++    a[0] = (unsigned long)pd | OGPU_PATH_PATTERN;
++    a[1] = pattern;
++    a[2] = 0;
++    a[3] = 0;
++    a[4] = 0;
++    a[5] = path;
++    a[6] = 13;
++    a[7] = 0x10000;
++    a[8] = 0;
++    a[9] = 0;
++    a[10] = 0;
++    a[11] = 0x10000;
++    a[12] = 0;
++    a[13] = g->work;
++    a[14] = g->work_bytes;
++    emit(g, OGPU_OP_PATH_FILL, 15, a);
++    g->drawn++;
++    g->counts->draws++;
++    return 1;
++}
++
++int obgpu_image(struct obgpu *g, const struct obgpu_source *s, const long *dst, const long *src, int op,
++    unsigned alpha, int bilinear)
++{
++    const struct obgpu_level *l = current(g);
++    int pd = pdOperator(op);
++    if (!obgpu_drawable(g) || pd < 0 || pd == OGPU_PD_CLEAR)
++        return 0;
++    if (s->w <= 0 || s->h <= 0 || s->w > OBGPU_MAX_SIDE || s->h > OBGPU_MAX_SIDE || s->bpr < (long)s->w * 4
++        || s->bpr > 0x01000000L || (s->format != OBGPU_ARGB && s->format != OBGPU_RGB))
++        return 0;
++    /* copy with a global alpha is cairo's lerp, not pixman's SRC with a mask */
++    if (alpha > 255 || (pd == OGPU_PD_SRC && alpha < 255))
++        return 0;
++    /* flips and empty sources stay cairo's; a destination under half a pixel draws nothing, as cairo's */
++    if (dst[2] < 0 || dst[3] < 0 || src[2] <= 0 || src[3] <= 0)
++        return 0;
++    /* an empty clip: CLIP's wh of 0 would be the whole target */
++    if (dst[2] < 128 || dst[3] < 128 || !alpha || l->cx1 <= l->cx0 || l->cy1 <= l->cy0)
++        return 1;
++    /* sources outside the picture are clipped by cairo, with the destination */
++    if (src[0] < 0 || src[1] < 0 || src[0] + src[2] > (long)s->w * 256 || src[1] + src[3] > (long)s->h * 256)
++        return 0;
++    if (upright(l) && l->m[0] > 0 && l->m[3] > 0 && whole(src[0]) && whole(src[1]) && whole(src[2]) && whole(src[3])) {
++        obgpu_s64 e[4];
++        int r[4];
++        mapRect(l, dst[0], dst[1], dst[2], dst[3], e);
++        if (whole(e[0]) && whole(e[1]) && whole(e[2]) && whole(e[3])
++            && e[2] - e[0] == src[2] && e[3] - e[1] == src[3]) {
++            r[0] = (int)(e[0] / 256);
++            r[1] = (int)(e[1] / 256);
++            r[2] = (int)(e[2] / 256);
++            r[3] = (int)(e[3] / 256);
++            if (e[0] < -OBGPU_POINT_MAX * 256LL || e[1] < -OBGPU_POINT_MAX * 256LL
++                || e[2] > OBGPU_POINT_MAX * 256LL || e[3] > OBGPU_POINT_MAX * 256LL)
++                return 0;
++            return imageCopy(g, s, r, (int)(src[0] / 256), (int)(src[1] / 256), pd, alpha);
++        }
++    }
++    return imageTransformed(g, s, dst, src, pd, alpha, bilinear);
++}
+diff --git a/Source/WebCore/platform/graphics/amiga/OpenGPUPaintAmiga.h b/Source/WebCore/platform/graphics/amiga/OpenGPUPaintAmiga.h
+new file mode 100644
+index 00000000000..2005f634ce7
+--- /dev/null
++++ b/Source/WebCore/platform/graphics/amiga/OpenGPUPaintAmiga.h
+@@ -0,0 +1,158 @@
++/*
++ * GraphicsContextOpenGPU's drawing as OpenGPU stream words: the transform,
++ * the clip stack, save and restore, rectangle fills, pictures, the
++ * operators and the batches (OpenGPUPaintAmiga.c). Plain C with no
++ * WebKit, no C library and no floating point, so the host tests build it
++ * against openamigartg's CPU core (openamigabrowser tests/test_opengpu_paint.c).
++ *
++ * Coordinates are fixed point: 24.8 (256 a pixel) for points and sizes,
++ * a transform's linear part (a, b, c, d) in 16.16 and its translation
++ * (e, f) in 24.8: x' = a x + c y + e, y' = b x + d y + f, as WebCore's
++ * AffineTransform. Colours are premultiplied ARGB32 words, as cairo's.
++ * Every drawing call returns 1 when it is done (or there was nothing to
++ * draw) and 0 when the caller must hand it to cairo; a 0 adds nothing to
++ * the batch. MIT, Copyright (c) 2026 AmigaChrome Team.
++ * SPDX-License-Identifier: MIT
++ */
++#ifndef OpenGPUPaintAmiga_h
++#define OpenGPUPaintAmiga_h
++
++#ifdef __cplusplus
++extern "C" {
++#endif
++
++/* What the back end does (opengpu.library's OGPU_Query): COMPOSITE_PD
++ * (stream v1.4) for fills that blend and for pictures, and PATH_FILL (v1.6)
++ * for pictures under a scale or any other transform. Without PD nothing is
++ * drawn here. */
++#define OBGPU_CAN_PD    1
++#define OBGPU_CAN_PATH  2
++
++/* WebCore's CompositeOperator, in its order (GraphicsTypes.h). */
++enum {
++    OBGPU_OP_CLEAR, OBGPU_OP_COPY, OBGPU_OP_SOURCE_OVER, OBGPU_OP_SOURCE_IN, OBGPU_OP_SOURCE_OUT,
++    OBGPU_OP_SOURCE_ATOP, OBGPU_OP_DESTINATION_OVER, OBGPU_OP_DESTINATION_IN, OBGPU_OP_DESTINATION_OUT,
++    OBGPU_OP_DESTINATION_ATOP, OBGPU_OP_XOR, OBGPU_OP_PLUS_DARKER, OBGPU_OP_PLUS_LIGHTER, OBGPU_OP_DIFFERENCE
++};
++
++/* The calls handed to cairo, by kind, for the counts. */
++enum {
++    OBGPU_FILL, OBGPU_CLEAR, OBGPU_IMAGE, OBGPU_PATTERN, OBGPU_GRADIENT, OBGPU_ROUNDED, OBGPU_PATH,
++    OBGPU_STROKE, OBGPU_GLYPHS, OBGPU_TEXT_LINES, OBGPU_FOCUS, OBGPU_LAYER, OBGPU_PLATFORM, OBGPU_KINDS
++};
++
++struct obgpu_counts {
++    unsigned long draws;                /* commands OpenGPU drew */
++    unsigned long flushes;              /* batches sent and waited for */
++    unsigned long handed[OBGPU_KINDS];  /* calls cairo drew */
++};
++
++/* "fill", "glyphs" and so on: the kind's name in the counts' report. */
++const char *obgpu_kind_name(int kind);
++
++/* A picture's pixels: premultiplied ARGB32 (A, R, G, B in memory), or RGB
++ * with the first byte unused (cairo's RGB24 on the 68k). */
++#define OBGPU_ARGB 0
++#define OBGPU_RGB  1
++struct obgpu_source {
++    unsigned long address;
++    long bpr;
++    int w, h;
++    int format;
++};
++
++/* Saves kept; past them everything goes to cairo until the restores come
++ * back down. */
++#define OBGPU_DEPTH 64
++#define OBGPU_SLOTS 16
++
++struct obgpu_level {
++    long m[6];                  /* a, b, c, d (16.16), e, f (24.8) */
++    int cx0, cy0, cx1, cy1;     /* the clip, target pixels, x0 <= x < x1 */
++    int flags;                  /* OBGPU_L_ in OpenGPUPaintAmiga.c */
++};
++
++/* Sends words of stream and waits until they are drawn; 0, or OpenGPU's error. */
++typedef long (*obgpu_submit_fn)(void *user, const unsigned char *stream, long words);
++
++struct obgpu {
++    obgpu_submit_fn submit;
++    void *user;
++    int caps;
++    int broken;                 /* a batch failed: everything goes to cairo from then on */
++    /* the target: premultiplied ARGB32 */
++    unsigned long target;
++    long target_bpr;
++    int target_w, target_h;
++    /* the batch, and the scratch words its commands point at (patterns,
++     * paths), at an address the back end reaches */
++    unsigned char *stream;
++    long stream_cap, words;
++    int drawn;                  /* draws in the batch */
++    unsigned char *scratch;
++    unsigned long scratch_address;
++    long scratch_cap, scratch_used;
++    /* PATH_FILL's work memory, at least 32 bytes per pixel of the target's width */
++    unsigned long work, work_bytes;
++    /* the batch's slots (0 is the target) and the clip it has */
++    struct obgpu_source slot[OBGPU_SLOTS];
++    int next_slot;
++    int clip_sent, sx0, sy0, sx1, sy1;
++    /* the state stack */
++    int depth, lost;
++    struct obgpu_level level[OBGPU_DEPTH];
++    struct obgpu_counts *counts;
++    struct obgpu_counts own_counts;
++};
++
++/* stream_words of at least 64, scratch_words of at least 32; counts may be
++ * 0. The transform starts as the identity and the clip as the target. */
++void obgpu_init(struct obgpu *g, unsigned char *stream, long stream_words, unsigned char *scratch,
++    unsigned long scratch_address, long scratch_words, obgpu_submit_fn submit, void *user, int caps,
++    struct obgpu_counts *counts);
++void obgpu_target(struct obgpu *g, unsigned long address, long bpr, int w, int h);
++void obgpu_work(struct obgpu *g, unsigned long address, unsigned long bytes);
++
++void obgpu_save(struct obgpu *g);
++void obgpu_restore(struct obgpu *g);
++/* The current transform; 0 when it does not fit the fixed point (then
++ * nothing is drawn here until a restore or a transform that fits). */
++void obgpu_set_matrix(struct obgpu *g, const long *m);
++/* Clip to a rectangle (24.8, through the transform). One that is not on
++ * whole pixels, or not upright, makes the clip one only cairo has. */
++void obgpu_clip(struct obgpu *g, long x, long y, long w, long h);
++/* A clip only cairo has (paths, clip-outs, masks), until the restore. */
++void obgpu_clip_other(struct obgpu *g);
++/* cairo draws into a group of its own from here (a transparency layer, a
++ * mask) until the restore: nothing is drawn here. */
++void obgpu_group(struct obgpu *g);
++void obgpu_reset_clip(struct obgpu *g);
++/* 1 when the state lets anything be drawn here. */
++int obgpu_drawable(const struct obgpu *g);
++
++/* A rectangle (24.8) of one colour (premultiplied ARGB32) by a WebCore
++ * operator: fillRect, and clearRect as OBGPU_OP_CLEAR. */
++int obgpu_fill(struct obgpu *g, long x, long y, long w, long h, unsigned long argb, int op);
++/* A picture: src (x, y, w, h in its pixels, 24.8) drawn into dst (x, y, w,
++ * h, 24.8, through the transform) by an operator, times alpha (0-255),
++ * bilinear: 1 bilinear, 0 nearest, -1 neither (only pixel for pixel). The
++ * pixels must stay as they are until the batch has gone. */
++int obgpu_image(struct obgpu *g, const struct obgpu_source *s, const long *dst, const long *src, int op,
++    unsigned alpha, int bilinear);
++
++/* Words waiting to be drawn. */
++int obgpu_pending(const struct obgpu *g);
++/* Sends the batch and waits for it, if it draws anything; 0, or the error. */
++long obgpu_flush(struct obgpu *g);
++
++/* openamigabrowser's engine only (OpenGPULibraryAmiga.c): opens
++ * opengpu.library once and says what it does (OBGPU_CAN_), 0 when it is
++ * missing or older than stream v1.4; and sends a batch and waits for it. */
++int ob_opengpu_caps(void);
++long ob_opengpu_run(const unsigned char *stream, long words);
++
++#ifdef __cplusplus
++}
++#endif
++
++#endif
+-- 
+2.43.0
+

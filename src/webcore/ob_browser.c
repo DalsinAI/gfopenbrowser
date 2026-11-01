@@ -87,8 +87,10 @@ static int paintLegacy;
 
 /* For the lab's comparison, per page load: the areas painted, the passes
  * that painted any, and the time spent painting them and copying them into
- * the window. Printed as one OBVIEW_BENCH line once the page has loaded and
- * settled (nothing left to lay out or paint). */
+ * the window, then what painted them (OpenGPU's draws and batches and the
+ * calls cairo drew, ob_webview_paint_report()). Printed as one OBVIEW_BENCH
+ * line once the page has loaded and settled (nothing left to lay out or
+ * paint). */
 static ULONG benchLoadStart, benchLoadEnd;
 static ULONG benchPaints, benchRounds, benchPaintMicros, benchPaintMax, benchBlitMicros, benchBlitMax;
 static int benchDue;
@@ -348,13 +350,17 @@ static int paintPage(int x, int y, int width, int height, int layOut)
 static void benchReport(void)
 {
     ULONG now = clockMicros();
+    char painters[256];
+    painters[0] = 0;
+    if (view)
+        ob_webview_paint_report(view, painters, sizeof painters);
     benchDue = 0;
     printf("OBVIEW_BENCH gui_legacy=%d gui_load_ms=%lu gui_settled_ms=%lu gui_paints=%lu gui_rounds=%lu"
-        " paint_ms=%lu paint_max_ms=%lu blit_ms=%lu blit_max_ms=%lu\n", paintLegacy,
+        " paint_ms=%lu paint_max_ms=%lu blit_ms=%lu blit_max_ms=%lu%s\n", paintLegacy,
         (unsigned long)((benchLoadEnd - benchLoadStart) / 1000), (unsigned long)((now - benchLoadStart) / 1000),
         (unsigned long)benchPaints, (unsigned long)benchRounds, (unsigned long)(benchPaintMicros / 1000),
         (unsigned long)(benchPaintMax / 1000), (unsigned long)(benchBlitMicros / 1000),
-        (unsigned long)(benchBlitMax / 1000));
+        (unsigned long)(benchBlitMax / 1000), painters);
     fflush(stdout);
 }
 
@@ -364,6 +370,8 @@ static void benchStart(void)
         benchReport();
     benchLoadStart = clockMicros();
     benchPaints = benchRounds = benchPaintMicros = benchPaintMax = benchBlitMicros = benchBlitMax = 0;
+    if (view)
+        ob_webview_paint_report(view, NULL, 0);
 }
 
 /* What changed on the page: each area by itself once it is laid out (see

@@ -325,12 +325,18 @@ experiment (`WEBCORE_PORT.md`).
    `DumpMain.cpp` write PNG through datatypes.library. Map: `libpng.a` and
    cairo's PNG object, as long as nothing else in cairo pulls that object
    in (to be checked on the map).
-2. **GraphicsContextOpenGPU for the window, rectangles and pictures.**
-   `AmigaWebView::paint()` uses it. It does solid fills, `clearRect`,
+2. **GraphicsContextOpenGPU for the window, rectangles and pictures**
+   (patch 0076; written, not yet built).
+   `AmigaWebView::paint()` uses it, unless the Shell variable
+   `OB_PAINT=cairo` is set or opengpu.library is missing or has no
+   `COMPOSITE_PD`. It does solid fills, `clearRect`,
    rectangle clips, and images (the pixels of a cairo image surface are
-   ARGB memory) through `FILL`, `COMPOSITE_PD` and the affine composite;
+   ARGB memory) through `FILL`, `COMPOSITE_PD` and, for a picture that is
+   scaled or turned, a `PATH_FILL` painted with it as a pattern (the
+   affine composite blends colours that are not premultiplied);
    everything else goes to cairo. Map: nothing yet; measured by `paint_ms`
-   and the count.
+   and the counts `OBVIEW_BENCH` prints beside it (`gpu_draws`,
+   `gpu_flushes`, `cairo_calls` and the calls by kind).
 3. **Paths and fills.** Path fill (non-zero and even-odd), strokes with
    caps, joins and dashes, clips to paths as A8 masks, gradients and
    patterns, read from WebCore's own `Path` segments and `Gradient` stops,
