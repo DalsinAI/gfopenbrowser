@@ -127,10 +127,8 @@ rm -rf "$OUT/httpcache"
 "$OUT/test_public_suffixes" "$HERE/data/public-suffixes" "$HERE/tests/public-suffix-cases.txt"
 "$OUT/test_opengpu_paint"
 # a test's last line only, but its whole log and a failed run when it fails (a pipe into tail hid the failure).
-# test_opengpu_pattern still goes through the pipe: its two checks against cairo's conic mesh fail with pixman
-# 0.46 (Ubuntu 26.04), where the mesh's sector edges come out differently; its own conic matches the angle's colour.
 last_line() { "$1" > "$1.log" 2>&1 || { cat "$1.log"; exit 1; }; tail -1 "$1.log"; }
-if [ "$CLIP_TEST" = 1 ]; then "$OUT/test_opengpu_clip"; "$OUT/test_opengpu_pattern" | tail -1; last_line "$OUT/test_opengpu_lines"; last_line "$OUT/test_opengpu_layer"; last_line "$OUT/test_opengpu_shadow"; else echo "test_opengpu_clip, test_opengpu_pattern, test_opengpu_lines, test_opengpu_layer, test_opengpu_shadow: skipped (no cairo headers)"; fi
+if [ "$CLIP_TEST" = 1 ]; then "$OUT/test_opengpu_clip"; last_line "$OUT/test_opengpu_pattern"; last_line "$OUT/test_opengpu_lines"; last_line "$OUT/test_opengpu_layer"; last_line "$OUT/test_opengpu_shadow"; else echo "test_opengpu_clip, test_opengpu_pattern, test_opengpu_lines, test_opengpu_layer, test_opengpu_shadow: skipped (no cairo headers)"; fi
 # fewer operations under the sanitizers, which are slower
 R=200000
 [ "${SANITIZE:-0}" = 1 ] && R=50000
