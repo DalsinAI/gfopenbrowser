@@ -1,7 +1,7 @@
 /*
  * GFOpenBrowser: WebCore's network thread (AmigaNetworkSetup.c); openweb.fetch
  * opens bsdsocket.library and gfopentls.library itself.
- * MIT, Copyright (c) 2026 AmigaChrome Team.
+ * MIT, Copyright (c) 2026 AmiCradle Team.
  */
 #ifndef OB_NETWORK_H
 #define OB_NETWORK_H

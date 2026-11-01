@@ -21,7 +21,7 @@
  * does just that, so the browser opens at once while the engine is in
  * memory.
  *
- * MIT, Copyright (c) 2026 AmigaChrome Team.
+ * MIT, Copyright (c) 2026 AmiCradle Team.
  */
 #ifndef LIBRARIES_WEBBROWSER_H
 #define LIBRARIES_WEBBROWSER_H

@@ -1,6 +1,6 @@
 # WebCore on AmigaOS 3.2: port notes
 
-Copyright (c) 2026 AmigaChrome Team. MIT licence for this document.
+Copyright (c) 2026 AmiCradle Team. MIT licence for this document.
 
 Phase 2 of the [phase plan](PHASE_PLAN.md): WebCore, the engine inside
 WebKit, built for AmigaOS 3.2 on 68k and run headless. These notes record

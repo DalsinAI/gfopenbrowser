@@ -1,6 +1,6 @@
 #!/bin/sh
 # GFOpenBrowser (DalsinAI/openamigabrowser)
-# Copyright (c) 2026 AmigaChrome Team. MIT licence, see LICENSE.
+# Copyright (c) 2026 AmiCradle Team. MIT licence, see LICENSE.
 #
 # json.library 1 (src/jsonlib, GFOpenJSON) and its Amiga test program, for
 # AmigaOS 3.2 on a 68040. Soft float (toolchain/m68k-soft-m68040.specs) for

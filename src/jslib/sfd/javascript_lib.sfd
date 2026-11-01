@@ -1,5 +1,5 @@
 ==id $Id: javascript_lib.sfd 1.0 (22.10.2026) AmiCradle Team $
-* javascript.library: JavaScript for any program. MIT, Copyright (c) 2026 AmigaChrome Team.
+* javascript.library: JavaScript for any program. MIT, Copyright (c) 2026 AmiCradle Team.
 * scripts/gen-jslib-sdk.sh makes sdk/ (clib, inline, pragmas, proto, FD, LVOs) from this with
 * GFOpenNDK's ndkgen.py; javascript_lib.c's vector table follows it line for line (check_vectors.py).
 ==base _JavaScriptBase

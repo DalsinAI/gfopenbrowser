@@ -2,7 +2,7 @@
  * weblayout: addresses on a page made absolute (RFC 3986 section 5.2, the
  * parts pages use: scheme, network path, absolute path, query, fragment and
  * relative paths with ./ and ../ folded).
- * MIT, Copyright (c) 2026 AmigaChrome Team.
+ * MIT, Copyright (c) 2026 AmiCradle Team.
  */
 #include "wl_url.h"
 

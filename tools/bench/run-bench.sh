@@ -1,6 +1,6 @@
 #!/bin/sh
 # GFOpenBrowser (DalsinAI/openamigabrowser)
-# Copyright (c) 2026 The AmigaChrome Team. MIT licence, see LICENSE.
+# Copyright (c) 2026 The AmiCradle Team. MIT licence, see LICENSE.
 #
 # Run a staged benchmark (tools/bench/stage.py) on an AmiCradle test
 # instance, one page per job through DH1:Probe/runner.script (see

@@ -1,5 +1,5 @@
 // Calls into JavaScript from C++ (nested entries): every result must match.
-// The AmigaChrome Team, MIT.
+// The AmiCradle Team, MIT.
 var log = (typeof print === "function") ? print : console.log;
 function out(n, v) { log(n + " " + v); }
 var a = []; for (var i = 0; i < 300; i++) a.push((i * 7919) % 301);

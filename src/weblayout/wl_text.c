@@ -2,7 +2,7 @@
  * weblayout: UTF-8 to ISO-8859-1 (see wl_text.h). The converter GFOpenMail's
  * oam_text.c has (oam_utf8_to_latin1), brought into weblayout as its own so
  * the library needs nothing of GFOpenMail.
- * MIT, Copyright (c) 2026 AmigaChrome Team.
+ * MIT, Copyright (c) 2026 AmiCradle Team.
  */
 #include "wl_text.h"
 

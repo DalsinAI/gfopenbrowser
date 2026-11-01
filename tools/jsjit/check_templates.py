@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 # GFOpenBrowser (DalsinAI/openamigabrowser)
-# Copyright (c) 2026 AmigaChrome Team. MIT licence, see LICENSE.
+# Copyright (c) 2026 AmiCradle Team. MIT licence, see LICENSE.
 #
 # Checks assembled templates (an object holding LLIntAssembly.h and
 # LLIntTemplates.h, see README.md): every PC-relative branch or address in a

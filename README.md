@@ -45,7 +45,7 @@ stands, and the work in order. [docs/PHASE_PLAN.md](docs/PHASE_PLAN.md) has the 
 | `src/jsonlib/` | json.library (GFOpenJSON): JSON parsed into one flat, relocatable block, a writer and a streaming reader, for native programs; here for now, its own repository later ([README](src/jsonlib/README.md)) |
 | `src/jslib/` | javascript.library: JavaScript (JavaScriptCore with the 68k JIT) for any program, which hands scripts its own objects as host classes; the JavaScriptEngine program behind it and the `JS` Shell command; here for now, its own repository later ([README](src/jslib/README.md)) |
 | `src/webcore/` | GFOpenBrowser on WebCore: the window (`ob_browser.c`), the page layer (WebCore's clients, `ob_webview.h`), cookies and the network loader, and the test programs `obcore-dump` and `obcore-view` |
-| `third_party/openmail/` | Network, HTML-to-text and stack code shared with GFOpenMail (MIT, AmigaChrome Team) |
+| `third_party/openmail/` | Network, HTML-to-text and stack code shared with GFOpenMail (MIT, AmiCradle Team) |
 | `webkit/` | The pinned upstream revision and the AmigaOS/m68k patches for WebKit (JavaScriptCore and WebCore) |
 | `toolchain/` | CMake toolchain file for the os32-gcc16 compiler |
 | `scripts/` | `build-openbrowser.sh`, `build-icu.sh`, `build-jsc.sh` and `build-webcore.sh` |
@@ -131,7 +131,7 @@ and settings are listed at the top of `scripts/build-webcore.sh`.
 
 ## Licence
 
-GFOpenBrowser's own code and documents are MIT, Copyright (c) 2026 AmigaChrome
+GFOpenBrowser's own code and documents are MIT, Copyright (c) 2026 AmiCradle
 Team (see [LICENSE](LICENSE)). WebKit/JavaScriptCore, ICU and GCC parts keep
 their own licences (see [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md)).
 
@@ -140,4 +140,4 @@ work is based on.
 
 ## Contributors
 
-GFOpenBrowser is created and maintained by [SacredTrees](https://github.com/SacredTrees) with The AmiCradle Team, copyright AmigaChrome Team. Everyone whose work it includes is credited in [`CONTRIBUTORS.md`](CONTRIBUTORS.md).
+GFOpenBrowser is created and maintained by [SacredTrees](https://github.com/SacredTrees) with The AmiCradle Team, copyright AmiCradle Team. Everyone whose work it includes is credited in [`CONTRIBUTORS.md`](CONTRIBUTORS.md).

@@ -60,7 +60,7 @@ index 3b339abd151..90f641be938 100644
 + * edges on whole pixels or anti-aliased as cairo's. Paths are read from
 + * WebCore's own Path elements; strokes take cairo's own width, caps,
 + * joins, miter limit and dashes from its context, as cairo_stroke does.
-  * MIT, Copyright (c) 2026 AmigaChrome Team.
+  * MIT, Copyright (c) 2026 AmiCradle Team.
   * SPDX-License-Identifier: MIT
   */
 @@ -34,10 +36,11 @@

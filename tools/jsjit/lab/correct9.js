@@ -1,7 +1,7 @@
 // get_by_id on objects of several shapes, getters (own and on the
 // prototype), missing properties, prototypes that change and garbage
 // collection of the shapes a site saw (patch 0036): every result must
-// match node. The AmigaChrome Team, MIT.
+// match node. The AmiCradle Team, MIT.
 if (typeof print === "undefined") var print = console.log;
 var collect = typeof gc === "function" ? gc : function () {};
 // one site, up to six shapes

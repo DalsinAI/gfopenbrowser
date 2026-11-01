@@ -1,5 +1,5 @@
 /* GFOpenJSON: json.library, JSON (RFC 8259) for native programs.
- * Copyright (c) 2026 AmigaChrome Team. MIT.
+ * Copyright (c) 2026 AmiCradle Team. MIT.
  *
  * The work is done in json_core.cpp (lean C++, no Amiga headers), tested
  * on the host and under qemu-m68k (tests/jsonlib/run.sh); this file is

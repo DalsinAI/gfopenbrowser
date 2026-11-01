@@ -53,7 +53,7 @@ renamed back the same way. The Installer's
 log in the drawer (Install-GFOpenBrowser.log, or install_log_file when the
 Installer is started from a Shell without LOGFILE), lists everything it did.
 
-Licences: GFOpenBrowser's own parts are MIT, Copyright (c) 2026 AmigaChrome
+Licences: GFOpenBrowser's own parts are MIT, Copyright (c) 2026 AmiCradle
 Team. WebKit is LGPL-2/BSD and ICU is under the Unicode licence; see
 THIRD_PARTY_NOTICES.md. If you base work on this, please say what it is
 based on.

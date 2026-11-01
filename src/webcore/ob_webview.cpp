@@ -1,7 +1,7 @@
 /*
  * GFOpenBrowser: the C interface to WebCore pages (see ob_webview.h), and the
  * translation of Amiga input into WebCore's events.
- * MIT, Copyright (c) 2026 AmigaChrome Team.
+ * MIT, Copyright (c) 2026 AmiCradle Team.
  */
 #include "config.h"
 #include "ob_webview.h"

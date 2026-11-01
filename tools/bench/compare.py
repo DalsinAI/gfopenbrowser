@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 # GFOpenBrowser (DalsinAI/openamigabrowser)
-# Copyright (c) 2026 The AmigaChrome Team. MIT licence, see LICENSE.
+# Copyright (c) 2026 The AmiCradle Team. MIT licence, see LICENSE.
 """Compare the Amiga's pictures of the benchmark pages with reference
 pictures of the same pages at the same size (tools/bench/make-refs.py makes
 them with headless Chromium) and give each page a similarity score.

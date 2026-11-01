@@ -1,4 +1,4 @@
-/* host tests: see exec/types.h. MIT, Copyright (c) 2026 AmigaChrome Team. */
+/* host tests: see exec/types.h. MIT, Copyright (c) 2026 AmiCradle Team. */
 #ifndef GRAPHICS_RASTPORT_H
 #define GRAPHICS_RASTPORT_H
 #include <graphics/gfx.h>

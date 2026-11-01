@@ -1,7 +1,7 @@
 // Doubles in loop register copies: values kept in FPU registers, written
 // back to the frame, mixed with int32 work, NaN, -0, Infinity, and loops left
 // by exceptions, calls and closures (patch 0036): every result must match
-// node. The AmigaChrome Team, MIT.
+// node. The AmiCradle Team, MIT.
 if (typeof print === "undefined") var print = console.log;
 var collect = typeof gc === "function" ? gc : function () {};
 function sum(n) { var s = 0.5; for (var i = 0; i < n; i++) s = s + 0.25; return s; }

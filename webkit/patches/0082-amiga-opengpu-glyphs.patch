@@ -210,7 +210,7 @@ index 0000000..d4e9aaf
 + * cache through OpenGPU, straight onto the window or a layer's group. Its
 + * own base, opened once at run time; an older library (or headers from
 + * before revision 5) leaves glyphs to cairo.
-+ * MIT, Copyright (c) 2026 AmigaChrome Team.
++ * MIT, Copyright (c) 2026 AmiCradle Team.
 + * SPDX-License-Identifier: MIT
 + */
 +#include "OpenGPUPaintAmiga.h"

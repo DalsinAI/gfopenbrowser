@@ -401,7 +401,7 @@ index 0000000..c699eac
 +++ b/Source/WebCore/Modules/indexeddb/amiga/IndexedDBDisabledAmiga.cpp
 @@ -0,0 +1,57 @@
 +/*
-+ * Copyright (C) 2026 AmigaChrome Team.
++ * Copyright (C) 2026 AmiCradle Team.
 + *
 + * Redistribution and use in source and binary forms, with or without
 + * modification, are permitted provided that the following conditions
@@ -716,7 +716,7 @@ index 0000000..03c5016
 +++ b/Source/WebCore/accessibility/amiga/AccessibilityDisabledAmiga.cpp
 @@ -0,0 +1,80 @@
 +/*
-+ * Copyright (C) 2026 AmigaChrome Team.
++ * Copyright (C) 2026 AmiCradle Team.
 + *
 + * Redistribution and use in source and binary forms, with or without
 + * modification, are permitted provided that the following conditions

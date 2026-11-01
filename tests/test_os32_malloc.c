@@ -8,7 +8,7 @@
  *   test_os32_malloc [rounds]       (default 200000 operations a thread)
  *
  * Built once as it ships and once with -DOS32_MALLOC_DEBUG.
- * MIT, Copyright (c) 2026 AmigaChrome Team. */
+ * MIT, Copyright (c) 2026 AmiCradle Team. */
 #include "../stove/compat/os32compat_malloc.c"
 
 #include <pthread.h>

@@ -7,7 +7,7 @@
 # OXP_DIR: an openamigaxml checkout's oxp/, built with REF=1 sh build-host.sh
 #          (liboxp.a and tests/ref's libxml2dump, which needs libxml2's headers).
 # LIST: files to read, one path a line.
-# MIT licence. Copyright (c) 2026 AmigaChrome Team.
+# MIT licence. Copyright (c) 2026 AmiCradle Team.
 set -eu
 HERE=$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)
 WK=$1; OXP=$2; LIST=$3

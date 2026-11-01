@@ -1,6 +1,6 @@
 #!/bin/sh
 # GFOpenBrowser (DalsinAI/openamigabrowser)
-# Copyright (c) 2026 AmigaChrome Team. MIT licence, see LICENSE.
+# Copyright (c) 2026 AmiCradle Team. MIT licence, see LICENSE.
 #
 # For an AmiCradle test instance whose DH1 is a host folder and whose
 # S:User-Startup runs DH1:Probe/runner.script (see tools/runner.script).

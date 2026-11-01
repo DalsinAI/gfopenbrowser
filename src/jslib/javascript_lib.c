@@ -1,5 +1,5 @@
 /* javascript.library: JavaScript for any program.
- * Copyright (c) 2026 AmigaChrome Team. MIT.
+ * Copyright (c) 2026 AmiCradle Team. MIT.
  *
  * The library holds no engine. JavaScriptEngine (jsl_engine.c with
  * JavaScriptCore and the 68k JIT) is a program this library starts the

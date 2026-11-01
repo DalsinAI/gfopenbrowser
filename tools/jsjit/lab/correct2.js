@@ -1,5 +1,5 @@
 // GFOpenBrowser JIT lab: doubles, NaN, -0, property caches and calls; must print the
-// same with JSC_useM68KTemplateJIT=0 and =1. MIT, Copyright (c) 2026 AmigaChrome Team.
+// same with JSC_useM68KTemplateJIT=0 and =1. MIT, Copyright (c) 2026 AmiCradle Team.
 var out = [];
 function log(x) { out.push(String(x)); }
 // doubles, NaN, -0, overflow into doubles

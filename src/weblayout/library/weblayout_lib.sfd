@@ -1,6 +1,6 @@
 ==id $Id: weblayout_lib.sfd 1.0 (20.10.2026) $
 * "weblayout.library": a web page laid out and drawn into a RastPort.
-* Copyright (c) 2026 AmigaChrome Team. MIT licence (see LICENSE).
+* Copyright (c) 2026 AmiCradle Team. MIT licence (see LICENSE).
 * The calls are weblayout.h's, in this order; new calls go at the end.
 ==base _WebLayoutBase
 ==basetype struct Library *

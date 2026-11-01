@@ -1,6 +1,6 @@
 /*
  * weblayout: one allocator (see wl_mem.h).
- * MIT, Copyright (c) 2026 AmigaChrome Team.
+ * MIT, Copyright (c) 2026 AmiCradle Team.
  */
 #include "wl_mem.h"
 

@@ -1,5 +1,5 @@
 /* JSONTest: json.library on the Amiga.
- * Copyright (c) 2026 AmigaChrome Team. MIT.
+ * Copyright (c) 2026 AmiCradle Team. MIT.
  *
  *   JSONTest                 the self-test: every call, "ok" or "FAIL" per line
  *   JSONTest FILE            parse FILE: nodes, block size, the first error

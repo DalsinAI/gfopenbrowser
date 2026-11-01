@@ -1,5 +1,5 @@
 /* GFOpenJSON's core: json.library's work in lean C++, no Amiga headers.
- * Copyright (c) 2026 AmigaChrome Team. MIT.
+ * Copyright (c) 2026 AmiCradle Team. MIT.
  *
  * Our own code, written from RFC 8259 (JSON), RFC 6901 (JSON Pointer),
  * RFC 3629 (UTF-8), IEEE 754 (binary64) and ECMA-262's Number::toString.

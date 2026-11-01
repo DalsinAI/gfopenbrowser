@@ -12,7 +12,7 @@
  * global, the allocator and the C library's state the two share are the
  * image's.
  *
- * MIT, Copyright (c) 2026 AmigaChrome Team.
+ * MIT, Copyright (c) 2026 AmiCradle Team.
  */
 #ifndef JSIMAGE_H
 #define JSIMAGE_H

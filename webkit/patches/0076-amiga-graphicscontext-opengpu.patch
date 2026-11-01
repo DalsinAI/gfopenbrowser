@@ -107,7 +107,7 @@ index 00000000000..3b339abd151
 + * OpenGPUPaintAmiga.c: the fill colour as cairo turns it into 8 bits, the
 + * global alpha only where cairo applies it, no shadow, normal blending,
 + * edges on whole pixels.
-+ * MIT, Copyright (c) 2026 AmigaChrome Team.
++ * MIT, Copyright (c) 2026 AmiCradle Team.
 + * SPDX-License-Identifier: MIT
 + */
 +#include "config.h"
@@ -688,7 +688,7 @@ index 00000000000..9f2fe7fb74c
 + * on the same pixels and the same state, after the batch is sent and drawn.
 + * The shell variable OB_PAINT=cairo, or no gfopengpu.library with stream
 + * v1.4's COMPOSITE_PD, keeps the window on cairo alone (isWanted()).
-+ * MIT, Copyright (c) 2026 AmigaChrome Team.
++ * MIT, Copyright (c) 2026 AmiCradle Team.
 + * SPDX-License-Identifier: MIT
 + */
 +#pragma once
@@ -813,7 +813,7 @@ index 00000000000..017286bfac2
 + * openamigartg's inline calls; nothing is linked. A missing library, or one
 + * older than stream v1.4 (it answers OGPU_NONE for COMPOSITE_PD), leaves
 + * the engine on cairo.
-+ * MIT, Copyright (c) 2026 AmigaChrome Team.
++ * MIT, Copyright (c) 2026 AmiCradle Team.
 + * SPDX-License-Identifier: MIT
 + */
 +#include "OpenGPUPaintAmiga.h"
@@ -913,7 +913,7 @@ index 00000000000..60e597dc53c
 + * a batch (a slot is bound again when all 15 are used: commands run in
 + * order), the clip sent when it changes, until the caller flushes or the
 + * stream is full.
-+ * MIT, Copyright (c) 2026 AmigaChrome Team.
++ * MIT, Copyright (c) 2026 AmiCradle Team.
 + * SPDX-License-Identifier: MIT
 + */
 +#include "OpenGPUPaintAmiga.h"
@@ -1560,7 +1560,7 @@ index 00000000000..2005f634ce7
 + * AffineTransform. Colours are premultiplied ARGB32 words, as cairo's.
 + * Every drawing call returns 1 when it is done (or there was nothing to
 + * draw) and 0 when the caller must hand it to cairo; a 0 adds nothing to
-+ * the batch. MIT, Copyright (c) 2026 AmigaChrome Team.
++ * the batch. MIT, Copyright (c) 2026 AmiCradle Team.
 + * SPDX-License-Identifier: MIT
 + */
 +#ifndef OpenGPUPaintAmiga_h

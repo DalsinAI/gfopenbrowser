@@ -3,7 +3,7 @@
 // enough of them for collections to run; arrays kept alive across those;
 // a site whose arrays change shape; then a bad time (an indexed setter on
 // Array.prototype) part way through.
-// MIT, Copyright (c) 2026 The AmigaChrome Team.
+// MIT, Copyright (c) 2026 The AmiCradle Team.
 if (typeof print === "undefined") var print = console.log;
 function empties(n) { var keep = [], t = 0; for (var i = 0; i < n; i++) { var a = []; if (i % 3 === 1) a.push(i); if (i % 3 === 2) a.push({ v: i }); t += a.length; if (i % 97 === 0) keep.push(a); } return t + ":" + keep.length + ":" + keep[5].length + ":" + (keep[7][0] && keep[7][0].v); }
 print("empties " + empties(5000));

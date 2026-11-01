@@ -2,7 +2,7 @@
  * The few Exec types weblayout's calls use, for its host tests (the
  * engine's own code is built on the host against these and
  * tests/host/graphics, tests/host/proto: see tests/test_wl_document.c).
- * MIT, Copyright (c) 2026 AmigaChrome Team.
+ * MIT, Copyright (c) 2026 AmiCradle Team.
  */
 #ifndef EXEC_TYPES_H
 #define EXEC_TYPES_H

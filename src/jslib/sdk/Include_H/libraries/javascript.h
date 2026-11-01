@@ -2,7 +2,7 @@
 #define LIBRARIES_JAVASCRIPT_H
 /*
  * libraries/javascript.h: javascript.library, JavaScript for any program.
- * Copyright (c) 2026 AmigaChrome Team. MIT.
+ * Copyright (c) 2026 AmiCradle Team. MIT.
  *
  * The library runs JavaScript (JavaScriptCore with the 68k JIT) for the
  * program that opens it. The program owns its objects; the library owns

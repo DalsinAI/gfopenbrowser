@@ -1,4 +1,4 @@
-/* Copyright (c) 2026 AmigaChrome Team. MIT licence (see LICENSE at the repository root). */
+/* Copyright (c) 2026 AmiCradle Team. MIT licence (see LICENSE at the repository root). */
 /* JSONTest on the host and under qemu-m68k: the Amiga types, the few Exec
  * and DOS calls it makes, and every json.library call mapped straight onto
  * the core (src/jsonlib/json_core.h). tests/jsonlib/run.sh builds it with

@@ -133,7 +133,7 @@ index 00000000000..c7d9d7265c0
 + * always woken by an answer within the wait, and on the native transport
 + * wf_wait() moves every fetch on. Body bytes come in two buffers by turns:
 + * the next READ goes into one while WebCore copies the other.
-+ * MIT, Copyright (c) 2026 AmigaChrome Team.
++ * MIT, Copyright (c) 2026 AmiCradle Team.
 + * SPDX-License-Identifier: MIT
 + */
 +
@@ -506,7 +506,7 @@ index 00000000000..06076e21e81
 + * Every call but obwf_net_wake runs on the one task that called
 + * obwf_net_new. A build without openamigaservice's headers has no
 + * transport: obwf_available() is 0 and obwf_net_new answers NULL.
-+ * MIT, Copyright (c) 2026 AmigaChrome Team.
++ * MIT, Copyright (c) 2026 AmiCradle Team.
 + * SPDX-License-Identifier: MIT
 + */
 +
@@ -854,7 +854,7 @@ index 00000000000..8a4f2b65df1
 + * Compressed bodies: the card's host undoes them (WF_DECODE). The native
 + * transport leaves that to the datatypes' stream classes, which are not
 + * there yet, so on it the request asks for "Accept-Encoding: identity".
-+ * MIT, Copyright (c) 2026 AmigaChrome Team.
++ * MIT, Copyright (c) 2026 AmiCradle Team.
 + * SPDX-License-Identifier: MIT
 + */
 +#include "config.h"
@@ -1351,7 +1351,7 @@ index 00000000000..e22d1d7166c
 + * OB_NET (curl, the default, or openweb). ResourceHandleAmiga.cpp keeps
 + * the cookies, redirects and the HTTP cache for both; this is only the
 + * request on the wire, run from one network thread.
-+ * MIT, Copyright (c) 2026 AmigaChrome Team.
++ * MIT, Copyright (c) 2026 AmiCradle Team.
 + * SPDX-License-Identifier: MIT
 + */
 +

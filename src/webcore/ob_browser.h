@@ -2,7 +2,7 @@
  * GFOpenBrowser's browser window inside WebBrowserEngine (webbrowser.library's
  * resident engine): ob_browser.c built with OB_BROWSER_IN_ENGINE. The engine
  * runs WebCore and calls these from its loop.
- * MIT, Copyright (c) 2026 AmigaChrome Team.
+ * MIT, Copyright (c) 2026 AmiCradle Team.
  */
 #ifndef OB_BROWSER_H
 #define OB_BROWSER_H

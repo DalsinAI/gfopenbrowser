@@ -1,5 +1,5 @@
 /* weblayout's address resolver on the host: tests/run-host-tests.sh.
- * MIT, Copyright (c) 2026 AmigaChrome Team. */
+ * MIT, Copyright (c) 2026 AmiCradle Team. */
 #include "wl_url.h"
 
 #include <stdio.h>

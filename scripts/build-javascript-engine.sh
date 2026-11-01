@@ -1,6 +1,6 @@
 #!/bin/sh
 # GFOpenBrowser (DalsinAI/openamigabrowser)
-# Copyright (c) 2026 AmigaChrome Team. MIT licence, see LICENSE.
+# Copyright (c) 2026 AmiCradle Team. MIT licence, see LICENSE.
 #
 # JavaScriptEngine, the program behind javascript.library (src/jslib): the
 # engine core (jsl_core.cpp, on JavaScriptCore's C interface; jsl_cache.cpp,
@@ -20,7 +20,7 @@
 #   OS32_GCC16     stove root (prefix/, compat/)       (default ~/AmiCradle/stoves/os32-gcc16)
 #   OUT            where JavaScriptEngine goes          (default $WEBKIT_BUILD/bin)
 #
-# MIT, Copyright (c) 2026 AmigaChrome Team.
+# MIT, Copyright (c) 2026 AmiCradle Team.
 set -eu
 HERE=$(CDPATH= cd -- "$(dirname -- "$0")/.." && pwd)
 : "${WEBKIT_BUILD:?set WEBKIT_BUILD to the build-jsc.sh build folder}"

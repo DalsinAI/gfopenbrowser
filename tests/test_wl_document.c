@@ -5,7 +5,7 @@
  * per pixel: the pages that broke on the Amiga (a link inside a
  * paragraph with bold text after it, a title kept past WL_Layout and
  * WL_Draw, https://example.com/ without </head>).
- * MIT, Copyright (c) 2026 AmigaChrome Team.
+ * MIT, Copyright (c) 2026 AmiCradle Team.
  */
 #include "weblayout.h"
 #include "wl_image_dt.h"

@@ -15,7 +15,7 @@
 #   HOST_CC         the compiler (default cc)
 #   SANITIZE        1: with AddressSanitizer and UBSan
 #
-# MIT, Copyright (c) 2026 AmigaChrome Team.
+# MIT, Copyright (c) 2026 AmiCradle Team.
 set -eu
 HERE=$(CDPATH= cd -- "$(dirname -- "$0")/.." && pwd)
 OL=${OPENLAYOUT_SRC:-"$HERE/../openamigalayout"}

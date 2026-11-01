@@ -7,7 +7,7 @@
 # since 21 Oct 2026 no Khmer, Burmese or Lao ones either (860 KB of the
 # engine): such text still breaks at spaces and punctuation. Other locales
 # fall back to root.
-# MIT, Copyright (c) 2026 AmigaChrome Team.
+# MIT, Copyright (c) 2026 AmiCradle Team.
 brkitr/char.brk
 brkitr/en.res
 brkitr/en_US.res

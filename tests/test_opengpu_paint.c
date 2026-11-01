@@ -10,7 +10,7 @@
  * and the states and transforms that must go to cairo (the call returns 0
  * and draws nothing).
  *   test_opengpu_paint
- * MIT, Copyright (c) 2026 AmigaChrome Team.
+ * MIT, Copyright (c) 2026 AmiCradle Team.
  * SPDX-License-Identifier: MIT
  */
 #include <math.h>

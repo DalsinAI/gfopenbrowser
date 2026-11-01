@@ -1,5 +1,5 @@
 #!/bin/sh
-# Copyright (c) 2026 AmigaChrome Team. MIT licence (see LICENSE at the repository root).
+# Copyright (c) 2026 AmiCradle Team. MIT licence (see LICENSE at the repository root).
 # json.library's core (src/jsonlib/json_core.cpp), lean C++: built with the
 # host's C++ compiler (with AddressSanitizer and UBSan) and with an m68k
 # cross G++ for the 68040 at -O2 and -Os, checked with nm to call nothing

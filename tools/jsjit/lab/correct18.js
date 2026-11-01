@@ -2,7 +2,7 @@
 // values, negatives and the int32 limits, then doubles, -0, NaN, strings,
 // objects with valueOf (called once each, in order), undefined, more or
 // fewer arguments, and a replaced Math.min.
-// MIT, Copyright (c) 2026 The AmigaChrome Team.
+// MIT, Copyright (c) 2026 The AmiCradle Team.
 if (typeof print === "undefined") var print = console.log;
 function ints(n) { var t = 0, u = 0; for (var i = 0; i < n; i++) { t += Math.min(i, n - i); u += Math.max(i - 50, 50 - i); } return t + ":" + u; }
 print("ints " + ints(2000));

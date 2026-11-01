@@ -19,7 +19,7 @@
  * Values given to programs are JSValueRefs held by JSValueProtect; JS_Free
  * lets them go. NULL is undefined.
  *
- * MIT, Copyright (c) 2026 AmigaChrome Team.
+ * MIT, Copyright (c) 2026 AmiCradle Team.
  */
 #include <JavaScriptCore/JavaScript.h>
 #include <JavaScriptCore/JSWeakPrivate.h>

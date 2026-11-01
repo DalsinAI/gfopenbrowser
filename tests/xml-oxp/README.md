@@ -61,5 +61,5 @@ This writes `lib/liboxp.a` and `include/oxp.h` there. CMake finds them with
 the patch's `Source/cmake/FindOXP.cmake`, and `src/webcore/CMakeLists.txt`
 links `oxp` instead of `xml2`.
 
-MIT, Copyright (c) 2026 AmigaChrome Team (this folder; the WebKit patch
+MIT, Copyright (c) 2026 AmiCradle Team (this folder; the WebKit patch
 keeps WebKit's licences).

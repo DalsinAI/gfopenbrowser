@@ -1,6 +1,6 @@
 #!/bin/sh
 # GFOpenBrowser (DalsinAI/openamigabrowser)
-# Copyright (c) 2026 AmigaChrome Team. MIT licence, see LICENSE.
+# Copyright (c) 2026 AmiCradle Team. MIT licence, see LICENSE.
 #
 # javascript.library 1 (src/jslib) and the JS command, for AmigaOS 3.2 on a
 # 68040. The library is C with no C library, built for size (-Os); it holds

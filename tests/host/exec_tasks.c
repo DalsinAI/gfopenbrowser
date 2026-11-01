@@ -1,7 +1,7 @@
 /*
  * host tests: exec's task signals and Forbid()/Permit() on POSIX threads
  * (see proto/exec.h), for the stove's allocator's lock.
- * MIT, Copyright (c) 2026 AmigaChrome Team.
+ * MIT, Copyright (c) 2026 AmiCradle Team.
  */
 #include <proto/exec.h>
 

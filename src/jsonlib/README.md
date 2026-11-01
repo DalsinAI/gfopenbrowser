@@ -202,4 +202,4 @@ call through its registers) and `JSONTest FILE BENCH`.
 - A tags-taking parse call if options outgrow the flags; new calls go at
   the end of the SFD.
 
-Copyright (c) 2026 AmigaChrome Team. MIT.
+Copyright (c) 2026 AmiCradle Team. MIT.

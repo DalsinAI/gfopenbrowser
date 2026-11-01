@@ -1,6 +1,6 @@
 /*
  * weblayout: a GFOpenLayout display list painted into a RastPort.
- * MIT, Copyright (c) 2026 AmigaChrome Team.
+ * MIT, Copyright (c) 2026 AmiCradle Team.
  */
 #include "wl_paint.h"
 

@@ -1,6 +1,6 @@
 /*
  * GFOpenBrowser: WebCore's frame loader client (one per frame).
- * MIT, Copyright (c) 2026 AmigaChrome Team.
+ * MIT, Copyright (c) 2026 AmiCradle Team.
  */
 #pragma once
 

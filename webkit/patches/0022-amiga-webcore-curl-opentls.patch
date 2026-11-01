@@ -82,7 +82,7 @@ index 00000000..8f6d9b37
 +++ b/Source/WebCore/crypto/amiga/CryptoAmiga.cpp
 @@ -0,0 +1,370 @@
 +/*
-+ * Copyright (C) 2026 AmigaChrome Team.
++ * Copyright (C) 2026 AmiCradle Team.
 + *
 + * Redistribution and use in source and binary forms, with or without
 + * modification, are permitted provided that the following conditions

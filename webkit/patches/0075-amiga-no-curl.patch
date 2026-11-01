@@ -216,7 +216,7 @@ index 272901cc409..00000000000
 +++ /dev/null
 @@ -1,42 +0,0 @@
 -/*
-- * Copyright (C) 2026 AmigaChrome Team.
+- * Copyright (C) 2026 AmiCradle Team.
 - *
 - * Redistribution and use in source and binary forms, with or without
 - * modification, are permitted provided that the following conditions
@@ -413,7 +413,7 @@ index 06076e21e81..52edbbc7217 100644
 - * obwf_net_new. A build without openamigaservice's headers has no
 - * transport: obwf_available() is 0 and obwf_net_new answers NULL.
 + * obwf_net_new.
-  * MIT, Copyright (c) 2026 AmigaChrome Team.
+  * MIT, Copyright (c) 2026 AmiCradle Team.
   * SPDX-License-Identifier: MIT
   */
 @@ -35,26 +34,28 @@ typedef struct {
@@ -642,7 +642,7 @@ index 8a4f2b65df1..84bac26d882 100644
 + * decompression code of its own and decodes through the datatypes:
 + * stream.datatype with gzip.datatype (gzip, deflate) and brotli.datatype
 + * (br). Without those it asks for identity, and the body comes as sent.
-  * MIT, Copyright (c) 2026 AmigaChrome Team.
+  * MIT, Copyright (c) 2026 AmiCradle Team.
   * SPDX-License-Identifier: MIT
   */
 @@ -29,7 +33,6 @@
@@ -797,7 +797,7 @@ index e22d1d7166c..25d4f37e073 100644
 + * ResourceHandleAmiga.cpp, which keeps the cookies, redirects and the HTTP
 + * cache; this is only the request on the wire, run from one network
 + * thread.
-  * MIT, Copyright (c) 2026 AmigaChrome Team.
+  * MIT, Copyright (c) 2026 AmiCradle Team.
   * SPDX-License-Identifier: MIT
   */
 @@ -13,6 +12,7 @@

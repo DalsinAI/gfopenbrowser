@@ -5,7 +5,7 @@
 // prefix/URI pairs, attributes as five pointers with the value's end.
 //   bridgetest [-f] [-x] FILE    -f: fragment (as WebKit's fragment parser)
 //                                -x: resolve 'nbsp' as an XHTML document would
-// Copyright (C) 2026 AmigaChrome Team. BSD-2-Clause, as the bridge.
+// Copyright (C) 2026 AmiCradle Team. BSD-2-Clause, as the bridge.
 #include "XMLDocumentParserOXPBridge.h"
 #include <cstdio>
 #include <cstdlib>

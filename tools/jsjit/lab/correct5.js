@@ -1,5 +1,5 @@
 // Array access in the JIT (patch 0034): every result must match node.
-// The AmigaChrome Team, MIT.
+// The AmiCradle Team, MIT.
 var log = (typeof print === "function") ? print : console.log;
 function out(n, v) { log(n + " " + v); }
 function sum(a) { var s = 0; for (var i = 0; i < a.length; i++) s = (s + (a[i] | 0)) | 0; return s; }

@@ -31,4 +31,4 @@ replaying took (see docs/WEBCORE_PORT.md).
 bytes). Every run ends with an `OBVIEW_BENCH` line of timings and memory,
 which the benchmark reads (docs/BENCHMARKS.md, tools/bench).
 
-MIT, Copyright (c) 2026 AmigaChrome Team.
+MIT, Copyright (c) 2026 AmiCradle Team.

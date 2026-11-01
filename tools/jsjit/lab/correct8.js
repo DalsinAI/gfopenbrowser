@@ -1,6 +1,6 @@
 // Global, lexical and closure variables read and written from hot code, with
 // eval injection, TDZ, read-only globals and garbage collection (patch 0035):
-// every result must match node. The AmigaChrome Team, MIT.
+// every result must match node. The AmiCradle Team, MIT.
 if (typeof print === "undefined") var print = console.log;
 var collect = typeof gc === "function" ? gc : function () {};
 var gv = 0, gs = "", gobj = null;

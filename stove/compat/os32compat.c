@@ -1,4 +1,4 @@
-/* GFOpenBrowser (DalsinAI/openamigabrowser). Copyright (c) 2026 AmigaChrome Team. MIT licence, see LICENSE. */
+/* GFOpenBrowser (DalsinAI/openamigabrowser). Copyright (c) 2026 AmiCradle Team. MIT licence, see LICENSE. */
 /* Symbols libstdc++ (GCC 16, amiga16.2) expects that libnix does not export. */
 #include <errno.h>
 #include <string.h>

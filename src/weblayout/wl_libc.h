@@ -3,7 +3,7 @@
  * versions, so weblayout.library needs no caller's C library. ASCII only,
  * as HTML's and CSS's syntax is; the C locale's answers.
  *
- * MIT, Copyright (c) 2026 AmigaChrome Team.
+ * MIT, Copyright (c) 2026 AmiCradle Team.
  */
 #ifndef WL_LIBC_H
 #define WL_LIBC_H

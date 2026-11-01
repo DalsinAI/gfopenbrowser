@@ -1,6 +1,6 @@
 /*
  * weblayout: its own small C library calls (see wl_libc.h).
- * MIT, Copyright (c) 2026 AmigaChrome Team.
+ * MIT, Copyright (c) 2026 AmiCradle Team.
  */
 #include "wl_libc.h"
 

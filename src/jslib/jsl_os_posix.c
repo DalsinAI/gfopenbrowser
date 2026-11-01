@@ -2,7 +2,7 @@
  * javascript.library engine: the system layer for the tests on Linux
  * (tests/jslib/run.sh, under qemu-m68k). Script threads are pthreads; a box
  * is a queue under a mutex.
- * MIT, Copyright (c) 2026 AmigaChrome Team.
+ * MIT, Copyright (c) 2026 AmiCradle Team.
  */
 #include <pthread.h>
 #include <stdlib.h>

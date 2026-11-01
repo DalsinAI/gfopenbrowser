@@ -2,7 +2,7 @@
  * host tests: the exec.library calls the stove's allocator makes, on POSIX
  * threads (tests/host/exec_tasks.c): each thread is a task, Forbid() one
  * lock that Wait() lets go of while the task sleeps.
- * MIT, Copyright (c) 2026 AmigaChrome Team.
+ * MIT, Copyright (c) 2026 AmiCradle Team.
  */
 #ifndef PROTO_EXEC_H
 #define PROTO_EXEC_H

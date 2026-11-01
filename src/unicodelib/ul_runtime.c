@@ -1,5 +1,5 @@
 /* unicode.library: what ICU needs from a C library, safe to share.
- * Copyright (c) 2026 AmigaChrome Team. MIT.
+ * Copyright (c) 2026 AmiCradle Team. MIT.
  *
  * ICU is built as it is for programs (scripts/build-icu.sh) and links
  * libnix, libm and libstdc++ for the pure parts: strings, numbers, maths,

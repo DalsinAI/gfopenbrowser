@@ -13,7 +13,7 @@
  *    out here, and the difference from cairo printed; stops of one alpha
  *    against cairo.
  *   test_opengpu_pattern          (needs cairo's headers and library)
- * MIT, Copyright (c) 2026 AmigaChrome Team.
+ * MIT, Copyright (c) 2026 AmiCradle Team.
  * SPDX-License-Identifier: MIT
  */
 #include <cairo.h>

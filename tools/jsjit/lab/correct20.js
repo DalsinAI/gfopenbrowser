@@ -3,7 +3,7 @@
 // writes through arguments and through parameters (sloppy mapping);
 // arguments.length and callee changed or deleted; arguments kept and read
 // after collections; spread, apply and Array.from of arguments.
-// MIT, Copyright (c) 2026 The AmigaChrome Team.
+// MIT, Copyright (c) 2026 The AmiCradle Team.
 if (typeof print === "undefined") var print = console.log;
 function sum() { var t = 0; for (var i = 0; i < arguments.length; i++) t += arguments[i]; return t; }
 function two(a, b) { return arguments.length * 1000 + (a | 0) + (b | 0) + (arguments[2] | 0) + (arguments[1] === undefined ? 7 : 0); }

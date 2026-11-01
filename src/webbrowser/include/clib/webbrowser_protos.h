@@ -1,4 +1,4 @@
-/* webbrowser.library. MIT, Copyright (c) 2026 AmigaChrome Team. */
+/* webbrowser.library. MIT, Copyright (c) 2026 AmiCradle Team. */
 #ifndef CLIB_WEBBROWSER_PROTOS_H
 #define CLIB_WEBBROWSER_PROTOS_H
 

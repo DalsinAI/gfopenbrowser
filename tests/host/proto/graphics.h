@@ -1,7 +1,7 @@
 /*
  * host tests: the graphics.library calls weblayout's painter makes, as
  * plain functions a host test defines (tests/test_wl_document.c).
- * MIT, Copyright (c) 2026 AmigaChrome Team.
+ * MIT, Copyright (c) 2026 AmiCradle Team.
  */
 #ifndef PROTO_GRAPHICS_H
 #define PROTO_GRAPHICS_H

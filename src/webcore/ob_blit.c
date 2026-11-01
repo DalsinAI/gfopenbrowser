@@ -8,7 +8,7 @@
  * WriteChunkyPixels(); the fewer colours the screen has, the coarser the
  * picture.
  *
- * MIT, Copyright (c) 2026 AmigaChrome Team.
+ * MIT, Copyright (c) 2026 AmiCradle Team.
  */
 #include <exec/memory.h>
 #include <graphics/gfx.h>

@@ -1,5 +1,5 @@
 ==id $Id: unicode_lib.sfd 1.0 (23.10.2026) unicode.library, AmiCradle Team $
-* unicode.library: one shared copy of Unicode (ICU 78) for every program. MIT, Copyright (c) 2026 AmigaChrome Team.
+* unicode.library: one shared copy of Unicode (ICU 78) for every program. MIT, Copyright (c) 2026 AmiCradle Team.
 * scripts/gen-unicodelib-sdk.sh makes sdk/ (clib, inline, pragmas, proto, FD, LVOs) from this with
 * GFOpenNDK's ndkgen.py; unicode_lib.c's vector table follows it line for line.
 ==base _UnicodeBase

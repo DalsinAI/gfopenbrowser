@@ -9,7 +9,7 @@
  * pool. A NULL pool is allowed: such blocks come from AllocVec (library) or
  * malloc (linked).
  *
- * MIT, Copyright (c) 2026 AmigaChrome Team.
+ * MIT, Copyright (c) 2026 AmiCradle Team.
  */
 #ifndef WL_MEM_H
 #define WL_MEM_H

@@ -4,7 +4,7 @@
  * own start-up. Built into an archive so that the client finds these
  * names in the image.
  *
- * MIT, Copyright (c) 2026 AmigaChrome Team.
+ * MIT, Copyright (c) 2026 AmiCradle Team.
  */
 #include "jsimage.h"
 

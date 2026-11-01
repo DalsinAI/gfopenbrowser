@@ -287,7 +287,7 @@ index 0000000..8fd320e
 +++ b/Source/JavaScriptCore/generator-py/Argument.py
 @@ -0,0 +1,84 @@
 +# Copyright (C) 2018-2019 Apple Inc. All rights reserved.
-+# Copyright (C) 2026 AmigaChrome Team (Python port of JavaScriptCore/generator/Argument.rb).
++# Copyright (C) 2026 AmiCradle Team (Python port of JavaScriptCore/generator/Argument.rb).
 +#
 +# Redistribution and use in source and binary forms, with or without
 +# modification, are permitted provided that the following conditions
@@ -377,7 +377,7 @@ index 0000000..9ec7254
 +++ b/Source/JavaScriptCore/generator-py/Assertion.py
 @@ -0,0 +1,32 @@
 +# Copyright (C) 2018 Apple Inc. All rights reserved.
-+# Copyright (C) 2026 AmigaChrome Team (Python port of JavaScriptCore/generator/Assertion.rb).
++# Copyright (C) 2026 AmiCradle Team (Python port of JavaScriptCore/generator/Assertion.rb).
 +#
 +# Redistribution and use in source and binary forms, with or without
 +# modification, are permitted provided that the following conditions
@@ -415,7 +415,7 @@ index 0000000..6a3fa50
 +++ b/Source/JavaScriptCore/generator-py/DSL.py
 @@ -0,0 +1,238 @@
 +# Copyright (C) 2018-2021 Apple Inc. All rights reserved.
-+# Copyright (C) 2026 AmigaChrome Team (Python port of JavaScriptCore/generator/DSL.rb).
++# Copyright (C) 2026 AmiCradle Team (Python port of JavaScriptCore/generator/DSL.rb).
 +#
 +# Redistribution and use in source and binary forms, with or without
 +# modification, are permitted provided that the following conditions
@@ -659,7 +659,7 @@ index 0000000..4a98de7
 +++ b/Source/JavaScriptCore/generator-py/Fits.py
 @@ -0,0 +1,31 @@
 +# Copyright (C) 2018 Apple Inc. All rights reserved.
-+# Copyright (C) 2026 AmigaChrome Team (Python port of JavaScriptCore/generator/Fits.rb).
++# Copyright (C) 2026 AmiCradle Team (Python port of JavaScriptCore/generator/Fits.rb).
 +#
 +# Redistribution and use in source and binary forms, with or without
 +# modification, are permitted provided that the following conditions
@@ -696,7 +696,7 @@ index 0000000..0cd1ba4
 +++ b/Source/JavaScriptCore/generator-py/GeneratedFile.py
 @@ -0,0 +1,96 @@
 +# Copyright (C) 2018 Apple Inc. All rights reserved.
-+# Copyright (C) 2026 AmigaChrome Team (Python port of JavaScriptCore/generator/GeneratedFile.rb).
++# Copyright (C) 2026 AmiCradle Team (Python port of JavaScriptCore/generator/GeneratedFile.rb).
 +#
 +# Redistribution and use in source and binary forms, with or without
 +# modification, are permitted provided that the following conditions
@@ -798,7 +798,7 @@ index 0000000..7fb4462
 +++ b/Source/JavaScriptCore/generator-py/Metadata.py
 @@ -0,0 +1,124 @@
 +# Copyright (C) 2018-2019 Apple Inc. All rights reserved.
-+# Copyright (C) 2026 AmigaChrome Team (Python port of JavaScriptCore/generator/Metadata.rb).
++# Copyright (C) 2026 AmiCradle Team (Python port of JavaScriptCore/generator/Metadata.rb).
 +#
 +# Redistribution and use in source and binary forms, with or without
 +# modification, are permitted provided that the following conditions
@@ -928,7 +928,7 @@ index 0000000..82dcf75
 +++ b/Source/JavaScriptCore/generator-py/Opcode.py
 @@ -0,0 +1,382 @@
 +# Copyright (C) 2018-2019 Apple Inc. All rights reserved.
-+# Copyright (C) 2026 AmigaChrome Team (Python port of JavaScriptCore/generator/Opcode.rb).
++# Copyright (C) 2026 AmiCradle Team (Python port of JavaScriptCore/generator/Opcode.rb).
 +#
 +# Redistribution and use in source and binary forms, with or without
 +# modification, are permitted provided that the following conditions
@@ -1317,7 +1317,7 @@ index 0000000..40f402f
 @@ -0,0 +1,209 @@
 +# MIT License
 +#
-+# Copyright (c) 2026 AmigaChrome Team
++# Copyright (c) 2026 AmiCradle Team
 +#
 +# Permission is hereby granted, free of charge, to any person obtaining a copy
 +# of this software and associated documentation files (the "Software"), to
@@ -1531,7 +1531,7 @@ index 0000000..060ed2f
 +++ b/Source/JavaScriptCore/generator-py/Section.py
 @@ -0,0 +1,156 @@
 +# Copyright (C) 2018 Apple Inc. All rights reserved.
-+# Copyright (C) 2026 AmigaChrome Team (Python port of JavaScriptCore/generator/Section.rb).
++# Copyright (C) 2026 AmiCradle Team (Python port of JavaScriptCore/generator/Section.rb).
 +#
 +# Redistribution and use in source and binary forms, with or without
 +# modification, are permitted provided that the following conditions
@@ -1693,7 +1693,7 @@ index 0000000..46427c8
 +++ b/Source/JavaScriptCore/generator-py/Type.py
 @@ -0,0 +1,43 @@
 +# Copyright (C) 2018 Apple Inc. All rights reserved.
-+# Copyright (C) 2026 AmigaChrome Team (Python port of JavaScriptCore/generator/Type.rb).
++# Copyright (C) 2026 AmiCradle Team (Python port of JavaScriptCore/generator/Type.rb).
 +#
 +# Redistribution and use in source and binary forms, with or without
 +# modification, are permitted provided that the following conditions
@@ -1743,7 +1743,7 @@ index 0000000..7372528
 @@ -0,0 +1,64 @@
 +#!/usr/bin/env python3
 +# Copyright (C) 2018 Apple Inc. All rights reserved.
-+# Copyright (C) 2026 AmigaChrome Team (Python port of JavaScriptCore/generator/main.rb).
++# Copyright (C) 2026 AmiCradle Team (Python port of JavaScriptCore/generator/main.rb).
 +#
 +# Redistribution and use in source and binary forms, with or without
 +# modification, are permitted provided that the following conditions
@@ -1813,7 +1813,7 @@ index 0000000..fb53ab6
 @@ -0,0 +1,153 @@
 +#!/usr/bin/env python3
 +# Copyright (C) 2011-2022 Apple Inc. All rights reserved.
-+# Copyright (C) 2026 AmigaChrome Team (Python port of JavaScriptCore/offlineasm/asm.rb).
++# Copyright (C) 2026 AmiCradle Team (Python port of JavaScriptCore/offlineasm/asm.rb).
 +#
 +# Redistribution and use in source and binary forms, with or without
 +# modification, are permitted provided that the following conditions
@@ -1972,7 +1972,7 @@ index 0000000..59810e3
 @@ -0,0 +1,142 @@
 +#!/usr/bin/env python3
 +# Copyright (C) 2011-2023 Apple Inc. All rights reserved.
-+# Copyright (C) 2026 AmigaChrome Team (Python port of JavaScriptCore/offlineasm/generate_offset_extractor.rb).
++# Copyright (C) 2026 AmiCradle Team (Python port of JavaScriptCore/offlineasm/generate_offset_extractor.rb).
 +#
 +# Redistribution and use in source and binary forms, with or without
 +# modification, are permitted provided that the following conditions
@@ -2120,7 +2120,7 @@ index 0000000..596d035
 @@ -0,0 +1,104 @@
 +#!/usr/bin/env python3
 +# Copyright (C) 2011-2023 Apple Inc. All rights reserved.
-+# Copyright (C) 2026 AmigaChrome Team (Python port of JavaScriptCore/offlineasm/generate_settings_extractor.rb).
++# Copyright (C) 2026 AmiCradle Team (Python port of JavaScriptCore/offlineasm/generate_settings_extractor.rb).
 +#
 +# Redistribution and use in source and binary forms, with or without
 +# modification, are permitted provided that the following conditions
@@ -2232,7 +2232,7 @@ index 0000000..591834e
 +++ b/Source/JavaScriptCore/offlineasm-py/offlineasm/assembler.py
 @@ -0,0 +1,273 @@
 +# Copyright (C) 2011-2022 Apple Inc. All rights reserved.
-+# Copyright (C) 2026 AmigaChrome Team (Python port of JavaScriptCore/offlineasm/asm.rb).
++# Copyright (C) 2026 AmiCradle Team (Python port of JavaScriptCore/offlineasm/asm.rb).
 +#
 +# Redistribution and use in source and binary forms, with or without
 +# modification, are permitted provided that the following conditions
@@ -2511,7 +2511,7 @@ index 0000000..dd8f28a
 +++ b/Source/JavaScriptCore/offlineasm-py/offlineasm/astnodes.py
 @@ -0,0 +1,1176 @@
 +# Copyright (C) 2011-2020 Apple Inc. All rights reserved.
-+# Copyright (C) 2026 AmigaChrome Team (Python port of JavaScriptCore/offlineasm/ast.rb).
++# Copyright (C) 2026 AmiCradle Team (Python port of JavaScriptCore/offlineasm/ast.rb).
 +#
 +# Redistribution and use in source and binary forms, with or without
 +# modification, are permitted provided that the following conditions
@@ -3693,7 +3693,7 @@ index 0000000..74ffbf1
 +++ b/Source/JavaScriptCore/offlineasm-py/offlineasm/backends.py
 @@ -0,0 +1,184 @@
 +# Copyright (C) 2011-2022 Apple Inc. All rights reserved.
-+# Copyright (C) 2026 AmigaChrome Team (Python port of JavaScriptCore/offlineasm/backends.rb).
++# Copyright (C) 2026 AmiCradle Team (Python port of JavaScriptCore/offlineasm/backends.rb).
 +#
 +# Redistribution and use in source and binary forms, with or without
 +# modification, are permitted provided that the following conditions
@@ -3883,7 +3883,7 @@ index 0000000..63f1224
 +++ b/Source/JavaScriptCore/offlineasm-py/offlineasm/config.py
 @@ -0,0 +1,82 @@
 +# Copyright (C) 2012-2022 Apple Inc. All rights reserved.
-+# Copyright (C) 2026 AmigaChrome Team (Python port of JavaScriptCore/offlineasm/config.rb).
++# Copyright (C) 2026 AmiCradle Team (Python port of JavaScriptCore/offlineasm/config.rb).
 +#
 +# Redistribution and use in source and binary forms, with or without
 +# modification, are permitted provided that the following conditions
@@ -3971,7 +3971,7 @@ index 0000000..9153d7c
 +++ b/Source/JavaScriptCore/offlineasm-py/offlineasm/instructions.py
 @@ -0,0 +1,523 @@
 +# Copyright (C) 2011-2022 Apple Inc. All rights reserved.
-+# Copyright (C) 2026 AmigaChrome Team (Python port of JavaScriptCore/offlineasm/instructions.rb).
++# Copyright (C) 2026 AmiCradle Team (Python port of JavaScriptCore/offlineasm/instructions.rb).
 +#
 +# Redistribution and use in source and binary forms, with or without
 +# modification, are permitted provided that the following conditions
@@ -4501,7 +4501,7 @@ index 0000000..a5d3572
 @@ -0,0 +1,1584 @@
 +# MIT License
 +#
-+# Copyright (c) 2026 AmigaChrome Team
++# Copyright (c) 2026 AmiCradle Team
 +# (Python port of JavaScriptCore/offlineasm/m68k.rb)
 +#
 +# Permission is hereby granted, free of charge, to any person obtaining a copy
@@ -6090,7 +6090,7 @@ index 0000000..4d97e03
 +++ b/Source/JavaScriptCore/offlineasm-py/offlineasm/offsets.py
 @@ -0,0 +1,208 @@
 +# Copyright (C) 2011 Apple Inc. All rights reserved.
-+# Copyright (C) 2026 AmigaChrome Team (Python port of JavaScriptCore/offlineasm/offsets.rb).
++# Copyright (C) 2026 AmiCradle Team (Python port of JavaScriptCore/offlineasm/offsets.rb).
 +#
 +# Redistribution and use in source and binary forms, with or without
 +# modification, are permitted provided that the following conditions
@@ -6304,7 +6304,7 @@ index 0000000..fc69dda
 +++ b/Source/JavaScriptCore/offlineasm-py/offlineasm/parser.py
 @@ -0,0 +1,964 @@
 +# Copyright (C) 2011-2023 Apple Inc. All rights reserved.
-+# Copyright (C) 2026 AmigaChrome Team (Python port of JavaScriptCore/offlineasm/parser.rb).
++# Copyright (C) 2026 AmiCradle Team (Python port of JavaScriptCore/offlineasm/parser.rb).
 +#
 +# Redistribution and use in source and binary forms, with or without
 +# modification, are permitted provided that the following conditions
@@ -7274,7 +7274,7 @@ index 0000000..01a02d9
 +++ b/Source/JavaScriptCore/offlineasm-py/offlineasm/registers.py
 @@ -0,0 +1,132 @@
 +# Copyright (C) 2011 Apple Inc. All rights reserved.
-+# Copyright (C) 2026 AmigaChrome Team (Python port of JavaScriptCore/offlineasm/registers.rb).
++# Copyright (C) 2026 AmiCradle Team (Python port of JavaScriptCore/offlineasm/registers.rb).
 +#
 +# Redistribution and use in source and binary forms, with or without
 +# modification, are permitted provided that the following conditions
@@ -7412,7 +7412,7 @@ index 0000000..fc7e7a3
 +++ b/Source/JavaScriptCore/offlineasm-py/offlineasm/self_hash.py
 @@ -0,0 +1,71 @@
 +# Copyright (C) 2011 Apple Inc. All rights reserved.
-+# Copyright (C) 2026 AmigaChrome Team (Python port of JavaScriptCore/offlineasm/self_hash.rb).
++# Copyright (C) 2026 AmiCradle Team (Python port of JavaScriptCore/offlineasm/self_hash.rb).
 +#
 +# Redistribution and use in source and binary forms, with or without
 +# modification, are permitted provided that the following conditions
@@ -7489,7 +7489,7 @@ index 0000000..94d97de
 +++ b/Source/JavaScriptCore/offlineasm-py/offlineasm/settings.py
 @@ -0,0 +1,197 @@
 +# Copyright (C) 2011 Apple Inc. All rights reserved.
-+# Copyright (C) 2026 AmigaChrome Team (Python port of JavaScriptCore/offlineasm/settings.rb).
++# Copyright (C) 2026 AmiCradle Team (Python port of JavaScriptCore/offlineasm/settings.rb).
 +#
 +# Redistribution and use in source and binary forms, with or without
 +# modification, are permitted provided that the following conditions
@@ -7692,7 +7692,7 @@ index 0000000..3b01a44
 +++ b/Source/JavaScriptCore/offlineasm-py/offlineasm/transform.py
 @@ -0,0 +1,523 @@
 +# Copyright (C) 2011 Apple Inc. All rights reserved.
-+# Copyright (C) 2026 AmigaChrome Team (Python port of JavaScriptCore/offlineasm/transform.rb).
++# Copyright (C) 2026 AmiCradle Team (Python port of JavaScriptCore/offlineasm/transform.rb).
 +#
 +# Redistribution and use in source and binary forms, with or without
 +# modification, are permitted provided that the following conditions
@@ -8224,7 +8224,7 @@ index 0000000..4b37137
 +#!/usr/bin/env ruby
 +#
 +# Copyright (c) 2017-2023 Apple Inc. All rights reserved.
-+# Copyright (C) 2026 AmigaChrome Team (Python port of WTF/Scripts/GeneratePreferences.rb).
++# Copyright (C) 2026 AmiCradle Team (Python port of WTF/Scripts/GeneratePreferences.rb).
 +#
 +# Redistribution and use in source and binary forms, with or without
 +# modification, are permitted provided that the following conditions
@@ -9078,7 +9078,7 @@ index 0000000..e154954
 @@ -0,0 +1,35 @@
 +# MIT License
 +#
-+# Copyright (c) 2026 AmigaChrome Team
++# Copyright (c) 2026 AmiCradle Team
 +#
 +# Permission is hereby granted, free of charge, to any person obtaining a copy
 +# of this software and associated documentation files (the "Software"), to

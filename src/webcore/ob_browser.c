@@ -10,7 +10,7 @@
  * and on a timer for WebCore's next timer, and between waits lets WebCore
  * do what is due.
  *
- * MIT, Copyright (c) 2026 AmigaChrome Team.
+ * MIT, Copyright (c) 2026 AmiCradle Team.
  */
 #include <stdio.h>
 #include <stdlib.h>

@@ -1,5 +1,5 @@
 /* unicode.library: one shared copy of Unicode for every program.
- * Copyright (c) 2026 AmigaChrome Team. MIT.
+ * Copyright (c) 2026 AmiCradle Team. MIT.
  *
  * ICU 78's code and data, loaded once and shared, in place of a copy of
  * ICU inside each program (GFOpenBrowser's engine carried 3.4 MB of ICU

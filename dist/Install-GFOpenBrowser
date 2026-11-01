@@ -3,7 +3,7 @@
 ; beside the GFOpenBrowser drawer; from a Shell, "Execute Install" in the drawer
 ; does the same without questions. Nothing is deleted: a file it would
 ; replace is renamed, and the closing message says how to undo.
-; MIT, Copyright (c) 2026 AmigaChrome Team.
+; MIT, Copyright (c) 2026 AmiCradle Team.
 
 (set #version "0.8.4 test (1.11.2026)")
 (set @app-name "GFOpenBrowser")

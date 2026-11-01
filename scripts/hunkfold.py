@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 # GFOpenBrowser (DalsinAI/openamigabrowser)
-# Copyright (c) 2026 AmigaChrome Team. MIT licence, see LICENSE.
+# Copyright (c) 2026 AmiCradle Team. MIT licence, see LICENSE.
 """hunkfold: fold the duplicate template copies of an Amiga hunk C++ link.
 
 scripts/build-webcore.sh runs it after linking the programs (OB_FOLD).

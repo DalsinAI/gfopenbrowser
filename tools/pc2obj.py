@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-# GFOpenBrowser (DalsinAI/openamigabrowser). Copyright (c) 2026 AmigaChrome Team. MIT licence, see LICENSE.
+# GFOpenBrowser (DalsinAI/openamigabrowser). Copyright (c) 2026 AmiCradle Team. MIT licence, see LICENSE.
 """pc2obj.py MAP NMFILE MAIN_RUNTIME_ADDR ADDR... : find the object a runtime
 code address falls in (from the link map) and the nearest symbol inside that
 object, local (static) ones included, by running nm on the object itself."""

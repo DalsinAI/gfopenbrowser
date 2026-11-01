@@ -1,6 +1,6 @@
 # Porting notes: JavaScriptCore on AmigaOS 3.2 (m68k)
 
-Copyright (c) 2026 AmigaChrome Team. MIT licence.
+Copyright (c) 2026 AmiCradle Team. MIT licence.
 
 What it took to run WebKit's JavaScriptCore (JSCOnly, C-loop interpreter, no
 JIT) on AmigaOS 3.2.3 on a 68040, 4 Oct 2026. Upstream WebKit is pinned at

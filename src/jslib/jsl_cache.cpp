@@ -13,7 +13,7 @@
  * Only the engine's private interface is used here, so this file is built
  * with JavaScriptCore's own flags (config.h); jsl_core.cpp stays on the C API.
  *
- * MIT, Copyright (c) 2026 AmigaChrome Team.
+ * MIT, Copyright (c) 2026 AmiCradle Team.
  */
 #include "config.h"
 #include "jsl_cache.h"

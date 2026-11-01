@@ -1,5 +1,5 @@
 ; Install: GFOpenBrowser 0.8.4 test (1.11.2026), the Shell route.
-; MIT, Copyright (c) 2026 AmigaChrome Team.
+; MIT, Copyright (c) 2026 AmiCradle Team.
 ; The Installer (Install-GFOpenBrowser, beside this drawer) does the same with
 ; questions. Run this from the drawer, where it stays:
 ;     CD <this drawer>

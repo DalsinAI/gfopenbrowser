@@ -1,5 +1,5 @@
 /* UnicodeTest: unicode.library's self-test on the Amiga.
- * Copyright (c) 2026 AmigaChrome Team. MIT.
+ * Copyright (c) 2026 AmiCradle Team. MIT.
  *
  * Linked as GFOpenBrowser's engine is in library mode: ICU's headers, and
  * ul_stubs.s and ul_client.c in place of ICU's libraries, so every ICU

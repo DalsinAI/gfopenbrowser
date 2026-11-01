@@ -20,7 +20,7 @@
  * The functions run on the script task, not this one: they use only DOS
  * calls on the handles this program gives them, never the C library.
  *
- * MIT, Copyright (c) 2026 AmigaChrome Team.
+ * MIT, Copyright (c) 2026 AmiCradle Team.
  */
 #include <exec/types.h>
 #include <exec/memory.h>

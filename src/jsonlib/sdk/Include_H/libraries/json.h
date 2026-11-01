@@ -2,7 +2,7 @@
 #define LIBRARIES_JSON_H
 /*
  * libraries/json.h: json.library, GFOpenJSON.
- * Copyright (c) 2026 AmigaChrome Team. MIT.
+ * Copyright (c) 2026 AmiCradle Team. MIT.
  *
  * json.library parses JSON text (RFC 8259) into one flat block of memory,
  * a JSONDoc: a header, an array of 8-byte nodes in document order, and a

@@ -5,7 +5,7 @@
  * function is first called. The next run of the same text loads those and
  * makes nothing again. The file is written when the script task ends.
  *
- * MIT, Copyright (c) 2026 AmigaChrome Team.
+ * MIT, Copyright (c) 2026 AmiCradle Team.
  */
 #ifndef JSL_CACHE_H
 #define JSL_CACHE_H

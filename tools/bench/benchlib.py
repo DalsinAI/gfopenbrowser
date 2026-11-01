@@ -1,5 +1,5 @@
 # GFOpenBrowser (DalsinAI/openamigabrowser)
-# Copyright (c) 2026 The AmigaChrome Team. MIT licence, see LICENSE.
+# Copyright (c) 2026 The AmiCradle Team. MIT licence, see LICENSE.
 """Shared parts of tools/bench: the page manifest, AmigaDOS quoting and the
 parser for the logs an OBBench run leaves (see docs/BENCHMARKS.md)."""
 import json

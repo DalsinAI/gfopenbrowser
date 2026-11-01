@@ -9,7 +9,7 @@
  * client's own start-up (jsimage_host.c); when the client is done, so is
  * the image, and the image is unloaded.
  *
- * MIT, Copyright (c) 2026 AmigaChrome Team.
+ * MIT, Copyright (c) 2026 AmiCradle Team.
  */
 #include <exec/execbase.h>
 #include <dos/dosextens.h>

@@ -13,7 +13,7 @@
  * Other programs open addresses on the ARexx port AMICRADLE.BROWSER
  * with OPENURL <address> (the hook GFOpenMail uses).
  *
- * MIT, Copyright (c) 2026 AmigaChrome Team.
+ * MIT, Copyright (c) 2026 AmiCradle Team.
  */
 #include <exec/types.h>
 #include <exec/memory.h>
@@ -656,7 +656,7 @@ static void close_window(void)
 static void about(void)
 {
     struct EasyStruct es = { sizeof(struct EasyStruct), 0, (UBYTE *)"GFOpenBrowser Lite",
-        (UBYTE *)VERSION_TEXT "\n\nA web browser for AmigaOS 3.2.\nMIT licence, Copyright (c) 2026 AmigaChrome Team.", (UBYTE *)"OK" };
+        (UBYTE *)VERSION_TEXT "\n\nA web browser for AmigaOS 3.2.\nMIT licence, Copyright (c) 2026 AmiCradle Team.", (UBYTE *)"OK" };
     EasyRequestArgs(win, &es, NULL, NULL);
 }
 

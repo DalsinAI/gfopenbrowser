@@ -27,7 +27,7 @@
  * Fetching is the caller's: weblayout never opens a socket or a file
  * except the picture files it is handed.
  *
- * MIT, Copyright (c) 2026 AmigaChrome Team.
+ * MIT, Copyright (c) 2026 AmiCradle Team.
  */
 #ifndef WEBLAYOUT_H
 #define WEBLAYOUT_H

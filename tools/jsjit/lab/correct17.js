@@ -3,7 +3,7 @@
 // sealed arrays, subclasses, non-arrays, a replaced push, the result,
 // cells stored into old arrays across collections, and push with more or
 // fewer arguments.
-// MIT, Copyright (c) 2026 The AmigaChrome Team.
+// MIT, Copyright (c) 2026 The AmiCradle Team.
 if (typeof print === "undefined") var print = console.log;
 function ints(n) { var a = []; for (var i = 0; i < n; i++) a.push(i); var t = 0; for (var j = 0; j < a.length; j++) t += a[j]; return t + ":" + a.length; }
 print("ints " + ints(3000));

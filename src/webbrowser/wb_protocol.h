@@ -1,7 +1,7 @@
 /*
  * webbrowser.library: the messages between the library and the engine
  * (WebBrowserEngine). Private to the two.
- * MIT, Copyright (c) 2026 AmigaChrome Team.
+ * MIT, Copyright (c) 2026 AmiCradle Team.
  */
 #ifndef WB_PROTOCOL_H
 #define WB_PROTOCOL_H

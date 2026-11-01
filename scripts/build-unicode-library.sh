@@ -1,6 +1,6 @@
 #!/bin/sh
 # GFOpenBrowser (DalsinAI/openamigabrowser)
-# Copyright (c) 2026 AmigaChrome Team. MIT licence, see LICENSE.
+# Copyright (c) 2026 AmiCradle Team. MIT licence, see LICENSE.
 #
 # unicode.library 1 (src/unicodelib): ICU 78's code and data, one shared
 # copy for every program, for AmigaOS 3.2 on a 68040 (hard float, as ICU is

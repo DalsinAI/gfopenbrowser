@@ -1,4 +1,4 @@
-/* Copyright (c) 2026 AmigaChrome Team. MIT licence (see LICENSE at the repository root). */
+/* Copyright (c) 2026 AmiCradle Team. MIT licence (see LICENSE at the repository root). */
 /* json.library's core (src/jsonlib/json_core.cpp) driven from a script,
  * on the host and under qemu-m68k; tests/jsonlib/json_ref.py writes the
  * script and checks the answers against Python's json module and Node's

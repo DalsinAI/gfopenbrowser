@@ -1,6 +1,6 @@
 #!/bin/sh
 # GFOpenBrowser (DalsinAI/openamigabrowser)
-# Copyright (c) 2026 AmigaChrome Team. MIT licence, see LICENSE.
+# Copyright (c) 2026 AmiCradle Team. MIT licence, see LICENSE.
 #
 # GFOpenBrowser Lite, the GadTools browser, for AmigaOS 3.2 on a 68040 with
 # its FPU (-m68040 -m68881; not an LC or EC040). Its page engine is

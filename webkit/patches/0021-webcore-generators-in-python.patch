@@ -233,7 +233,7 @@ index 00000000..12c4b396
 +#!/usr/bin/env python3
 +#
 +# Copyright (C) 2026 Apple Inc. All rights reserved.
-+# Copyright (C) 2026 AmigaChrome Team (Python port of WebCore/Scripts/GenerateQuirkBehaviors.rb).
++# Copyright (C) 2026 AmiCradle Team (Python port of WebCore/Scripts/GenerateQuirkBehaviors.rb).
 +#
 +# Redistribution and use in source and binary forms, with or without
 +# modification, are permitted provided that the following conditions
@@ -500,7 +500,7 @@ index 00000000..0a16d833
 +#!/usr/bin/env python3
 +#
 +# Copyright (c) 2017-2023 Apple Inc. All rights reserved.
-+# Copyright (C) 2026 AmigaChrome Team (Python port of WebCore/Scripts/GenerateSettings.rb).
++# Copyright (C) 2026 AmiCradle Team (Python port of WebCore/Scripts/GenerateSettings.rb).
 +#
 +# Redistribution and use in source and binary forms, with or without
 +# modification, are permitted provided that the following conditions
@@ -1730,7 +1730,7 @@ index 00000000..420f444e
 +#!/usr/bin/env python3
 +# -*- coding: utf-8 -*-
 +# Copyright (C) 2016 Apple Inc. All rights reserved.
-+# Copyright (C) 2026 AmigaChrome Team (Python port of WebCore/domjit/generate-abstract-heap.rb).
++# Copyright (C) 2026 AmiCradle Team (Python port of WebCore/domjit/generate-abstract-heap.rb).
 +#
 +# Redistribution and use in source and binary forms, with or without
 +# modification, are permitted provided that the following conditions

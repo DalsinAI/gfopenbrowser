@@ -1,6 +1,6 @@
 #!/bin/sh
 # GFOpenBrowser (DalsinAI/openamigabrowser)
-# Copyright (c) 2026 AmigaChrome Team. MIT licence, see LICENSE.
+# Copyright (c) 2026 AmiCradle Team. MIT licence, see LICENSE.
 #
 # ICU 78.3 for AmigaOS 3.x with the os32-gcc16 stove: static libraries with the
 # data linked in, and the same data as a file (share/icudt78b.dat).
