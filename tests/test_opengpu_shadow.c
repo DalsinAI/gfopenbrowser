@@ -272,7 +272,7 @@ static int boxSize(float blurRadius, int ignoreTransforms)
 {
     int lobes[3][2];
     calculateLobes(lobes, blurRadius, ignoreTransforms);
-    return lobes[2][0] + lobes[2][1] + 1 == lobes[0][0] + lobes[0][1] + 1 ? lobes[0][0] + lobes[0][1] + 1 : lobes[0][0] + lobes[0][1] + 1;
+    return lobes[0][0] + lobes[0][1] + 1;            /* the first pass's box */
 }
 
 /* ShadowBlur's blurLayerImage: alpha in an ARGB32 image (native words),
