@@ -41,9 +41,11 @@ int ob_url_parse(const char *url, ob_url *out, char *err, size_t errlen)
     slash = strpbrk(host, "/?#");
     hend = slash ? slash : host + strlen(host);
     {
-        const char *colon = memchr(host, ':', (size_t)(hend - host));
-        const char *at = memchr(host, '@', (size_t)(hend - host));
+        const char *at = NULL, *colon, *q;
+        for (q = host; q < hend; q++)           /* the last '@' ends user:password */
+            if (*q == '@') at = q;
         if (at) host = at + 1;                  /* no user:password support; skip it */
+        colon = memchr(host, ':', (size_t)(hend - host));   /* the port's, after it */
         if (colon && colon > host) {
             out->port = atoi(colon + 1);
             hend = colon;
