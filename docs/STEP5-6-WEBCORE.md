@@ -409,10 +409,10 @@ order; each browser branch is stacked on the one before it, the first on
 | 1 | openamigartg | stream v1.8: `OGPU_PATH_ALIASED` (paths without anti-aliasing, cairo's `CAIRO_ANTIALIAS_NONE`), opengpu.library 0.23. The only new pixel work cairo did that OpenGPU lacked; everything else (A8 clip masks, patterns, conic gradients, blur, layers by `COMPOSITE_PD`) is in v1.6 already | main |
 | 2 | openamigasdk | opengpu.library in the Open SDK: its headers and SFD gathered from openamigartg (one source: `include/opengpu/`), its AutoDocs in `Docs/`, an example in `Examples/` | main (pins 1's commit) |
 | 3 | openamigabrowser | patch 0078 , item 1: clips to paths as A8 masks (clipPath, clipOut, rounded and off-pixel rectangle clips), aliased paths, copy and clear on paths (cairo's bounded lerp, two passes) | #115 |
-| 4 | openamigabrowser | patch 0079, item 2: patterns (drawPattern, pattern fills and strokes, repeat modes, spacing), conic gradients, stops of different alphas | 3 |
+| 4 | openamigabrowser | patch 0079, item 2: patterns (drawPattern, pattern fills and strokes; tiles on whole pixels, no spacing, both-way repeat for brushes), conic gradients, stops of different alphas (premultiplied, as CSS: Dale, 1 Nov), aliased paths asked with `OGPU_QUERY_FLAG` | 3 |
 | 5 | openamigabrowser | patch 0080, item 3: drawLine, drawRect, drawEllipse, focus rings, text decorations, document markers | 4 |
 | 6 | openamigabrowser | patch 0081, item 4: shadows (OpenGPU BLUR) and transparency layers (offscreen surface, then COMPOSITE_PD by opacity, operator and blend mode), clipToImageBuffer | 5 |
-| 7 | openamigabrowser | patch 0082, item 5: glyph runs from openfont outlines through OpenGPU (an A8 glyph cache drawn by PATH_FILL, runs by COMPOSITE_PD) | 6 |
+| 7 | openamigabrowser | patch 0082, item 5: glyph runs through openfont.library 1.5's `OF_DrawGlyphsA`, whose glyph cache is inside openfont (Dale, 1 Nov; openamigafont #24) | 6 |
 | 8 | openamigabrowser | item 6: PNG out is already the PNG datatype's (patch 0074, #93): libpng is linked only for cairo, and leaves with it in 9 | - |
 | 9 | openamigabrowser | patch 0083, item 7: cairo, pixman and libpng out of the engine's map; GraphicsContextCairo goes | 7 |
 
@@ -431,3 +431,11 @@ a lab Amiga; with GCC 6.5 (the os32 stove, which openamigartg's
 `library/build.sh` uses for opengpu.library) strokes painted with
 gradients or patterns still differ from the host's. Items 2 (patterns,
 gradients) and later wait on that.
+
+Later on 1 November: the shipped opengpu.library is built with
+OpenAmigaGCC 16.2.0-open4 (openamigartg #160; its OpenGPUVectorCRC matches
+the host on a lab Amiga), so the GCC 6.5 difference no longer reaches
+users. openamigartg #161 (opengpu.library 0.24) adds `OGPU_QUERY_FLAG`, the
+query 0079 uses for `OGPU_PATH_ALIASED`. Gradient stops of different
+alphas are mixed premultiplied, as CSS says, where pixman mixed them
+unpremultiplied: Dale accepts OpenGPU's behaviour. Patch 0079 is item 4.

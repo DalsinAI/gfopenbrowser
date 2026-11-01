@@ -58,13 +58,15 @@ python3 "$HERE/tools/patch-files.py" "$HERE/webkit/patches/0070-amiga-public-suf
 "$CC" $FLAGS -I"$OUT/psl" "$OUT/psl/PublicSuffixAmiga.c" "$HERE/tests/test_public_suffixes.c" \
     -o "$OUT/test_public_suffixes"
 # the window's OpenGPU stream writer, which lives in WebKit patches 0076,
-# 0077 (paths) and 0078 (clips), on openamigartg's CPU core (built as its tests/run.sh
+# 0077 (paths), 0078 (clips) and 0079 (patterns, conic gradients), on openamigartg's CPU core (built as its tests/run.sh
 # builds it)
 python3 "$HERE/tools/patch-files.py" "$HERE/webkit/patches/0076-amiga-graphicscontext-opengpu.patch" \
     "$OUT/opengpu" OpenGPUPaintAmiga.c OpenGPUPaintAmiga.h
 python3 "$HERE/tools/patch-files.py" "$HERE/webkit/patches/0077-amiga-opengpu-paths.patch" \
     "$OUT/opengpu" OpenGPUPaintAmiga.c OpenGPUPaintAmiga.h
 python3 "$HERE/tools/patch-files.py" "$HERE/webkit/patches/0078-amiga-opengpu-clips.patch" \
+    "$OUT/opengpu" OpenGPUPaintAmiga.c OpenGPUPaintAmiga.h
+python3 "$HERE/tools/patch-files.py" "$HERE/webkit/patches/0079-amiga-opengpu-patterns.patch" \
     "$OUT/opengpu" OpenGPUPaintAmiga.c OpenGPUPaintAmiga.h
 "$CC" $FLAGS -I"$OUT/opengpu" -I"$RTG/include" -I"$RTG/library/opengpu" "$OUT/opengpu/OpenGPUPaintAmiga.c" \
     "$RTG/library/opengpu/ogpu_core.c" "$HERE/tests/test_opengpu_paint.c" -lm -o "$OUT/test_opengpu_paint"
@@ -76,6 +78,10 @@ if pkg-config --exists cairo 2>/dev/null; then
     "$CC" $FLAGS -D_DEFAULT_SOURCE $(pkg-config --cflags cairo) -I"$OUT/opengpu" -I"$RTG/include" -I"$RTG/library/opengpu" \
         "$OUT/opengpu/OpenGPUPaintAmiga.c" "$RTG/library/opengpu/ogpu_core.c" "$HERE/tests/test_opengpu_clip.c" \
         $(pkg-config --libs cairo) -lm -o "$OUT/test_opengpu_clip"
+    # 0079's patterns and gradients against cairo's (WebKit's cairo port's calls)
+    "$CC" $FLAGS -D_DEFAULT_SOURCE $(pkg-config --cflags cairo) -I"$OUT/opengpu" -I"$RTG/include" -I"$RTG/library/opengpu" \
+        "$OUT/opengpu/OpenGPUPaintAmiga.c" "$RTG/library/opengpu/ogpu_core.c" "$HERE/tests/test_opengpu_pattern.c" \
+        $(pkg-config --libs cairo) -lm -o "$OUT/test_opengpu_pattern"
     CLIP_TEST=1
 fi
 "$OUT/test_wl_html" > "$OUT/test_wl_html.log" || { cat "$OUT/test_wl_html.log"; exit 1; }
@@ -89,7 +95,7 @@ rm -rf "$OUT/httpcache"
 "$OUT/test_ob_httpcache" "$OUT/httpcache"
 "$OUT/test_public_suffixes" "$HERE/data/public-suffixes" "$HERE/tests/public-suffix-cases.txt"
 "$OUT/test_opengpu_paint"
-if [ "$CLIP_TEST" = 1 ]; then "$OUT/test_opengpu_clip"; else echo "test_opengpu_clip: skipped (no cairo headers)"; fi
+if [ "$CLIP_TEST" = 1 ]; then "$OUT/test_opengpu_clip"; "$OUT/test_opengpu_pattern" | tail -1; else echo "test_opengpu_clip, test_opengpu_pattern: skipped (no cairo headers)"; fi
 # fewer operations under the sanitizers, which are slower
 R=200000
 [ "${SANITIZE:-0}" = 1 ] && R=50000
