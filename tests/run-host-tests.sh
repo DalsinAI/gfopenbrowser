@@ -70,6 +70,8 @@ python3 "$HERE/tools/patch-files.py" "$HERE/webkit/patches/0079-amiga-opengpu-pa
     "$OUT/opengpu" OpenGPUPaintAmiga.c OpenGPUPaintAmiga.h
 python3 "$HERE/tools/patch-files.py" "$HERE/webkit/patches/0081-amiga-opengpu-layers.patch" \
     "$OUT/opengpu" OpenGPUPaintAmiga.c OpenGPUPaintAmiga.h
+python3 "$HERE/tools/patch-files.py" "$HERE/webkit/patches/0082-amiga-opengpu-glyphs.patch" \
+    "$OUT/opengpu" OpenGPUPaintAmiga.c OpenGPUPaintAmiga.h
 "$CC" $FLAGS -I"$OUT/opengpu" -I"$RTG/include" -I"$RTG/library/opengpu" "$OUT/opengpu/OpenGPUPaintAmiga.c" \
     "$RTG/library/opengpu/ogpu_core.c" "$HERE/tests/test_opengpu_paint.c" -lm -o "$OUT/test_opengpu_paint"
 # 0078's clips, masks, aliased shapes, copy and clear, against cairo drawing
