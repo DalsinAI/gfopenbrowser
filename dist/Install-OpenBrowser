@@ -1,13 +1,13 @@
-; $VER: Install-OpenBrowser 0.8.2 (23.10.2026)
+; $VER: Install-OpenBrowser 0.8.4 (1.11.2026)
 ; OpenBrowser's Installer script (SYS:System/Installer). Run it from its icon
 ; beside the OpenBrowser drawer; from a Shell, "Execute Install" in the drawer
 ; does the same without questions. Nothing is deleted: a file it would
 ; replace is renamed, and the closing message says how to undo.
 ; MIT, Copyright (c) 2026 AmigaChrome Team.
 
-(set #version "0.8.2 test (23.10.2026)")
+(set #version "0.8.4 test (1.11.2026)")
 (set @app-name "OpenBrowser")
-(set #stamp "20261023b")
+(set #stamp "20261101")
 (set #backup (cat "LIBS:WebBrowser/WebBrowserEngine.before-" #stamp))
 ; the drawer as unpacked is about 87 MB: the one engine (WebBrowserEngine,
 ; which webbrowser.library runs), its fonts and the Unicode data
@@ -80,18 +80,18 @@
     (copyfiles (source "OpenBrowser.info") (dest #where) (nogauge)))
 
 ; 2. https: OpenTLS 1.2 or newer and OpenCrypto 2.1 or newer, and the
-;    certificates. An older library is renamed .before-20261023b (kept), then
+;    certificates. An older library is renamed .before-20261101 (kept), then
 ;    the one in the drawer goes in; a newer one is left as it is.
 (if (< (getversion "LIBS:opentls.library") 65538)
     (
         (if (exists "LIBS:opentls.library")
-            (if (= 0 (rename "LIBS:opentls.library" "LIBS:opentls.library.before-20261023b"))
+            (if (= 0 (rename "LIBS:opentls.library" "LIBS:opentls.library.before-20261101"))
                 (abort "Could not rename the old LIBS:opentls.library. Nothing else was changed in LIBS:.")))
         (copyfiles (source "OpenBrowser/Libs/opentls.library") (dest "LIBS:") (nogauge))))
 (if (< (getversion "LIBS:opencrypto.library") 131073)
     (
         (if (exists "LIBS:opencrypto.library")
-            (if (= 0 (rename "LIBS:opencrypto.library" "LIBS:opencrypto.library.before-20261023b"))
+            (if (= 0 (rename "LIBS:opencrypto.library" "LIBS:opencrypto.library.before-20261101"))
                 (abort "Could not rename the old LIBS:opencrypto.library.")))
         (copyfiles (source "OpenBrowser/Libs/opencrypto.library") (dest "LIBS:") (nogauge))))
 (if (not (exists "S:OpenTLS/ca-bundle.pem"))
@@ -100,11 +100,11 @@
         (copyfiles (source "OpenBrowser/S/OpenTLS") (dest "S:OpenTLS") (all) (nogauge))))
 
 ; openfont.library 1.4 or newer: the engine draws and shapes all its text
-; with it. An older one is renamed .before-20261023 (kept).
+; with it. An older one is renamed .before-20261101 (kept).
 (if (< (getversion "LIBS:openfont.library") 65540)
     (
         (if (exists "LIBS:openfont.library")
-            (if (= 0 (rename "LIBS:openfont.library" "LIBS:openfont.library.before-20261023"))
+            (if (= 0 (rename "LIBS:openfont.library" "LIBS:openfont.library.before-20261101"))
                 (abort "Could not rename the old LIBS:openfont.library.")))
         (copyfiles (source "OpenBrowser/Libs/openfont.library") (dest "LIBS:") (nogauge))))
 
@@ -125,14 +125,14 @@
 ; through the datatypes stream class: z.library 53.12 (gzip.datatype opens
 ; it), stream.datatype, gzip.datatype and brotli.datatype 47.1 or newer in
 ; SYS:Classes/DataTypes, and their descriptors in DEVS:DataTypes. An older
-; one is renamed .before-20261031 (kept), then the drawer's goes in; a
+; one is renamed .before-20261101 (kept), then the drawer's goes in; a
 ; descriptor goes in when missing. Without them pages still load,
 ; uncompressed.
 (procedure P_newer #file #src #destdir #want
     (if (< (getversion #file) #want)
         (
             (if (exists #file)
-                (if (= 0 (rename #file (cat #file ".before-20261031")))
+                (if (= 0 (rename #file (cat #file ".before-" #stamp)))
                     (abort (cat "Could not rename the old " #file "."))))
             (copyfiles (source #src) (dest #destdir) (nogauge)))))
 (P_newer "LIBS:z.library" "OpenBrowser/Libs/z.library" "LIBS:" 3473420)
