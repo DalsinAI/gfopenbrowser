@@ -82,6 +82,11 @@ if pkg-config --exists cairo 2>/dev/null; then
     "$CC" $FLAGS -D_DEFAULT_SOURCE $(pkg-config --cflags cairo) -I"$OUT/opengpu" -I"$RTG/include" -I"$RTG/library/opengpu" \
         "$OUT/opengpu/OpenGPUPaintAmiga.c" "$RTG/library/opengpu/ogpu_core.c" "$HERE/tests/test_opengpu_pattern.c" \
         $(pkg-config --libs cairo) -lm -o "$OUT/test_opengpu_pattern"
+    # 0080's borders, lines, bullets and text lines (C++ only: the writer calls they
+    # make) against WebKit's cairo calls for them
+    "$CC" $FLAGS -D_DEFAULT_SOURCE $(pkg-config --cflags cairo) -I"$OUT/opengpu" -I"$RTG/include" -I"$RTG/library/opengpu" \
+        "$OUT/opengpu/OpenGPUPaintAmiga.c" "$RTG/library/opengpu/ogpu_core.c" "$HERE/tests/test_opengpu_lines.c" \
+        $(pkg-config --libs cairo) -lm -o "$OUT/test_opengpu_lines"
     CLIP_TEST=1
 fi
 "$OUT/test_wl_html" > "$OUT/test_wl_html.log" || { cat "$OUT/test_wl_html.log"; exit 1; }
@@ -95,7 +100,7 @@ rm -rf "$OUT/httpcache"
 "$OUT/test_ob_httpcache" "$OUT/httpcache"
 "$OUT/test_public_suffixes" "$HERE/data/public-suffixes" "$HERE/tests/public-suffix-cases.txt"
 "$OUT/test_opengpu_paint"
-if [ "$CLIP_TEST" = 1 ]; then "$OUT/test_opengpu_clip"; "$OUT/test_opengpu_pattern" | tail -1; else echo "test_opengpu_clip, test_opengpu_pattern: skipped (no cairo headers)"; fi
+if [ "$CLIP_TEST" = 1 ]; then "$OUT/test_opengpu_clip"; "$OUT/test_opengpu_pattern" | tail -1; "$OUT/test_opengpu_lines" | tail -1; else echo "test_opengpu_clip, test_opengpu_pattern, test_opengpu_lines: skipped (no cairo headers)"; fi
 # fewer operations under the sanitizers, which are slower
 R=200000
 [ "${SANITIZE:-0}" = 1 ] && R=50000
