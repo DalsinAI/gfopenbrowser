@@ -48,6 +48,9 @@ struct ob_httpcache {
     unsigned long maxBytes, maxEntry, bytes;
     struct item *items;
     unsigned count, capacity;
+    unsigned *slots;                        /* the items by hash: index + 1, 0 empty (1 Nov 2026) */
+    unsigned nslots;                        /* a power of two, more than twice count; 0 none yet */
+    int slotsStale;                         /* an item moved or went: built again before use */
     unsigned long serial;
 };
 
@@ -205,12 +208,63 @@ static int readLine(FILE *f, char **line, size_t *capacity)
 
 /* --- the index ---------------------------------------------------------------- */
 
+/* Lookups go through a small hash table of the items (open addressing,
+ * linear probing), not a walk of every item: on a 68040 a cache of
+ * thousands of entries made every sub-resource a scan (1 Nov 2026). The
+ * table is built again, all at once, after items move or go. */
+static unsigned slotOf(const ob_httpcache *cache, unsigned long hi, unsigned long lo)
+{
+    unsigned long h = lo ^ (hi * 0x9E3779B1UL);
+    h ^= h >> 15;
+    return (unsigned)h & (cache->nslots - 1);
+}
+
+static void placeItem(ob_httpcache *cache, unsigned index)
+{
+    unsigned s = slotOf(cache, cache->items[index].hi, cache->items[index].lo);
+    while (cache->slots[s])
+        s = (s + 1) & (cache->nslots - 1);
+    cache->slots[s] = index + 1;
+}
+
+/* 0 when there's no memory for the table (lookups then walk the items). */
+static int buildSlots(ob_httpcache *cache, unsigned want)
+{
+    unsigned n = 64, i;
+    while (n < want * 2 + 2)
+        n *= 2;
+    if (n != cache->nslots) {
+        unsigned *grown = realloc(cache->slots, n * sizeof *grown);
+        if (!grown) {
+            free(cache->slots);
+            cache->slots = NULL;
+            cache->nslots = 0;
+            return 0;
+        }
+        cache->slots = grown;
+        cache->nslots = n;
+    }
+    memset(cache->slots, 0, n * sizeof *cache->slots);
+    for (i = 0; i < cache->count; i++)
+        placeItem(cache, i);
+    cache->slotsStale = 0;
+    return 1;
+}
+
 static struct item *findItem(ob_httpcache *cache, unsigned long hi, unsigned long lo)
 {
     unsigned i;
-    for (i = 0; i < cache->count; i++)
-        if (cache->items[i].hi == hi && cache->items[i].lo == lo)
-            return &cache->items[i];
+    if ((cache->slotsStale || !cache->nslots || cache->count * 2 + 2 > cache->nslots) && !buildSlots(cache, cache->count)) {
+        for (i = 0; i < cache->count; i++)
+            if (cache->items[i].hi == hi && cache->items[i].lo == lo)
+                return &cache->items[i];
+        return NULL;
+    }
+    for (i = slotOf(cache, hi, lo); cache->slots[i]; i = (i + 1) & (cache->nslots - 1)) {
+        struct item *item = &cache->items[cache->slots[i] - 1];
+        if (item->hi == hi && item->lo == lo)
+            return item;
+    }
     return NULL;
 }
 
@@ -232,6 +286,10 @@ static struct item *addItem(ob_httpcache *cache, unsigned long hi, unsigned long
     item->lo = lo;
     item->size = 0;
     item->used = 0;
+    if (cache->nslots && !cache->slotsStale && cache->count * 2 + 2 <= cache->nslots)
+        placeItem(cache, cache->count - 1);
+    else
+        cache->slotsStale = 1;
     return item;
 }
 
@@ -239,6 +297,7 @@ static void dropItem(ob_httpcache *cache, struct item *item)
 {
     cache->bytes -= item->size;
     *item = cache->items[--cache->count];
+    cache->slotsStale = 1;
 }
 
 /* Removes the item's file and forgets it. */
@@ -304,6 +363,7 @@ static int readIndex(ob_httpcache *cache, const char *path)
     if (!ok) {
         cache->count = 0;
         cache->bytes = 0;
+        cache->slotsStale = 1;
     }
     return ok;
 }
@@ -460,6 +520,7 @@ void ob_httpcache_close(ob_httpcache *cache)
         return;
     writeIndex(cache);
     free(cache->items);
+    free(cache->slots);
     free(cache->dir);
     free(cache);
 }
