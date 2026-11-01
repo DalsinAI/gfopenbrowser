@@ -155,7 +155,13 @@ static int save_image_body(const char *path, const ob_response *resp)
     return 1;
 }
 
-/* fetch each picture the laid-out page shows and hand it to weblayout */
+static void set_status(const char *fmt, ...);
+static BOOL images_poll(void);
+
+/* fetch each picture the laid-out page shows and hand it to weblayout; the
+ * page is already drawn, and each picture is drawn as it comes. Between
+ * pictures the window answers (images_poll): anything that opens another
+ * page stops the rest. */
 static void load_page_images(void)
 {
     ULONG i, count;
@@ -167,10 +173,14 @@ static void load_page_images(void)
         char *path = page_image_path[npage_images];
         ob_response resp;
 
+        if (!images_poll()) break;
+        count = WL_CountResources(page_doc, WLRES_IMAGE);   /* a new size lays the page out again */
+        if (i >= count) break;
         res.wr_Size = sizeof res;
         if (!WL_GetResource(page_doc, WLRES_IMAGE, i, &res)) continue;
         if (!res.wr_URL || !*res.wr_URL || !strncasecmp((const char *)res.wr_URL, "data:", 5)) continue;
         snprintf(url, sizeof url, "%s", (const char *)res.wr_URL);
+        set_status("Picture %lu of %lu...", (unsigned long)i + 1, (unsigned long)count);
         if (!ob_http_get(url, &resp, err, sizeof err)) {
             ob_response_free(&resp);
             continue;
@@ -183,6 +193,7 @@ static void load_page_images(void)
             if (save_image_body(path, &resp) &&
                 WL_SetImageFile(page_doc, res.wr_ID, (CONST_STRPTR)path, scr)) {
                 ++npage_images;             /* the file stays until the page goes */
+                WL_Draw(page_doc, &page_view);
             } else {
                 remove(path);
                 path[0] = 0;
@@ -401,9 +412,9 @@ static int show_page(const char *utf8, size_t len, ULONG kind)
         clear_layout();
         return 0;
     }
-    if (kind == WLKIND_HTML) load_page_images();
     update_scroller();
-    WL_Draw(page_doc, &page_view);
+    WL_Draw(page_doc, &page_view);      /* the text first, not after every picture */
+    if (kind == WLKIND_HTML) load_page_images();
     return 1;
 }
 
@@ -696,15 +707,14 @@ static void open_page_link_at(WORD x, WORD y)
     open_url(target, TRUE);
 }
 
-static void window_events(void)
+static void window_event(struct IntuiMessage *m)
 {
-    struct IntuiMessage *m;
-    while (win && (m = GT_GetIMsg(win->UserPort))) {
-        ULONG cl = m->Class;
-        UWORD code = m->Code;
-        WORD mx = m->MouseX, my = m->MouseY;
-        struct Gadget *g = (struct Gadget *)m->IAddress;
-        GT_ReplyIMsg(m);
+    ULONG cl = m->Class;
+    UWORD code = m->Code;
+    WORD mx = m->MouseX, my = m->MouseY;
+    struct Gadget *g = (struct Gadget *)m->IAddress;
+    GT_ReplyIMsg(m);
+    {
         switch (cl) {
         case IDCMP_CLOSEWINDOW: quit_now = TRUE; break;
         case IDCMP_MENUPICK: menu_pick(code); break;
@@ -729,6 +739,52 @@ static void window_events(void)
             }
             break;
         }
+    }
+}
+
+static void window_events(void)
+{
+    struct IntuiMessage *m;
+    while (win && (m = GT_GetIMsg(win->UserPort)))
+        window_event(m);
+}
+
+/* While a page's pictures come in: the window redraws, scrolls, resizes and
+ * closes. A link clicked, a menu or a button or address that opens another
+ * page stops the pictures and is left on the port for the main loop.
+ * FALSE: stop. */
+static BOOL images_poll(void)
+{
+    for (;;) {
+        struct IntuiMessage *m;
+        ULONG cl;
+        UWORD code, id = 0;
+        WORD mx, my;
+        BOOL leave;
+        if (quit_now || !win) return FALSE;
+        Forbid();
+        m = (struct IntuiMessage *)win->UserPort->mp_MsgList.lh_Head;
+        if (!m->ExecMessage.mn_Node.ln_Succ) {
+            Permit();
+            return TRUE;                    /* nothing waiting */
+        }
+        cl = m->Class;
+        code = m->Code;
+        mx = m->MouseX;
+        my = m->MouseY;
+        if ((cl == IDCMP_GADGETUP || cl == IDCMP_GADGETDOWN) && m->IAddress)
+            id = ((struct Gadget *)m->IAddress)->GadgetID;
+        Permit();
+        leave = cl == IDCMP_MENUPICK ||
+                ((cl == IDCMP_GADGETUP || cl == IDCMP_GADGETDOWN) && id != GID_SCROLL && id > 0 && id < GID_COUNT) ||
+                (cl == IDCMP_MOUSEBUTTONS && code == SELECTDOWN && WL_HitLink(page_doc, &page_view, mx, my));
+        if (leave) {
+            /* the main loop takes it: keep its signal up */
+            SetSignal(1UL << win->UserPort->mp_SigBit, 1UL << win->UserPort->mp_SigBit);
+            return FALSE;
+        }
+        if ((m = GT_GetIMsg(win->UserPort)))
+            window_event(m);
     }
 }
 

@@ -48,6 +48,9 @@ OS32M="-D_DEFAULT_SOURCE -Daligned_alloc=os32_aligned_alloc -Dmemalign=os32_mema
 # opendir(), stat() and setenv(): POSIX
 "$CC" $FLAGS -D_DEFAULT_SOURCE -I"$HERE/src/webcore" "$HERE/src/webcore/ob_httpcache.c" \
     "$HERE/tests/test_ob_httpcache.c" -o "$OUT/test_ob_httpcache"
+# Lite's address parser (its network calls stubbed in the test)
+"$CC" $FLAGS -D_DEFAULT_SOURCE -I"$HERE/src" -I"$OM" "$HERE/src/ob_http.c" "$OM/oam_buf.c" "$WL/wl_url.c" $RT \
+    "$HERE/tests/test_ob_url_parse.c" -o "$OUT/test_ob_url_parse"
 # Lite's HTTP GET on a stand-in network, its allocations counted
 OBM="-Dmalloc=t_malloc -Drealloc=t_realloc -Dfree=t_free"
 "$CC" $FLAGS -D_DEFAULT_SOURCE -I"$HERE/src" -I"$OM" -include stdlib.h $OBM \
@@ -67,6 +70,7 @@ tail -1 "$OUT/test_wl_html.log"
 "$OUT/test_wl_libc"
 "$OUT/test_wl_document"
 "$OUT/test_oam_html"
+"$OUT/test_ob_url_parse"
 "$OUT/test_ob_http_fetch"
 rm -rf "$OUT/httpcache"
 "$OUT/test_ob_httpcache" "$OUT/httpcache"
