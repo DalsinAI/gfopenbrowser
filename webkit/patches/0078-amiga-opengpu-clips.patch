@@ -5,7 +5,7 @@ Subject: [PATCH] WebCore: clips to paths, shapes without anti-aliasing, copy
  and clear through OpenGPU
 
 GraphicsContextOpenGPU draws what cairo still did for it after 0077's
-paths (cairo-out item 1, openamigabrowser docs/STEP5-6-WEBCORE.md):
+paths (cairo-out item 1, gfopenbrowser docs/STEP5-6-WEBCORE.md):
 
 - Clips to paths (clipPath, clipOut of a path or a rectangle, rounded
   rectangle clips) and rectangle clips that are off whole pixels or
@@ -35,7 +35,7 @@ paths (cairo-out item 1, openamigabrowser docs/STEP5-6-WEBCORE.md):
 The writer gets the masks' memory from the context (fastMalloc), which
 frees what is left when it goes.
 
-Tested on the host (openamigabrowser tests/test_opengpu_clip.c) against
+Tested on the host (gfopenbrowser tests/test_opengpu_clip.c) against
 cairo 1.18 drawing the same calls: clips to paths on whole pixels by six
 operators, rectangle clips off whole pixels (plain, scaled, turned),
 clip-outs, copy and clear of rectangles and through masks the same

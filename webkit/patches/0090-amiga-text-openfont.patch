@@ -35,7 +35,7 @@ or linked.
   or the one in the program's drawer (PROGDIR:Libs/) when LIBS: has none
   or an older one; PROGDIR:Fonts is added to its font folders.
 
-cairo is built without its FreeType font backend (openamigacairo
+cairo is built without its FreeType font backend (gfopencairo
 CAIRO_FONTS=user).
 ---
  Source/WebCore/PlatformAmiga.cmake            |   2 +-
@@ -2451,7 +2451,7 @@ index 00000000000..5d981ac944d
 +FindOpenFont
 +------------
 +
-+Find the SDK of gfopenfont.library (DalsinAI/openamigafont, ``sdk/Include_H``):
++Find the SDK of gfopenfont.library (DalsinAI/gfopenfont, ``sdk/Include_H``):
 +``libraries/openfont.h``, ``proto/openfont.h`` and the inline calls. The
 +library itself is opened at run time, so there is nothing to link.
 +
@@ -2519,11 +2519,11 @@ index 1d9cf9394b3..dc7de9d384f 100644
 @@ -1,8 +1,8 @@
  # The Amiga port: WebCore in one process, for AmigaOS 3.2 (68020 + FPU).
 -# Drawing is Cairo's image surface, text is FreeType + HarfBuzz + fontconfig,
--# the network is openweb.fetch (openamigaservice: a services card, a Cradle,
+-# the network is openweb.fetch (gfopenservice: a services card, a Cradle,
 -# or this Amiga's own TCP/IP and OpenTLS). There is no WebKit
 -# (multi-process) layer: the embedding layer (page clients, loader
 +# Drawing is Cairo's image surface, text is OpenFont (gfopenfont.library: fonts,
-+# shaping and the font index), the network is openweb.fetch (openamigaservice:
++# shaping and the font index), the network is openweb.fetch (gfopenservice:
 +# a services card, a Cradle, or this Amiga's own TCP/IP and OpenTLS). There is
 +# no WebKit (multi-process) layer: the embedding layer (page clients, loader
  # strategy) belongs to the browser.
@@ -2546,7 +2546,7 @@ index 1d9cf9394b3..dc7de9d384f 100644
  SET_AND_EXPOSE_TO_BUILD(USE_CURL ON)
 -SET_AND_EXPOSE_TO_BUILD(USE_FREETYPE ON)
 -SET_AND_EXPOSE_TO_BUILD(USE_HARFBUZZ ON)
-+# Text on gfopenfont.library (DalsinAI/openamigafont) in place of FreeType,
++# Text on gfopenfont.library (DalsinAI/gfopenfont) in place of FreeType,
 +# HarfBuzz and fontconfig: platform/OpenFont.cmake.
 +SET_AND_EXPOSE_TO_BUILD(USE_FREETYPE OFF)
 +SET_AND_EXPOSE_TO_BUILD(USE_HARFBUZZ OFF)

@@ -10,7 +10,7 @@
 #   HOST_CXX, HOST_CC   host compilers (default c++, cc)
 #   M68K_PREFIX         cross tools (default m68k-linux-gnu-)
 #   QEMU_M68K           (default qemu-m68k)
-#   OPENSDK_SRC         an openamigasdk checkout: also check the SDK headers
+#   OPENSDK_SRC         a gfopensdk checkout: also check the SDK headers
 set -eu
 here=$(cd "$(dirname "$0")" && pwd)
 src=$here/../../src/jsonlib
@@ -45,7 +45,7 @@ run_cases() {   # name, program, runner...
 run_cases "host, sanitizers" "$tmp/t"
 
 # the shell's vector table follows sfd/json_lib.sfd; with OPENSDK_SRC (an
-# openamigasdk checkout), so do the SDK headers, and the shell and JSONTest
+# gfopensdk checkout), so do the SDK headers, and the shell and JSONTest
 # compile against GFOpenNDK (with an m68k cross GCC, as plain C: REG is a
 # plain parameter there, the Amiga GCC's register arguments aside)
 if res=$(python3 -I "$src/check_vectors.py"); then echo "ok   $res"; else echo "FAIL $res"; fail=1; fi

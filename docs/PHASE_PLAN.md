@@ -26,7 +26,7 @@ Written 4 Oct 2026 after our direction, relayed word for word by the main sessio
 | Need | Source |
 | --- | --- |
 | GadTools layout, font-sensitive groups, listviews | OpenAmigaPrint `include/oap_gt.h`, `src/ui/oap_gt.c` |
-| Datatypes in a GadTools window, scrollers, AppWindow drops | OpenAmigaView `src/viewer/oav_main.c` (in openamigaprint) |
+| Datatypes in a GadTools window, scrollers, AppWindow drops | OpenAmigaView `src/viewer/oav_main.c` (in gfopenprint) |
 | bsdsocket + TLS (GFOpenTLS; AmiSSL 5 until 19 October 2026), signal waits, Ctrl-C | OpenAmigaMail `platform/` and engine net/TLS |
 | HTML as text with numbered links (fallback) | OpenAmigaMail `oam_html` |
 | Opening links from mail | browser hook, shape agreed with the OpenAmigaMail session |

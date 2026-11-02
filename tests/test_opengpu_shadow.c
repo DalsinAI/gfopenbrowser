@@ -1,6 +1,6 @@
 /*
  * Patch 0082b's drop shadows (OpenGPUPaintAmiga.c's obgpu_set_shadow) on
- * openamigartg's CPU core, against a reference made here as WebKit's cairo
+ * gfopenrtg's CPU core, against a reference made here as WebKit's cairo
  * port casts them: ShadowBlur's layer (the shape, moved by the offset,
  * filled by cairo with the shadow's mask alpha), blurred by ShadowBlur's
  * blurLayerImage with calculateLobes' box sizes (canvas: 2/3 of the blur;

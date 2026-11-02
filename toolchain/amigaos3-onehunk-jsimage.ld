@@ -1,4 +1,4 @@
-/* GFOpenBrowser (DalsinAI/openamigabrowser)
+/* GFOpenBrowser (DalsinAI/gfopenbrowser)
  * Copyright (c) 2026 AmiCradle Team. MIT licence, see LICENSE.
  *
  * One-hunk link of a jsimage client (scripts/jsimage.py, src/jslib/

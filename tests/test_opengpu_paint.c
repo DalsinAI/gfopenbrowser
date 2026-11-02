@@ -1,6 +1,6 @@
 /*
  * The engine's GraphicsContextOpenGPU stream writer (WebKit patch 0076's
- * OpenGPUPaintAmiga.c, with 0077's paths) run on openamigartg's CPU core
+ * OpenGPUPaintAmiga.c, with 0077's paths) run on gfopenrtg's CPU core
  * (ogpu_core.c), and the pixels compared with a reference written here
  * from stream.h's Porter-Duff formulas and cairo's rules for each call:
  * fills by every operator WebKit uses, nested clips with save and restore,

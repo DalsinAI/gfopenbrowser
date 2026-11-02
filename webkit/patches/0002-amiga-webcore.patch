@@ -12,7 +12,7 @@ index 0000000000..b4fddf4d7b
 --- /dev/null
 +++ b/Source/PlatformAmiga.cmake
 @@ -0,0 +1,5 @@
-+# The browser's own programs (OpenBrowser, DalsinAI/openamigabrowser src/webcore)
++# The browser's own programs (OpenBrowser, DalsinAI/gfopenbrowser src/webcore)
 +# build inside this tree with WebKit's flags and static libraries.
 +if (OPENBROWSER_WEBCORE_DIR)
 +    add_subdirectory(${OPENBROWSER_WEBCORE_DIR} ${CMAKE_BINARY_DIR}/OpenBrowser)

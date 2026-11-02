@@ -1,5 +1,5 @@
 /*
- * GFOpenBrowser (DalsinAI/openamigabrowser)
+ * GFOpenBrowser (DalsinAI/gfopenbrowser)
  * Copyright (c) 2026 AmiCradle Team. MIT licence, see LICENSE.
  *
  * Host test for the 68k template JIT's stitcher, run under qemu-m68k

@@ -23,7 +23,7 @@ code pages seldom run. On the Amiga port:
   of WebCore outside the style, layout and DOM code.
 
 JavaScriptCore's kept code is 2,120,672 bytes smaller (the typed array
-functions 1,055,928 of it), WebCore's 24,668. With openamigabrowser main
+functions 1,055,928 of it), WebCore's 24,668. With gfopenbrowser main
 at 8ba1e04 (pc-relative, hunkfold on) the stripped engine is 2,130,300
 bytes smaller before folding (79,894,348 to 77,764,048) and 1,870,080
 bytes smaller folded (75,787,960 to 73,917,880). The DOM bench's

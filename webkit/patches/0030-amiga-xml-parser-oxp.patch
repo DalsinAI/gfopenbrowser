@@ -5,7 +5,7 @@ Subject: [PATCH] Amiga port: XML through OXP, the Open XML Parser, in place of
  libxml2
 
 USE(OXP) (on for the Amiga port) builds XMLDocumentParserOXP.cpp in place of
-XMLDocumentParserLibxml2.cpp and links OXP (DalsinAI/openamigaxml, oxp/)
+XMLDocumentParserLibxml2.cpp and links OXP (DalsinAI/gfopenxml, oxp/)
 instead of libxml2. The new file is the libxml2 one with the parser's
 creation, feeding, stopping, position, entities and errors moved onto OXP.
 XMLDocumentParserOXPBridge.h passes OXP's events to XMLDocumentParser in
@@ -257,7 +257,7 @@ index 0000000..b974778
 + * Copyright (C) 2010 Patrick Gansterer <paroga@paroga.com>
 + * Copyright (C) 2013 Samsung Electronics. All rights reserved.
 + * Copyright (C) 2026 AmiCradle Team (the OXP backend: XMLDocumentParserLibxml2.cpp
-+ *               moved onto OXP, the Open XML Parser, DalsinAI/openamigaxml)
++ *               moved onto OXP, the Open XML Parser, DalsinAI/gfopenxml)
 + *
 + * This library is free software; you can redistribute it and/or
 + * modify it under the terms of the GNU Library General Public
@@ -1635,7 +1635,7 @@ index 0000000..ae6074a
 +FindOXP
 +-------
 +
-+Find OXP, the Open XML Parser (DalsinAI/openamigaxml, ``oxp/``): ``oxp.h``
++Find OXP, the Open XML Parser (DalsinAI/gfopenxml, ``oxp/``): ``oxp.h``
 +and ``liboxp.a`` (its ``build-amiga.sh`` writes both).
 +
 +Imported Targets
@@ -1709,7 +1709,7 @@ index 420b957..164ac82 100644
  # does not see. WebCrypto has no backend (crypto/amiga/CryptoAmiga.cpp).
  SET_AND_EXPOSE_TO_BUILD(USE_OPENSSL OFF)
  SET_AND_EXPOSE_TO_BUILD(USE_THEME_ADWAITA ON)
-+# XML through OXP (DalsinAI/openamigaxml), not libxml2: XMLDocumentParserOXP.cpp
++# XML through OXP (DalsinAI/gfopenxml), not libxml2: XMLDocumentParserOXP.cpp
 +SET_AND_EXPOSE_TO_BUILD(USE_OXP ON)
  
  SET_AND_EXPOSE_TO_BUILD(HAVE_PTHREAD_SETNAME_NP OFF)

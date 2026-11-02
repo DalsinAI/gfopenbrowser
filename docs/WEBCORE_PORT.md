@@ -19,13 +19,13 @@ layer, the way MorphOS's and Haiku's browsers did it:
 | Drawing | cairo image surfaces with pixman | Proven on big-endian CPUs; Skia refuses to build for them |
 | Text | FreeType, HarfBuzz and fontconfig | WebCore's Cairo backend uses all three |
 | Fonts | Liberation and DejaVu, in `PROGDIR:Fonts` | Free licences; Liberation has the metrics of Arial, Times and Courier |
-| Network | openweb.fetch (openamigaservice): a services card, a Cradle, or the Amiga's own TCP/IP with GFOpenTLS and HTTP/2 | `ResourceHandleAmiga.cpp` handles cookies and redirects; libcurl on GFOpenTLS did the loads until WebKit patch 0075 (AmiSSL 5 until 19 October 2026) |
+| Network | openweb.fetch (gfopenservice): a services card, a Cradle, or the Amiga's own TCP/IP with GFOpenTLS and HTTP/2 | `ResourceHandleAmiga.cpp` handles cookies and redirects; libcurl on GFOpenTLS did the loads until WebKit patch 0075 (AmiSSL 5 until 19 October 2026) |
 | Images | the system's datatypes | Our rule: the formats are the ones the user has datatypes for |
 | JavaScript | JavaScriptCore's C-loop interpreter | No JIT on 68k |
 
 The port lives in the WebKit tree as a patch series (see `webkit/`). The
 library ports are in their own repositories, listed in
-[OpenAmiga](https://github.com/DalsinAI/openamiga).
+[OpenAmiga](https://github.com/DalsinAI/gfopenamiga).
 
 ## Findings
 
@@ -56,7 +56,7 @@ WebCore's "this struct must stay this size" checks see a smaller struct. They
 accept smaller-or-equal on 68k.
 
 **TLS without OpenSSL.** Since 19 October 2026 (WebKit patch 0022) curl does
-TLS through GFOpenTLS (openamigacurl's GFOpenTLS backend opens gfopentls.library
+TLS through GFOpenTLS (gfopencurl's GFOpenTLS backend opens gfopentls.library
 itself) and WebCore links no OpenSSL: `USE(OPENSSL)` is off, curl's
 OpenSSL-only files are left out, and no cipher list, curve list or CA file is
 set (GFOpenTLS picks its own suites and reads `S:GFOpenTLS/ca-bundle.pem`).
@@ -69,11 +69,11 @@ that used it had to open it.
 for HTTP/2 to https:// servers (`CURL_HTTP_VERSION_2TLS`, falling back to
 HTTP/1.1 when the server does not offer h2 in ALPN) and multiplexes requests
 to one server as streams on one connection (`CURLPIPE_MULTIPLEX`), so a page
-costs one TLS handshake per server. curl needs nghttp2 for it: openamigacurl
+costs one TLS handshake per server. curl needs nghttp2 for it: gfopencurl
 pins nghttp2 (1.70.0) and builds it as `libnghttp2.a` beside `libcurl.a`;
 copy both into the deps prefix (`OAB_DEPS/m68k-amigaos/lib`). The programs
 link nghttp2 after curl when `libnghttp2.a` is there, so a curl built before
-openamigacurl had HTTP/2 still links; `build-webcore.sh` stops with a message
+gfopencurl had HTTP/2 still links; `build-webcore.sh` stops with a message
 when `libcurl.a` uses nghttp2 and `libnghttp2.a` is missing. The loader hands
 curl six requests per host at once (four before): over HTTP/2 they are
 streams, over HTTP/1.1 the ones beyond curl's two connections per host wait
@@ -280,7 +280,7 @@ Measured on the test instance (AmiCradle's AC090, a 68040 with FPU, 256 MB),
 What is done about it:
 
 - **The font cache works.** fontconfig's cache was never written under
-  libnix (openamigafontconfig's cache patch), so every start scanned all the
+  libnix (gfopenfontconfig's cache patch), so every start scanned all the
   fonts. It now lives in `PROGDIR:fontconfig/cache`, which lasts across
   reboots, with `T:fontconfig` when the program's drawer cannot be written.
 - **Less ICU data.** `scripts/build-icu.sh` keeps the items listed in
@@ -314,7 +314,7 @@ What is done about it:
 - **Fonts come from memory, unhinted.** FreeType read each glyph from the
   disk through stdio and hinted every glyph as it was drawn; a window sat at
   31% while its first text was laid out. On AmigaOS FreeType now reads a font
-  file into memory once (openamigafreetype), and `fonts.conf` turns hinting
+  file into memory once (gfopenfreetype), and `fonts.conf` turns hinting
   off.
 - **Two connections per host** (`0007` in `webkit/`), and the C-loop
   interpreter built with `-O2` while the rest is built for size.

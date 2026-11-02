@@ -45,13 +45,13 @@ Tables are preserved semantically but counted as unsupported until GFOpenLayout 
 Host:
 
 ```sh
-OPENLAYOUT_SRC=../openamigalayout tests/run-host-tests.sh
+OPENLAYOUT_SRC=../gfopenlayout tests/run-host-tests.sh
 ```
 
 AmigaOS 3.x / 68040 + FPU:
 
 ```sh
-TOOLCHAIN_DIR=... NDK_INCLUDE=.../OpenNDK/Include_H OPENLAYOUT_SRC=../openamigalayout \
+TOOLCHAIN_DIR=... NDK_INCLUDE=.../OpenNDK/Include_H OPENLAYOUT_SRC=../gfopenlayout \
     TESTS=1 scripts/build-openbrowser.sh
 ```
 

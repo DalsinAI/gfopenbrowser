@@ -4,7 +4,7 @@
  * Our own code, written from RFC 8259 (JSON), RFC 6901 (JSON Pointer),
  * RFC 3629 (UTF-8), IEEE 754 (binary64) and ECMA-262's Number::toString.
  *
- * Lean C++ (DalsinAI/openamigagcc docs/lean-cxx.md, the library profile):
+ * Lean C++ (DalsinAI/gfopengcc docs/lean-cxx.md, the library profile):
  * no exceptions, no RTTI, no static constructors, no function-local
  * statics, no std headers, no libstdc++; the calls are extern "C". The only
  * tables are const (.rodata). No struct is copied by assignment, and no

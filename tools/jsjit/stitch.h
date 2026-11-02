@@ -1,5 +1,5 @@
 /*
- * GFOpenBrowser (DalsinAI/openamigabrowser)
+ * GFOpenBrowser (DalsinAI/gfopenbrowser)
  * Copyright (c) 2026 AmiCradle Team. MIT licence, see LICENSE.
  *
  * The 68k template JIT's stitcher core (J2, stage T2 prototype). Plain C so

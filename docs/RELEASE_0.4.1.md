@@ -69,15 +69,15 @@ To publish v0.4.1, on a PC with `gh` signed in, once this is merged to
 main and the Lite workflow's run on main is green:
 
 ```sh
-gh run list -R DalsinAI/openamigabrowser --workflow lite.yml --branch main --limit 1
-gh run download <run id> -R DalsinAI/openamigabrowser -n openbrowser-lite-release -D lite-0.4.1
+gh run list -R DalsinAI/gfopenbrowser --workflow lite.yml --branch main --limit 1
+gh run download <run id> -R DalsinAI/gfopenbrowser -n openbrowser-lite-release -D lite-0.4.1
 cd lite-0.4.1
 sha256sum -c GFOpenBrowserLite-0.4.1.lha.sha256
-gh release create v0.4.1 -R DalsinAI/openamigabrowser --target main \
+gh release create v0.4.1 -R DalsinAI/gfopenbrowser --target main \
     --title "GFOpenBrowser Lite 0.4.1" --notes-file GFOpenBrowserLite-0.4.1.readme \
     GFOpenBrowserLite-0.4.1.lha GFOpenBrowserLite-0.4.1.lha.sha256
 ```
 
 The asset is then
-`https://github.com/DalsinAI/openamigabrowser/releases/download/v0.4.1/OpenBrowserLite-0.4.1.lha`,
+`https://github.com/DalsinAI/gfopenbrowser/releases/download/v0.4.1/OpenBrowserLite-0.4.1.lha`,
 which GFOpenUp pins by that sha256.

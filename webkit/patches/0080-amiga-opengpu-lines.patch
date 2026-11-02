@@ -5,7 +5,7 @@ Subject: [PATCH] WebCore: borders, lines, list bullets, focus rings and text
  lines through OpenGPU
 
 GraphicsContextOpenGPU now draws itself the calls it used to hand to cairo
-whole (cairo-out item 3, openamigabrowser docs/STEP5-6-WEBCORE.md). Each
+whole (cairo-out item 3, gfopenbrowser docs/STEP5-6-WEBCORE.md). Each
 one does what WebKit's Cairo:: code for it does:
 
 - drawRect (Cairo::drawRect): the rectangle filled with the fill colour

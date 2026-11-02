@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-# GFOpenBrowser (DalsinAI/openamigabrowser)
+# GFOpenBrowser (DalsinAI/gfopenbrowser)
 # Copyright (c) 2026 The AmiCradle Team. MIT licence, see LICENSE.
 """Turn an OBBench run's logs into results.csv and a Markdown summary, and
 compare them with an earlier results.csv to show what got worse.

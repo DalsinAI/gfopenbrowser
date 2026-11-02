@@ -39,13 +39,13 @@ held until then. A failed batch leaves the rest of the paint to cairo.
 
 OpenGPUPaintAmiga.c turns the state and the calls into stream words:
 plain C, no WebKit, no floating point, tested on the host against
-openamigartg's CPU core (openamigabrowser tests/test_opengpu_paint.c).
+gfopenrtg's CPU core (gfopenbrowser tests/test_opengpu_paint.c).
 OpenGPULibraryAmiga.c opens gfopengpu.library once at run time through
-openamigartg's inline calls; nothing more is linked. Without it, with a
+gfopenrtg's inline calls; nothing more is linked. Without it, with a
 library that answers OGPU_NONE for COMPOSITE_PD, or with the Shell
 variable OB_PAINT=cairo, the browser paints with cairo as before.
 PlatformAmiga.cmake lists the new files; the browser's build gives the
-two C files openamigartg's headers.
+two C files gfopenrtg's headers.
 
 Team 3
 ---
@@ -72,7 +72,7 @@ index b315e7ab109..50d4da6d261 100644
  
 +    # The window is painted through gfopengpu.library, opened at run time
 +    # (cairo for what it doesn't draw, and with OB_PAINT=cairo). The
-+    # browser's build gives the two C files openamigartg's OpenGPU headers
++    # browser's build gives the two C files gfopenrtg's OpenGPU headers
 +    # (src/webcore/CMakeLists.txt); nothing more is linked.
 +    platform/graphics/amiga/GraphicsContextOpenGPU.cpp
      platform/graphics/amiga/GraphicsLayerAmiga.cpp
@@ -810,7 +810,7 @@ index 00000000000..017286bfac2
 +/*
 + * gfopengpu.library for GraphicsContextOpenGPU (OpenGPUPaintAmiga.h's
 + * ob_opengpu_caps and ob_opengpu_run). Opened at run time, once, through
-+ * openamigartg's inline calls; nothing is linked. A missing library, or one
++ * gfopenrtg's inline calls; nothing is linked. A missing library, or one
 + * older than stream v1.4 (it answers OGPU_NONE for COMPOSITE_PD), leaves
 + * the engine on cairo.
 + * MIT, Copyright (c) 2026 AmiCradle Team.
@@ -891,7 +891,7 @@ index 00000000000..60e597dc53c
 @@ -0,0 +1,652 @@
 +/*
 + * GraphicsContextOpenGPU's drawing as OpenGPU stream words
-+ * (OpenGPUPaintAmiga.h; the stream is openamigartg's include/opengpu/stream.h).
++ * (OpenGPUPaintAmiga.h; the stream is gfopenrtg's include/opengpu/stream.h).
 + *
 + * What is drawn here, as cairo draws it:
 + * - a rectangle of one colour whose visible edges fall on whole pixels,
@@ -1552,7 +1552,7 @@ index 00000000000..2005f634ce7
 + * the clip stack, save and restore, rectangle fills, pictures, the
 + * operators and the batches (OpenGPUPaintAmiga.c). Plain C with no
 + * WebKit, no C library and no floating point, so the host tests build it
-+ * against openamigartg's CPU core (openamigabrowser tests/test_opengpu_paint.c).
++ * against gfopenrtg's CPU core (gfopenbrowser tests/test_opengpu_paint.c).
 + *
 + * Coordinates are fixed point: 24.8 (256 a pixel) for points and sizes,
 + * a transform's linear part (a, b, c, d) in 16.16 and its translation
@@ -1694,7 +1694,7 @@ index 00000000000..2005f634ce7
 +/* Sends the batch and waits for it, if it draws anything; 0, or the error. */
 +long obgpu_flush(struct obgpu *g);
 +
-+/* openamigabrowser's engine only (OpenGPULibraryAmiga.c): opens
++/* gfopenbrowser's engine only (OpenGPULibraryAmiga.c): opens
 + * gfopengpu.library once and says what it does (OBGPU_CAN_), 0 when it is
 + * missing or older than stream v1.4; and sends a batch and waits for it. */
 +int ob_opengpu_caps(void);

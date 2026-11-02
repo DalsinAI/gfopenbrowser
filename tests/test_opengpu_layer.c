@@ -4,7 +4,7 @@
  * draws into its pixels through the writer (obgpu_group_surface: the same
  * transforms and clips, moved onto the group's pixels), and cairo puts the
  * group on the window by the layer's opacity. Here the writer draws into a
- * group in openamigartg's CPU core's memory, cairo puts it on a copy of the
+ * group in gfopenrtg's CPU core's memory, cairo puts it on a copy of the
  * window, and that is compared with cairo drawing all of it itself.
  *   test_opengpu_layer          (needs cairo's headers and library)
  * MIT, Copyright (c) 2026 AmiCradle Team.

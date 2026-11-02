@@ -28,14 +28,14 @@ Taken on 17 October 2026 (design 0.5) and still in force:
    and fontconfig. The Unicode work WebKit gives ICU belongs to
    unicode.library (22 October), not GFOpenFont.
 4. **Drawing is GFOpenGfx and GFOpenGPU.** No cairo, no pixman.
-5. **The network is openweb.fetch on GFOpenTLS** (openamigaservice). No curl,
+5. **The network is openweb.fetch on GFOpenTLS** (gfopenservice). No curl,
    nghttp2 or libpsl.
 6. **Every decoder is a datatype.** Pictures go through datatypes.library
    (and so does encoding, such as canvas `toDataURL` to PNG),
    and compressed bodies through gzip.datatype and brotli.datatype.
    Acceleration goes into the datatypes, never into side decoders in the
    browser.
-7. **XML is OXP,** our own parser (openamigaxml).
+7. **XML is OXP,** our own parser (gfopenxml).
 8. **JavaScript has a 68k JIT,** our template JIT in WebKit's patches. It is
    also shared with other programs as javascript.library.
 
@@ -44,7 +44,7 @@ Taken on 17 October 2026 (design 0.5) and still in force:
 The design documents disagree with each other (inventory of 22 October
 2026). Where they disagree, the decisions above are the ones in force:
 
-- amigachrome `docs/design/Design-OpenBrowser-JIT-on-core.md` 0.5 and
+- amicradle `docs/design/Design-OpenBrowser-JIT-on-core.md` 0.5 and
   `Design-OpenBrowser-Lean-Engine.md` 0.2 (17 October) are current: only
   our own libraries and SQLite.
 - `Design-OpenBrowser.md` 0.2 and the migration design 0.1 are older. They
@@ -59,11 +59,11 @@ The design documents disagree with each other (inventory of 22 October
 
 | Decision | Our part | State of our part | In today's engine? | What still links the old one |
 | --- | --- | --- | --- | --- |
-| XML is OXP | OXP, openamigaxml #7-#9 (passes the W3C suite) | done | **yes** (patch 0030, #13) | nothing |
-| Text is GFOpenFont | gfopenfont.library 1.4 (openamigafont #15, #16): own reader, rasteriser and shaper (HarfBuzz out of the library, 1,054,068 to 252,368 bytes), UTF-16 shaping with script, language, direction and features, outlines, metrics, tables, web fonts from memory, a face for a character, exact family matching (OFA_Exact), and colour emoji (CBDT, sbix) decoded through the PNG datatype (256,700 bytes) | done: OpenFontLibTest passed on lab copies of Instance-14 and Instance-32 (1.3, 23 Oct); WebKit patch 0090 (`USE_OPENFONT`) is the font backend: FontCache, FontPlatformData, glyph pages, web fonts and the shaping path, glyphs drawn through cairo user fonts | **yes** (patch 0090, #94) | nothing: FreeType, HarfBuzz, fontconfig and Expat are 0 bytes in the engine's map (dev build, 23 Oct); cairo is built without its FreeType backend (openamigacairo `CAIRO_FONTS=user`) |
-| Drawing is GFOpenGfx/GFOpenGPU | GFOpenGfx (openamigagfx: graphics.library 47.100 and layers.library 47.102, clean room), gfopengpu.library 0.16 (openamigartg), pixman.library 2.0 (25 calls over GFOpenGPU; builds from openamigapixman main, e4bd3ec) | GFOpenGfx has graphics.library's API: no anti-aliased paths, gradients, alpha compositing or glyph runs, and nothing deeper than 8 planes yet. GFOpenGPU's command stream has fill, copy, mask, premultiplied compositing, bilinear and affine scaled images and the 13 Porter-Duff operators (not yet on Vulkan), but no anti-aliased paths, gradients, blur or the PDF/HSL blend modes. openamigagfx main builds graphics.library 47.100 and layers.library 47.102 (rebuilt on the dev machine 22 Oct). No GraphicsContext exists on either; GraphicsContextOpenGfx and DrawGlyphRun are in design documents only | **no** | WebCore's cairo GraphicsContext and image surfaces |
-| Network is openweb.fetch | openweb.fetch/1 (openamigaservice `src/webfetch.c`, `docs/OPENWEB_FETCH.md`, v1 12 Oct) | runs on the services card only, and its TLS is the host's OpenSSL 3, not GFOpenTLS. It has cookies (passes every Set-Cookie through), keep-alive pooling, host-side gzip, deflate and Brotli, and 64 fetches at once. It lacks HTTP/2, WebSocket, proxies, HTTP auth and a LAN transport. No `OWFetch` binary on any drive; no WebCore network backend on it | **no**: today curl 8.22 on gfopentls.library 1.3 (patch 0022), HTTP/2 through nghttp2 (0023), bsdsocket.library from GFOpenSocket | WebCore's CurlContext and curl loader |
-| Decoders are datatypes | picture datatypes (openamigaimage); stream.datatype, gzip.datatype, brotli.datatype | pictures: yes. The stream class and the gzip and Brotli datatypes are a design only (JIT-on-core 0.5 §5.1), with no code in any repo | partly | libpng (for cairo) and zlib are still linked; curl decodes compressed bodies |
+| XML is OXP | OXP, gfopenxml #7-#9 (passes the W3C suite) | done | **yes** (patch 0030, #13) | nothing |
+| Text is GFOpenFont | gfopenfont.library 1.4 (gfopenfont #15, #16): own reader, rasteriser and shaper (HarfBuzz out of the library, 1,054,068 to 252,368 bytes), UTF-16 shaping with script, language, direction and features, outlines, metrics, tables, web fonts from memory, a face for a character, exact family matching (OFA_Exact), and colour emoji (CBDT, sbix) decoded through the PNG datatype (256,700 bytes) | done: OpenFontLibTest passed on lab copies of Instance-14 and Instance-32 (1.3, 23 Oct); WebKit patch 0090 (`USE_OPENFONT`) is the font backend: FontCache, FontPlatformData, glyph pages, web fonts and the shaping path, glyphs drawn through cairo user fonts | **yes** (patch 0090, #94) | nothing: FreeType, HarfBuzz, fontconfig and Expat are 0 bytes in the engine's map (dev build, 23 Oct); cairo is built without its FreeType backend (gfopencairo `CAIRO_FONTS=user`) |
+| Drawing is GFOpenGfx/GFOpenGPU | GFOpenGfx (gfopengfx: graphics.library 47.100 and layers.library 47.102, clean room), gfopengpu.library 0.16 (gfopenrtg), pixman.library 2.0 (25 calls over GFOpenGPU; builds from gfopenpixman main, e4bd3ec) | GFOpenGfx has graphics.library's API: no anti-aliased paths, gradients, alpha compositing or glyph runs, and nothing deeper than 8 planes yet. GFOpenGPU's command stream has fill, copy, mask, premultiplied compositing, bilinear and affine scaled images and the 13 Porter-Duff operators (not yet on Vulkan), but no anti-aliased paths, gradients, blur or the PDF/HSL blend modes. gfopengfx main builds graphics.library 47.100 and layers.library 47.102 (rebuilt on the dev machine 22 Oct). No GraphicsContext exists on either; GraphicsContextOpenGfx and DrawGlyphRun are in design documents only | **no** | WebCore's cairo GraphicsContext and image surfaces |
+| Network is openweb.fetch | openweb.fetch/1 (gfopenservice `src/webfetch.c`, `docs/OPENWEB_FETCH.md`, v1 12 Oct) | runs on the services card only, and its TLS is the host's OpenSSL 3, not GFOpenTLS. It has cookies (passes every Set-Cookie through), keep-alive pooling, host-side gzip, deflate and Brotli, and 64 fetches at once. It lacks HTTP/2, WebSocket, proxies, HTTP auth and a LAN transport. No `OWFetch` binary on any drive; no WebCore network backend on it | **no**: today curl 8.22 on gfopentls.library 1.3 (patch 0022), HTTP/2 through nghttp2 (0023), bsdsocket.library from GFOpenSocket | WebCore's CurlContext and curl loader |
+| Decoders are datatypes | picture datatypes (gfopenimage); stream.datatype, gzip.datatype, brotli.datatype | pictures: yes. The stream class and the gzip and Brotli datatypes are a design only (JIT-on-core 0.5 §5.1), with no code in any repo | partly | libpng (for cairo) and zlib are still linked; curl decodes compressed bodies |
 | JavaScript JIT | patches 0020-0052 | in the browser | **yes** | nothing |
 | javascript.library | #63, #64; JavaScriptEngine built with the browser (#98) and shared with it (jsimage: #99, #103, #106, #108) | done: JavaScriptEngine 25,374,812 bytes stripped (38,086,144 before, 23 Oct); the browser engine takes JavaScriptCore, WTF and bmalloc from it (49,883,356 bytes stripped, 73,263,356 before); DOM bench no slower on lab copies of Instance-14 and Instance-32 | **yes**, when built with `build-webcore.sh jsimage` (`package-browser.sh` packs it with `Libs/JavaScript/JavaScriptEngine`) | nothing in the jsimage engine; the plain build (`OB_JSIMAGE=0`) still links its own |
 | ICU | unicode.library (`src/unicodelib`, #90, #102, #107, #113): ICU 78.3's code and data, one shared copy, 261 calls | done: library 4,032,168 bytes, data 4,597,248 bytes; UnicodeTest passed on lab copies of Instance-14 and Instance-32 (23 Oct); the 0.8.1 engine relinked on it is 71,871,112 bytes stripped (75,787,960 before, 3,916,848 less) and draws Wikipedia. The default build on it (#113, 28 Oct): WebBrowserEngine 69,347,684 bytes and JavaScriptEngine 21,561,160 bytes stripped; all six pages pass on a lab copy of Instance-14; launch to painted 3.42 s, the same as without it (3.42 s), and about 0.14 s less when the library is already in memory | **yes**: the default build (`OB_ICU_DATA=library`); `OB_ICU_DATA=file` links ICU in | ICU's own code, inside unicode.library, until step 7's second half replaces it |
@@ -162,7 +162,7 @@ is done when its "done when" holds on the lab instance.
    font backend (FontCache, FontPlatformData, GlyphPage and the shaping
    path) that calls it. Done when FreeType, HarfBuzz, fontconfig and Expat
    are gone from the engine's map and the benchmark pages render the same.
-   **Done 23 October 2026** (openamigafont #15 and #16, openamigacairo #8,
+   **Done 23 October 2026** (gfopenfont #15 and #16, gfopencairo #8,
    #94, WebKit patch 0090): the engine built on dev in 1,792 s with
    FreeType, HarfBuzz, harfbuzz-icu, fontconfig and Expat at 0 bytes in
    both maps. Emoji come from gfopenfont.library 1.4 through the PNG datatype,
@@ -170,7 +170,7 @@ is done when its "done when" holds on the lab instance.
    copies of Instance-14 and Instance-32 are recorded in
    `labs/webcore-openfont-20261023/` as they finish.
    **Checked on Instance-32 and Instance-14, 28 October 2026** (#100, #111,
-   #114 with WebKit patches 0091-0093, and openamigafont #21). The package's
+   #114 with WebKit patches 0091-0093, and gfopenfont #21). The package's
    own gfopenfont.library and fonts are found from the drawer (before this the
    engine aborted with none in `LIBS:`). Fallback fonts no longer read every
    font file again for each character. Results, in seconds:
@@ -231,7 +231,7 @@ is done when its "done when" holds on the lab instance.
    and 0073 (the openweb.fetch backend beside curl) are written, not yet
    built. Patch 0075 takes curl out: openweb.fetch does every load (no
    `OB_NET`), and curl and nghttp2 leave the engine's link. Built on
-   31 October (on main 0382210, with openamigaservice #15): libcurl.a,
+   31 October (on main 0382210, with gfopenservice #15): libcurl.a,
    libnghttp2.a and libpsl contribute 0 bytes to the engine's map (main
    had 318 and 66 map lines of the first two), and the stripped engine is
    62,602,356 bytes; the packaged jsimage engine is 43,819,252 bytes
@@ -253,7 +253,7 @@ is done when its "done when" holds on the lab instance.
    compare (45 to 99 requests a run, with or without curl).
 6. **Drawing on GFOpenGfx and GFOpenGPU.** Much of what a GraphicsContext
    needs already exists; reuse it, don't write it again (check of 22 October):
-   - anti-aliased path fill and clip: openamigafont `of_raster_a8()` (A8
+   - anti-aliased path fill and clip: gfopenfont `of_raster_a8()` (A8
      mask, curves, non-zero winding; even-odd winding still to add, for
      SVG, CSS and canvas `evenodd`), moved into GFOpenGPU, with its mask
      composite for clipping;
@@ -262,10 +262,10 @@ is done when its "done when" holds on the lab instance.
    - the 13 Porter-Duff operators: GFOpenGPU COMPOSITE_PD (add the Vulkan
      back end);
    - glyphs: GFOpenGPU MASK (add a batched glyph run and a glyph cache);
-   - shadows: openamigagfx `oc_shadow()`.
+   - shadows: gfopengfx `oc_shadow()`.
 
    Done so far: PNG encoding through the PNG datatype's write (DTM_WRITE,
-   patch 0074; gfopenpng.datatype writes from 47.4); GFOpenGPU 0.18's stream v1.6 (openamigartg #109) has
+   patch 0074; gfopenpng.datatype writes from 47.4); GFOpenGPU 0.18's stream v1.6 (gfopenrtg #109) has
    anti-aliased path fill (non-zero and even-odd), strokes, gradients,
    image patterns, blur and the blend modes, on its CPU core. Patch 0076
    paints the window through a GraphicsContext on GFOpenGPU: solid
@@ -291,9 +291,9 @@ is done when its "done when" holds on the lab instance.
      and planar bitmaps only, and calls GFOpenGPU for RTG bitmaps;
    - **openfont** keeps fonts and shaping, and draws through GFOpenGPU;
    - GFOpenRTG `screens.c`, the host's `acrtg.c` and the UI gradient fillers
-     (opengadtools, openlook, openintuition, gradientslider) call GFOpenGPU
+     (gfopengadtools, openlook, openintuition, gradientslider) call GFOpenGPU
      instead of their own copies;
-   - the old GFOpenGfx 1.x code in gfopengpu.library (openamigartg
+   - the old GFOpenGfx 1.x code in gfopengpu.library (gfopenrtg
      `library/ogfx`) and the copied `ogfx_*` files go;
    - no cairo and no pixman (Dale, 22 October): WebCore draws on GFOpenGPU
      directly, and nothing in the browser uses pixman.library. This is the largest step: all of WebCore's
@@ -332,5 +332,5 @@ Not in the order above, still open:
 Sizes come from the link maps and from stripping copies with the os32-gcc16
 stove's `m68k-amigaos-strip`. A map is grouped by archive (`lib*.a`), and an
 archive that is still in the map is still linked. The javascript.library
-checks run in a lab copy of an OS 3.2.3 instance (amigachrome's
+checks run in a lab copy of an OS 3.2.3 instance (amicradle's
 `scripts/lab_instance.py`; in this repo, `tools/run-probe.sh`).

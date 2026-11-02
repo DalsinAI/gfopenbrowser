@@ -8,16 +8,16 @@ git clone --filter=blob:none --no-checkout https://github.com/WebKit/WebKit.git
 cd WebKit
 git sparse-checkout set --cone CMakeLists.txt Source/cmake Source/WTF Source/bmalloc Source/JavaScriptCore Source/WebCore Source/ThirdParty Tools
 git checkout 54fe1539718eef2f24d813019949ca8cd4b9e89e
-git apply /path/to/openamigabrowser/webkit/patches/0001-amiga-m68k-jsconly.patch
-git apply /path/to/openamigabrowser/webkit/patches/0002-amiga-webcore.patch
-git apply /path/to/openamigabrowser/webkit/patches/0003-jsc-llint-prototype-cache-big-endian.patch
-git apply /path/to/openamigabrowser/webkit/patches/0004-amiga-webcore-network.patch
-git apply /path/to/openamigabrowser/webkit/patches/0005-utf16-big-endian.patch
-git apply /path/to/openamigabrowser/webkit/patches/0006-amiga-disk-webp-quiet.patch
-git apply /path/to/openamigabrowser/webkit/patches/0007-amiga-host-connections-llint-o2.patch
-git apply /path/to/openamigabrowser/webkit/patches/0008-jsc-for-in-big-endian.patch
-git apply /path/to/openamigabrowser/webkit/patches/0009-amiga-stop-run-loops-at-exit.patch
-git apply /path/to/openamigabrowser/webkit/patches/0010-amiga-fetch-proxy-experiment.patch
+git apply /path/to/gfopenbrowser/webkit/patches/0001-amiga-m68k-jsconly.patch
+git apply /path/to/gfopenbrowser/webkit/patches/0002-amiga-webcore.patch
+git apply /path/to/gfopenbrowser/webkit/patches/0003-jsc-llint-prototype-cache-big-endian.patch
+git apply /path/to/gfopenbrowser/webkit/patches/0004-amiga-webcore-network.patch
+git apply /path/to/gfopenbrowser/webkit/patches/0005-utf16-big-endian.patch
+git apply /path/to/gfopenbrowser/webkit/patches/0006-amiga-disk-webp-quiet.patch
+git apply /path/to/gfopenbrowser/webkit/patches/0007-amiga-host-connections-llint-o2.patch
+git apply /path/to/gfopenbrowser/webkit/patches/0008-jsc-for-in-big-endian.patch
+git apply /path/to/gfopenbrowser/webkit/patches/0009-amiga-stop-run-loops-at-exit.patch
+git apply /path/to/gfopenbrowser/webkit/patches/0010-amiga-fetch-proxy-experiment.patch
 # then the rest the same way, in number order (0030 last)
 ```
 
@@ -85,14 +85,14 @@ The patches, in order:
   byte for byte. No build step of the Amiga port runs Ruby now.
 
 - `0022-amiga-webcore-curl-opentls.patch`: the engine without OpenSSL. curl
-  does TLS through GFOpenTLS (openamigacurl's main branch), so `USE(OPENSSL)`
+  does TLS through GFOpenTLS (gfopencurl's main branch), so `USE(OPENSSL)`
   is off and WebCore links no AmiSSL: curl's OpenSSL-only files are left
   out, and no cipher list, curve list or CA file is set (GFOpenTLS picks its
   own suites and reads `S:GFOpenTLS/ca-bundle.pem`). Responses carry no
   certificate details, and WebCrypto (`crypto/amiga/CryptoAmiga.cpp`)
   offers the SHA-1 and SHA-2 digests only.
 
-- `0023-amiga-webcore-http2.patch`: HTTP/2. curl (openamigacurl, built with
+- `0023-amiga-webcore-http2.patch`: HTTP/2. curl (gfopencurl, built with
   nghttp2) is asked for `CURL_HTTP_VERSION_2TLS` on https://, HTTP/1.1
   when the server does not offer h2, and the multi handle multiplexes
   (`CURLPIPE_MULTIPLEX`): requests to one server are streams on one
@@ -148,7 +148,7 @@ The patches, in order:
 
 - `0030-amiga-xml-parser-oxp.patch`: XML (SVG, XHTML, `DOMParser`,
   `responseXML`) through OXP, the Team's own XML parser
-  (DalsinAI/openamigaxml, `oxp/`), in place of libxml2 (`USE(OXP)`).
+  (DalsinAI/gfopenxml, `oxp/`), in place of libxml2 (`USE(OXP)`).
   `XMLDocumentParserOXP.cpp` is WebKit's libxml2 backend moved onto OXP.
   `XMLDocumentParserOXPBridge.h` gives `XMLDocumentParser` OXP's events in
   libxml2's shapes, and is tested on the host against libxml2
@@ -383,7 +383,7 @@ The patches, in order:
   curl is the default (until 0075, which makes it the only backend). Basic and Digest credentials go in the URL; proxies
   are the transport's. Bodies are decoded only when the transport decodes
   (the card); the native transport sends `Accept-Encoding: identity` until
-  the datatypes stream decodes. Needs openamigaservice with the
+  the datatypes stream decodes. Needs gfopenservice with the
   asynchronous calls (protocol 2); without them the engine has curl only.
 - `0074-amiga-png-out-through-datatype.patch`: canvas `toDataURL` and
   `toBlob` write PNG through a PNG datatype's write (`DTM_WRITE` with
@@ -406,8 +406,8 @@ The patches, in order:
   arrives as one body. Every load asks for `WF_DECODE`, so pages come
   compressed as with curl: the card's host decodes, and the native
   transport decodes through stream.datatype, gzip.datatype and
-  brotli.datatype (needs openamigaservice #15). `OpenWebFetchAmiga.c` needs
-  openamigaservice's headers; there is no build without them.
+  brotli.datatype (needs gfopenservice #15). `OpenWebFetchAmiga.c` needs
+  gfopenservice's headers; there is no build without them.
 - `0076-amiga-graphicscontext-opengpu.patch`: the window is painted through
   `GraphicsContextOpenGPU` (`platform/graphics/amiga`), which
   `AmigaWebView::paint()` uses unless the Shell variable `OB_PAINT=cairo`
@@ -418,10 +418,10 @@ The patches, in order:
   every other call goes to a `GraphicsContextCairo` on the same pixels and
   state, after the batch is drawn, and is counted by kind. The stream is
   written by `OpenGPUPaintAmiga.c`, plain C tested on the host against
-  openamigartg's CPU core (`tests/test_opengpu_paint.c`);
+  gfopenrtg's CPU core (`tests/test_opengpu_paint.c`);
   `OpenGPULibraryAmiga.c` opens the library at run time through
-  openamigartg's inline calls, so nothing more is linked. Both C files
-  need openamigartg's headers.
+  gfopenrtg's inline calls, so nothing more is linked. Both C files
+  need gfopenrtg's headers.
 - `0077-amiga-opengpu-paths.patch`: `GraphicsContextOpenGPU` draws
   `fillPath`, `strokePath`, `strokeRect`, `fillRoundedRect`,
   `fillRectWithRoundedHole` and gradient fills itself, through

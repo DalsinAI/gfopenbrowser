@@ -8,7 +8,7 @@
  * registers, and what the core asks of Exec (struct oj_env: AllocVec and
  * FreeVec).
  *
- * Multicore (amigachrome-guest libraries/OPEN_LIBRARIES.md, section 5):
+ * Multicore (amicradle-guest libraries/OPEN_LIBRARIES.md, section 5):
  * SysBase is set once at init and only read after; every other byte of
  * state is in the caller's own document, writer or reader, so any task
  * may call any vector at once. A document is never changed by the

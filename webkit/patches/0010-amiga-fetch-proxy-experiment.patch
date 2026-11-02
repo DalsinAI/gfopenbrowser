@@ -8,7 +8,7 @@ index 5c7bda8c58..a01e960a55 100644
  
 +#if PLATFORM(AMIGA)
 +    // The host-fetch experiment (5 October 2026): with the Shell variable
-+    // OB_FETCH_PROXY naming a fetch proxy (openamigabrowser's
++    // OB_FETCH_PROXY naming a fetch proxy (gfopenbrowser's
 +    // scripts/ob-fetch-proxy.py on another PC), http and https requests go to
 +    // it as plain HTTP, https ones marked with X-OB-Fetch-Scheme, and the
 +    // proxy makes the TLS connection instead of the 68k. Cookies, headers and

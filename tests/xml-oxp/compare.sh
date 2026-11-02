@@ -4,7 +4,7 @@
 # and libxml2's own SAX2 events, in one text form; the two must match.
 #   sh tests/xml-oxp/compare.sh WEBKIT_SOURCE OXP_DIR LIST
 # WEBKIT_SOURCE: WebKit with the patches applied (for the bridge header).
-# OXP_DIR: an openamigaxml checkout's oxp/, built with REF=1 sh build-host.sh
+# OXP_DIR: a gfopenxml checkout's oxp/, built with REF=1 sh build-host.sh
 #          (liboxp.a and tests/ref's libxml2dump, which needs libxml2's headers).
 # LIST: files to read, one path a line.
 # MIT licence. Copyright (c) 2026 AmiCradle Team.

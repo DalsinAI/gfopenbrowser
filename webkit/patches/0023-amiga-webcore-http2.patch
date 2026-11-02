@@ -3,7 +3,7 @@ From: SacredTrees <121399723+SacredTrees@users.noreply.github.com>
 Date: Tue, 20 Oct 2026 08:56:15 +0000
 Subject: [PATCH] WebCore (Amiga): HTTP/2 to HTTPS servers, multiplexed
 
-openamigacurl builds curl with nghttp2, so curl reports HTTP2 and the
+gfopencurl builds curl with nghttp2, so curl reports HTTP2 and the
 curl backend asks for it. The Amiga says what it wants instead of
 leaving it to curl's defaults: CURL_HTTP_VERSION_2TLS for https://
 (HTTP/2 when the server offers it in ALPN, HTTP/1.1 otherwise; http://
@@ -39,7 +39,7 @@ index 64d2380c..158bbe3c 100644
 +#if PLATFORM(AMIGA)
 +        // HTTP/2 when the server offers it in ALPN, HTTP/1.1 otherwise; plain
 +        // http:// stays on 1.1. Alt-Svc picks the version when curl has
-+        // HTTP/3, which openamigacurl does not.
++        // HTTP/3, which gfopencurl does not.
 +        curl_easy_setopt(m_handle, CURLOPT_HTTP_VERSION, isHttp3Enabled ? CURL_HTTP_VERSION_NONE : CURL_HTTP_VERSION_2TLS);
 +#else
          // The appropriate HTTP version is selected based on ALPN, Alt-Svc, etc.

@@ -1,5 +1,5 @@
 #!/bin/sh
-# GFOpenBrowser (DalsinAI/openamigabrowser)
+# GFOpenBrowser (DalsinAI/gfopenbrowser)
 # Copyright (c) 2026 AmiCradle Team. MIT licence, see LICENSE.
 #
 # javascript.library 1 (src/jslib) and the JS command, for AmigaOS 3.2 on a
@@ -16,7 +16,7 @@
 #   OUT_DIR/JS                       the Shell command (C:)
 #
 #   TOOLCHAIN_DIR, STOVE and NDK_INCLUDE as for build-openbrowser.sh.
-#   OPENSDK_SRC     an openamigasdk checkout: when set, src/jslib/sdk is
+#   OPENSDK_SRC     a gfopensdk checkout: when set, src/jslib/sdk is
 #                   checked against the SFD with its OpenNDK/tools/ndkgen.py
 set -eu
 HERE=$(CDPATH= cd -- "$(dirname -- "$0")/.." && pwd)

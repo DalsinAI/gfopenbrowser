@@ -1,5 +1,5 @@
 #!/bin/sh
-# GFOpenBrowser (DalsinAI/openamigabrowser)
+# GFOpenBrowser (DalsinAI/gfopenbrowser)
 # Copyright (c) 2026 AmiCradle Team. MIT licence, see LICENSE.
 #
 # Build WebCore (PORT=Amiga) and GFOpenBrowser's WebCore programs for AmigaOS
@@ -35,10 +35,10 @@
 #                   and m68k-amigaos/, the libraries from the GFOpenAmiga ports
 #                   (cairo and pixman, SQLite, zlib, libpng) in one
 #                   prefix, with the gfopenfont.library 1.4 SDK
-#                   (openamigafont's sdk/Include_H in its include/) and
-#                   OXP, the XML parser (openamigaxml's oxp/build-amiga.sh with
+#                   (gfopenfont's sdk/Include_H in its include/) and
+#                   OXP, the XML parser (gfopenxml's oxp/build-amiga.sh with
 #                   OUT set to that prefix; WebKit patch 0030). Its cairo is
-#                   built without FreeType (openamigacairo's build.sh with
+#                   built without FreeType (gfopencairo's build.sh with
 #                   CAIRO_FONTS=user): text is drawn and shaped with
 #                   gfopenfont.library (WebKit patch 0090), and FreeType,
 #                   HarfBuzz, fontconfig and Expat are not used.
@@ -49,18 +49,18 @@
 #                   in S:GFOpenTLS/ca-bundle.pem for https://, and
 #                   stream.datatype, gzip.datatype and brotli.datatype for
 #                   compressed pages.
-#   OPENSERVICE_DIR openamigaservice's checkout: openweb.fetch's client and
+#   OPENSERVICE_DIR gfopenservice's checkout: openweb.fetch's client and
 #                   native transport (required)
-#                   (default ../openamigaservice beside this repository)
+#                   (default ../gfopenservice beside this repository)
 #   OPENDATATYPES_DIR
-#                   opendatatypes' checkout: the stream class's header, for
+#                   gfopendatatypes' checkout: the stream class's header, for
 #                   the native transport's decoding (required)
-#                   (default ../opendatatypes beside this repository)
+#                   (default ../gfopendatatypes beside this repository)
 #   OPENAMIGARTG_DIR
-#                   openamigartg's checkout: gfopengpu.library's stream and
+#                   gfopenrtg's checkout: gfopengpu.library's stream and
 #                   inline calls, for painting the window through GFOpenGPU
 #                   (WebKit patch 0076; headers only, required)
-#                   (default ../openamigartg beside this repository)
+#                   (default ../gfopenrtg beside this repository)
 #
 # No Ruby: WebKit's Ruby generators run as Python ports (patches 0019 and
 # 0021), with the python3 CMake finds.
@@ -201,21 +201,21 @@ CCACHE_SIZE=${OB_CCACHE_SIZE:-20G}
 GMAKE=${GMAKE:-$(command -v gmake || command -v make || true)}
 ENGINE_LIBRARIES="libWebCore.a libJavaScriptCore.a libWTF.a libPAL.a libbmalloc.a"
 
-# openamigaservice's checkout, as src/webcore/CMakeLists.txt finds it.
+# gfopenservice's checkout, as src/webcore/CMakeLists.txt finds it.
 openservice_dir() {
     if [ -n "${OPENSERVICE_DIR:-}" ] && [ -f "$OPENSERVICE_DIR/include/devices/openservice.h" ]; then
         echo "$OPENSERVICE_DIR"
     else
-        echo "$ROOT/../openamigaservice"
+        echo "$ROOT/../gfopenservice"
     fi
 }
 
-# openamigartg's checkout, as src/webcore/CMakeLists.txt finds it.
+# gfopenrtg's checkout, as src/webcore/CMakeLists.txt finds it.
 openamigartg_dir() {
     if [ -n "${OPENAMIGARTG_DIR:-}" ] && [ -f "$OPENAMIGARTG_DIR/include/opengpu/stream.h" ]; then
         echo "$OPENAMIGARTG_DIR"
     else
-        echo "$ROOT/../openamigartg"
+        echo "$ROOT/../gfopenrtg"
     fi
 }
 
@@ -224,9 +224,9 @@ need_sources() {
     : "${OAB_DEPS:?set OAB_DEPS to the folder with icu78-m68k-amigaos and m68k-amigaos}"
     [ -d "$WEBKIT_SOURCE/Source/WebCore" ] || die "WebKit source with Source/WebCore missing: $WEBKIT_SOURCE"
     [ -f "$(openservice_dir)/include/openweb/webfetch.h" ] ||
-        die "openamigaservice missing at $(openservice_dir): the engine's network is openweb.fetch (set OPENSERVICE_DIR)"
+        die "gfopenservice missing at $(openservice_dir): the engine's network is openweb.fetch (set OPENSERVICE_DIR)"
     [ -f "$(openamigartg_dir)/include/inline/opengpu.h" ] ||
-        die "openamigartg missing at $(openamigartg_dir): the window is painted through gfopengpu.library (set OPENAMIGARTG_DIR)"
+        die "gfopenrtg missing at $(openamigartg_dir): the window is painted through gfopengpu.library (set OPENAMIGARTG_DIR)"
     export OAB_DEPS
 }
 
@@ -332,7 +332,7 @@ write_launcher() {
     mkdir -p "$BUILD"
     cat > "$BUILD/ob-ccache" <<EOF
 #!/bin/sh
-# Written by openamigabrowser's scripts/build-webcore.sh.
+# Written by gfopenbrowser's scripts/build-webcore.sh.
 export CCACHE_DIR='$CCACHE_FOLDER'
 export CCACHE_MAXSIZE='$CCACHE_SIZE'
 export CCACHE_BASEDIR='$HOME'
@@ -352,7 +352,7 @@ EOF
         # fails instead of waiting.
         cat > "$BUILD/ob-distcc-ssh" <<'EOF'
 #!/bin/sh
-# Written by openamigabrowser's scripts/build-webcore.sh: ssh for distcc.
+# Written by gfopenbrowser's scripts/build-webcore.sh: ssh for distcc.
 exec ssh -o BatchMode=yes -o ControlMaster=auto -o "ControlPath=$HOME/.ssh/ob-distcc-%C" -o ControlPersist=600 "$@"
 EOF
         chmod +x "$BUILD/ob-distcc-ssh"
@@ -363,7 +363,7 @@ EOF
         # and the other PC compiles the headers in full.
         cat > "$BUILD/ob-distcc" <<'EOF'
 #!/bin/sh
-# Written by openamigabrowser's scripts/build-webcore.sh: distcc for ccache.
+# Written by gfopenbrowser's scripts/build-webcore.sh: distcc for ccache.
 for a; do shift; [ "$a" = -fpch-preprocess ] || set -- "$@" "$a"; done
 exec distcc "$@"
 EOF

@@ -2,7 +2,7 @@
  * WebKit patch 0080's drawing: GraphicsContextOpenGPU's drawRect,
  * drawLine (solid, dotted, dashed, horizontal and vertical), drawEllipse and
  * drawLinesForText as the writer calls they make (OpenGPUPaintAmiga.c, on
- * openamigartg's CPU core), against cairo making WebKit's own calls for
+ * gfopenrtg's CPU core), against cairo making WebKit's own calls for
  * them (CairoOperations.cpp's drawRect, drawLine, drawEllipse and
  * drawLinesForText, ported here line for line). The geometry each side
  * computes is the same code; the pixels are the writer's against cairo's:

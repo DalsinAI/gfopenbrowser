@@ -35,8 +35,8 @@ it when it needs the room; a path larger than all of scratch goes to
 cairo. Scratch grows from 6 KB to 16 KB. The work memory PATH_FILL needs
 is made when a path or picture first wants it.
 
-Tested on the host against openamigartg's CPU core
-(openamigabrowser tests/test_opengpu_paint.c): fills, strokes, joins,
+Tested on the host against gfopenrtg's CPU core
+(gfopenbrowser tests/test_opengpu_paint.c): fills, strokes, joins,
 caps, miter limits, dashes and gradients against a reference sampled 256
 times a pixel.
 
@@ -1013,7 +1013,7 @@ index 2005f634ce7..8c06d925823 100644
 + * filled and stroked with a colour or a gradient, the operators and the
 + * batches (OpenGPUPaintAmiga.c). Plain C with no
   * WebKit, no C library and no floating point, so the host tests build it
-  * against openamigartg's CPU core (openamigabrowser tests/test_opengpu_paint.c).
+  * against gfopenrtg's CPU core (gfopenbrowser tests/test_opengpu_paint.c).
   *
 @@ -94,6 +95,12 @@ struct obgpu {
      long scratch_cap, scratch_used;

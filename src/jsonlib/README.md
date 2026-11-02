@@ -187,7 +187,7 @@ under `qemu-m68k -cpu m68040`:
 - the numbers above;
 - `JSONTest`'s self-test over the core (`JSON_HOSTED`).
 
-With `OPENSDK_SRC` (an openamigasdk checkout) it also checks the SDK
+With `OPENSDK_SRC` (a gfopensdk checkout) it also checks the SDK
 headers against the SFD and compiles the shell and JSONTest against
 GFOpenNDK. The library itself, on an Amiga: `JSONTest` (the self-test, every
 call through its registers) and `JSONTest FILE BENCH`.

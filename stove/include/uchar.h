@@ -1,4 +1,4 @@
-/* GFOpenBrowser (DalsinAI/openamigabrowser). Copyright (c) 2026 AmiCradle Team. MIT licence, see LICENSE. */
+/* GFOpenBrowser (DalsinAI/gfopenbrowser). Copyright (c) 2026 AmiCradle Team. MIT licence, see LICENSE. */
 /* Minimal C11 <uchar.h> for AmigaOS 3.x (AmiCradle os32-gcc16).
  * Types only; libnix has no mbrtoc16/c16rtomb. In C++ the types are built in. */
 #ifndef _AMICRADLE_UCHAR_H

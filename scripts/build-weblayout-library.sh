@@ -1,10 +1,10 @@
 #!/bin/sh
-# GFOpenBrowser (DalsinAI/openamigabrowser)
+# GFOpenBrowser (DalsinAI/gfopenbrowser)
 # Copyright (c) 2026 AmiCradle Team. MIT licence, see LICENSE.
 #
 # weblayout.library 1 (src/weblayout as a resident library) and its Amiga
 # test program, for AmigaOS 3.2 on a 68040 with its FPU. The library uses
-# the resident gfopenlayout.library 2 (DalsinAI/openamigalayout) and links
+# the resident gfopenlayout.library 2 (DalsinAI/gfopenlayout) and links
 # with no C library: an Exec pool per document and its own string calls.
 #
 #   build-weblayout-library.sh [OUT_DIR]     (default build/weblayout-library)
@@ -16,7 +16,7 @@
 #
 #   TOOLCHAIN_DIR, STOVE, NDK_INCLUDE and OPENLAYOUT_SRC as for
 #   build-openbrowser.sh.
-#   OPENSDK_SRC     an openamigasdk checkout: when set, the SDK headers in
+#   OPENSDK_SRC     a gfopensdk checkout: when set, the SDK headers in
 #                   src/weblayout/library/sdk are checked against
 #                   weblayout_lib.sfd with its OpenNDK/tools/ndkgen.py
 set -eu
@@ -28,7 +28,7 @@ else
     BIN="${STOVE:-"$HOME/AmiCradle/stoves/os32-gcc16"}/prefix/bin"
 fi
 CC="$BIN/m68k-amigaos-gcc"
-OL=${OPENLAYOUT_SRC:-"$HERE/../openamigalayout"}
+OL=${OPENLAYOUT_SRC:-"$HERE/../gfopenlayout"}
 WL="$HERE/src/weblayout"
 LIB="$WL/library"
 [ -x "$CC" ] || { echo "build-weblayout-library.sh: no compiler at $CC (set TOOLCHAIN_DIR or STOVE)" >&2; exit 2; }

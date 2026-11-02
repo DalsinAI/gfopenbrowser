@@ -1,4 +1,4 @@
-/* GFOpenBrowser (DalsinAI/openamigabrowser)
+/* GFOpenBrowser (DalsinAI/gfopenbrowser)
  * Copyright (c) 2026 AmiCradle Team. MIT licence, see LICENSE.
  *
  * One-hunk link for pc-relative code (OB_PCREL, scripts/build-webcore.sh).
