@@ -376,8 +376,8 @@ index f1b4df0..9c4334f 100644
 --- a/Source/WebCore/platform/graphics/amiga/OpenGPULibraryAmiga.c
 +++ b/Source/WebCore/platform/graphics/amiga/OpenGPULibraryAmiga.c
 @@ -18,6 +18,14 @@
- #include <opengpu/opengpu.h>
- #include <inline/opengpu.h>
+ #include <gfopengpu/gfopengpu.h>
+ #include <inline/gfopengpu.h>
  
 +/* gfopengpu.library 0.24's flag query (stream.h), for headers from before it */
 +#ifndef OGPU_QUERY_FLAG

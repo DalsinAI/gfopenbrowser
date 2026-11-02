@@ -824,8 +824,8 @@ index 00000000000..017286bfac2
 +
 +/* The engine's own base: a program's OpenGPUBase is left alone. */
 +#define OPENGPU_BASE_NAME OBOpenGPUBase
-+#include <opengpu/opengpu.h>
-+#include <inline/opengpu.h>
++#include <gfopengpu/gfopengpu.h>
++#include <inline/gfopengpu.h>
 +
 +#include <pthread.h>
 +#include <stdlib.h>
@@ -891,7 +891,7 @@ index 00000000000..60e597dc53c
 @@ -0,0 +1,652 @@
 +/*
 + * GraphicsContextOpenGPU's drawing as OpenGPU stream words
-+ * (OpenGPUPaintAmiga.h; the stream is gfopenrtg's include/opengpu/stream.h).
++ * (OpenGPUPaintAmiga.h; the stream is gfopenrtg's include/gfopengpu/stream.h).
 + *
 + * What is drawn here, as cairo draws it:
 + * - a rectangle of one colour whose visible edges fall on whole pixels,
@@ -918,7 +918,7 @@ index 00000000000..60e597dc53c
 + */
 +#include "OpenGPUPaintAmiga.h"
 +
-+#include <opengpu/stream.h>
++#include <gfopengpu/stream.h>
 +
 +#if OBGPU_SLOTS != OGPU_MAX_SLOTS
 +#error "OBGPU_SLOTS is OpenGPU's OGPU_MAX_SLOTS"

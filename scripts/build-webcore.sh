@@ -212,7 +212,7 @@ openservice_dir() {
 
 # gfopenrtg's checkout, as src/webcore/CMakeLists.txt finds it.
 openamigartg_dir() {
-    if [ -n "${OPENAMIGARTG_DIR:-}" ] && [ -f "$OPENAMIGARTG_DIR/include/opengpu/stream.h" ]; then
+    if [ -n "${OPENAMIGARTG_DIR:-}" ] && [ -f "$OPENAMIGARTG_DIR/include/gfopengpu/stream.h" ]; then
         echo "$OPENAMIGARTG_DIR"
     else
         echo "$ROOT/../gfopenrtg"
@@ -225,7 +225,7 @@ need_sources() {
     [ -d "$WEBKIT_SOURCE/Source/WebCore" ] || die "WebKit source with Source/WebCore missing: $WEBKIT_SOURCE"
     [ -f "$(openservice_dir)/include/openweb/webfetch.h" ] ||
         die "gfopenservice missing at $(openservice_dir): the engine's network is openweb.fetch (set OPENSERVICE_DIR)"
-    [ -f "$(openamigartg_dir)/include/inline/opengpu.h" ] ||
+    [ -f "$(openamigartg_dir)/include/inline/gfopengpu.h" ] ||
         die "gfopenrtg missing at $(openamigartg_dir): the window is painted through gfopengpu.library (set OPENAMIGARTG_DIR)"
     export OAB_DEPS
 }
@@ -309,7 +309,7 @@ engine_inputs() {
     echo "openweb-headers $(tree_hash "$(openservice_dir)/include/openweb")"
     # gfopengpu.library's stream and calls, for OpenGPUPaintAmiga.c and
     # OpenGPULibraryAmiga.c (patch 0076).
-    echo "opengpu-headers $(tree_hash "$(openamigartg_dir)/include/opengpu") $(sha256 < "$(openamigartg_dir)/include/inline/opengpu.h")"
+    echo "opengpu-headers $(tree_hash "$(openamigartg_dir)/include/gfopengpu") $(sha256 < "$(openamigartg_dir)/include/inline/gfopengpu.h")"
     echo "options $(engine_options | sha256)"
 }
 
