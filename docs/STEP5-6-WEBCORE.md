@@ -152,9 +152,9 @@ no conversion.
 
 ### GFOpenGPU operations each job needs
 
-"Today" is stream v1.5 (`openamigartg/include/opengpu/stream.h`). "v1.6"
+"Today" is stream v1.5 (`gfopenrtg/include/opengpu/stream.h`). "v1.6"
 is the vector work (paths, strokes, gradients, blur, blend modes) being
-added on `team3/opengpu-vector-20261023` in openamigartg, which was not
+added on `team3/opengpu-vector-20261023` in gfopenrtg, which was not
 pushed when this was written; its opcodes are not checked here.
 
 | WebCore needs | Used by | GFOpenGPU today | Still to add |
@@ -292,7 +292,7 @@ engine's link map.
    `CurlFormDataStream`'s job done by a `FormData` reader feeding
    `wf_send()`. A switch picks curl or openweb.fetch, so both are measured
    on one build. Map: grows by the client (`webfetch.c` is 249 lines).
-   Needs the first half of step 5 in openamigaservice before it can be
+   Needs the first half of step 5 in gfopenservice before it can be
    the default.
 5. **curl out** (patch 0075; built and tested 31 October). `platform/Curl.cmake` no longer included; the files that
    stay are listed in `PlatformAmiga.cmake`; `CurlContext`, `CurlRequest`,
@@ -301,7 +301,7 @@ engine's link map.
    goes too (`multipart/x-mixed-replace` arrives as one body, as it did on
    patch 0073's backend). `AmigaNetworkSetup.c` opens no bsdsocket.library:
    the native transport opens its own. Every load asks for `WF_DECODE`
-   (the native transport decodes through the datatypes, openamigaservice
+   (the native transport decodes through the datatypes, gfopenservice
    #15). Map:
    `libcurl.a`, `libnghttp2.a` and the curl objects. Step 5 is done when
    the map shows them gone: they are (31 October, 0 bytes; the stripped
@@ -397,7 +397,7 @@ nghttp2 in 5.5, libpng in 6.1, cairo and pixman in 6.6.
 
 ## D. Cairo out (Team 4, from 1 November 2026)
 
-Dale, 1 Nov: cairo leaves openamigabrowser and what it did is offered by
+Dale, 1 Nov: cairo leaves gfopenbrowser and what it did is offered by
 the SDK. PLAN.md step 6 (22 Oct): WebCore draws on GFOpenGPU directly;
 gfopengpu.library does all pixel work. Built on Team 3's open #104 (patch
 0076) and #115 (patch 0077), never rewriting them. One PR per item, in this
@@ -406,37 +406,37 @@ order; each browser branch is stacked on the one before it, the first on
 
 | # | Repo | What | Stacked on |
 |---|---|---|---|
-| 1 | openamigartg | stream v1.8: `OGPU_PATH_ALIASED` (paths without anti-aliasing, cairo's `CAIRO_ANTIALIAS_NONE`), gfopengpu.library 0.23. The only new pixel work cairo did that GFOpenGPU lacked; everything else (A8 clip masks, patterns, conic gradients, blur, layers by `COMPOSITE_PD`) is in v1.6 already | main |
-| 2 | openamigasdk | gfopengpu.library in the Open SDK: its headers and SFD gathered from openamigartg (one source: `include/opengpu/`), its AutoDocs in `Docs/`, an example in `Examples/` | main (pins 1's commit) |
-| 3 | openamigabrowser | patch 0078 , item 1: clips to paths as A8 masks (clipPath, clipOut, rounded and off-pixel rectangle clips), aliased paths, copy and clear on paths (cairo's bounded lerp, two passes) | #115 |
-| 4 | openamigabrowser | patch 0079, item 2: patterns (drawPattern, pattern fills and strokes; tiles on whole pixels, no spacing, both-way repeat for brushes), conic gradients, stops of different alphas (premultiplied, as CSS: Dale, 1 Nov), aliased paths asked with `OGPU_QUERY_FLAG` | 3 |
-| 5 | openamigabrowser | patch 0080, item 3: drawLine, drawRect, drawEllipse, focus rings, text decorations, document markers | 4 |
-| 6 | openamigabrowser | patch 0081, item 4: shadows (GFOpenGPU BLUR) and transparency layers (offscreen surface, then COMPOSITE_PD by opacity, operator and blend mode), clipToImageBuffer | 5 |
-| 6b | openamigabrowser | patch 0082b, item 4's shadows: ShadowBlur's (box sizes from calculateLobes: CSS blur x 0.88, canvas 2/3; Dale, 1 Nov) as an A8 layer, GFOpenGPU `BLUR` asked for those sizes, the colour through it | 7 |
-| 7 | openamigabrowser | patch 0082, item 5: glyph runs through gfopenfont.library 1.5's `OF_DrawGlyphsA`, whose glyph cache is inside openfont (Dale, 1 Nov; openamigafont #24) | 6 |
-| 8 | openamigabrowser | item 6: PNG out is already the PNG datatype's (patch 0074, #93): libpng is linked only for cairo, and leaves with it in 9 | - |
-| 9 | openamigabrowser | patch 0083, item 7: cairo, pixman and libpng out of the engine's map; GraphicsContextCairo goes | 7 |
+| 1 | gfopenrtg | stream v1.8: `OGPU_PATH_ALIASED` (paths without anti-aliasing, cairo's `CAIRO_ANTIALIAS_NONE`), gfopengpu.library 0.23. The only new pixel work cairo did that GFOpenGPU lacked; everything else (A8 clip masks, patterns, conic gradients, blur, layers by `COMPOSITE_PD`) is in v1.6 already | main |
+| 2 | gfopensdk | gfopengpu.library in the Open SDK: its headers and SFD gathered from gfopenrtg (one source: `include/opengpu/`), its AutoDocs in `Docs/`, an example in `Examples/` | main (pins 1's commit) |
+| 3 | gfopenbrowser | patch 0078 , item 1: clips to paths as A8 masks (clipPath, clipOut, rounded and off-pixel rectangle clips), aliased paths, copy and clear on paths (cairo's bounded lerp, two passes) | #115 |
+| 4 | gfopenbrowser | patch 0079, item 2: patterns (drawPattern, pattern fills and strokes; tiles on whole pixels, no spacing, both-way repeat for brushes), conic gradients, stops of different alphas (premultiplied, as CSS: Dale, 1 Nov), aliased paths asked with `OGPU_QUERY_FLAG` | 3 |
+| 5 | gfopenbrowser | patch 0080, item 3: drawLine, drawRect, drawEllipse, focus rings, text decorations, document markers | 4 |
+| 6 | gfopenbrowser | patch 0081, item 4: shadows (GFOpenGPU BLUR) and transparency layers (offscreen surface, then COMPOSITE_PD by opacity, operator and blend mode), clipToImageBuffer | 5 |
+| 6b | gfopenbrowser | patch 0082b, item 4's shadows: ShadowBlur's (box sizes from calculateLobes: CSS blur x 0.88, canvas 2/3; Dale, 1 Nov) as an A8 layer, GFOpenGPU `BLUR` asked for those sizes, the colour through it | 7 |
+| 7 | gfopenbrowser | patch 0082, item 5: glyph runs through gfopenfont.library 1.5's `OF_DrawGlyphsA`, whose glyph cache is inside openfont (Dale, 1 Nov; gfopenfont #24) | 6 |
+| 8 | gfopenbrowser | item 6: PNG out is already the PNG datatype's (patch 0074, #93): libpng is linked only for cairo, and leaves with it in 9 | - |
+| 9 | gfopenbrowser | patch 0083, item 7: cairo, pixman and libpng out of the engine's map; GraphicsContextCairo goes | 7 |
 
 Tests for each: the engine's stream writer (OpenGPUPaintAmiga.c) on
-openamigartg's CPU core against host cairo 1.18 pixel for pixel where the
+gfopenrtg's CPU core against host cairo 1.18 pixel for pixel where the
 two rasterisers can agree (rectangles, pixel-aligned clips, compositing),
 counted where they can't (anti-aliased edges, curves), plus the 408 checks
 of #115 still passing. The C++ in the patches can't be compiled outside the
 WebKit build PC; what wasn't built or run on an Amiga is said in each PR.
 
-State on 1 November: 1 is openamigartg #157 (merged), 2 is openamigasdk
+State on 1 November: 1 is gfopenrtg #157 (merged), 2 is gfopensdk
 #35, 3 is the PR adding this section. On the way, the CPU core's inverse
 matrices (gradients, patterns, COMPOSITE_AFFINE) turned out miscompiled by
-GCC for the 68k: openamigartg #159 fixes it for GCC 16 and 13, checked on
-a lab Amiga; with GCC 6.5 (the os32 stove, which openamigartg's
+GCC for the 68k: gfopenrtg #159 fixes it for GCC 16 and 13, checked on
+a lab Amiga; with GCC 6.5 (the os32 stove, which gfopenrtg's
 `library/build.sh` uses for gfopengpu.library) strokes painted with
 gradients or patterns still differ from the host's. Items 2 (patterns,
 gradients) and later wait on that.
 
 Later on 1 November: the shipped gfopengpu.library is built with
-GFOpenAmigaGCC 16.2.0-open4 (openamigartg #160; its OpenGPUVectorCRC matches
+GFOpenAmigaGCC 16.2.0-open4 (gfopenrtg #160; its OpenGPUVectorCRC matches
 the host on a lab Amiga), so the GCC 6.5 difference no longer reaches
-users. openamigartg #161 (gfopengpu.library 0.24) adds `OGPU_QUERY_FLAG`, the
+users. gfopenrtg #161 (gfopengpu.library 0.24) adds `OGPU_QUERY_FLAG`, the
 query 0079 uses for `OGPU_PATH_ALIASED`. Gradient stops of different
 alphas are mixed premultiplied, as CSS says, where pixman mixed them
 unpremultiplied: Dale accepts GFOpenGPU's behaviour. Patch 0079 is item 4.

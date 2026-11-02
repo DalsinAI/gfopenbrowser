@@ -27,7 +27,7 @@ weblayout          WLDocument: HTML Lite + CSS Lite -> semantic tree,
                    layout at a width, painting into a RastPort area,
                    pictures through picture.datatype, link hit-testing,
                    address resolution
-GFOpenLayout         geometry, display list, hit-testing (openamigalayout;
+GFOpenLayout         geometry, display list, hit-testing (gfopenlayout;
                    built in, or the resident gfopenlayout.library 2.0)
 the OS             graphics.library, layers.library, datatypes.library
 ```
@@ -131,7 +131,7 @@ Each step below is done; what was done follows it.
    converts a slice of a text node in place, so the painter no longer
    copies the slice first. weblayout needs nothing of GFOpenMail now.
 4. The SFD, the LVO table, `proto/`, `inline/` and `clib/` headers, made
-   the way openamigalayout's `library/openlayout_lib.sfd` and GFOpenSDK make
+   the way gfopenlayout's `library/openlayout_lib.sfd` and GFOpenSDK make
    them; then a GFOpenNDK entry and a GFOpenUp part (`LIBS:weblayout.library`,
    gfopenlayout.library beside it).
    Done: `src/weblayout/library/weblayout_lib.sfd` (bias 30, the calls in
@@ -146,7 +146,7 @@ Each step below is done; what was done follows it.
    datatypes.library 44 (without it pictures draw as their boxes). Expunge
    closes them. Not done yet: the GFOpenNDK entry and the GFOpenUp part.
 5. Tests: the Amiga test programs open the library from `LIBS:` (as
-   openamigalayout's `LayoutLibTest` does), and the host tests stay.
+   gfopenlayout's `LayoutLibTest` does), and the host tests stay.
    Done: `tests/test_wl_library.c`, built as `WebLayoutLibTest`. It opens
    `LIBS:weblayout.library` 1, then on a small page in an off-screen
    RastPort with topaz 8 it checks the title, the stylesheet and picture
@@ -178,7 +178,7 @@ Approved with the proposed answers (20 October 2026):
 ## Building it
 
 ```sh
-TOOLCHAIN_DIR=... NDK_INCLUDE=.../OpenNDK/Include_H OPENLAYOUT_SRC=.../openamigalayout \
+TOOLCHAIN_DIR=... NDK_INCLUDE=.../OpenNDK/Include_H OPENLAYOUT_SRC=.../gfopenlayout \
     scripts/build-weblayout-library.sh            # build/weblayout-library/weblayout.library
                                                   # build/weblayout-library/tests/WebLayoutLibTest
 WEBLAYOUT=library scripts/build-openbrowser.sh    # GFOpenBrowserLite on LIBS:weblayout.library
@@ -193,12 +193,12 @@ both ways. As library calls they only report whether the bases the
 library opened are there.
 
 To install, copy `weblayout.library` to `LIBS:`, with gfopenlayout.library 2
-(openamigalayout) beside it.
+(gfopenlayout) beside it.
 
 ## Still to do
 
 - Run `WebLayoutLibTest` and GFOpenBrowserLite built with `WEBLAYOUT=library`
   on an AmigaOS 3.2.3 instance, then on the real 68040. Until then Lite's
   default build stays linked and the release archive has no library in it.
-- The GFOpenNDK entry (SFD and headers in openamigasdk), and a GFOpenUp part
+- The GFOpenNDK entry (SFD and headers in gfopensdk), and a GFOpenUp part
   for `LIBS:weblayout.library` with gfopenlayout.library beside it.

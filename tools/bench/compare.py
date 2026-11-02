@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-# GFOpenBrowser (DalsinAI/openamigabrowser)
+# GFOpenBrowser (DalsinAI/gfopenbrowser)
 # Copyright (c) 2026 The AmiCradle Team. MIT licence, see LICENSE.
 """Compare the Amiga's pictures of the benchmark pages with reference
 pictures of the same pages at the same size (tools/bench/make-refs.py makes

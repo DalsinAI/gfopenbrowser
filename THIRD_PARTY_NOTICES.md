@@ -46,7 +46,7 @@ amiga-gcc and uses GFOpenTLS (gfopentls.library) when it runs; until 19 October
 
 The package (`scripts/package-browser.sh`) carries, for compressed pages,
 z.library (GFOpenZlib, AmiCradle Team, MIT, with zlib inside under the zlib
-licence) and opendatatypes' stream.datatype, gzip.datatype and
+licence) and gfopendatatypes' stream.datatype, gzip.datatype and
 brotli.datatype (AmiCradle Team, MIT; brotli.datatype is our own decoder,
 written from RFC 7932, with the static dictionary taken from the RFC's
 text), built from their own repositories.

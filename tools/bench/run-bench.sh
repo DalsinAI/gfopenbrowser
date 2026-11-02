@@ -1,5 +1,5 @@
 #!/bin/sh
-# GFOpenBrowser (DalsinAI/openamigabrowser)
+# GFOpenBrowser (DalsinAI/gfopenbrowser)
 # Copyright (c) 2026 The AmiCradle Team. MIT licence, see LICENSE.
 #
 # Run a staged benchmark (tools/bench/stage.py) on an AmiCradle test

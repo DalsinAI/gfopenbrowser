@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-# GFOpenBrowser (DalsinAI/openamigabrowser)
+# GFOpenBrowser (DalsinAI/gfopenbrowser)
 # Copyright (c) 2026 The AmiCradle Team. MIT licence, see LICENSE.
 """Stage GFOpenBrowser's benchmark in a folder the Amiga sees as a drawer
 (normally DH1:Bench of a test instance): the programs, fonts, the pages of

@@ -29,7 +29,7 @@ decodes compressed bodies (WF_DECODE); the native transport has no
 decoder until the datatypes' stream classes are there, so it asks for
 "Accept-Encoding: identity".
 
-OpenWebFetchAmiga.c holds the calls to openamigaservice's client in
+OpenWebFetchAmiga.c holds the calls to gfopenservice's client in
 plain C. It finds the client's headers when the browser's build gives
 them; without them it builds empty, OB_NET=openweb is ignored and curl
 loads.
@@ -57,7 +57,7 @@ index 8522452a3a2..08474367213 100644
      platform/network/amiga/PublicSuffixStoreAmiga.cpp
  
 +    # Loads through openweb.fetch beside curl (OB_NET=openweb). The browser's
-+    # build gives OpenWebFetchAmiga.c openamigaservice's client headers and
++    # build gives OpenWebFetchAmiga.c gfopenservice's client headers and
 +    # links its client; without them the file builds empty and curl loads.
 +    platform/network/amiga/OpenWebFetchAmiga.c
 +    platform/network/amiga/WebFetchAmiga.cpp
@@ -500,11 +500,11 @@ index 00000000000..06076e21e81
 + * openweb.fetch for WebCore's network thread (OpenWebFetchAmiga.c): the
 + * service opened once, fetches started, their bodies sent, their heads and
 + * bodies collected without blocking (wf_async_start and wf_wait, from
-+ * openamigaservice's include/openweb/webfetch.h). Plain C, so that AmigaOS
++ * gfopenservice's include/openweb/webfetch.h). Plain C, so that AmigaOS
 + * headers and their macros stay out of WebCore's C++.
 + *
 + * Every call but obwf_net_wake runs on the one task that called
-+ * obwf_net_new. A build without openamigaservice's headers has no
++ * obwf_net_new. A build without gfopenservice's headers has no
 + * transport: obwf_available() is 0 and obwf_net_new answers NULL.
 + * MIT, Copyright (c) 2026 AmiCradle Team.
 + * SPDX-License-Identifier: MIT
@@ -533,7 +533,7 @@ index 00000000000..06076e21e81
 +    unsigned long infoLength;
 +} OBWFHead;
 +
-+/* 1 when the engine was built with openamigaservice's client. */
++/* 1 when the engine was built with gfopenservice's client. */
 +int obwf_available(void);
 +
 +/* Opens openweb.fetch (the card, a Cradle, or this Amiga's own TCP/IP

@@ -22,8 +22,8 @@ on:
   workflow_dispatch:
 
 env:
-  OPENSDK_REF: e75b5ffae42b6c446ec11cb195b919151e56529c      # openamigasdk main, as lite.yml
-  TC_URL: https://github.com/DalsinAI/openamigagcc/releases/download/v16.2.0-open3/openamigagcc-16.2.0-open3-x86_64-linux.tar.xz
+  OPENSDK_REF: e75b5ffae42b6c446ec11cb195b919151e56529c      # gfopensdk main, as lite.yml
+  TC_URL: https://github.com/DalsinAI/gfopengcc/releases/download/v16.2.0-open3/openamigagcc-16.2.0-open3-x86_64-linux.tar.xz
   TC_SHA256: 9fcc136ab59e3bb5b91d2764d0bf290b709d72d7380be4ce0cdf005edf8eff21
 
 jobs:
@@ -33,15 +33,15 @@ jobs:
       - uses: actions/checkout@v4
       - uses: actions/checkout@v4
         with:
-          repository: DalsinAI/openamigasdk
+          repository: DalsinAI/gfopensdk
           ref: ${{ env.OPENSDK_REF }}
-          path: openamigasdk
+          path: gfopensdk
       - name: m68k cross compiler and qemu-m68k
         run: |
           sudo apt-get update -qq
           sudo apt-get install -y -qq g++-m68k-linux-gnu qemu-user
       - name: Core tests (host with sanitizers, 68040 -O2 and -Os under qemu)
-        run: OPENSDK_SRC=$PWD/openamigasdk sh tests/jsonlib/run.sh
+        run: OPENSDK_SRC=$PWD/gfopensdk sh tests/jsonlib/run.sh
 
   amiga:
     runs-on: ubuntu-latest
@@ -49,9 +49,9 @@ jobs:
       - uses: actions/checkout@v4
       - uses: actions/checkout@v4
         with:
-          repository: DalsinAI/openamigasdk
+          repository: DalsinAI/gfopensdk
           ref: ${{ env.OPENSDK_REF }}
-          path: openamigasdk
+          path: gfopensdk
       - name: Fetch the toolchain
         run: |
           mkdir -p tc
@@ -61,8 +61,8 @@ jobs:
       - name: 68040 build (json.library and JSONTest)
         run: |
           TOOLCHAIN_DIR=tc/openamigagcc-16.2.0-open3-x86_64-linux \
-          NDK_INCLUDE=$PWD/openamigasdk/OpenNDK/Include_H \
-          OPENSDK_SRC=$PWD/openamigasdk \
+          NDK_INCLUDE=$PWD/gfopensdk/OpenNDK/Include_H \
+          OPENSDK_SRC=$PWD/gfopensdk \
           scripts/build-json-library.sh build/json-library
       - name: Check the library
         run: |

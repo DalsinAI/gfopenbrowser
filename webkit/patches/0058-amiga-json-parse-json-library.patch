@@ -189,7 +189,7 @@ index 00000000000..a53009d9d4f
 +
 +#if defined(OB_JSON_LIBRARY_HOST)
 +// The host test build links json.library's own core (src/jsonlib/json_core.cpp
-+// in openamigabrowser) through these two.
++// in gfopenbrowser) through these two.
 +extern "C" void* obJSONHostParse(const unsigned char* text, unsigned length, unsigned flags, void* error);
 +extern "C" void obJSONHostFree(void* doc);
 +#endif

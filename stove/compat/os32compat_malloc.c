@@ -1,4 +1,4 @@
-/* GFOpenBrowser (DalsinAI/openamigabrowser). Copyright (c) 2026 AmiCradle Team. MIT licence, see LICENSE. */
+/* GFOpenBrowser (DalsinAI/gfopenbrowser). Copyright (c) 2026 AmiCradle Team. MIT licence, see LICENSE. */
 /* malloc, free, calloc, realloc and aligned_alloc for the engine, over libnix.
  *
  * Linked with -Wl,--wrap=malloc,--wrap=calloc,--wrap=realloc,--wrap=free

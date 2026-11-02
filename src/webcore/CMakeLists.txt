@@ -65,49 +65,49 @@ elseif (NOT OB_ICU_DATA STREQUAL "linked")
     message(FATAL_ERROR "OB_ICU_DATA must be file, linked or library")
 endif ()
 
-# gfopenservice.device and openweb.fetch (DalsinAI/openamigaservice, checked
+# gfopenservice.device and openweb.fetch (DalsinAI/gfopenservice, checked
 # out beside this repository, or OPENSERVICE_DIR). Required: every load of
 # the engine goes through openweb.fetch (WebKit patch 0075, no curl).
 # Page pictures are also decoded by a board or a paired Cradle when one
 # offers it (ob_media.c).
 set(OB_OPENSERVICE_DIR "$ENV{OPENSERVICE_DIR}")
 if (NOT EXISTS "${OB_OPENSERVICE_DIR}/include/devices/openservice.h")
-    set(OB_OPENSERVICE_DIR "${CMAKE_CURRENT_SOURCE_DIR}/../../../openamigaservice")
+    set(OB_OPENSERVICE_DIR "${CMAKE_CURRENT_SOURCE_DIR}/../../../gfopenservice")
 endif ()
 if (NOT EXISTS "${OB_OPENSERVICE_DIR}/include/devices/openservice.h" OR NOT EXISTS "${OB_OPENSERVICE_DIR}/src/webfetch.c")
-    message(FATAL_ERROR "openamigaservice not found at ${OB_OPENSERVICE_DIR}: the engine's network is "
+    message(FATAL_ERROR "gfopenservice not found at ${OB_OPENSERVICE_DIR}: the engine's network is "
         "openweb.fetch (include/openweb/webfetch.h, src/webfetch.c, src/wfnet*.c). Check out "
-        "DalsinAI/openamigaservice beside this repository, or set OPENSERVICE_DIR.")
+        "DalsinAI/gfopenservice beside this repository, or set OPENSERVICE_DIR.")
 endif ()
 set_property(DIRECTORY APPEND PROPERTY CMAKE_CONFIGURE_DEPENDS "${OB_OPENSERVICE_DIR}/include/openweb/webfetch.h")
 file(STRINGS "${OB_OPENSERVICE_DIR}/include/openweb/webfetch.h" OB_WEBFETCH_ASYNC REGEX "wf_async_start")
 if (NOT OB_WEBFETCH_ASYNC)
     message(FATAL_ERROR "${OB_OPENSERVICE_DIR}/include/openweb/webfetch.h has no wf_async_start: "
-        "openamigaservice is older than openweb.fetch protocol 2 (#14); update it.")
+        "gfopenservice is older than openweb.fetch protocol 2 (#14); update it.")
 endif ()
 list(APPEND OB_CORE_SOURCES ob_media.c)
 set(OB_OPENSERVICE 1)
 
-# The datatypes' stream class (DalsinAI/opendatatypes, checked out beside
+# The datatypes' stream class (DalsinAI/gfopendatatypes, checked out beside
 # this repository, or OPENDATATYPES_DIR): the native transport undoes gzip,
 # deflate and br through stream.datatype, gzip.datatype and brotli.datatype
-# (openamigaservice's src/wfnet_dec.c), so wfnet_amiga.c needs
+# (gfopenservice's src/wfnet_dec.c), so wfnet_amiga.c needs
 # datatypes/streamclass.h.
 set(OB_OPENDATATYPES_DIR "$ENV{OPENDATATYPES_DIR}")
 if (NOT EXISTS "${OB_OPENDATATYPES_DIR}/Datatypes/include/datatypes/streamclass.h")
-    set(OB_OPENDATATYPES_DIR "${CMAKE_CURRENT_SOURCE_DIR}/../../../opendatatypes")
+    set(OB_OPENDATATYPES_DIR "${CMAKE_CURRENT_SOURCE_DIR}/../../../gfopendatatypes")
 endif ()
 if (NOT EXISTS "${OB_OPENDATATYPES_DIR}/Datatypes/include/datatypes/streamclass.h")
-    message(FATAL_ERROR "opendatatypes not found at ${OB_OPENDATATYPES_DIR}: openweb.fetch's native "
-        "transport needs Datatypes/include/datatypes/streamclass.h. Check out DalsinAI/opendatatypes "
+    message(FATAL_ERROR "gfopendatatypes not found at ${OB_OPENDATATYPES_DIR}: openweb.fetch's native "
+        "transport needs Datatypes/include/datatypes/streamclass.h. Check out DalsinAI/gfopendatatypes "
         "beside this repository, or set OPENDATATYPES_DIR.")
 endif ()
 
-# openweb.fetch's client and its native transport (openamigaservice's
+# openweb.fetch's client and its native transport (gfopenservice's
 # src/webfetch.c and src/wfnet*.c), WebCore's network backend. WebCore's
 # OpenWebFetchAmiga.c is given the client's headers. The native transport
 # reaches gfopentls.library through GFOpenTLS's headers and the datatypes
-# through opendatatypes' (wfnet_amiga.c and wfnet_dec.c only).
+# through gfopendatatypes' (wfnet_amiga.c and wfnet_dec.c only).
 file(GLOB OB_WFNET_SOURCES "${OB_OPENSERVICE_DIR}/src/wfnet*.c")
 list(APPEND OB_CORE_SOURCES "${OB_OPENSERVICE_DIR}/src/webfetch.c" ${OB_WFNET_SOURCES})
 set_property(SOURCE "${OB_OPENSERVICE_DIR}/src/wfnet_amiga.c" APPEND PROPERTY
@@ -117,18 +117,18 @@ set_property(SOURCE "${OB_OPENSERVICE_DIR}/src/wfnet_amiga.c" "${OB_OPENSERVICE_
 set_property(SOURCE "${WEBCORE_DIR}/platform/network/amiga/OpenWebFetchAmiga.c" TARGET_DIRECTORY WebCore APPEND PROPERTY
     INCLUDE_DIRECTORIES "${OB_OPENSERVICE_DIR}/include")
 
-# gfopengpu.library's stream and inline calls (DalsinAI/openamigartg, checked
+# gfopengpu.library's stream and inline calls (DalsinAI/gfopenrtg, checked
 # out beside this repository, or OPENAMIGARTG_DIR): the window is painted
 # through GFOpenGPU (WebKit patch 0076), which the engine opens at run time.
 # Headers only: nothing is linked.
 set(OB_OPENAMIGARTG_DIR "$ENV{OPENAMIGARTG_DIR}")
 if (NOT EXISTS "${OB_OPENAMIGARTG_DIR}/include/opengpu/stream.h")
-    set(OB_OPENAMIGARTG_DIR "${CMAKE_CURRENT_SOURCE_DIR}/../../../openamigartg")
+    set(OB_OPENAMIGARTG_DIR "${CMAKE_CURRENT_SOURCE_DIR}/../../../gfopenrtg")
 endif ()
 if (NOT EXISTS "${OB_OPENAMIGARTG_DIR}/include/opengpu/stream.h" OR NOT EXISTS "${OB_OPENAMIGARTG_DIR}/include/inline/opengpu.h")
-    message(FATAL_ERROR "openamigartg not found at ${OB_OPENAMIGARTG_DIR}: the engine paints through "
+    message(FATAL_ERROR "gfopenrtg not found at ${OB_OPENAMIGARTG_DIR}: the engine paints through "
         "gfopengpu.library (include/opengpu/stream.h, include/inline/opengpu.h). Check out "
-        "DalsinAI/openamigartg beside this repository, or set OPENAMIGARTG_DIR.")
+        "DalsinAI/gfopenrtg beside this repository, or set OPENAMIGARTG_DIR.")
 endif ()
 set_property(DIRECTORY APPEND PROPERTY CMAKE_CONFIGURE_DEPENDS "${OB_OPENAMIGARTG_DIR}/include/opengpu/stream.h")
 set_property(SOURCE "${WEBCORE_DIR}/platform/graphics/amiga/OpenGPUPaintAmiga.c"

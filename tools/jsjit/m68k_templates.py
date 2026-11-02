@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-# GFOpenBrowser (DalsinAI/openamigabrowser)
+# GFOpenBrowser (DalsinAI/gfopenbrowser)
 # Copyright (c) 2026 AmiCradle Team. MIT licence, see LICENSE.
 #
 # The 68k template JIT's templates (J2, stage T1 prototype).

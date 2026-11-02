@@ -1,5 +1,5 @@
 // The OXP bridge on the host: a receiver with XMLDocumentParser's SAX
-// methods prints what it is given, in the format of openamigaxml's
+// methods prints what it is given, in the format of gfopenxml's
 // tests/ref/libxml2dump (libxml2's own events), so the two can be compared.
 // It reads the arrays exactly as XMLDocumentParser does: namespaces as
 // prefix/URI pairs, attributes as five pointers with the value's end.

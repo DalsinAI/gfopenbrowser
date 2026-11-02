@@ -25,8 +25,8 @@ on:
   workflow_dispatch:
 
 env:
-  OPENSDK_REF: 5bfeaea0d004e86afb990fddb591bf0039f09233      # openamigasdk main, as jsonlib.yml
-  TC_URL: https://github.com/DalsinAI/openamigagcc/releases/download/v16.2.0-open3/openamigagcc-16.2.0-open3-x86_64-linux.tar.xz
+  OPENSDK_REF: 5bfeaea0d004e86afb990fddb591bf0039f09233      # gfopensdk main, as jsonlib.yml
+  TC_URL: https://github.com/DalsinAI/gfopengcc/releases/download/v16.2.0-open3/openamigagcc-16.2.0-open3-x86_64-linux.tar.xz
   TC_SHA256: 9fcc136ab59e3bb5b91d2764d0bf290b709d72d7380be4ce0cdf005edf8eff21
   ICU_URL: https://github.com/unicode-org/icu/releases/download/release-78.3/icu4c-78.3-sources.tgz
   ICU_SHA256: 3a2e7a47604ba702f345878308e6fefeca612ee895cf4a5f222e7955fabfe0c0
@@ -38,9 +38,9 @@ jobs:
       - uses: actions/checkout@v4
       - uses: actions/checkout@v4
         with:
-          repository: DalsinAI/openamigasdk
+          repository: DalsinAI/gfopensdk
           ref: ${{ env.OPENSDK_REF }}
-          path: openamigasdk
+          path: gfopensdk
       - name: Fetch the toolchain
         run: |
           mkdir -p tc
@@ -53,7 +53,7 @@ jobs:
           stove/prefix/bin/m68k-amigaos-ar rcs stove/compat/libos32compat.a
           command -v gmake || sudo ln -s "$(command -v make)" /usr/local/bin/gmake
       - name: SDK headers against the SFD
-        run: OPENSDK_SRC=$PWD/openamigasdk python3 openamigasdk/OpenNDK/tools/ndkgen.py --check --out src/unicodelib/sdk src/unicodelib/sfd/unicode_lib.sfd
+        run: OPENSDK_SRC=$PWD/gfopensdk python3 gfopensdk/OpenNDK/tools/ndkgen.py --check --out src/unicodelib/sdk src/unicodelib/sfd/unicode_lib.sfd
       - uses: actions/cache@v4
         id: icu
         with:
@@ -73,7 +73,7 @@ jobs:
       - name: unicode.library, its stubs and UnicodeTest
         run: |
           TOOLCHAIN_DIR=$PWD/tc/openamigagcc-16.2.0-open3-x86_64-linux OAB_DEPS=$PWD/deps \
-          NDK_INCLUDE=$PWD/openamigasdk/OpenNDK/Include_H \
+          NDK_INCLUDE=$PWD/gfopensdk/OpenNDK/Include_H \
             sh scripts/build-unicode-library.sh build/unicode-library
       - name: UnicodeTest in vamos (68040)
         run: |

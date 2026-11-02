@@ -8,7 +8,7 @@ GFOpenBrowser Lite 0.2 is the first build whose page renderer uses the resident 
 
 ## Architecture gate
 
-- `gfopenlayout.library` ABI 2.0 from `DalsinAI/openamigalayout`;
+- `gfopenlayout.library` ABI 2.0 from `DalsinAI/gfopenlayout`;
 - HTML Lite builds semantic nodes through the resident ABI;
 - the GadTools viewport consumes the GFOpenLayout display list;
 - text is measured against the active RastPort font;

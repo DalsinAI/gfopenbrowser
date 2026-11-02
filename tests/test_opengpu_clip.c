@@ -1,7 +1,7 @@
 /*
  * WebKit patch 0078's drawing (OpenGPUPaintAmiga.c: clips to paths as A8
  * masks, rectangle clips off whole pixels, paths without anti-aliasing,
- * copy and clear on paths) run on openamigartg's CPU core, and the same
+ * copy and clear on paths) run on gfopenrtg's CPU core, and the same
  * calls made on cairo, which draws them today: the two pictures compared
  * pixel for pixel. Where both sides cover whole pixels (rectangles on whole
  * pixels, rectangles clipped or filled without anti-aliasing) they must be

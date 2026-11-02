@@ -26,11 +26,11 @@ response arrives as one body.
 Every load asks for WF_DECODE, on the card and natively alike, so pages
 come compressed as they did with curl: the card's host undoes gzip,
 deflate and br, and the native transport does it through the datatypes
-(stream.datatype with gzip.datatype and brotli.datatype; openamigaservice
+(stream.datatype with gzip.datatype and brotli.datatype; gfopenservice
 #15), offering in Accept-Encoding only what it can undo. The request no
 longer asks the native transport for identity.
 
-OpenWebFetchAmiga.c needs openamigaservice's client headers: the stubs
+OpenWebFetchAmiga.c needs gfopenservice's client headers: the stubs
 for a build without them are gone, with obwf_available() and
 obwf_net_decodes(). curl is no longer found or linked, and nghttp2 with
 it.
@@ -68,7 +68,7 @@ index 01c2c7fa2a5..333147a1ec2 100644
  include(platform/FreeType.cmake)
  
 -# TLS is curl's own business: curl is built on OpenTLS (gfopentls.library,
--# openamigacurl), and WebCore links no OpenSSL. The curl files that hand
+-# gfopencurl), and WebCore links no OpenSSL. The curl files that hand
 -# curl's OpenSSL objects to OpenSSL (the certificate chain collector and its
 -# helpers) are left out, and the curl code that calls them is compiled out
 -# with USE(OPENSSL) off.
@@ -148,7 +148,7 @@ index 01c2c7fa2a5..333147a1ec2 100644
  
 -    # Loads through openweb.fetch beside curl (OB_NET=openweb). The browser's
 +    # Every http and https load goes through openweb.fetch. The browser's
-     # build gives OpenWebFetchAmiga.c openamigaservice's client headers and
+     # build gives OpenWebFetchAmiga.c gfopenservice's client headers and
 -    # links its client; without them the file builds empty and curl loads.
 +    # links its client (src/webcore/CMakeLists.txt), and stops without them.
      platform/network/amiga/OpenWebFetchAmiga.c
@@ -273,7 +273,7 @@ index c7d9d7265c0..55eccd34c8f 100644
 -
 -#ifdef OBWF_TRANSPORT
 -
-+/* openweb/webfetch.h is openamigaservice's: the browser's build gives its
++/* openweb/webfetch.h is gfopenservice's: the browser's build gives its
 + * include folder, and stops when the checkout is missing. */
  #include <string.h>
  #include <exec/types.h>
@@ -410,7 +410,7 @@ index 06076e21e81..52edbbc7217 100644
   * headers and their macros stay out of WebCore's C++.
   *
   * Every call but obwf_net_wake runs on the one task that called
-- * obwf_net_new. A build without openamigaservice's headers has no
+- * obwf_net_new. A build without gfopenservice's headers has no
 - * transport: obwf_available() is 0 and obwf_net_new answers NULL.
 + * obwf_net_new.
   * MIT, Copyright (c) 2026 AmiCradle Team.
@@ -420,7 +420,7 @@ index 06076e21e81..52edbbc7217 100644
      unsigned long infoLength;
  } OBWFHead;
  
--/* 1 when the engine was built with openamigaservice's client. */
+-/* 1 when the engine was built with gfopenservice's client. */
 -int obwf_available(void);
 -
  /* Opens openweb.fetch (the card, a Cradle, or this Amiga's own TCP/IP
@@ -989,7 +989,7 @@ index 3710652a0b7..111e6416639 100644
 -
  #if PLATFORM(AMIGA)
      // The Amiga's own errors (domain "AmigaNetworkErrorDomain"): 1 to 9 are
-     // openweb.fetch's (docs/OPENWEB_FETCH.md in openamigaservice), the rest
+     // openweb.fetch's (docs/OPENWEB_FETCH.md in gfopenservice), the rest
 -    // the network layer's own. curl's codes come into this domain as well,
 -    // with curl's words, while curl is linked.
 +    // the network layer's own.
@@ -1176,7 +1176,7 @@ index e2fdb64f052..4f7cb853b8f 100644
  # Drawing is Cairo's image surface, text is FreeType + HarfBuzz + fontconfig,
 -# the network is curl on OpenTLS. There is no WebKit (multi-process) layer:
 -# the embedding layer (page clients, loader strategy) belongs to the browser.
-+# the network is openweb.fetch (openamigaservice: a services card, a Cradle,
++# the network is openweb.fetch (gfopenservice: a services card, a Cradle,
 +# or this Amiga's own TCP/IP and OpenTLS). There is no WebKit
 +# (multi-process) layer: the embedding layer (page clients, loader
 +# strategy) belongs to the browser.
@@ -1208,7 +1208,7 @@ index e2fdb64f052..4f7cb853b8f 100644
 +# (crypto/amiga/CryptoAmiga.cpp).
  SET_AND_EXPOSE_TO_BUILD(USE_OPENSSL OFF)
  SET_AND_EXPOSE_TO_BUILD(USE_THEME_ADWAITA ON)
- # XML through OXP (DalsinAI/openamigaxml), not libxml2: XMLDocumentParserOXP.cpp
+ # XML through OXP (DalsinAI/gfopenxml), not libxml2: XMLDocumentParserOXP.cpp
 -- 
 2.43.0
 

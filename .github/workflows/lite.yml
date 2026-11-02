@@ -5,7 +5,7 @@ name: GFOpenBrowser Lite
 # its HTTP disk cache (src/webcore/ob_httpcache.c), and its public suffix
 # lookup (WebKit patch 0070):
 # the host tests, and the 68040 build with the GFOpenAmigaGCC
-# release and GFOpenNDK, pinned as openamigacurl's CI pins them; and
+# release and GFOpenNDK, pinned as gfopencurl's CI pins them; and
 # weblayout.library with its test program.
 on:
   push:
@@ -61,10 +61,10 @@ on:
   workflow_dispatch:
 
 env:
-  OPENLAYOUT_REF: ce9f92de37463c9333bf5793b35a6b37ea27614e   # openamigalayout master: gfopenlayout.library 2.0
-  OPENSDK_REF: e75b5ffae42b6c446ec11cb195b919151e56529c      # openamigasdk main, as openamigacurl
-  OPENAMIGARTG_REF: b5e2e453fa23a5a0ec84321a412f6f33fbc4bbf5 # openamigartg main: GFOpenGPU 0.23, stream v1.8 (#157)
-  TC_URL: https://github.com/DalsinAI/openamigagcc/releases/download/v16.2.0-open3/openamigagcc-16.2.0-open3-x86_64-linux.tar.xz
+  OPENLAYOUT_REF: ce9f92de37463c9333bf5793b35a6b37ea27614e   # gfopenlayout master: gfopenlayout.library 2.0
+  OPENSDK_REF: e75b5ffae42b6c446ec11cb195b919151e56529c      # gfopensdk main, as gfopencurl
+  OPENAMIGARTG_REF: b5e2e453fa23a5a0ec84321a412f6f33fbc4bbf5 # gfopenrtg main: GFOpenGPU 0.23, stream v1.8 (#157)
+  TC_URL: https://github.com/DalsinAI/gfopengcc/releases/download/v16.2.0-open3/openamigagcc-16.2.0-open3-x86_64-linux.tar.xz
   TC_SHA256: 9fcc136ab59e3bb5b91d2764d0bf290b709d72d7380be4ce0cdf005edf8eff21
 
 jobs:
@@ -72,26 +72,26 @@ jobs:
     # HTML Lite, CSS Lite, the address resolver, weblayout's calls,
     # GFOpenMail's HTML-to-text converter, the engine's malloc and its HTTP
     # disk cache with the host's compiler, and the engine's GFOpenGPU stream
-    # writer (WebKit patches 0076, 0077 and 0078) on openamigartg's CPU core
+    # writer (WebKit patches 0076, 0077 and 0078) on gfopenrtg's CPU core
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
       - uses: actions/checkout@v4
         with:
-          repository: DalsinAI/openamigalayout
+          repository: DalsinAI/gfopenlayout
           ref: ${{ env.OPENLAYOUT_REF }}
-          path: openamigalayout
+          path: gfopenlayout
       - uses: actions/checkout@v4
         with:
-          repository: DalsinAI/openamigartg
+          repository: DalsinAI/gfopenrtg
           ref: ${{ env.OPENAMIGARTG_REF }}
-          path: openamigartg
+          path: gfopenrtg
       - name: cairo for the GFOpenGPU clip test's reference (0078)
         run: sudo apt-get update && sudo apt-get install -y libcairo2-dev
       - name: Host tests
-        run: OPENLAYOUT_SRC=openamigalayout OPENAMIGARTG_SRC=openamigartg tests/run-host-tests.sh
+        run: OPENLAYOUT_SRC=gfopenlayout OPENAMIGARTG_SRC=gfopenrtg tests/run-host-tests.sh
       - name: Host tests with AddressSanitizer and UBSan
-        run: OPENLAYOUT_SRC=openamigalayout OPENAMIGARTG_SRC=openamigartg SANITIZE=1 OUT=build/host-asan tests/run-host-tests.sh
+        run: OPENLAYOUT_SRC=gfopenlayout OPENAMIGARTG_SRC=gfopenrtg SANITIZE=1 OUT=build/host-asan tests/run-host-tests.sh
 
   amiga:
     # GFOpenBrowser, obfetch and the Amiga test programs for the 68040 with its FPU
@@ -100,14 +100,14 @@ jobs:
       - uses: actions/checkout@v4
       - uses: actions/checkout@v4
         with:
-          repository: DalsinAI/openamigalayout
+          repository: DalsinAI/gfopenlayout
           ref: ${{ env.OPENLAYOUT_REF }}
-          path: openamigalayout
+          path: gfopenlayout
       - uses: actions/checkout@v4
         with:
-          repository: DalsinAI/openamigasdk
+          repository: DalsinAI/gfopensdk
           ref: ${{ env.OPENSDK_REF }}
-          path: openamigasdk
+          path: gfopensdk
       - name: Fetch the toolchain
         run: |
           mkdir -p tc
@@ -117,27 +117,27 @@ jobs:
       - name: 68040 build (GFOpenLayout built in)
         run: |
           TOOLCHAIN_DIR=tc/openamigagcc-16.2.0-open3-x86_64-linux \
-          NDK_INCLUDE=$PWD/openamigasdk/OpenNDK/Include_H \
-          OPENLAYOUT_SRC=$PWD/openamigalayout TESTS=1 \
+          NDK_INCLUDE=$PWD/gfopensdk/OpenNDK/Include_H \
+          OPENLAYOUT_SRC=$PWD/gfopenlayout TESTS=1 \
           scripts/build-openbrowser.sh build/os3
       - name: 68040 build (resident gfopenlayout.library)
         run: |
           TOOLCHAIN_DIR=tc/openamigagcc-16.2.0-open3-x86_64-linux \
-          NDK_INCLUDE=$PWD/openamigasdk/OpenNDK/Include_H \
-          OPENLAYOUT_SRC=$PWD/openamigalayout OPENLAYOUT=library \
+          NDK_INCLUDE=$PWD/gfopensdk/OpenNDK/Include_H \
+          OPENLAYOUT_SRC=$PWD/gfopenlayout OPENLAYOUT=library \
           scripts/build-openbrowser.sh build/os3-library
       - name: 68040 build (weblayout.library and WebLayoutLibTest)
         # also checks src/weblayout/library/sdk against the SFD with GFOpenSDK's ndkgen.py
         run: |
           TOOLCHAIN_DIR=tc/openamigagcc-16.2.0-open3-x86_64-linux \
-          NDK_INCLUDE=$PWD/openamigasdk/OpenNDK/Include_H \
-          OPENLAYOUT_SRC=$PWD/openamigalayout OPENSDK_SRC=$PWD/openamigasdk \
+          NDK_INCLUDE=$PWD/gfopensdk/OpenNDK/Include_H \
+          OPENLAYOUT_SRC=$PWD/gfopenlayout OPENSDK_SRC=$PWD/gfopensdk \
           scripts/build-weblayout-library.sh build/weblayout-library
       - name: 68040 build (GFOpenBrowserLite on weblayout.library)
         run: |
           TOOLCHAIN_DIR=tc/openamigagcc-16.2.0-open3-x86_64-linux \
-          NDK_INCLUDE=$PWD/openamigasdk/OpenNDK/Include_H \
-          OPENLAYOUT_SRC=$PWD/openamigalayout WEBLAYOUT=library \
+          NDK_INCLUDE=$PWD/gfopensdk/OpenNDK/Include_H \
+          OPENLAYOUT_SRC=$PWD/gfopenlayout WEBLAYOUT=library \
           scripts/build-openbrowser.sh build/os3-weblayout
       - name: Check the library
         run: |

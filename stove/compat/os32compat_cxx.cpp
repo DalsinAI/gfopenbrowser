@@ -1,4 +1,4 @@
-/* GFOpenBrowser (DalsinAI/openamigabrowser). Copyright (c) 2026 AmiCradle Team. MIT licence, see LICENSE. */
+/* GFOpenBrowser (DalsinAI/gfopenbrowser). Copyright (c) 2026 AmiCradle Team. MIT licence, see LICENSE. */
 // C library calls that newlib's headers declare without extern "C" for C++
 // (only under _POSIX_TIMERS), so C++ callers want mangled names libnix lacks.
 #include <time.h>

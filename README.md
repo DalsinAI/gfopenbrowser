@@ -7,7 +7,7 @@ AmigaOS 3.2.3. It lays out HTML and CSS, runs the page's JavaScript
 (JavaScriptCore) and paints with cairo, FreeType and HarfBuzz into a 32-bit
 bitmap; pictures are decoded by the system's datatypes. The browser window,
 **GFOpenBrowser** (GadTools), and its network layer (openweb.fetch, from
-openamigaservice; libcurl on GFOpenTLS until WebKit patch 0075) are
+gfopenservice; libcurl on GFOpenTLS until WebKit patch 0075) are
 built and being brought up on the test instance. See
 [docs/WEBCORE_PORT.md](docs/WEBCORE_PORT.md).
 
@@ -60,16 +60,16 @@ No binaries are kept here, and no WebKit, ICU or AmigaOS files.
 ## Building
 
 GFOpenBrowser Lite is built with the GFOpenAmigaGCC 16.2.0-open3 release and
-GFOpenNDK (DalsinAI/openamigasdk), for the 68040 with its FPU (`-m68040
--m68881`; not an LC or EC040), with GFOpenLayout from DalsinAI/openamigalayout.
+GFOpenNDK (DalsinAI/gfopensdk), for the 68040 with its FPU (`-m68040
+-m68881`; not an LC or EC040), with GFOpenLayout from DalsinAI/gfopenlayout.
 Its TLS is GFOpenTLS: gfopentls.library's API headers are in `third_party/opentls`,
 and no AmiSSL SDK is needed:
 
 ```
 TOOLCHAIN_DIR=.../openamigagcc-16.2.0-open3-x86_64-linux \
-NDK_INCLUDE=.../openamigasdk/OpenNDK/Include_H \
-OPENLAYOUT_SRC=.../openamigalayout scripts/build-openbrowser.sh
-OPENLAYOUT_SRC=.../openamigalayout tests/run-host-tests.sh
+NDK_INCLUDE=.../gfopensdk/OpenNDK/Include_H \
+OPENLAYOUT_SRC=.../gfopenlayout scripts/build-openbrowser.sh
+OPENLAYOUT_SRC=.../gfopenlayout tests/run-host-tests.sh
 ```
 
 (`STOVE=` an os32-gcc16 stove works in place of the first two; `TESTS=1`
@@ -97,13 +97,13 @@ The JavaScript engine:
 GFOpenBrowser on WebCore needs, besides the compiler and ICU above, the
 libraries from the GFOpenAmiga ports (cairo and pixman, libxml2, SQLite, zlib
 and libpng; see
-https://github.com/DalsinAI/openamiga) built into one prefix. No curl,
+https://github.com/DalsinAI/gfopenamiga) built into one prefix. No curl,
 nghttp2, libpsl or AmiSSL: the network is openweb.fetch, so
-DalsinAI/openamigaservice and DalsinAI/opendatatypes must be checked out
+DalsinAI/gfopenservice and DalsinAI/gfopendatatypes must be checked out
 beside this repository (or named by `OPENSERVICE_DIR` and
-`OPENDATATYPES_DIR`). cairo is built without FreeType (openamigacairo,
+`OPENDATATYPES_DIR`). cairo is built without FreeType (gfopencairo,
 `CAIRO_FONTS=user`) and the prefix holds gfopenfont.library's SDK
-(openamigafont): the engine's text is drawn and shaped with gfopenfont.library
+(gfopenfont): the engine's text is drawn and shaped with gfopenfont.library
 1.4, which the Amiga needs in `LIBS:`. Then apply the patches in `webkit/`
 and run `WEBKIT_SOURCE=... OAB_DEPS=... scripts/build-webcore.sh`.
 Without a services card or a Cradle, the Amiga needs a TCP/IP stack, and

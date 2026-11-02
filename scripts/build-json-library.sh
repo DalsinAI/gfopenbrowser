@@ -1,12 +1,12 @@
 #!/bin/sh
-# GFOpenBrowser (DalsinAI/openamigabrowser)
+# GFOpenBrowser (DalsinAI/gfopenbrowser)
 # Copyright (c) 2026 AmiCradle Team. MIT licence, see LICENSE.
 #
 # json.library 1 (src/jsonlib, GFOpenJSON) and its Amiga test program, for
 # AmigaOS 3.2 on a 68040. Soft float (toolchain/m68k-soft-m68040.specs) for
 # JSONTest; the library itself has no floating point at all and links with
 # no C library. Built for size (-Os). The core is lean C++
-# (DalsinAI/openamigagcc docs/lean-cxx.md, the library profile), the shell
+# (DalsinAI/gfopengcc docs/lean-cxx.md, the library profile), the shell
 # C. Lives here for now; it moves to its own repository later.
 #
 #   build-json-library.sh [OUT_DIR]     (default build/json-library)
@@ -16,7 +16,7 @@
 #   OUT_DIR/tests/JSONTest       the self-test; JSONTest FILE [BENCH] parses a file
 #
 #   TOOLCHAIN_DIR, STOVE and NDK_INCLUDE as for build-openbrowser.sh.
-#   OPENSDK_SRC     an openamigasdk checkout: when set, src/jsonlib/sdk is
+#   OPENSDK_SRC     a gfopensdk checkout: when set, src/jsonlib/sdk is
 #                   checked against the SFD with its OpenNDK/tools/ndkgen.py
 set -eu
 HERE=$(CDPATH= cd -- "$(dirname -- "$0")/.." && pwd)

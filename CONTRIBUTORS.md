@@ -35,7 +35,7 @@ copyright and licence.
 
 ## From our other repositories
 
-- **GFOpenMail** (`DalsinAI/openamigamail`): its message library, in `third_party/openmail/` (MIT, AmiCradle Team; `FROM` names the commit and our one change).
+- **GFOpenMail** (`DalsinAI/gfopenmail`): its message library, in `third_party/openmail/` (MIT, AmiCradle Team; `FROM` names the commit and our one change).
 
 ## Fetched at build time, not committed
 

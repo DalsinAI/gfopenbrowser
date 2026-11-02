@@ -1,4 +1,4 @@
-# GFOpenBrowser (DalsinAI/openamigabrowser)
+# GFOpenBrowser (DalsinAI/gfopenbrowser)
 # Copyright (c) 2026 AmiCradle Team. MIT licence, see LICENSE.
 #
 # OB_PCREL=1: the files our GCC cannot build pc-relative are built with

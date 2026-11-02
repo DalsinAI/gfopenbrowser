@@ -5,7 +5,7 @@ Subject: [PATCH] WebCore: patterns, conic gradients and stops of any alpha
  through OpenGPU
 
 GraphicsContextOpenGPU now draws three things it used to hand to cairo
-(cairo-out item 2, openamigabrowser docs/STEP5-6-WEBCORE.md):
+(cairo-out item 2, gfopenbrowser docs/STEP5-6-WEBCORE.md):
 
 - Pictures as paint (OpenGPUPaintAmiga's struct obgpu_pattern,
   obgpu_fill_path_pattern and obgpu_stroke_path_pattern: PATH_FILL and

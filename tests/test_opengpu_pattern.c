@@ -1,7 +1,7 @@
 /*
  * WebKit patch 0079's drawing (OpenGPUPaintAmiga.c: pictures as paint for
  * drawPattern and pattern brushes, conic gradients, stops of different
- * alphas) on openamigartg's CPU core, against cairo drawing the same calls
+ * alphas) on gfopenrtg's CPU core, against cairo drawing the same calls
  * as WebKit's cairo port does (CairoUtilities' drawPatternToCairoContext,
  * GradientCairo's conic mesh, pixman's gradients):
  *  - patterns: the same pixels away from the shape's edges, which each

@@ -8,7 +8,7 @@ operator and blend mode) used to send everything inside them to cairo.
 Cairo still pushes its group (an ARGB32 image surface over the clip's
 extents) and, at endTransparencyLayer, puts it on the window. What is drawn
 inside the layer now goes into that group's pixels on OpenGPU
-(cairo-out item 4, openamigabrowser docs/STEP5-6-WEBCORE.md).
+(cairo-out item 4, gfopenbrowser docs/STEP5-6-WEBCORE.md).
 
 - OpenGPUPaintAmiga: obgpu_group_surface retargets the writer to a group's
   surface.

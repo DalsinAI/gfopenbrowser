@@ -5,10 +5,10 @@ Subject: [PATCH] WebCore: glyph runs through gfopenfont.library's OF_DrawGlyphsA
  on OpenGPU
 
 GraphicsContextOpenGPU::drawGlyphs no longer hands every run to cairo
-(cairo-out item 5, openamigabrowser docs/STEP5-6-WEBCORE.md). The glyph
+(cairo-out item 5, gfopenbrowser docs/STEP5-6-WEBCORE.md). The glyph
 cache is openfont's, as Dale decided: gfopenfont.library 1.5's
 OF_DrawGlyphsA fills each glyph once into its A8 atlas through OpenGPU and
-draws every use from it (openamigafont #24).
+draws every use from it (gfopenfont #24).
 
 - OpenGPUGlyphsAmiga.c opens gfopenfont.library itself, version 1 with
   revision 5 or later, with its own base: OpenFontLibrary.c's
@@ -399,7 +399,7 @@ index c7940a4..61271a7 100644
   * missing or older than stream v1.4; and sends a batch and waits for it. */
  int ob_opengpu_caps(void);
  long ob_opengpu_run(const unsigned char *stream, long words);
-+/* openamigabrowser's engine only (OpenGPUGlyphsAmiga.c, 0082):
++/* gfopenbrowser's engine only (OpenGPUGlyphsAmiga.c, 0082):
 + * gfopenfont.library 1.5's OF_DrawGlyphsA is there; and a run drawn with it
 + * (face an OFFace; positions x, y pairs, 24.8 target pixels; colour
 + * premultiplied ARGB32; matrix 16.16 a, b, c, d about each pen or 0;

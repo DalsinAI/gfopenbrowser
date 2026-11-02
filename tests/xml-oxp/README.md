@@ -1,7 +1,7 @@
 # The XML parser under WebCore: OXP
 
 WebKit patch 0030 (`webkit/patches/0030-amiga-xml-parser-oxp.patch`)
-parses XML with OXP, the Open XML Parser (DalsinAI/openamigaxml, `oxp/`), in
+parses XML with OXP, the Open XML Parser (DalsinAI/gfopenxml, `oxp/`), in
 place of libxml2. XML here covers SVG, XHTML, `DOMParser`, `responseXML` and
 `innerHTML` on XHTML.
 
@@ -15,11 +15,11 @@ place of libxml2. XML here covers SVG, XHTML, `DOMParser`, `responseXML` and
 ## The bridge test (on the host)
 
 `bridgetest.cpp` is a receiver with `XMLDocumentParser`'s SAX methods. It
-prints the calls it gets in the form of openamigaxml's
+prints the calls it gets in the form of gfopenxml's
 `tests/ref/libxml2dump`, which prints libxml2's own SAX2 events. Then:
 
 ```sh
-sh tests/xml-oxp/compare.sh /path/to/WebKit /path/to/openamigaxml/oxp files.txt
+sh tests/xml-oxp/compare.sh /path/to/WebKit /path/to/gfopenxml/oxp files.txt
 ```
 
 Result, 17 October 2026, on 4,780 readable files on a Linux system (3,000
@@ -54,7 +54,7 @@ OXP's library and headers go into the WebCore dependency prefix in place
 of libxml2's:
 
 ```sh
-OUT=$OAB_DEPS/m68k-amigaos sh /path/to/openamigaxml/oxp/build-amiga.sh
+OUT=$OAB_DEPS/m68k-amigaos sh /path/to/gfopenxml/oxp/build-amiga.sh
 ```
 
 This writes `lib/liboxp.a` and `include/oxp.h` there. CMake finds them with

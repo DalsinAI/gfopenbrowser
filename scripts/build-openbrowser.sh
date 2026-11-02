@@ -1,10 +1,10 @@
 #!/bin/sh
-# GFOpenBrowser (DalsinAI/openamigabrowser)
+# GFOpenBrowser (DalsinAI/gfopenbrowser)
 # Copyright (c) 2026 AmiCradle Team. MIT licence, see LICENSE.
 #
 # GFOpenBrowser Lite, the GadTools browser, for AmigaOS 3.2 on a 68040 with
 # its FPU (-m68040 -m68881; not an LC or EC040). Its page engine is
-# weblayout (src/weblayout) on GFOpenLayout (DalsinAI/openamigalayout); TLS is
+# weblayout (src/weblayout) on GFOpenLayout (DalsinAI/gfopenlayout); TLS is
 # GFOpenTLS, whose API headers are in third_party/opentls (no AmiSSL).
 #
 #   build-openbrowser.sh [OUT_DIR]          (default build/os3)
@@ -13,9 +13,9 @@
 #                   x86_64-linux), or
 #   STOVE           a stove root holding prefix/bin/m68k-amigaos-gcc
 #                   (default ~/AmiCradle/stoves/os32-gcc16)
-#   NDK_INCLUDE     GFOpenNDK's Include_H (openamigasdk OpenNDK/Include_H); not
+#   NDK_INCLUDE     GFOpenNDK's Include_H (gfopensdk OpenNDK/Include_H); not
 #                   needed with a stove that carries the NDK
-#   OPENLAYOUT_SRC  an openamigalayout checkout (default ../openamigalayout)
+#   OPENLAYOUT_SRC  a gfopenlayout checkout (default ../gfopenlayout)
 #   OPENLAYOUT      static (default: GFOpenLayout built in) or library (the
 #                   resident gfopenlayout.library 2, from LIBS:)
 #   WEBLAYOUT       linked (default: the engine built into the program) or
@@ -32,7 +32,7 @@ else
     BIN="${STOVE:-"$HOME/AmiCradle/stoves/os32-gcc16"}/prefix/bin"
 fi
 CC="$BIN/m68k-amigaos-gcc"
-OL=${OPENLAYOUT_SRC:-"$HERE/../openamigalayout"}
+OL=${OPENLAYOUT_SRC:-"$HERE/../gfopenlayout"}
 OM="$HERE/third_party/openmail"
 OT="$HERE/third_party/opentls/include"
 WL="$HERE/src/weblayout"

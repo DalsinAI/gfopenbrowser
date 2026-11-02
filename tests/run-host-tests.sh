@@ -8,18 +8,18 @@
 # MallocBench, its timings against libnix's malloc (here the host's). And the
 # engine's HTTP disk cache (src/webcore/ob_httpcache.c) in a scratch folder.
 # And the engine's GFOpenGPU stream writer (WebKit patches 0076 and 0077) on
-# openamigartg's CPU core, against a reference from stream.h's formulas.
+# gfopenrtg's CPU core, against a reference from stream.h's formulas.
 #
-#   OPENLAYOUT_SRC  an openamigalayout checkout (default ../openamigalayout)
-#   OPENAMIGARTG_SRC an openamigartg checkout (default ../openamigartg)
+#   OPENLAYOUT_SRC  a gfopenlayout checkout (default ../gfopenlayout)
+#   OPENAMIGARTG_SRC a gfopenrtg checkout (default ../gfopenrtg)
 #   HOST_CC         the compiler (default cc)
 #   SANITIZE        1: with AddressSanitizer and UBSan
 #
 # MIT, Copyright (c) 2026 AmiCradle Team.
 set -eu
 HERE=$(CDPATH= cd -- "$(dirname -- "$0")/.." && pwd)
-OL=${OPENLAYOUT_SRC:-"$HERE/../openamigalayout"}
-RTG=${OPENAMIGARTG_SRC:-"$HERE/../openamigartg"}
+OL=${OPENLAYOUT_SRC:-"$HERE/../gfopenlayout"}
+RTG=${OPENAMIGARTG_SRC:-"$HERE/../gfopenrtg"}
 CC=${HOST_CC:-cc}
 OUT=${OUT:-"$HERE/build/host-tests"}
 WL="$HERE/src/weblayout"
@@ -68,7 +68,7 @@ python3 "$HERE/tools/patch-files.py" "$HERE/webkit/patches/0070-amiga-public-suf
 "$CC" $FLAGS -I"$OUT/psl" "$OUT/psl/PublicSuffixAmiga.c" "$HERE/tests/test_public_suffixes.c" \
     -o "$OUT/test_public_suffixes"
 # the window's GFOpenGPU stream writer, which lives in WebKit patches 0076,
-# 0077 (paths), 0078 (clips) and 0079 (patterns, conic gradients), on openamigartg's CPU core (built as its tests/run.sh
+# 0077 (paths), 0078 (clips) and 0079 (patterns, conic gradients), on gfopenrtg's CPU core (built as its tests/run.sh
 # builds it)
 python3 "$HERE/tools/patch-files.py" "$HERE/webkit/patches/0076-amiga-graphicscontext-opengpu.patch" \
     "$OUT/opengpu" OpenGPUPaintAmiga.c OpenGPUPaintAmiga.h

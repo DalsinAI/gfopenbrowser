@@ -7,7 +7,7 @@ PublicSuffixStore's two platform calls (is a name a public suffix, and
 what is its registrable domain) are answered by PublicSuffixAmiga.c in
 place of PublicSuffixStoreCurl.cpp and libpsl. It reads Mozilla's Public
 Suffix List once, from PROGDIR:Network/public-suffixes (then
-ENVARC:OpenBrowser/public-suffixes), as openamigabrowser's
+ENVARC:OpenBrowser/public-suffixes), as gfopenbrowser's
 tools/psl-compile.py writes it: one rule a line, names in Punycode,
 sorted, so the file is searched as it is. The lookup is the list's own
 algorithm: an exception rule wins, then the longest rule, then "*" for
@@ -67,7 +67,7 @@ index 00000000000..e5b8413ad89
 + * Public suffixes without libpsl (PublicSuffixAmiga.h).
 + *
 + * The list is Mozilla's Public Suffix List, compiled on the host by
-+ * openamigabrowser's tools/psl-compile.py into one rule a line, sorted by
++ * gfopenbrowser's tools/psl-compile.py into one rule a line, sorted by
 + * byte, under an "OBPSL1 <rules>" line. It is read once into one block and
 + * searched as it is. The lookup is the list's own algorithm
 + * (https://github.com/publicsuffix/list/wiki/Format): an exception rule

@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-# GFOpenBrowser (DalsinAI/openamigabrowser)
+# GFOpenBrowser (DalsinAI/gfopenbrowser)
 # Copyright (c) 2026 AmiCradle Team. MIT licence, see LICENSE.
 #
 # Draws GFOpenBrowser's Workbench icons in the GlowIcons style and writes them
@@ -161,7 +161,7 @@ def globe(cv, cx, cy, r, ring=True, clip=None):
 
 def art(name):
     """A picture from icons/art (64 x 64 RGBA, drawn to match the new icon
-    set's isometric drawers; openamigaup's tools/open_icons_art.py), with the
+    set's isometric drawers; gfopenup's tools/open_icons_art.py), with the
     see-through cut at the same point as the drawn ones; None if it isn't there."""
     path = os.path.join(ART, name + '.png')
     if not os.path.isfile(path):
@@ -408,7 +408,7 @@ def main():
     previews = []
     for name, kind, img, pic, extra in icons:
         # the selected image: the art's second frame (NAME-selected.png, the
-        # drawer pulled open, the globe turned), glowing, as openamigaup's
+        # drawer pulled open, the globe turned), glowing, as gfopenup's
         # ICONS.md asks of every GFOpen app; else the picture itself, glowing
         second = art(pic + '-selected') if pic and art(pic) is not None else None
         sel = glowing(second if second is not None else img)

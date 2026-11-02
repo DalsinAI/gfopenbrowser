@@ -23,7 +23,7 @@ where speed is spent:
   (layout-reads, style recalc and layout, is most of it).
 
 There are no flatten attributes in this tree, so nothing to turn off
-there. With openamigabrowser main at 0333542 (0002-0052, 0057, 0058;
+there. With gfopenbrowser main at 0333542 (0002-0052, 0057, 0058;
 hunkfold on) the stripped engine is 1,163,792 bytes smaller (79,535,312
 to 78,371,520) and the DOM bench's JavaScript time is unchanged within
 the 20 ms timer step (1,571 against 1,587 ms, nine runs each).

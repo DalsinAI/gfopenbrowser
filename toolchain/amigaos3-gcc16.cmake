@@ -1,4 +1,4 @@
-# GFOpenBrowser (DalsinAI/openamigabrowser)
+# GFOpenBrowser (DalsinAI/gfopenbrowser)
 # Copyright (c) 2026 AmiCradle Team. MIT licence, see LICENSE.
 #
 # WebKit JSCOnly cross toolchain for AmigaOS 3.2.x with the os32-gcc16 stove

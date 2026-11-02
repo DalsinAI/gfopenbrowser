@@ -1,4 +1,4 @@
-# GFOpenBrowser (DalsinAI/openamigabrowser)
+# GFOpenBrowser (DalsinAI/gfopenbrowser)
 # Copyright (c) 2026 The AmiCradle Team. MIT licence, see LICENSE.
 """Host self-tests for tools/bench:  python3 -m unittest discover -s tools/bench/tests -v"""
 import csv

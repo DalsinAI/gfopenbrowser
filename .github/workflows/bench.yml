@@ -2,7 +2,7 @@ name: Benchmark tools
 
 # tools/bench (the benchmark's staging, report and render comparison) on the
 # host, and its Amiga parts with the GFOpenAmigaGCC release and GFOpenNDK, pinned
-# as openamigacurl's CI pins them: obstamp is built, and obcore-view's source
+# as gfopencurl's CI pins them: obstamp is built, and obcore-view's source
 # is compiled for syntax (WebKit's own build links it on the lab machine).
 on:
   push:
@@ -28,8 +28,8 @@ on:
   workflow_dispatch:
 
 env:
-  OPENSDK_REF: e75b5ffae42b6c446ec11cb195b919151e56529c      # openamigasdk main, as openamigacurl
-  TC_URL: https://github.com/DalsinAI/openamigagcc/releases/download/v16.2.0-open3/openamigagcc-16.2.0-open3-x86_64-linux.tar.xz
+  OPENSDK_REF: e75b5ffae42b6c446ec11cb195b919151e56529c      # gfopensdk main, as gfopencurl
+  TC_URL: https://github.com/DalsinAI/gfopengcc/releases/download/v16.2.0-open3/openamigagcc-16.2.0-open3-x86_64-linux.tar.xz
   TC_SHA256: 9fcc136ab59e3bb5b91d2764d0bf290b709d72d7380be4ce0cdf005edf8eff21
 
 jobs:
@@ -67,9 +67,9 @@ jobs:
       - uses: actions/checkout@v4
       - uses: actions/checkout@v4
         with:
-          repository: DalsinAI/openamigasdk
+          repository: DalsinAI/gfopensdk
           ref: ${{ env.OPENSDK_REF }}
-          path: openamigasdk
+          path: gfopensdk
       - name: Fetch the toolchain
         run: |
           mkdir -p tc
@@ -81,7 +81,7 @@ jobs:
           D=tc/openamigagcc-16.2.0-open3-x86_64-linux/bin
           mkdir -p build
           $D/m68k-amigaos-gcc -m68040 -m68881 -mcrt=nix20 -std=gnu99 -O2 -Wall -Wextra -Werror \
-            -I openamigasdk/OpenNDK/Include_H tools/bench/obstamp.c -o build/obstamp
+            -I gfopensdk/OpenNDK/Include_H tools/bench/obstamp.c -o build/obstamp
           $D/m68k-amigaos-objdump -f build/obstamp | grep -q 'file format amiga'
           strings build/obstamp | grep '\$VER: obstamp '
       - name: obcore-view source compiles (syntax; cairo declared by a stand-in header)
@@ -98,7 +98,7 @@ jobs:
           void cairo_surface_destroy(cairo_surface_t *);
           H
           $D/m68k-amigaos-gcc -m68040 -m68881 -mcrt=nix20 -std=gnu99 -fsyntax-only -Wall -Wextra -Werror \
-            -I build/stub -I src/webcore -I third_party/openmail -I openamigasdk/OpenNDK/Include_H \
+            -I build/stub -I src/webcore -I third_party/openmail -I gfopensdk/OpenNDK/Include_H \
             src/webcore/obcore_view.c
       - uses: actions/upload-artifact@v4
         with:

@@ -1,5 +1,5 @@
 #!/bin/sh
-# GFOpenBrowser (DalsinAI/openamigabrowser)
+# GFOpenBrowser (DalsinAI/gfopenbrowser)
 # Copyright (c) 2026 AmiCradle Team. MIT licence, see LICENSE.
 #
 # GFOpenBrowser's drawer and archive, ready to copy to an Amiga and install
@@ -16,9 +16,9 @@
 #                  icu78-m68k-amigaos/share/icudt78b.dat (ICU_DATA overrides)
 #   OB_FONTS       the Liberation and DejaVu .ttf files
 #   OPENTLS_LIBS   folder with gfopentls.library and gfopencrypto.library
-#                  (openamigatls build)
+#                  (gfopentls build)
 #   CA_BUNDLE      folder with ca-bundle.pem and ca-bundle.LICENSE
-#                  (openamigatls; S:GFOpenTLS/ on an installed system)
+#                  (gfopentls; S:GFOpenTLS/ on an installed system)
 #   WEBBROWSER_LIB webbrowser.library 1.1 or newer (default
 #                  src/webbrowser/bin/, where src/webbrowser/build-library.sh
 #                  puts it). Required: the launcher opens the browser through
@@ -26,7 +26,7 @@
 #   JSON_LIB       json.library (default build/json-library/, scripts/build-json-library.sh);
 #                  the Installer puts it in LIBS:. Required: the engine's
 #                  JSON.parse parses through it (WebKit patch 0058)
-#   OPENFONT_LIB   gfopenfont.library 1.4 or newer (openamigafont's
+#   OPENFONT_LIB   gfopenfont.library 1.4 or newer (gfopenfont's
 #                  build/amiga/gfopenfont.library); the Installer puts it in
 #                  LIBS:. Required: the engine draws and shapes all its text
 #                  with it (WebKit patch 0090)
@@ -34,7 +34,7 @@
 #                  where build-webcore.sh makes it); the Installer puts it
 #                  in LIBS:. Required when the engine was built on it
 #                  (OB_ICU_DATA=library, the default): ICU's code is there
-#   DATATYPES_DIR  the datatypes stream class's build (opendatatypes'
+#   DATATYPES_DIR  the datatypes stream class's build (gfopendatatypes'
 #                  Datatypes/stream/build.sh PREFIX): Classes/DataTypes/
 #                  stream.datatype, gzip.datatype and brotli.datatype, and
 #                  Devs/DataTypes/GZip and Brotli. Required: openweb.fetch's
@@ -125,7 +125,7 @@ cp "$OPENTLS_LIBS/gfopentls.library" "$OPENTLS_LIBS/gfopencrypto.library" "$D/Li
 JSONLIB=${JSON_LIB:-"$HERE/build/json-library/json.library"}
 [ -f "$JSONLIB" ] || { echo "package-browser.sh: no $JSONLIB (scripts/build-json-library.sh); the engine's JSON.parse needs it" >&2; exit 2; }
 cp "$JSONLIB" "$D/Libs/"
-OPENFONTLIB=${OPENFONT_LIB:?set OPENFONT_LIB to gfopenfont.library 1.4 (openamigafont); the engine draws its text with it}
+OPENFONTLIB=${OPENFONT_LIB:?set OPENFONT_LIB to gfopenfont.library 1.4 (gfopenfont); the engine draws its text with it}
 [ -f "$OPENFONTLIB" ] || { echo "package-browser.sh: no $OPENFONTLIB" >&2; exit 2; }
 cp "$OPENFONTLIB" "$D/Libs/gfopenfont.library"
 # unicode.library, when the engine was built on it (OB_ICU_DATA=library):
@@ -140,7 +140,7 @@ fi
 # through the datatypes stream class (stream.datatype, gzip.datatype with
 # z.library, brotli.datatype); the Installer puts them in SYS:Classes/DataTypes,
 # DEVS:DataTypes and LIBS:
-DTDIR=${DATATYPES_DIR:?set DATATYPES_DIR to the datatypes stream class build (opendatatypes Datatypes/stream/build.sh PREFIX); compressed pages are decoded through it}
+DTDIR=${DATATYPES_DIR:?set DATATYPES_DIR to the datatypes stream class build (gfopendatatypes Datatypes/stream/build.sh PREFIX); compressed pages are decoded through it}
 ZLIBLIB=${ZLIB_LIB:?set ZLIB_LIB to z.library 53.12 (GFOpenZlib); gzip.datatype needs it}
 for f in "$DTDIR/Classes/DataTypes/stream.datatype" "$DTDIR/Classes/DataTypes/gzip.datatype" \
          "$DTDIR/Classes/DataTypes/brotli.datatype" "$DTDIR/Devs/DataTypes/GZip" "$DTDIR/Devs/DataTypes/Brotli" "$ZLIBLIB"; do
