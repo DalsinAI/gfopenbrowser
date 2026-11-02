@@ -13,7 +13,7 @@
 #include <exec/io.h>
 #include <proto/exec.h>
 
-#include "devices/openservice.h"
+#include "devices/gfopenservice.h"
 #include "ob_media.h"
 
 /* From WebCore's platform/image-decoders/amiga/DatatypesDecode.h. */

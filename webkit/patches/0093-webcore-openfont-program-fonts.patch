@@ -31,10 +31,10 @@ index f50110e4270..0b1d131ced7 100644
  #include <exec/libraries.h>
 +#include <exec/execbase.h>
  #include <utility/tagitem.h>
- #include <libraries/openfont.h>
+ #include <libraries/gfopenfont.h>
  #include <dos/dos.h>
 @@ -35,6 +36,7 @@
- #include <proto/openfont.h>
+ #include <proto/gfopenfont.h>
  
  #include <pthread.h>
 +#include <stdio.h>
