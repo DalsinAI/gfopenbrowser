@@ -63,7 +63,7 @@ on:
 env:
   OPENLAYOUT_REF: ce9f92de37463c9333bf5793b35a6b37ea27614e   # gfopenlayout master: gfopenlayout.library 2.0
   OPENSDK_REF: e75b5ffae42b6c446ec11cb195b919151e56529c      # gfopensdk main, as gfopencurl
-  OPENAMIGARTG_REF: b5e2e453fa23a5a0ec84321a412f6f33fbc4bbf5 # gfopenrtg main: GFOpenGPU 0.23, stream v1.8 (#157)
+  OPENAMIGARTG_REF: a14091d9b7e286f93aa335861934c574c3a6b29c # gfopenrtg main: the GFOpenGPU headers at include/gfopengpu/ (#162)
   TC_URL: https://github.com/DalsinAI/gfopengcc/releases/download/v16.2.0-open3/openamigagcc-16.2.0-open3-x86_64-linux.tar.xz
   TC_SHA256: 9fcc136ab59e3bb5b91d2764d0bf290b709d72d7380be4ce0cdf005edf8eff21
 

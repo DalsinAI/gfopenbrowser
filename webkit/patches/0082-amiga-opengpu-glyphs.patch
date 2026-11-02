@@ -220,7 +220,7 @@ index 0000000..d4e9aaf
 +#include <utility/tagitem.h>
 +#include <proto/exec.h>
 +#include <libraries/openfont.h>
-+#include <opengpu/stream.h>
++#include <gfopengpu/stream.h>
 +
 +#include <pthread.h>
 +#include <stdlib.h>

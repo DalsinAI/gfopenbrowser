@@ -17,7 +17,7 @@
 #include <string.h>
 
 #include "ogpu_core.h"
-#include <opengpu/stream.h>
+#include <gfopengpu/stream.h>
 #include "OpenGPUPaintAmiga.h"
 
 #define ARENA       (1L << 22)
