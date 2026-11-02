@@ -203,7 +203,7 @@ ENGINE_LIBRARIES="libWebCore.a libJavaScriptCore.a libWTF.a libPAL.a libbmalloc.
 
 # gfopenservice's checkout, as src/webcore/CMakeLists.txt finds it.
 openservice_dir() {
-    if [ -n "${OPENSERVICE_DIR:-}" ] && [ -f "$OPENSERVICE_DIR/include/devices/openservice.h" ]; then
+    if [ -n "${OPENSERVICE_DIR:-}" ] && [ -f "$OPENSERVICE_DIR/include/devices/gfopenservice.h" ]; then
         echo "$OPENSERVICE_DIR"
     else
         echo "$ROOT/../gfopenservice"

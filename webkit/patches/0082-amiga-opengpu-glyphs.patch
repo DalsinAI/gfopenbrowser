@@ -219,7 +219,7 @@ index 0000000..d4e9aaf
 +#include <exec/libraries.h>
 +#include <utility/tagitem.h>
 +#include <proto/exec.h>
-+#include <libraries/openfont.h>
++#include <libraries/gfopenfont.h>
 +#include <gfopengpu/stream.h>
 +
 +#include <pthread.h>
@@ -228,8 +228,8 @@ index 0000000..d4e9aaf
 +#ifdef OPENFONT_REVISION_GPU
 +
 +/* the engine's other gfopenfont.library calls use OpenFontBase (OpenFontLibrary.c) */
-+#define OPENFONT_BASE_NAME OBGlyphsOpenFontBase
-+#include <inline/openfont.h>
++#define GFOPENFONT_BASE_NAME OBGlyphsOpenFontBase
++#include <inline/gfopenfont.h>
 +
 +static struct Library *OBGlyphsOpenFontBase;
 +static pthread_once_t s_openOnce = PTHREAD_ONCE_INIT;

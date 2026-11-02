@@ -71,10 +71,10 @@ endif ()
 # Page pictures are also decoded by a board or a paired Cradle when one
 # offers it (ob_media.c).
 set(OB_OPENSERVICE_DIR "$ENV{OPENSERVICE_DIR}")
-if (NOT EXISTS "${OB_OPENSERVICE_DIR}/include/devices/openservice.h")
+if (NOT EXISTS "${OB_OPENSERVICE_DIR}/include/devices/gfopenservice.h")
     set(OB_OPENSERVICE_DIR "${CMAKE_CURRENT_SOURCE_DIR}/../../../gfopenservice")
 endif ()
-if (NOT EXISTS "${OB_OPENSERVICE_DIR}/include/devices/openservice.h" OR NOT EXISTS "${OB_OPENSERVICE_DIR}/src/webfetch.c")
+if (NOT EXISTS "${OB_OPENSERVICE_DIR}/include/devices/gfopenservice.h" OR NOT EXISTS "${OB_OPENSERVICE_DIR}/src/webfetch.c")
     message(FATAL_ERROR "gfopenservice not found at ${OB_OPENSERVICE_DIR}: the engine's network is "
         "openweb.fetch (include/openweb/webfetch.h, src/webfetch.c, src/wfnet*.c). Check out "
         "DalsinAI/gfopenservice beside this repository, or set OPENSERVICE_DIR.")
