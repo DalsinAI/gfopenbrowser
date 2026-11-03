@@ -32,7 +32,9 @@ the engine. What cairo gave WebCore is the engine's own:
   blend modes other than normal (drawn normal), shadows under a scale or
   turn, clipToImageBuffer's mask (its rectangle clips), picture
   orientations.
-- PNG stays the one encoding (MIMETypeRegistry).
+- PNG stays the one encoding (MIMETypeRegistry). It is written by
+  gfopenpng.datatype first: the list of PNG writers still named it
+  openpng, so png.datatype wrote the page remapped to 4 pens.
 
 diff --git a/Source/WebCore/PlatformAmiga.cmake b/Source/WebCore/PlatformAmiga.cmake
 index 5e882ea3..b419e0b2 100644
@@ -3329,6 +3331,22 @@ index e56929a9..5dccbba0 100644
  
 -#endif // USE(OPENFONT) && USE(CAIRO)
 +#endif // USE(OPENFONT) && (USE(CAIRO) || USE(AMIGA_GRAPHICS))
+diff --git a/Source/WebCore/platform/image-decoders/amiga/DatatypesDecode.c b/Source/WebCore/platform/image-decoders/amiga/DatatypesDecode.c
+--- a/Source/WebCore/platform/image-decoders/amiga/DatatypesDecode.c
++++ b/Source/WebCore/platform/image-decoders/amiga/DatatypesDecode.c
+@@ -402,9 +402,10 @@ void obdt_free(OBDTImage* image)
+     image->pixels = NULL;
+ }
+ 
+-/* The PNG datatypes tried for writing, ours first; any that writes PNG for
++/* The PNG datatypes tried for writing, ours first (gfopenpng.datatype; it
++ * was openpng.datatype before the rename); any that writes PNG for
+  * DTM_WRITE with DTWM_RAW will do. */
+-static const char* const s_pngDataTypes[] = { "openpng", "png" };
++static const char* const s_pngDataTypes[] = { "gfopenpng", "openpng", "png" };
+ 
+ /* Straight (not premultiplied) A, R, G, B, rows packed, from malloc. */
+ static unsigned char* straightPixels(const unsigned char* pixels, unsigned width, unsigned height, unsigned stride, unsigned flags)
 diff --git a/Source/cmake/OptionsAmiga.cmake b/Source/cmake/OptionsAmiga.cmake
 index 8e14a6cc..8b2d2561 100644
 --- a/Source/cmake/OptionsAmiga.cmake
