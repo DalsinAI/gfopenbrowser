@@ -24,6 +24,8 @@
 #include <WebCore/DocumentLoader.h>
 #include <WebCore/EditorClient.h>
 #include <WebCore/EmptyClients.h>
+#include <WebCore/FindOptions.h>
+#include <WebCore/SimpleRange.h>
 #include <WebCore/FocusController.h>
 #include <WebCore/ForcedAccessibilityValue.h>
 #include <WebCore/FrameLoadRequest.h>
@@ -47,6 +49,7 @@
 #include <WebCore/TrustedFonts.h>
 #include <cairo.h>
 #include <stdio.h>
+#include <string.h>
 #include <wtf/TZoneMallocInlines.h>
 #include <wtf/text/CString.h>
 
@@ -633,6 +636,67 @@ bool WebView::runPrompt(const String& message, const String& defaultValue, Strin
     buffer[sizeof buffer - 1] = 0;
     result = String::fromUTF8(buffer);
     return true;
+}
+
+bool WebView::runAuthentication(const String& host, const String& realm, unsigned previousFailures, String& user, String& password)
+{
+    if (!m_callbacks.authenticate)
+        return false;
+    char userBuffer[256], passwordBuffer[256];
+    CString utf8Host = host.utf8();
+    CString utf8Realm = realm.utf8();
+    CString utf8User = user.utf8();
+    // The window's panel starts with the user name the address gave, if any.
+    snprintf(userBuffer, sizeof userBuffer, "%s", utf8User.data());
+    passwordBuffer[0] = 0;
+    if (!m_callbacks.authenticate(m_callbacks.context, cString(utf8Host), cString(utf8Realm), static_cast<int>(previousFailures),
+            userBuffer, sizeof userBuffer, passwordBuffer, sizeof passwordBuffer))
+        return false;
+    userBuffer[sizeof userBuffer - 1] = 0;
+    passwordBuffer[sizeof passwordBuffer - 1] = 0;
+    user = String::fromUTF8(userBuffer);
+    password = String::fromUTF8(passwordBuffer);
+    memset(passwordBuffer, 0, sizeof passwordBuffer);
+    return !user.isEmpty();
+}
+
+int WebView::find(const String& text, int flags, int& current)
+{
+    static constexpr unsigned maxMatches = 1000;
+    current = 0;
+    m_page->unmarkAllTextMatches();
+    if (text.isEmpty())
+        return 0;
+    FindOptions options { FindOption::WrapAround };
+    if (!(flags & OB_FIND_CASE_SENSITIVE))
+        options.add(FindOption::CaseInsensitive);
+    if (flags & OB_FIND_BACKWARDS)
+        options.add(FindOption::Backwards);
+    if (!(flags & OB_FIND_AGAIN))
+        options.add(FindOption::StartInSelection);
+    auto found = m_page->findString(text, options);
+
+    // Every match, in the document's order, marked and highlighted; the one
+    // selected is the window's "n of m".
+    FindOptions markOptions;
+    if (!(flags & OB_FIND_CASE_SENSITIVE))
+        markOptions.add(FindOption::CaseInsensitive);
+    unsigned count = m_page->markAllMatchesForText(text, markOptions, true, maxMatches);
+    if (found.range && count) {
+        auto matches = m_page->findTextMatches(text, markOptions, maxMatches, false);
+        for (size_t i = 0; i < matches.ranges.size(); ++i) {
+            if (matches.ranges[i] == *found.range) {
+                current = static_cast<int>(i + 1);
+                break;
+            }
+        }
+    }
+    return static_cast<int>(count);
+}
+
+void WebView::clearFind()
+{
+    m_page->unmarkAllTextMatches();
 }
 
 void WebView::consoleMessage(const String& message, unsigned line, const String& source)

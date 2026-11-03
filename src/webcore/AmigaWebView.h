@@ -82,6 +82,12 @@ public:
     void runAlert(const String&);
     bool runConfirm(const String&);
     bool runPrompt(const String& message, const String& defaultValue, String& result);
+    // A server's log-in panel (the window's authenticate callback): true
+    // with user and password filled to log in.
+    bool runAuthentication(const String& host, const String& realm, unsigned previousFailures, String& user, String& password);
+    // Find in the page (ob_webview_find).
+    int find(const String&, int flags, int& current);
+    void clearFind();
     void consoleMessage(const String& message, unsigned line, const String& source);
     void resourceStarted(const String& url);
     void resourceEnded(const String& url, const String& error);
