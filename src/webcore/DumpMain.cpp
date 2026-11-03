@@ -20,7 +20,8 @@
 #include <WebCore/DocumentWriter.h>
 #include <WebCore/EmptyClients.h>
 #include <WebCore/FrameLoader.h>
-#include <WebCore/GraphicsContextCairo.h>
+#include <WebCore/AmigaImage.h>
+#include <WebCore/GraphicsContextOpenGPU.h>
 #include <WebCore/LocalFrame.h>
 #include <WebCore/LocalFrameInlines.h>
 #include <WebCore/LocalFrameView.h>
@@ -30,7 +31,6 @@
 #include <WebCore/Settings.h>
 #include <WebCore/SharedBuffer.h>
 #include <WebCore/WebCoreJITOperations.h>
-#include <cairo.h>
 #include <cstdio>
 #include <cstdlib>
 #include <wtf/FileSystem.h>
@@ -126,21 +126,20 @@ static int dumpMain(int argc, char** argv)
     std::fflush(stdout);
 
     if (argc > 3) {
-        // Milestone 2b: paint the laid-out page into a cairo image surface.
+        // Milestone 2b: paint the laid-out page into a picture (through GFOpenGPU).
         RefPtr view = frame->view();
         IntSize contentsSize = view->contentsSize();
         int height = std::max(1, std::min(contentsSize.height(), 4000));
-        cairo_surface_t* surface = cairo_image_surface_create(CAIRO_FORMAT_ARGB32, width, height);
-        {
-            GraphicsContextCairo context(surface);
+        auto surface = AmigaImage::create(IntSize(width, height));
+        if (surface) {
+            GraphicsContextOpenGPU context(*surface, nullptr);
             context.fillRect(FloatRect(0, 0, width, height), Color::white);
             view->paintContents(context, IntRect(0, 0, width, height));
         }
-        cairo_surface_flush(surface);
         unsigned char* png = nullptr;
         unsigned long pngSize = 0;
         const char* status = "no PNG datatype that writes";
-        if (obdt_encode_png(cairo_image_surface_get_data(surface), width, height, cairo_image_surface_get_stride(surface),
+        if (surface && obdt_encode_png(surface->data(), width, height, surface->stride(),
             1 /* premultiplied */, &png, &pngSize)) {
             FILE* file = std::fopen(argv[3], "wb");
             status = file && std::fwrite(png, 1, pngSize, file) == pngSize ? "success" : "write error";
@@ -150,7 +149,6 @@ static int dumpMain(int argc, char** argv)
         }
         std::printf("OBCORE_PAINTED %dx%d (page %dx%d) png=%s\n", width, height,
             contentsSize.width(), contentsSize.height(), status);
-        cairo_surface_destroy(surface);
     }
 
     std::printf("OBCORE_DONE\n");
