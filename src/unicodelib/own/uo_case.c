@@ -7,8 +7,11 @@
  * sigma, Lithuanian and Turkic i, dot above) are written out below;
  * gen_props.py stops the build when Unicode changes their list.
  *
- * Still ICU's: Greek uppercasing (locale "el", which drops accents) and
- * u_strToTitle, which needs word breaking (step 7 piece 2).
+ * u_strToTitle titlecases the first letter of each word of our own word
+ * breaking (uo_brk.c), or of the caller's iterator, and lowercases the
+ * rest, as ICU's does (with Dutch IJ).
+ *
+ * Still ICU's: Greek uppercasing (locale "el", which drops accents).
  */
 #include <stdlib.h>
 #include <string.h>
@@ -293,6 +296,18 @@ static void upperOne(struct sink *o, const struct text *t, UChar32 c, int32_t i,
         putc32(o, c + caseOf(c)->upper);
 }
 
+static void titleOne(struct sink *o, const struct text *t, UChar32 c, int32_t i, int loc)
+{
+    if (c == 0x69 && loc == TURKISH) {
+        put(o, 0x130);
+        return;
+    }
+    if (c == 0x307 && loc == LITHUANIAN && afterSoftDotted(t, i))
+        return;
+    if (!putFull(o, c, UO_FULL_TITLE))
+        putc32(o, c + caseOf(c)->title);
+}
+
 static void foldOne(struct sink *o, UChar32 c, uint32_t options)
 {
     if (c == 0x49) {
@@ -464,5 +479,128 @@ int32_t uo_u_strFoldCase(UChar *dest, int32_t capacity, const UChar *src, int32_
     t.length = length;
     while (i < length)
         foldOne(&o, after(&t, &i), options);
+    return finish(&o, err);
+}
+
+/* ICU's "letter, number, symbol or private use" (ustrcase_isLNS): where
+ * u_strToTitle's first letter is; modifier letters only when cased */
+static int isLNS(UChar32 c)
+{
+    int gc = uo_u_charType(c);
+    const uint32_t lns = (U_GC_L_MASK | U_GC_N_MASK | U_GC_S_MASK | U_GC_CO_MASK) & ~U_GC_LM_MASK;
+    return (U_MASK(gc) & lns) != 0 ||
+           (gc == U_MODIFIER_LETTER && (caseOf(c)->flags & (UO_LOWER | UO_UPPER_OR_TITLE)));
+}
+
+/* Dutch: after a titlecased I (or I with acute), j becomes J too
+ * (ICU's maybeTitleDutchIJ); returns where lowercasing goes on */
+static int32_t dutchIJ(struct sink *o, const struct text *t, UChar32 c, int32_t start, int32_t limit)
+{
+    int32_t i = start, keep1 = 0, keep2 = 0;
+    int acute = 0, titleJ = 0;
+    UChar c2 = t->s[i++];
+    if (c == 'I') {
+        if (c2 == 0x301) {
+            acute = 1;
+            keep1 = 1;
+            if (i == limit)
+                return start;
+            c2 = t->s[i++];
+        }
+    } else
+        acute = 1;
+    if (c2 == 'j')
+        titleJ = 1;
+    else if (c2 == 'J')
+        keep1++;
+    else
+        return start;
+    if (acute) {
+        if (i == limit || t->s[i++] != 0x301)
+            return start;
+        if (titleJ)
+            keep2 = 1;
+        else
+            keep1++;
+    }
+    if (i < limit) {
+        int32_t k = i;
+        UChar32 x = after(&(struct text){ t->s, limit }, &k);
+        if (U_GET_GC_MASK(x) & U_GC_M_MASK)
+            return start;
+    }
+    putString(o, t->s + start, keep1);
+    start += keep1;
+    if (titleJ) {
+        put(o, 'J');
+        start++;
+    }
+    putString(o, t->s + start, keep2);
+    return i;
+}
+
+int32_t uo_u_strToTitle(UChar *dest, int32_t capacity, const UChar *src, int32_t length,
+                        UBreakIterator *titleIter, const char *locale, UErrorCode *err)
+{
+    struct sink o = { dest, capacity, 0 };
+    struct text t;
+    UBreakIterator *bi = titleIter;
+    int32_t prev = 0;
+    int loc, first = 1;
+
+    COPY_IF_OVERLAPPING(uo_u_strToTitle(dest, capacity, copy, n, titleIter, locale, err));
+    if (!err || U_FAILURE(*err))
+        return 0;
+    if (!bi) {
+        bi = uo_ubrk_open(UBRK_WORD, locale, NULL, 0, err);
+        if (U_FAILURE(*err))
+            return 0;
+    }
+    if (!prepare(dest, capacity, src, &length, err)) {
+        if (bi != titleIter)
+            uo_ubrk_close(bi);
+        return 0;
+    }
+    uo_ubrk_setText(bi, src, length, err);
+    loc = caseLocale(locale);
+    t.s = src;
+    t.length = length;
+    while (prev < length) {
+        int32_t index = first ? uo_ubrk_first(bi) : uo_ubrk_next(bi);
+        first = 0;
+        if (index == UBRK_DONE || index > length)
+            index = length;
+        if (prev < index) {
+            int32_t ts = prev, tl = prev;
+            struct text seg = { src, index };
+            UChar32 c = after(&seg, &tl);
+            while (!isLNS(c)) {                 /* to the first letter, number or symbol */
+                ts = tl;
+                if (tl == index)
+                    break;
+                c = after(&seg, &tl);
+            }
+            putString(&o, src + prev, ts - prev);
+            if (ts < tl) {
+                titleOne(&o, &t, c, ts, loc);
+                if (ts + 1 < index && loc == DUTCH) {
+                    /* ICU looks at the titlecased letter: I, or I with acute */
+                    UChar32 tc = caseOf(c)->flags & UO_FULL ? -1 : c + caseOf(c)->title;
+                    if (tc == 'I' || tc == 0xCD)
+                        tl = dutchIJ(&o, &t, tc, ts + 1, index);
+                }
+                while (tl < index) {
+                    int32_t start = tl;
+                    UChar32 x = after(&t, &tl);
+                    if (tl > index)
+                        tl = index;
+                    lowerOne(&o, &t, x, start, tl, loc);
+                }
+            }
+        }
+        prev = index;
+    }
+    if (bi != titleIter)
+        uo_ubrk_close(bi);
     return finish(&o, err);
 }

@@ -67,7 +67,11 @@ pinned by sha256; `own/ucd.sha256` checks every file read).
 | `own.txt` | The calls that are ours. |
 | `own/gen_props.py` | Makes `uo_data.c` from the UCD: three tries (the property record, the binary properties, the case record), each the smallest of a few shapes, plus blocks, script extensions, mirroring, full case mappings, script names and error names. ICU's enum numbers come from its own headers, since the programs use ICU's interface. It stops the build when SpecialCasing's conditional mappings or CaseFolding's Turkic ones change, as `uo_case.c` writes them out. |
 | `own/uo_props.c` | General category, bidi class, combining class, mirroring, the `u_is*` calls, the 58 binary properties in the UCD files and ICU's POSIX ones, the integer properties WebKit asks for, blocks, scripts and script extensions, script names, error names. |
-| `own/uo_case.c` | Simple and full case mapping and folding, with SpecialCasing's conditions (final sigma; Lithuanian, Turkish and Azerbaijani i and dot above). |
+| `own/uo_case.c` | Simple and full case mapping and folding, with SpecialCasing's conditions (final sigma; Lithuanian, Turkish and Azerbaijani i and dot above), and `u_strToTitle` on our word breaking (with Dutch IJ). |
+| `own/gen_brk.py` | Makes `uo_brk_data.c` from the UCD: per code point one record of its line-break class (with UAX #14's LB1 done), grapheme-cluster, word and sentence break classes, Indic conjunct class, title-case class and flags (East Asian width, Extended_Pictographic, Hiragana, Han, kana and kanji, Ideographic). 185 records, 26,637 bytes. |
+| `own/uo_brk.c` | The `ubrk_*` calls: grapheme clusters, words and sentences (UAX #29) and lines (UAX #14; strict, and the `@lb=normal` and `@lb=loose` variants), written from the Unicode 17 standards, with ICU's word rule statuses and its treatment of scripts written without spaces, kana and Han (the library has no dictionaries, so such text breaks as ICU's rules alone break it); title-case segments. Each break is decided from the text around it, so following(), preceding() and isBoundary() cost the same anywhere. A UText (WebKit's providers) is read into UTF-16 once. |
+| `own/uo_utext.c` | `utext_setup` and `utext_close`, laid out as ICU's, for WebKit's text providers. |
+| `own/tests/host_brk.c` | On the host: Unicode's four break tests (every line through next, previous, following, preceding, isBoundary and clone); with ICU, random strings of characters of every break class against ICU's iterators (boundaries and rule statuses), and `u_strToTitle` in five locales. |
 | `own/tests/run-host.sh` | On the host: `host_props.c` compares every call with ICU 78.3's for every code point (and -2, -1, 0x110000, 0x110001), every property, and the case calls on every code point, on strings of up to three of the characters the conditions look at, and on 20,000 random strings, in 18 locales, with buffers exact, short and long. Then it builds `tests/UnicodeProps.c` against ICU and writes its lines: the Amiga build of the same program, on the library, must print the same. |
 
 Piece 1, properties and case (1 November 2026), is the first: 28 calls,
@@ -76,8 +80,17 @@ those that ran on real pages and in JavaScriptCore (most of all
 `u_charDirection`). Inside them, a property no WebKit code asks for (the
 binary properties of ICU's own, such as `UCHAR_SEGMENT_STARTER`, and the
 integer properties other than those listed in `uo_props.c`) and Greek
-uppercasing still go to ICU, as do `u_strToTitle` and the `uset_*` calls.
+uppercasing still go to ICU, as do the `uset_*` calls.
 The tables are 108,906 bytes.
+
+Piece 2, text breaking (3 November 2026): the 14 `ubrk_*` calls programs
+make (all but `ubrk_countAvailable` and `ubrk_getAvailable`, ICU's
+locale list), `u_strToTitle`, `utext_setup` and `utext_close`: 45 calls
+of 261 are ours. In CI they are compared with ICU 78.3 running on the
+library's own trimmed data (`icu/data-keep.lst`, so no dictionaries).
+Host times on 1 MB of text, ours against ICU (74, the host's): grapheme
+0.008 s against 0.013 s, word 0.007 against 0.013, line 0.006 against
+0.008, sentence 0.002 against 0.003.
 
 ## Building
 
