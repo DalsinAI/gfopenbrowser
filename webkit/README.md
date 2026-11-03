@@ -488,6 +488,17 @@ The patches, in order:
   and redirect, with the page's site; a blocked one fails as cancelled from
   the run loop. GFOpenBrowser answers from Tata's ad and tracker rules
   (`src/webcore/ob_tata.c`).
+- `0104-jsc-m68k-jit-sooner.patch`: functions and loops go to the 68k
+  template JIT sooner: `thresholdForJITAfterWarmUp` is 100 on the 68k
+  (500 elsewhere), so a function is compiled on about its seventh call and a
+  loop at its 100th iteration. Code compiled while some of its sites'
+  inline caches were still empty notes those cache words; once one has
+  filled (checked at the end of each collection) the code is compiled once
+  more, after `m68kTemplateJITRecompileThreshold` (100) more counts in the
+  interpreter. The replaced code is kept until its CodeBlock dies.
+  `JSC_useM68KTemplateJITRecompile=0` turns the second compile off, and
+  `JSC_reportM68KTemplateJITStatistics=1` prints at exit what was compiled
+  and how often the interpreter's property caches missed.
 
 `0001-amiga-m68k-jsconly.patch` is one combined patch. It holds:
 
