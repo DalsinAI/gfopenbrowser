@@ -24,6 +24,99 @@ write that fails takes the file away. Scripts under 1 KB are not kept.
 JavaScriptCore checks the text's hash, its length and the engine's version
 again when it decodes, so a stale or foreign file is only made afresh.
 
+The browser writes the code cache when a page has loaded: CodeCache.h needs
+the parser's headers, which are not installed, so JavaScriptCore gives it
+JSC::amigaWriteCodeCache(VM&) (runtime/AmigaCodeCacheWrite.h, a private
+header on the Amiga), which calls CodeCache::write().
+
+diff --git a/Source/JavaScriptCore/PlatformAmiga.cmake b/Source/JavaScriptCore/PlatformAmiga.cmake
+index 8fc7000..0ae8d2a 100644
+--- a/Source/JavaScriptCore/PlatformAmiga.cmake
++++ b/Source/JavaScriptCore/PlatformAmiga.cmake
+@@ -74,3 +74,10 @@ function(_amiga_cold_sources)
+     set_property(TARGET JavaScriptCore PROPERTY SOURCES ${hotSources} ${coldSources})
+ endfunction()
+ cmake_language(DEFER CALL _amiga_cold_sources)
++
++# The browser writes the code cache's bytecode to its scripts' files when a
++# page has loaded (WebCore's AmigaScriptBytecode); CodeCache.h itself needs
++# the parser's headers, which are not installed.
++list(APPEND JavaScriptCore_PRIVATE_FRAMEWORK_HEADERS
++    runtime/AmigaCodeCacheWrite.h
++)
+diff --git a/Source/JavaScriptCore/runtime/AmigaCodeCacheWrite.h b/Source/JavaScriptCore/runtime/AmigaCodeCacheWrite.h
+new file mode 100644
+index 0000000..663ec6b
+--- /dev/null
++++ b/Source/JavaScriptCore/runtime/AmigaCodeCacheWrite.h
+@@ -0,0 +1,39 @@
++/*
++ * Copyright (C) 2026 AmiCradle Team.
++ *
++ * Redistribution and use in source and binary forms, with or without
++ * modification, are permitted provided that the following conditions
++ * are met:
++ * 1. Redistributions of source code must retain the above copyright
++ *    notice, this list of conditions and the following disclaimer.
++ * 2. Redistributions in binary form must reproduce the above copyright
++ *    notice, this list of conditions and the following disclaimer in the
++ *    documentation and/or other materials provided with the distribution.
++ *
++ * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS ``AS IS''
++ * AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO,
++ * THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR
++ * PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDERS OR
++ * CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL,
++ * EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO,
++ * PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS;
++ * OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY,
++ * WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR
++ * OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF
++ * ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
++ */
++
++#pragma once
++
++#include "JSExportMacros.h"
++
++namespace JSC {
++
++class VM;
++
++// Writes what the code cache holds of each script to the script's
++// SourceProvider (CodeCache::write()), for a program that cannot include
++// CodeCache.h. Hold the VM's lock.
++JS_EXPORT_PRIVATE void amigaWriteCodeCache(VM&);
++
++} // namespace JSC
+diff --git a/Source/JavaScriptCore/runtime/CodeCache.cpp b/Source/JavaScriptCore/runtime/CodeCache.cpp
+index 3db44e0..be67fb7 100644
+--- a/Source/JavaScriptCore/runtime/CodeCache.cpp
++++ b/Source/JavaScriptCore/runtime/CodeCache.cpp
+@@ -26,6 +26,10 @@
+ #include "config.h"
+ #include "CodeCache.h"
+ 
++#if PLATFORM(AMIGA)
++#include "AmigaCodeCacheWrite.h"
++#endif
++
+ #include "BytecodeGenerator.h"
+ #include "DirectEvalExecutable.h"
+ #include "IndirectEvalExecutable.h"
+@@ -302,4 +306,12 @@ RefPtr<CachedBytecode> serializeBytecode(VM& vm, UnlinkedCodeBlock* codeBlock, c
+     return encodeCodeBlock(vm, sourceCodeKeyForSerializedBytecode(vm, source, codeType, lexicallyScopedFeatures, scriptMode, codeGenerationMode), codeBlock, fileHandle, error);
+ }
+ 
++#if PLATFORM(AMIGA)
++void amigaWriteCodeCache(VM& vm)
++{
++    if (auto* codeCache = vm.codeCache())
++        codeCache->write();
++}
++#endif
++
+ }
 diff --git a/Source/WebCore/PlatformAmiga.cmake b/Source/WebCore/PlatformAmiga.cmake
 index 5e882ea..007c396 100644
 --- a/Source/WebCore/PlatformAmiga.cmake

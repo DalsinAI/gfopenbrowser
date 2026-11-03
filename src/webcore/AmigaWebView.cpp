@@ -13,7 +13,7 @@
 #include "AmigaLoaderStrategy.h"
 #include "AmigaSessionStorage.h"
 
-#include <JavaScriptCore/CodeCache.h>
+#include <JavaScriptCore/AmigaCodeCacheWrite.h>
 #include <JavaScriptCore/JSLock.h>
 #include <WebCore/CommonVM.h>
 #include <WebCore/DocumentPage.h>
@@ -638,8 +638,7 @@ void WebView::writeScriptCache()
 {
     JSC::VM& vm = commonVM();
     JSC::JSLockHolder lock(vm);
-    if (auto* codeCache = vm.codeCache())
-        codeCache->write();
+    JSC::amigaWriteCodeCache(vm);
 }
 
 void WebView::didFailLoad(const ResourceError& error)
