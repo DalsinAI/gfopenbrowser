@@ -355,10 +355,15 @@ static int32_t word_status(const struct uo_bi *b, int32_t s, int32_t e)
     UChar32 lc;
     while (k > s) {
         int32_t j = prev_i(b, k);
-        if (!is_exfm(wb_of(cp_at(b, j)))) {
+        UChar32 c = cp_at(b, j);
+        if (!is_exfm(wb_of(c))) {
             li = j;
             break;
         }
+        /* an Ideographic Extend (U+16FE4) starts ICU's "$Ideographic
+           $ExFm*" rule by chaining: the rest of the word is that rule's */
+        if (REC(c)->flags & UO_F_IDEO)
+            return UBRK_WORD_IDEO;
         trailing = 1;
         k = j;
     }

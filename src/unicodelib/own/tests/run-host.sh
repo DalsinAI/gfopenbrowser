@@ -36,6 +36,6 @@ cc $CFLAGS -DWITH_ICU -I"$OUT" -I"$HERE" "$HERE/tests/host_brk.c" $OWN \
     -L"$LIB" -licuuc -licudata -o "$OUT/host_brk"
 cc $CFLAGS "$HERE/../tests/UnicodeProps.c" -L"$LIB" -licuuc -licudata -o "$OUT/UnicodeProps"
 LD_LIBRARY_PATH="$LIB" "$OUT/host_props"
-LD_LIBRARY_PATH="$LIB" ICU_DATA="${ICU_TRIMMED:-${ICU_DATA:-}}" "$OUT/host_brk" "$SRC/test/testdata" 300000
+LD_LIBRARY_PATH="$LIB" ICU_DATA="${ICU_TRIMMED:-${ICU_DATA:-}}" MAXSHOW="${MAXSHOW:-200}" "$OUT/host_brk" "$SRC/test/testdata" 300000
 LD_LIBRARY_PATH="$LIB" "$OUT/UnicodeProps" | grep '^UPROPS ' > "$OUT/UnicodeProps.expected"
 cat "$OUT/UnicodeProps.expected"
