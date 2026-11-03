@@ -111,7 +111,7 @@ endif ()
 file(GLOB OB_WFNET_SOURCES "${OB_OPENSERVICE_DIR}/src/wfnet*.c")
 list(APPEND OB_CORE_SOURCES "${OB_OPENSERVICE_DIR}/src/webfetch.c" ${OB_WFNET_SOURCES})
 set_property(SOURCE "${OB_OPENSERVICE_DIR}/src/wfnet_amiga.c" APPEND PROPERTY
-    INCLUDE_DIRECTORIES "${CMAKE_CURRENT_SOURCE_DIR}/../../third_party/opentls/include")
+    INCLUDE_DIRECTORIES "${CMAKE_CURRENT_SOURCE_DIR}/../../third_party/gfopentls/include")
 set_property(SOURCE "${OB_OPENSERVICE_DIR}/src/wfnet_amiga.c" "${OB_OPENSERVICE_DIR}/src/wfnet_dec.c" APPEND PROPERTY
     INCLUDE_DIRECTORIES "${OB_OPENDATATYPES_DIR}/Datatypes/include")
 set_property(SOURCE "${WEBCORE_DIR}/platform/network/amiga/OpenWebFetchAmiga.c" TARGET_DIRECTORY WebCore APPEND PROPERTY
