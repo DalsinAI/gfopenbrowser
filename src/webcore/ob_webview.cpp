@@ -179,7 +179,8 @@ int ob_webcore_init_with_network(const char* cookieDatabase)
     GFOpenBrowser::initializeHttpCache("PROGDIR:Cache");
 
     // Scripts translated once (WebKit patch 0099, ob_scriptcache.h):
-    // ENV:OB_SCRIPT_CACHE=0 turns it off.
+    // OB_SCRIPT_CACHE=0 turns it off (Set in the shell that starts it: on
+    // the lab copy of Instance-32, SetEnv was not seen).
     const char* scriptCache = getenv("OB_SCRIPT_CACHE");
     if (!scriptCache || strcmp(scriptCache, "0")) {
         ob_scriptcache_trim(OB_SCRIPTCACHE_DIR, OB_SCRIPTCACHE_MAX);

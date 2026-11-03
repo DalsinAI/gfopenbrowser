@@ -14,6 +14,7 @@
 #include "AmigaSessionStorage.h"
 
 #include <JavaScriptCore/AmigaCodeCacheWrite.h>
+#include <WebCore/AmigaScriptBytecode.h>
 #include <JavaScriptCore/JSLock.h>
 #include <WebCore/CommonVM.h>
 #include <WebCore/DocumentPage.h>
@@ -99,7 +100,7 @@ WebView::WebView(const OBWebViewCallbacks& callbacks, const IntSize& size)
     , m_size(size)
     , m_deferTimer([this] { deferTimerFired(); })
     , m_renderingUpdateTimer([this] { renderingUpdateTimerFired(); })
-    , m_scriptCacheTimer([this] { writeScriptCache(); })
+    , m_scriptCacheTimer([this] { scriptCacheTimerFired(); })
 {
     auto configuration = pageConfigurationWithEmptyClients(std::nullopt, PAL::SessionID::defaultSessionID());
     configuration.chromeClient = createChromeClient(*this);
@@ -169,6 +170,7 @@ WebView::~WebView()
     m_deferTimer.stop();
     m_scriptCacheTimer.stop();
     writeScriptCache();
+    while (writeAmigaScriptBytecode()) { }
     if (RefPtr frame = mainFrame())
         frame->loader().detachFromParent();
     m_page = nullptr;
@@ -629,6 +631,7 @@ void WebView::didFinishLoad()
     // The scripts a page runs after its load (a framework's hydration)
     // compile their functions then: their translations are written a while
     // later, with the rest (WebKit patch 0099).
+    m_scriptCacheHandedOver = false;
     m_scriptCacheTimer.startOneShot(5_s);
 }
 
@@ -639,6 +642,23 @@ void WebView::writeScriptCache()
     JSC::VM& vm = commonVM();
     JSC::JSLockHolder lock(vm);
     JSC::amigaWriteCodeCache(vm);
+}
+
+// The translations go to their files one file a tick, and only while the page
+// is idle: painted, loaded, and no request started or ended for a second.
+void WebView::scriptCacheTimerFired()
+{
+    auto now = MonotonicTime::now();
+    if (m_loading || !m_renderingUpdates || m_openRequests > 0 || now - m_lastRequestChange < 1_s) {
+        m_scriptCacheTimer.startOneShot(1_s);
+        return;
+    }
+    if (!m_scriptCacheHandedOver) {
+        m_scriptCacheHandedOver = true;
+        writeScriptCache();
+    }
+    if (writeAmigaScriptBytecode())
+        m_scriptCacheTimer.startOneShot(250_ms);
 }
 
 void WebView::didFailLoad(const ResourceError& error)
