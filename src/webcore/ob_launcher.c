@@ -35,7 +35,7 @@
 #include "libraries/webbrowser.h"
 #include "proto/webbrowser.h"
 
-static const char version[] __attribute__((used)) = "$VER: GFOpenBrowser 0.8.2 (23.10.2026)";
+static const char version[] __attribute__((used)) = "$VER: GFOpenBrowser 0.8.4 (1.11.2026)";
 
 struct IntuitionBase *IntuitionBase;
 struct GfxBase *GfxBase;
