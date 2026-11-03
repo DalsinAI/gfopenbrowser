@@ -143,10 +143,10 @@ index 956aeb9..07ee066 100644
  } // namespace WebCore
 diff --git a/Source/WebCore/bindings/js/amiga/AmigaScriptBytecode.cpp b/Source/WebCore/bindings/js/amiga/AmigaScriptBytecode.cpp
 new file mode 100644
-index 0000000..ebb78d9
+index 0000000..292b192
 --- /dev/null
 +++ b/Source/WebCore/bindings/js/amiga/AmigaScriptBytecode.cpp
-@@ -0,0 +1,160 @@
+@@ -0,0 +1,165 @@
 +/*
 + * Copyright (C) 2026 AmiCradle Team.
 + *
@@ -199,8 +199,10 @@ index 0000000..ebb78d9
 +{
 +    Locker locker { folderLock };
 +    folder() = path.isolatedCopy();
-+    if (!path.isEmpty())
-+        mkdir(path.utf8().data(), 0777);
++    if (!path.isEmpty()) {
++        auto utf8 = path.utf8();
++        mkdir(reinterpret_cast<const char*>(utf8.data()), 0777);
++    }
 +}
 +
 +// FNV-1a over the text's code units, with its length beside it in the name:
@@ -239,7 +241,8 @@ index 0000000..ebb78d9
 +    char name[24];
 +    snprintf(name, sizeof name, "%08lx-%08lx.jsc", static_cast<unsigned long>(textHash(source)), static_cast<unsigned long>(source.length()));
 +    m_path = makeString(dir, separator, String::fromLatin1(name));
-+    FILE* file = fopen(m_path.utf8().data(), "rb");
++    auto utf8Path = m_path.utf8();
++    FILE* file = fopen(reinterpret_cast<const char*>(utf8Path.data()), "rb");
 +    if (!file)
 +        return nullptr;
 +    long size = -1;
@@ -280,16 +283,18 @@ index 0000000..ebb78d9
 +void AmigaScriptBytecode::commit() const
 +{
 +    RefPtr<JSC::CachedBytecode> bytecode;
-+    CString path;
++    String pathString;
 +    {
 +        Locker locker { m_lock };
 +        if (!m_bytecode || !m_bytecode->hasUpdates())
 +            return;
 +        bytecode = std::exchange(m_bytecode, nullptr); // what is written is not added to again
-+        path = m_path.utf8();
++        pathString = m_path.isolatedCopy();
 +    }
++    auto utf8Path = pathString.utf8();
++    const char* path = reinterpret_cast<const char*>(utf8Path.data());
 +    size_t had = bytecode->size();
-+    FILE* file = fopen(path.data(), had ? "r+b" : "wb");
++    FILE* file = fopen(path, had ? "r+b" : "wb");
 +    if (!file)
 +        return;
 +    // The file must still be the one read: another task may have written it.
@@ -303,7 +308,7 @@ index 0000000..ebb78d9
 +            ok = false;
 +    });
 +    if (fclose(file) || !ok)
-+        remove(path.data()); // half a file is no file
++        remove(path); // half a file is no file
 +}
 +
 +} // namespace WebCore
