@@ -15,7 +15,7 @@
 var c = document.createElement("canvas").getContext("2d");
 c.font = "20px sans-serif";
 var pass = 0, fail = 0;
-var notdef = c.measureText("￿￿￿").width;
+var notdef = c.measureText("\uDBFF\uDFFD\uDBFF\uDFFD\uDBFF\uDFFD").width;
 function t(name, s) {
   // three characters at once, so one that happens to be as wide as a box
   // does not decide it
