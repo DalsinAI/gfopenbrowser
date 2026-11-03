@@ -50,8 +50,22 @@ set(AC_OS32_POSIX_FLAGS "-D_DEFAULT_SOURCE=1 -D_POSIX_TIMERS=1 -D_POSIX_REALTIME
 # (Software Failure 80000027) in place of the access; with it, a read of
 # address 0 stays a read, as with older compilers.
 set(AC_OS32_NULL_FLAGS "-fno-delete-null-pointer-checks")
-set(CMAKE_C_FLAGS_INIT "${AC_OS32_CPU_FLAGS} ${AC_OS32_NULL_FLAGS} ${AC_OS32_POSIX_FLAGS}")
-set(CMAKE_CXX_FLAGS_INIT "${AC_OS32_CPU_FLAGS} ${AC_OS32_NULL_FLAGS} ${AC_OS32_POSIX_FLAGS}")
+# -mcas (GFOpenAmigaGCC's patch 0015): 1-, 2- and 4-byte atomics as CAS
+# inline instead of libatomic calls under Forbid()/Permit(). It is safe here
+# because the browser's heap and data are in Fast RAM; Chip RAM is why the
+# compiler leaves it off by default. It is used when the stove's compiler
+# has it; OB_CAS=0 leaves it out. 8-byte atomics stay calls, to
+# src/webcore/ob_atomic.c's CAS2.
+set(AC_OS32_CAS_FLAGS "")
+if (NOT "$ENV{OB_CAS}" STREQUAL "0")
+    execute_process(COMMAND "${CMAKE_C_COMPILER}" -m68040 -mcas -x c -E -
+        INPUT_FILE /dev/null OUTPUT_QUIET ERROR_QUIET RESULT_VARIABLE AC_OS32_CAS_RESULT)
+    if (AC_OS32_CAS_RESULT EQUAL 0)
+        set(AC_OS32_CAS_FLAGS "-mcas")
+    endif ()
+endif ()
+set(CMAKE_C_FLAGS_INIT "${AC_OS32_CPU_FLAGS} ${AC_OS32_CAS_FLAGS} ${AC_OS32_NULL_FLAGS} ${AC_OS32_POSIX_FLAGS}")
+set(CMAKE_CXX_FLAGS_INIT "${AC_OS32_CPU_FLAGS} ${AC_OS32_CAS_FLAGS} ${AC_OS32_NULL_FLAGS} ${AC_OS32_POSIX_FLAGS}")
 # libnix has no aligned_alloc(); the stove's compat library supplies one with
 # malloc/free wrapped so free() accepts aligned blocks (os32compat_malloc.c).
 set(AC_OS32_WRAP_FLAGS "-Wl,--wrap=malloc -Wl,--wrap=calloc -Wl,--wrap=realloc -Wl,--wrap=free -Wl,-u,___wrap_malloc -Wl,-u,___wrap_free -Wl,-u,___wrap_calloc -Wl,-u,___wrap_realloc")
