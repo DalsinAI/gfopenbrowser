@@ -31,7 +31,7 @@
 ;    no free space for LOCALE: (0, or nothing it can read) the copy is
 ;    tried, and a failure is reported;
 ;  - the engine stays in this drawer (Libs/WebBrowser/WebBrowserEngine,
-;    with its fonts, blocklist and Unicode data); the 76 MB
+;    with its fonts, Tata.ads and Unicode data); the 76 MB
 ;    engine is not copied to System:. webbrowser.library (LIBS:, or this
 ;    drawer's Libs) runs LIBS:WebBrowser/WebBrowserEngine when there is
 ;    one, otherwise this drawer's: an older LIBS:WebBrowser/WebBrowserEngine

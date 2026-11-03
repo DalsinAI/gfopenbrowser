@@ -9,6 +9,7 @@
 #include "AmigaFrameLoaderClient.h"
 
 #include "AmigaWebView.h"
+#include "ob_tata.h"
 
 #include <WebCore/DocumentPage.h>
 #include <WebCore/DocumentView.h>
@@ -65,41 +66,19 @@ private:
     CookieStorageSession* storageSession() const final { return nullptr; }
 };
 
-// Hosts whose requests are refused (ads and trackers): one name per line in
-// PROGDIR:blocklist, "#" for comments. A name blocks its subdomains too.
-static const HashSet<String>& blockedHosts()
+// Tata's ad and tracker rules (ob_tata.h): a request they block is refused
+// here, so the view counts it as blocked; ResourceHandle checks every load
+// again (WebKit patch 0098), pings and workers' too.
+static bool isBlockedByTata(const ResourceRequest& request)
 {
-    static NeverDestroyed<HashSet<String>> hosts = [] {
-        HashSet<String> set;
-        if (FILE* file = fopen("PROGDIR:blocklist", "r")) {
-            char line[256];
-            while (fgets(line, sizeof line, file)) {
-                auto host = String::fromLatin1(line).trim(deprecatedIsSpaceOrNewline);
-                if (!host.isEmpty() && !host.startsWith('#'))
-                    set.add(host.convertToASCIILowercase());
-            }
-            fclose(file);
-        }
-        return set;
-    }();
-    return hosts;
-}
-
-static bool isBlockedHost(const URL& url)
-{
-    auto& hosts = blockedHosts();
-    if (hosts.isEmpty() || !url.protocolIsInHTTPFamily())
+    const URL& url = request.url();
+    if (!url.protocolIsInHTTPFamily())
         return false;
-    auto host = url.host().toString().convertToASCIILowercase();
-    while (!host.isEmpty()) {
-        if (hosts.contains(host))
-            return true;
-        auto dot = host.find('.');
-        if (dot == notFound)
-            break;
-        host = host.substring(dot + 1);
-    }
-    return false;
+    auto host = url.host().toString().convertToASCIILowercase().utf8();
+    auto path = url.path().toString().utf8();
+    auto site = request.firstPartyForCookies().host().toString().convertToASCIILowercase().utf8();
+    return ob_tata_blocked(reinterpret_cast<const char*>(host.data()), reinterpret_cast<const char*>(path.data()),
+        reinterpret_cast<const char*>(site.data()));
 }
 
 // Lite: the standard user agent with "Mobile", so sites send the pages they
@@ -145,7 +124,7 @@ private:
     bool shouldUseCredentialStorage(DocumentLoader*, ResourceLoaderIdentifier) final { return true; }
     void dispatchWillSendRequest(DocumentLoader*, ResourceLoaderIdentifier identifier, ResourceRequest& request, const ResourceResponse&) final
     {
-        if (isBlockedHost(request.url())) {
+        if (isBlockedByTata(request)) {
             // WebCore cancels a load whose request comes back empty.
             m_view.resourceEnded(request.url().string(), "blocked"_s);
             request = { };

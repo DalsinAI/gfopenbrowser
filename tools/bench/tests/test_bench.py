@@ -190,7 +190,7 @@ class Stage(unittest.TestCase):
         self.assertIn("engine-fingerprint 231d9aeeb64ac959", info)
         self.assertIn("obfetch " + hashlib.sha256(b"fetch").hexdigest(), info)
         self.assertIn("gfopenfont.library " + hashlib.sha256(b"openfont").hexdigest(), info)
-        for name in ("obcore-view", "obstamp", "obfetch", "Fonts/LiberationSans-Regular.ttf", "Libs/gfopenfont.library", "blocklist"):
+        for name in ("obcore-view", "obstamp", "obfetch", "Fonts/LiberationSans-Regular.ttf", "Libs/gfopenfont.library", "Tata.ads"):
             self.assertTrue(os.path.isfile(os.path.join(self.tmp, "Bench", name)), name)
         self.assertEqual(self.read("OBBench").count("Execute jobs/"), 2)
 

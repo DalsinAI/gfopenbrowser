@@ -70,11 +70,11 @@ engine.
 Since 0.8.2 this is the one engine GFOpenBrowser's package carries (there is
 no `GFOpenBrowser.engine` beside the launcher), and Install keeps it in the
 drawer: `Libs/WebBrowser/` holds `WebBrowserEngine` with the one copy of
-`Fonts/`, `fontconfig/fonts.conf`, `blocklist`, `Unicode/icudt78b.dat` and
+`Fonts/`, `fontconfig/fonts.conf`, `Tata.ads`, `Unicode/icudt78b.dat` and
 `Network/public-suffixes` (patch 0070).
 The engine finds them through its own `PROGDIR:` (fontconfig's
 `FONTCONFIG_PATH` is `PROGDIR:fontconfig`, the built-in fonts dir
-`PROGDIR:Fonts`; `AmigaFrameLoaderClient.cpp` reads `PROGDIR:blocklist`;
+`PROGDIR:Fonts`; `ob_tata.c` reads Tata's `S:Tata.ads`, else `PROGDIR:Tata.ads`;
 `ob_icudata.c` tries `LOCALE:Unicode/`, then `PROGDIR:Unicode/`; patch 0070
 reads `PROGDIR:Network/public-suffixes`, then `ENVARC:GFOpenBrowser/`). Install
 renames an older `LIBS:WebBrowser/WebBrowserEngine` (an engine, or the

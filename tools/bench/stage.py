@@ -169,7 +169,7 @@ def stage_programs(opts, out, info):
         os.makedirs(os.path.join(out, "Libs"), exist_ok=True)
         shutil.copyfile(openfont, os.path.join(out, "Libs", "gfopenfont.library"))
         info.append("gfopenfont.library %s" % sha256_file(openfont))
-    shutil.copyfile(os.path.join(ROOT, "src", "webcore", "blocklist"), os.path.join(out, "blocklist"))
+    shutil.copyfile(os.path.join(ROOT, "src", "webcore", "Tata.ads"), os.path.join(out, "Tata.ads"))
 
     lite = opts.lite or os.environ.get("OB_LITE_DIR")
     have = {}
