@@ -496,6 +496,17 @@ The patches, in order:
   a style update and a layout. With no hooks set each scope costs a test.
   `obcore-view -profile` sets them (`src/webcore/ob_profile.cpp`) and
   prints where a page's time went.
+- `0096-webcore-cssom-inserted-rules-additive.patch`: a rule CSSOM's
+  `insertRule` puts into a style sheet already in use (a plain style rule,
+  or `@media` or `@supports` holding only those; a sheet with no `media`
+  attribute, in the document's scope) no longer throws the style resolver
+  away and restyles the whole document. The rule sets are built again from
+  the sheets (so the cascade's order stays exact) and only the elements the
+  inserted rules can match are restyled, through the Invalidator an added
+  sheet gets. CSS-in-JS libraries (Emotion, styled-components) insert their
+  rules this way while a page's script renders. `tests/pages/cssom-insert.html`:
+  100 inserts with a style read after each, 2,335 ms before, 337 ms after,
+  on i32.
 - `0098-amiga-request-blocked-hook.patch`: `setAmigaRequestBlockedHook()`
   (`AmigaNetwork.h`) lets the browser say whether a request goes out at
   all. `ResourceHandle::amigaStartRequest()` asks it for every http request

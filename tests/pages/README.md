@@ -17,6 +17,7 @@ fonts in `PROGDIR:Fonts` and gfopenfont.library 1.4 in `LIBS:` (or
 | `cjk-decoders.html` | `obcore-view cjk-decoders.html` | `TextDecoder` on 46 inputs in Shift_JIS, EUC-JP, ISO-2022-JP, GBK, gb18030, Big5 and EUC-KR, against the Encoding Standard's indexes (WebKit patch 0064) | added 1 November 2026; see the PR |
 | `cjk-text.html` | `obcore-view cjk-text.html 800 600 cjk-text.png` | Japanese, Chinese and Korean lines drawn with gfopenfont's CJK face (its `fonts/cjk`), not as boxes: six runs measured against three missing glyphs | `OBVIEW_TITLE cjk text pass=6 fail=0`; added 3 November 2026 |
 | `forin.html` | `obcore-view forin.html` | `for (k in o)` over a small object, an array and a 1000-key object | `OBVIEW_TITLE forin names=abcd sum=10 array=012 big=1000/499500` (before WebKit patch 0008 the loops never ended, and the program crashed) |
+| `cssom-insert.html` | `obcore-view cssom-insert.html` | Rules put into style sheets in use with `insertRule` (at the end, at the start, `@media`, a sibling combinator, a later sheet that must still win) and one `deleteRule`, then 100 rules each followed by a style read over 1,000 elements (WebKit patch 0096) | `OBTEST_CSSOM` with 7 PASS; on i32, 3 November 2026, `OBBENCH_JS insert-100-rules 337` (2335 before 0096) |
 
 The XML pages (`xml.html`, `xml-xhtml.xhtml`, `xml-svg.svg`) test WebKit
 patch 0030, XML through OXP. Their commands and expected results are in

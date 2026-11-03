@@ -1,0 +1,45 @@
+<!doctype html>
+<!-- GFOpenBrowser test page (tests/pages): CSSOM insertRule into style sheets in use (WebKit patch 0096). MIT, Copyright (c) 2026 The AmiCradle Team. Our own content. -->
+<html><head><title>CSSOM insertRule</title>
+<style id="s1">.base{color:rgb(0,0,0)} .d{color:rgb(0,128,0)}</style>
+<style id="s2">.b{color:rgb(0,0,255)}</style>
+</head><body>
+<div id="a" class="a">a</div>
+<div id="b" class="b">b</div>
+<div id="c" class="c">c</div>
+<div id="p" class="p"><span id="pc">child</span></div>
+<div id="x" class="x">x</div><div id="y" class="y">y</div>
+<div id="d" class="d">d</div>
+<div id="e" class="e">e</div>
+<div id="many"></div>
+<script>
+function col(id) { return getComputedStyle(document.getElementById(id)).color; }
+var s1 = document.getElementById('s1').sheet, s2 = document.getElementById('s2').sheet, results = [];
+function check(name, got, want) { results.push(name + (got === want ? ' PASS' : ' FAIL got ' + got + ' want ' + want)); }
+col('a'); // styled once before the insertions
+s1.insertRule('.a{color:rgb(1,2,3)}', s1.cssRules.length);
+check('appended rule applies', col('a'), 'rgb(1, 2, 3)');
+s1.insertRule('.b{color:rgb(255,0,0)}', s1.cssRules.length);
+check('later sheet still wins', col('b'), 'rgb(0, 0, 255)');
+s1.insertRule('@media (min-width: 1px){.c{color:rgb(4,5,6)}}', s1.cssRules.length);
+check('appended @media applies', col('c'), 'rgb(4, 5, 6)');
+s1.insertRule('.p{color:rgb(7,8,9)}', s1.cssRules.length);
+check('child inherits', col('pc'), 'rgb(7, 8, 9)');
+s2.insertRule('.x + .y{color:rgb(10,11,12)}', s2.cssRules.length);
+check('sibling combinator', col('y'), 'rgb(10, 11, 12)');
+s1.insertRule('.d{color:rgb(255,0,0)}', 0);
+check('inserted first loses to later rule', col('d'), 'rgb(0, 128, 0)');
+s2.insertRule('#e{color:rgb(13,14,15)}', s2.cssRules.length);
+s2.deleteRule(s2.cssRules.length - 1);
+check('deleted rule gone', col('e'), 'rgb(0, 0, 0)');
+console.log('OBTEST_CSSOM ' + results.join('; '));
+// timing: 1000 elements, 100 rules appended, each followed by a style read
+var many = document.getElementById('many'), html = '';
+for (var i = 0; i < 1000; i++) html += '<div class="m' + (i % 100) + '">' + i + '</div>';
+many.innerHTML = html; col('a');
+var t0 = performance.now();
+for (var i = 0; i < 100; i++) { s1.insertRule('.m' + i + '{color:rgb(' + i + ',1,1)}', s1.cssRules.length); getComputedStyle(many.children[i]).color; }
+var t1 = performance.now();
+console.log('OBBENCH_JS insert-100-rules ' + Math.round(t1 - t0));
+console.log('OBBENCH_JS_DONE total=' + Math.round(t1 - t0));
+</script></body></html>
