@@ -273,6 +273,7 @@ bool WebView::paint(unsigned char* argb, int stride, const IntRect& rect, bool l
         addDirtyRect(area);
         return false;
     }
+    auto start = MonotonicTime::now();
     cairo_surface_t* surface = cairo_image_surface_create_for_data(argb + area.y() * stride + area.x() * 4,
         CAIRO_FORMAT_ARGB32, area.width(), area.height(), stride);
     auto paintWith = [&](GraphicsContext& context) {
@@ -295,6 +296,7 @@ bool WebView::paint(unsigned char* argb, int stride, const IntRect& rect, bool l
     }
     cairo_surface_flush(surface);
     cairo_surface_destroy(surface);
+    m_paintMicroseconds += static_cast<unsigned long>((MonotonicTime::now() - start).microseconds());
     return true;
 }
 
@@ -304,13 +306,13 @@ int WebView::takePaintReport(char* buffer, int size)
     if (buffer && size > 0) {
         buffer[0] = 0;
         if (!GraphicsContextOpenGPU::isWanted())
-            used = snprintf(buffer, size, " paint_gpu=0");
+            used = snprintf(buffer, size, " paint_gpu=0 paint_us=%lu", m_paintMicroseconds);
         else {
             unsigned long handed = 0;
             for (auto calls : m_paintCounts.handed)
                 handed += calls;
-            used = snprintf(buffer, size, " paint_gpu=1 gpu_draws=%lu gpu_flushes=%lu cairo_calls=%lu",
-                m_paintCounts.draws, m_paintCounts.flushes, handed);
+            used = snprintf(buffer, size, " paint_gpu=1 paint_us=%lu gpu_draws=%lu gpu_flushes=%lu cairo_calls=%lu",
+                m_paintMicroseconds, m_paintCounts.draws, m_paintCounts.flushes, handed);
             for (int kind = 0; kind < OBGPU_KINDS && used >= 0 && used < size; kind++) {
                 if (m_paintCounts.handed[kind])
                     used += snprintf(buffer + used, size - used, " cairo_%s=%lu", obgpu_kind_name(kind), m_paintCounts.handed[kind]);
@@ -322,6 +324,7 @@ int WebView::takePaintReport(char* buffer, int size)
             used = size - 1;
     }
     m_paintCounts = { };
+    m_paintMicroseconds = 0;
     return used;
 }
 

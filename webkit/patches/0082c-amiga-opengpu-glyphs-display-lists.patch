@@ -1,0 +1,55 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: SacredTrees <121399723+SacredTrees@users.noreply.github.com>
+Date: Tue, 3 Nov 2026 14:00:00 +0000
+Subject: [PATCH] WebCore: glyph runs from glyph display lists through OpenGPU
+
+0082 sent drawGlyphs's runs to gfopenfont.library's OF_DrawGlyphsA, but
+text reaches the window's context as glyph display lists (recorded once
+a run, canUseGlyphDisplayList): their replay calls drawGlyphsImmediate,
+which handed every run to cairo after sending the batch. On the 68k
+(main 7e4d84d, i32 and i14 copies) the dom page drew all 263 runs with
+cairo, 250 batches for 252 draws, and OpenGPU paint was no faster than
+OB_PAINT=cairo anywhere (reddit 1.5-2.3x slower).
+
+drawGlyphsImmediate tries glyphsHere first, as drawGlyphs does;
+glyphsHere takes the FontBase both pass (it reads only the platform data
+and the synthetic bold offset).
+
+diff --git a/Source/WebCore/platform/graphics/amiga/GraphicsContextOpenGPU.cpp b/Source/WebCore/platform/graphics/amiga/GraphicsContextOpenGPU.cpp
+--- a/Source/WebCore/platform/graphics/amiga/GraphicsContextOpenGPU.cpp
++++ b/Source/WebCore/platform/graphics/amiga/GraphicsContextOpenGPU.cpp
+@@ -1401,7 +1401,7 @@
+ // where OpenGPU takes aliased paths. The device size is the font's size
+ // through the transform: a whole number of pixels under a scale (the
+ // cache), any other size or a turn as a matrix about each pen.
+-bool GraphicsContextOpenGPU::glyphsHere(const Font& font, std::span<const GlyphBufferGlyph> glyphs, std::span<const GlyphBufferAdvance> advances, const FloatPoint& point, FontSmoothingMode smoothing)
++bool GraphicsContextOpenGPU::glyphsHere(const FontBase& font, std::span<const GlyphBufferGlyph> glyphs, std::span<const GlyphBufferAdvance> advances, const FloatPoint& point, FontSmoothingMode smoothing)
+ {
+ #if USE(OPENFONT)
+     auto& data = font.platformData();
+@@ -1493,8 +1493,13 @@
+     m_cairo.drawGlyphs(font, glyphs, advances, point, smoothing);
+ }
+ 
++// Glyph runs WebKit replays from its glyph display lists (a run recorded
++// once and drawn from the list, as canUseGlyphDisplayList allows) come
++// here: through OF_DrawGlyphsA as drawGlyphs's, else cairo's.
+ void GraphicsContextOpenGPU::drawGlyphsImmediate(const FontBase& font, std::span<const GlyphBufferGlyph> glyphs, std::span<const GlyphBufferAdvance> advances, const FloatPoint& point, FontSmoothingMode smoothing)
+ {
++    if (glyphsHere(font, glyphs, advances, point, smoothing))
++        return;
+     handOn(OBGPU_GLYPHS);
+     m_cairo.drawGlyphsImmediate(font, glyphs, advances, point, smoothing);
+ }
+diff --git a/Source/WebCore/platform/graphics/amiga/GraphicsContextOpenGPU.h b/Source/WebCore/platform/graphics/amiga/GraphicsContextOpenGPU.h
+--- a/Source/WebCore/platform/graphics/amiga/GraphicsContextOpenGPU.h
++++ b/Source/WebCore/platform/graphics/amiga/GraphicsContextOpenGPU.h
+@@ -123,7 +123,7 @@
+     // After cairo pushed a group: draw into its surface here (0081).
+     void groupHere();
+     // A glyph run drawn by gfopenfont.library through OpenGPU (0082).
+-    bool glyphsHere(const Font&, std::span<const GlyphBufferGlyph>, std::span<const GlyphBufferAdvance>, const FloatPoint&, FontSmoothingMode);
++    bool glyphsHere(const FontBase&, std::span<const GlyphBufferGlyph>, std::span<const GlyphBufferAdvance>, const FloatPoint&, FontSmoothingMode);
+     // The batch sent, then a call of this kind counted for cairo.
+     void handOn(int kind) const;
+     void flush() const;
