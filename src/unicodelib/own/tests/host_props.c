@@ -263,13 +263,28 @@ int main(void)
         static const UProperty ints[] = { UCHAR_BIDI_CLASS, UCHAR_BLOCK, UCHAR_CANONICAL_COMBINING_CLASS,
             UCHAR_EAST_ASIAN_WIDTH, UCHAR_GENERAL_CATEGORY, UCHAR_LINE_BREAK, UCHAR_NUMERIC_TYPE, UCHAR_SCRIPT,
             UCHAR_VERTICAL_ORIENTATION, UCHAR_GENERAL_CATEGORY_MASK, UCHAR_UNIFIED_IDEOGRAPH, UCHAR_IDEOGRAPHIC,
-            UCHAR_EMOJI, UCHAR_POSIX_ALNUM, UCHAR_HANGUL_SYLLABLE_TYPE };
+            UCHAR_EMOJI, UCHAR_POSIX_ALNUM, UCHAR_HANGUL_SYLLABLE_TYPE, UCHAR_JOINING_TYPE, UCHAR_JOINING_GROUP,
+            UCHAR_BIDI_PAIRED_BRACKET_TYPE };
         unsigned i;
         for (i = 0; i < sizeof ints / sizeof ints[0]; i++) {
             char name[64];
             snprintf(name, sizeof name, "u_getIntPropertyValue %s", u_getPropertyName(ints[i], U_LONG_PROPERTY_NAME));
             EACH_CP(name, uo_u_getIntPropertyValue(c, ints[i]), u_getIntPropertyValue(c, ints[i]), "%ld");
         }
+    }
+    EACH_CP("u_getBidiPairedBracket", uo_u_getBidiPairedBracket(c), u_getBidiPairedBracket(c), "%lX");
+    {
+        static const UProperty bidiMax[] = { UCHAR_BIDI_CLASS, UCHAR_JOINING_GROUP, UCHAR_JOINING_TYPE,
+            UCHAR_BIDI_PAIRED_BRACKET_TYPE };
+        unsigned i;
+        begin("ubidi_getMaxValue");
+        for (i = 0; i < sizeof bidiMax / sizeof bidiMax[0]; i++) {
+            cases++;
+            if (uo_ubidi_getMaxValue(bidiMax[i]) != u_getIntPropertyMaxValue(bidiMax[i]))
+                differ("%s ours %ld ICU %ld", u_getPropertyName(bidiMax[i], U_LONG_PROPERTY_NAME),
+                       (long)uo_ubidi_getMaxValue(bidiMax[i]), (long)u_getIntPropertyMaxValue(bidiMax[i]));
+        }
+        end();
     }
     begin("uscript_hasScript");
     for (sc = -1; sc <= USCRIPT_CODE_LIMIT; sc++) {
