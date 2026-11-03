@@ -6,9 +6,9 @@
  * gen_props.py makes from the UCD at build time (uo_data.c). The table
  * entries of calls.txt that own.txt names point here (uo_<call>).
  *
- * A property or a value the browser and JavaScriptCore never ask for goes
- * to ICU's own function for now (the calls marked "ICU" below), and leaves
- * with it.
+ * Every property ICU 78 has is ours, so uo_icu.c can answer ICU's own
+ * uchar.cpp and uprops.cpp calls with these and those files leave the
+ * library.
  */
 #include <string.h>
 
@@ -38,6 +38,11 @@ const struct uo_prop *uo_prop_of(UChar32 c)
     return &uo_props[IN_RANGE(c) ? UO_PROPS(c) : UO_PROPS(0x10FFFF)];
 }
 
+static const struct uo_more *moreOf(UChar32 c)
+{
+    return &uo_more[uo_prop_of(c)->more];
+}
+
 static unsigned gcOf(UChar32 c)
 {
     return uo_prop_of(c)->gc;
@@ -49,7 +54,7 @@ int uo_has_binary(UChar32 c, int bit)
 
     if (!IN_RANGE(c) || bit < 0)
         return 0;
-    set = uo_bin_sets[UO_BIN(c)];
+    set = uo_bin_sets[uo_prop_of(c)->bin];
     return (set[bit >> 5] >> (bit & 31)) & 1;
 }
 
@@ -230,7 +235,27 @@ UBool uo_u_hasBinaryProperty(UChar32 c, UProperty which)
         return uo_has_binary(c, bit);
     if ((p = posix(c, which)) >= 0)
         return (UBool)p;
-    return u_hasBinaryProperty(c, which);      /* ICU */
+    if (!IN_RANGE(c))       /* ICU's normalization data: all inert out there */
+        return which >= UCHAR_NFD_INERT && which <= UCHAR_SEGMENT_STARTER;
+    switch (which) {
+    case UCHAR_NFD_INERT:
+        return (moreOf(c)->flags & UO_NFD_INERT) != 0;
+    case UCHAR_NFKD_INERT:
+        return (moreOf(c)->flags & UO_NFKD_INERT) != 0;
+    case UCHAR_NFC_INERT:
+        return (moreOf(c)->flags & UO_NFC_INERT) != 0;
+    case UCHAR_NFKC_INERT:
+        return (moreOf(c)->flags & UO_NFKC_INERT) != 0;
+    case UCHAR_SEGMENT_STARTER:
+        return (moreOf(c)->flags & UO_SEGMENT_STARTER) != 0;
+    case UCHAR_BASIC_EMOJI:
+    case UCHAR_RGI_EMOJI:
+        return (moreOf(c)->flags & UO_BASIC_EMOJI) != 0;
+    case UCHAR_CASE_SENSITIVE:
+        return (moreOf(c)->flags & UO_CASE_SENSITIVE) != 0;
+    default:
+        return 0;       /* the other emoji sets are strings, never one code point */
+    }
 }
 
 UBlockCode uo_ublock_getCode(UChar32 c)
@@ -346,13 +371,53 @@ int32_t uo_u_getPropertyValueEnum(UProperty property, const char *alias)
     return u_getPropertyValueEnum(property, alias);   /* ICU */
 }
 
+/* lead and trail combining classes (ICU's FCD values) */
+static int fcdOf(UChar32 c, int trail)
+{
+    int lo = 0, hi = UO_FCD_COUNT - 1;
+    while (lo <= hi) {
+        int mid = (lo + hi) >> 1;
+        UChar32 m = (UChar32)(uo_fcd_lead[mid] >> 8);
+        if (m == c)
+            return trail ? uo_fcd_trail[mid] : (int)(uo_fcd_lead[mid] & 0xFF);
+        if (m < c)
+            lo = mid + 1;
+        else
+            hi = mid - 1;
+    }
+    return uo_prop_of(c)->ccc;
+}
+
+/* ICU: Hangul_Syllable_Type from Grapheme_Cluster_Break, BMP only */
+static int hstOf(UChar32 c)
+{
+    if (!IN_RANGE(c) || c > 0xFFFF)
+        return U_HST_NOT_APPLICABLE;
+    switch (moreOf(c)->gcb) {
+    case U_GCB_L:
+        return U_HST_LEADING_JAMO;
+    case U_GCB_V:
+        return U_HST_VOWEL_JAMO;
+    case U_GCB_T:
+        return U_HST_TRAILING_JAMO;
+    case U_GCB_LV:
+        return U_HST_LV_SYLLABLE;
+    case U_GCB_LVT:
+        return U_HST_LVT_SYLLABLE;
+    default:
+        return U_HST_NOT_APPLICABLE;
+    }
+}
+
 int32_t uo_u_getIntPropertyValue(UChar32 c, UProperty which)
 {
     const struct uo_prop *p;
+    const struct uo_more *m;
 
     if ((unsigned)which < UCHAR_BINARY_LIMIT)
         return uo_u_hasBinaryProperty(c, which);
     p = uo_prop_of(c);
+    m = &uo_more[p->more];
     switch (which) {
     case UCHAR_BIDI_CLASS:
         return uo_u_charDirection(c);
@@ -360,29 +425,458 @@ int32_t uo_u_getIntPropertyValue(UChar32 c, UProperty which)
         return uo_ublock_getCode(c);
     case UCHAR_CANONICAL_COMBINING_CLASS:
         return p->ccc;
+    case UCHAR_DECOMPOSITION_TYPE:
+        return m->dt;
     case UCHAR_EAST_ASIAN_WIDTH:
         return p->ea_nt_vo & 7;
     case UCHAR_GENERAL_CATEGORY:
         return p->gc;
+    case UCHAR_JOINING_GROUP:
+        return uo_ubidi_getJoiningGroup(c);
+    case UCHAR_JOINING_TYPE:
+        return uo_ubidi_getJoiningType(c);
     case UCHAR_LINE_BREAK:
         return p->lb;
     case UCHAR_NUMERIC_TYPE:
         return (p->ea_nt_vo >> 3) & 3;
     case UCHAR_SCRIPT:
         return IN_RANGE(c) ? p->sc : USCRIPT_INVALID_CODE;
-    case UCHAR_VERTICAL_ORIENTATION:
-        return (p->ea_nt_vo >> 5) & 3;
-    case UCHAR_GENERAL_CATEGORY_MASK:
-        return (int32_t)MASK(p->gc);
-    case UCHAR_JOINING_TYPE:
-        return uo_ubidi_getJoiningType(c);
-    case UCHAR_JOINING_GROUP:
-        return uo_ubidi_getJoiningGroup(c);
+    case UCHAR_HANGUL_SYLLABLE_TYPE:
+        return hstOf(c);
+    case UCHAR_NFD_QUICK_CHECK:
+        return m->qc & 1;
+    case UCHAR_NFKD_QUICK_CHECK:
+        return (m->qc >> 1) & 1;
+    case UCHAR_NFC_QUICK_CHECK:
+        return (m->qc >> 2) & 3;
+    case UCHAR_NFKC_QUICK_CHECK:
+        return (m->qc >> 4) & 3;
+    case UCHAR_LEAD_CANONICAL_COMBINING_CLASS:
+        return fcdOf(c, 0);
+    case UCHAR_TRAIL_CANONICAL_COMBINING_CLASS:
+        return fcdOf(c, 1);
+    case UCHAR_GRAPHEME_CLUSTER_BREAK:
+        return m->gcb;
+    case UCHAR_SENTENCE_BREAK:
+        return m->sb;
+    case UCHAR_WORD_BREAK:
+        return m->wb;
     case UCHAR_BIDI_PAIRED_BRACKET_TYPE:
         return uo_ubidi_getPairedBracketType(c);
+    case UCHAR_INDIC_POSITIONAL_CATEGORY:
+        return m->inpc;
+    case UCHAR_INDIC_SYLLABIC_CATEGORY:
+        return m->insc;
+    case UCHAR_VERTICAL_ORIENTATION:
+        return (p->ea_nt_vo >> 5) & 3;
+    case UCHAR_IDENTIFIER_STATUS:
+        return (uo_idtypes[m->idt] & (1u << U_ID_TYPE_INCLUSION | 1u << U_ID_TYPE_RECOMMENDED)) ?
+               U_ID_STATUS_ALLOWED : U_ID_STATUS_RESTRICTED;
+    case UCHAR_INDIC_CONJUNCT_BREAK:
+        return m->incb;
+    case UCHAR_GENERAL_CATEGORY_MASK:
+        return (int32_t)MASK(p->gc);
     default:
-        return u_getIntPropertyValue(c, which);   /* ICU */
+        return 0;       /* not an integer property */
     }
+}
+
+int32_t uo_u_getIntPropertyMaxValue(UProperty which)
+{
+    if ((unsigned)which < UCHAR_BINARY_LIMIT)
+        return 1;
+    switch (which) {
+    case UCHAR_BIDI_CLASS:
+    case UCHAR_JOINING_GROUP:
+    case UCHAR_JOINING_TYPE:
+    case UCHAR_BIDI_PAIRED_BRACKET_TYPE:
+        return uo_ubidi_getMaxValue(which);
+    case UCHAR_BLOCK:
+        return UO_MAX_BLOCK;
+    case UCHAR_CANONICAL_COMBINING_CLASS:
+    case UCHAR_LEAD_CANONICAL_COMBINING_CLASS:
+    case UCHAR_TRAIL_CANONICAL_COMBINING_CLASS:
+        return 0xFF;
+    case UCHAR_DECOMPOSITION_TYPE:
+        return UO_MAX_DT;
+    case UCHAR_EAST_ASIAN_WIDTH:
+        return UO_MAX_EA;
+    case UCHAR_GENERAL_CATEGORY:
+        return U_CHAR_CATEGORY_COUNT - 1;
+    case UCHAR_LINE_BREAK:
+        return UO_MAX_LB;
+    case UCHAR_NUMERIC_TYPE:
+        return U_NT_COUNT - 1;
+    case UCHAR_SCRIPT:
+        return UO_MAX_SC;
+    case UCHAR_HANGUL_SYLLABLE_TYPE:
+        return U_HST_COUNT - 1;
+    case UCHAR_NFD_QUICK_CHECK:
+    case UCHAR_NFKD_QUICK_CHECK:
+        return 1;       /* UNORM_YES: never "maybe" */
+    case UCHAR_NFC_QUICK_CHECK:
+    case UCHAR_NFKC_QUICK_CHECK:
+        return 2;       /* UNORM_MAYBE */
+    case UCHAR_GRAPHEME_CLUSTER_BREAK:
+        return UO_MAX_GCB;
+    case UCHAR_SENTENCE_BREAK:
+        return UO_MAX_SB;
+    case UCHAR_WORD_BREAK:
+        return UO_MAX_WB;
+    case UCHAR_INDIC_POSITIONAL_CATEGORY:
+        return UO_MAX_INPC;
+    case UCHAR_INDIC_SYLLABIC_CATEGORY:
+        return UO_MAX_INSC;
+    case UCHAR_VERTICAL_ORIENTATION:
+        return UO_MAX_VO;
+    case UCHAR_IDENTIFIER_STATUS:
+        return U_ID_STATUS_ALLOWED;
+    case UCHAR_INDIC_CONJUNCT_BREAK:
+        return 0;       /* as ICU 78 says (its table has no maximum for it) */
+    default:
+        return -1;
+    }
+}
+
+void uo_u_charAge(UChar32 c, UVersionInfo info)
+{
+    int lo = 0, hi = UO_AGE_RUNS - 1, a = 0;
+
+    if (!info)
+        return;
+    if (IN_RANGE(c)) {
+        while (lo <= hi) {          /* the last run starting at or before c */
+            int mid = (lo + hi) >> 1;
+            if ((UChar32)(uo_age_runs[mid] >> 8) <= c) {
+                a = uo_age_runs[mid] & 0xFF;
+                lo = mid + 1;
+            } else
+                hi = mid - 1;
+        }
+    }
+    info[0] = (uint8_t)(a >> 2);
+    info[1] = (uint8_t)(a & 3);
+    info[2] = info[3] = 0;
+}
+
+double uo_u_getNumericValue(UChar32 c)
+{
+    int lo = 0, hi = UO_NUM_RUNS - 1;
+
+    if (!IN_RANGE(c) || !((uo_prop_of(c)->ea_nt_vo >> 3) & 3))
+        return U_NO_NUMERIC_VALUE;
+    while (lo <= hi) {
+        int mid = (lo + hi) >> 1;
+        const struct uo_num *r = &uo_num_runs[mid];
+        if (c < r->first)
+            hi = mid - 1;
+        else if (c >= r->first + r->count)
+            lo = mid + 1;
+        else
+            return uo_num_values[r->value] + (double)(r->step * (c - r->first));
+    }
+    return U_NO_NUMERIC_VALUE;
+}
+
+int32_t uo_u_charDigitValue(UChar32 c)
+{
+    if (((uo_prop_of(c)->ea_nt_vo >> 3) & 3) != U_NT_DECIMAL)
+        return -1;
+    return (int32_t)uo_u_getNumericValue(c);
+}
+
+UBool uo_u_hasIDType(UChar32 c, UIdentifierType type)
+{
+    if ((unsigned)type > U_ID_TYPE_RECOMMENDED)
+        return 0;
+    return (uo_idtypes[uo_more[uo_prop_of(c)->more].idt] >> type) & 1;
+}
+
+int32_t uo_u_getIDTypes(UChar32 c, UIdentifierType *types, int32_t capacity, UErrorCode *err)
+{
+    unsigned bits;
+    int32_t n = 0;
+    int t;
+
+    if (U_FAILURE(*err))
+        return 0;
+    if (capacity < 0 || (capacity > 0 && !types)) {
+        *err = U_ILLEGAL_ARGUMENT_ERROR;
+        return 0;
+    }
+    bits = uo_idtypes[uo_more[uo_prop_of(c)->more].idt];
+    for (t = 0; t <= U_ID_TYPE_RECOMMENDED; t++)
+        if ((bits >> t) & 1) {
+            if (n < capacity)
+                types[n] = (UIdentifierType)t;
+            n++;
+        }
+    /* as ICU: a single type that never combines fits exactly; a list of
+       those that combine is "overflow" unless there is room to spare */
+    if (bits & (1u << U_ID_TYPE_NOT_XID | 1u << U_ID_TYPE_EXCLUSION | 1u << U_ID_TYPE_OBSOLETE |
+                1u << U_ID_TYPE_TECHNICAL | 1u << U_ID_TYPE_UNCOMMON_USE | 1u << U_ID_TYPE_LIMITED_USE)) {
+        if (n >= capacity)
+            *err = U_BUFFER_OVERFLOW_ERROR;
+    } else if (n > capacity)
+        *err = U_BUFFER_OVERFLOW_ERROR;
+    return n;
+}
+
+int32_t uo_uscript_getScriptExtensions(UChar32 c, UScriptCode *scripts, int32_t capacity, UErrorCode *err)
+{
+    const uint8_t *set;
+    int32_t n, i;
+
+    if (!err || U_FAILURE(*err))
+        return 0;
+    if (capacity < 0 || (capacity > 0 && !scripts)) {
+        *err = U_ILLEGAL_ARGUMENT_ERROR;
+        return 0;
+    }
+    set = IN_RANGE(c) ? scxOf(c) : 0;
+    if (!set) {
+        if (capacity == 0)
+            *err = U_BUFFER_OVERFLOW_ERROR;
+        else
+            scripts[0] = (UScriptCode)uo_prop_of(c)->sc;
+        return 1;
+    }
+    n = set[0];
+    for (i = 0; i < n && i < capacity; i++)
+        scripts[i] = (UScriptCode)set[i + 1];
+    if (n > capacity)
+        *err = U_BUFFER_OVERFLOW_ERROR;
+    return n;
+}
+
+/* Every code point where one of our properties changes, once each or more
+ * (ICU's *_addPropertyStarts: the sets of characterproperties.cpp are
+ * built on them). The record trie is walked a block at a time, and a block
+ * shared by many (the unassigned planes) costs one look. */
+void uo_prop_starts(void (*add)(void *ctx, UChar32 c), void *ctx)
+{
+    enum { N1 = 1 << UO_PROPS_B1, N2 = 1 << UO_PROPS_B2, SPAN = N1 * N2 };
+    int prev = -1, i, k, m;
+    unsigned lastMid = 0xFFFFFFFFu;
+    int lastUniform = -2;
+    UChar32 c;
+
+    for (c = 0; c < 0x110000; c += SPAN) {
+        unsigned midOff = uo_props_t1[c / SPAN];
+        const uint16_t *mid = &uo_props_t2[midOff];
+        if (midOff != lastMid) {          /* is the whole block one value? */
+            lastMid = midOff;
+            lastUniform = uo_props_leaf[mid[0]];
+            for (m = 0; m < N1 && lastUniform >= 0; m++)
+                for (k = 0; k < N2; k++)
+                    if (uo_props_leaf[mid[m] + k] != lastUniform) {
+                        lastUniform = -2;
+                        break;
+                    }
+        }
+        if (lastUniform >= 0) {
+            if (lastUniform != prev) {
+                add(ctx, c);
+                prev = lastUniform;
+            }
+            continue;
+        }
+        for (m = 0; m < N1; m++)
+            for (k = 0; k < N2; k++) {
+                int v = uo_props_leaf[mid[m] + k];
+                if (v != prev) {
+                    add(ctx, c + m * N2 + k);
+                    prev = v;
+                }
+            }
+    }
+    for (i = 0; i < UO_AGE_RUNS; i++)
+        add(ctx, (UChar32)(uo_age_runs[i] >> 8));
+    for (i = 0; i < UO_NUM_RUNS; i++) {
+        const struct uo_num *r = &uo_num_runs[i];
+        for (k = 0; k <= (r->step ? r->count : 0); k++)
+            add(ctx, r->first + k);
+        add(ctx, r->first + r->count);
+    }
+    for (i = 0; i < UO_FCD_COUNT; i++) {
+        add(ctx, (UChar32)(uo_fcd_lead[i] >> 8));
+        add(ctx, (UChar32)(uo_fcd_lead[i] >> 8) + 1);
+    }
+    for (i = 0; i < UO_BLOCK_COUNT; i++) {
+        add(ctx, uo_blocks[i].first);
+        add(ctx, uo_blocks[i].last + 1);
+    }
+    for (i = 0; i < UO_SCX_COUNT; i++) {
+        add(ctx, uo_scx[i].first);
+        add(ctx, uo_scx[i].last + 1);
+    }
+    for (i = 0; i < UO_BIDI_STARTS; i++)
+        add(ctx, uo_bidi_starts[i]);
+    for (i = 0; i < UO_HARD_STARTS; i++)
+        add(ctx, uo_hard_starts[i]);
+}
+
+/* uchar.cpp's tests, from the general category and a few code points */
+#define TAB 9
+#define IS_CONTROL_SPACE(c) ((c) <= 0x9F && (((c) >= TAB && (c) <= 0xD) || ((c) >= 0x1C && (c) <= 0x1F) || (c) == 0x85))
+#define IS_ASCII_CONTROL_SPACE(c) ((c) <= 0x1F && (c) >= TAB && ((c) <= 0xD || (c) >= 0x1C))
+
+UBool uo_u_islower(UChar32 c) { return gcOf(c) == U_LOWERCASE_LETTER; }
+UBool uo_u_isupper(UChar32 c) { return gcOf(c) == U_UPPERCASE_LETTER; }
+UBool uo_u_istitle(UChar32 c) { return gcOf(c) == U_TITLECASE_LETTER; }
+UBool uo_u_isdefined(UChar32 c) { return gcOf(c) != U_UNASSIGNED; }
+
+UBool uo_u_isxdigit(UChar32 c)
+{
+    if ((c <= 0x66 && c >= 0x41 && (c <= 0x46 || c >= 0x61)) ||
+        (c >= 0xFF21 && c <= 0xFF46 && (c <= 0xFF26 || c >= 0xFF41)))
+        return 1;
+    return gcOf(c) == U_DECIMAL_DIGIT_NUMBER;
+}
+
+UBool uo_u_isbase(UChar32 c)
+{
+    return (MASK(gcOf(c)) & (GC_L | U_GC_N_MASK | U_GC_MC_MASK | U_GC_ME_MASK)) != 0;
+}
+
+UBool uo_u_iscntrl(UChar32 c)
+{
+    return (MASK(gcOf(c)) & (U_GC_CC_MASK | U_GC_CF_MASK | U_GC_ZL_MASK | U_GC_ZP_MASK)) != 0;
+}
+
+UBool uo_u_isISOControl(UChar32 c)
+{
+    return (uint32_t)c <= 0x9F && (c <= 0x1F || c >= 0x7F);
+}
+
+UBool uo_u_isspace(UChar32 c)
+{
+    return (MASK(gcOf(c)) & GC_Z) != 0 || IS_CONTROL_SPACE(c);
+}
+
+UBool uo_u_isJavaSpaceChar(UChar32 c)
+{
+    return (MASK(gcOf(c)) & GC_Z) != 0;
+}
+
+UBool uo_u_isWhitespace(UChar32 c)
+{
+    return ((MASK(gcOf(c)) & GC_Z) != 0 && c != 0xA0 && c != 0x2007 && c != 0x202F) ||
+           IS_ASCII_CONTROL_SPACE(c);
+}
+
+UBool uo_u_isblank(UChar32 c)
+{
+    if ((uint32_t)c <= 0x9F)
+        return c == 9 || c == 0x20;
+    return gcOf(c) == U_SPACE_SEPARATOR;
+}
+
+UBool uo_u_isgraph(UChar32 c)
+{
+    return (MASK(gcOf(c)) & (U_GC_CC_MASK | U_GC_CF_MASK | U_GC_CS_MASK | U_GC_CN_MASK | GC_Z)) == 0;
+}
+
+UBool uo_u_isIDIgnorable(UChar32 c)
+{
+    if (c <= 0x9F)
+        return uo_u_isISOControl(c) && !IS_ASCII_CONTROL_SPACE(c);
+    return gcOf(c) == U_FORMAT_CHAR;
+}
+
+UBool uo_u_isJavaIDStart(UChar32 c)
+{
+    return (MASK(gcOf(c)) & (GC_L | U_GC_SC_MASK | U_GC_PC_MASK)) != 0;
+}
+
+UBool uo_u_isJavaIDPart(UChar32 c)
+{
+    return (MASK(gcOf(c)) & (U_GC_ND_MASK | U_GC_NL_MASK | GC_L | U_GC_SC_MASK | U_GC_PC_MASK |
+                             U_GC_MC_MASK | U_GC_MN_MASK)) != 0 || uo_u_isIDIgnorable(c);
+}
+
+int32_t uo_u_digit(UChar32 ch, int8_t radix)
+{
+    int8_t value;
+
+    if ((uint8_t)(radix - 2) <= (36 - 2)) {
+        value = (int8_t)uo_u_charDigitValue(ch);
+        if (value < 0) {
+            if (ch >= 0x61 && ch <= 0x7A)
+                value = (int8_t)(ch - 0x57);
+            else if (ch >= 0x41 && ch <= 0x5A)
+                value = (int8_t)(ch - 0x37);
+            else if (ch >= 0xFF41 && ch <= 0xFF5A)
+                value = (int8_t)(ch - 0xFF37);
+            else if (ch >= 0xFF21 && ch <= 0xFF3A)
+                value = (int8_t)(ch - 0xFF17);
+        }
+    } else
+        value = -1;
+    return (int8_t)(value < radix ? value : -1);
+}
+
+UChar32 uo_u_forDigit(int32_t digit, int8_t radix)
+{
+    if ((uint8_t)(radix - 2) > (36 - 2) || (uint32_t)digit >= (uint32_t)radix)
+        return 0;
+    return digit < 10 ? (UChar32)(0x30 + digit) : (UChar32)(0x61 - 10 + digit);
+}
+
+void uo_u_getUnicodeVersion(UVersionInfo info)
+{
+    if (info) {
+        memset(info, 0, U_MAX_VERSION_LENGTH);
+        info[0] = UO_UNICODE_MAJOR;
+        info[1] = UO_UNICODE_MINOR;
+        info[2] = UO_UNICODE_MICRO;
+    }
+}
+
+struct enumTypes {
+    UCharEnumTypeRange *fn;
+    const void *ctx;
+    UChar32 start;
+    int type, stop;
+};
+
+static void enumTypeStart(void *p, UChar32 c)
+{
+    struct enumTypes *e = (struct enumTypes *)p;
+    int t = (int)gcOf(c);
+
+    if (e->stop || t == e->type)
+        return;
+    if (e->type >= 0 && !e->fn(e->ctx, e->start, c, (UCharCategory)e->type))
+        e->stop = 1;
+    e->start = c;
+    e->type = t;
+}
+
+void uo_u_enumCharTypes(UCharEnumTypeRange *enumRange, const void *context)
+{
+    struct enumTypes e;
+    UChar32 c;
+    int prev = -1;
+
+    if (!enumRange)
+        return;
+    e.fn = enumRange;
+    e.ctx = context;
+    e.start = 0;
+    e.type = -1;
+    e.stop = 0;
+    /* the starts of the record trie's runs, in order: only those can change
+       the general category */
+    for (c = 0; c < 0x110000 && !e.stop; c++) {
+        int v = UO_PROPS(c);
+        if (v != prev) {
+            enumTypeStart(&e, c);
+            prev = v;
+        }
+    }
+    if (!e.stop && e.type >= 0)
+        enumRange(context, e.start, 0x110000, (UCharCategory)e.type);
 }
 
 void uo_u_getVersion(UVersionInfo info)

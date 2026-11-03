@@ -38,3 +38,13 @@ a3e6e905ab5afbe318a96df5401d0372a04cd73ef139ab5e3cf0ae241c255488  BidiCharacterT
 dadbaf38a0d0246e5b805bf8725cb81b7c621f93d030595635f5ba2c2f179428  BidiBrackets.txt
 f39ebe974825d6736aee15582250307aa532b2cfab3caf3f86bd23fddc9c5c4d  extracted/DerivedJoiningType.txt
 bb67e0c00b88acfa5be633967b66b23326844a86e49c6fde7b57960d3af66cae  extracted/DerivedJoiningGroup.txt
+f44e5ceaf40edc1fe06ea0404e8bebc7d356dcc38aac076543b6874008a06e3e  extracted/DerivedDecompositionType.txt
+139b976bdc288be01c80f018523da769cf2845109b5a7f0f8a432db64bfedcfa  extracted/DerivedNumericValues.txt
+5a57450afde0d082bc5026f7458649eac3b615490cc7e3d916b0367f1593c0e3  HangulSyllableType.txt
+68cedc29a7e57f984d90fe2c7712f2e6d0c717e253db219607daea8997d6c480  IndicPositionalCategory.txt
+3fc122f4cf58b0c19268d5f810263b04ab4e1e67743386ec0e0ada9c76aec5be  IndicSyllabicCategory.txt
+# Not in UCD.zip: Unicode's emoji and security data of the same version,
+# https://www.unicode.org/Public/17.0.0/emoji/ and .../security/
+# (scripts/fetch-ucd.sh puts them in emoji/ and security/)
+12cc8267dc33cbd11ed32bcf6fc5dc2ad9c7a77bae1bdfba2f41b1b9b3ead8dd  emoji/emoji-sequences.txt
+924ac63faa97ed73420d6ac48d08279d90968c7da0502ab701e08bfbb9683c22  security/IdentifierType.txt
