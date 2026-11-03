@@ -29,6 +29,7 @@ set(OB_CORE_SOURCES
 # always wins over one in a library.
 set(OB_PROGRAM_SOURCES
     AmigaGlobals.c
+    ob_atomic.c
     ${OB_THIRD_PARTY}/oam_stack.c
 )
 
@@ -275,6 +276,7 @@ set(JavaScriptEngine_SOURCES
     ${CMAKE_CURRENT_SOURCE_DIR}/../jslib/jsl_engine.c
     ${CMAKE_CURRENT_SOURCE_DIR}/../jslib/jsl_os_exec.c
     ${CMAKE_CURRENT_SOURCE_DIR}/../jslib/jsimage_host.c
+    ${CMAKE_CURRENT_SOURCE_DIR}/ob_atomic.c
 )
 if (OB_ICU_DATA STREQUAL "file")
     list(APPEND JavaScriptEngine_SOURCES ob_icudata.c ob_icustub.c)
