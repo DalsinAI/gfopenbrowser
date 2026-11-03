@@ -10,6 +10,10 @@
  *                         the second time with caches warm), report the
  *                         commands and timings, and save the replayed
  *                         picture as page-dl.png beside page.png
+ *   obcore-view -profile ...  also print where the time went (OBVIEW_PROFILE:
+ *                         compile, run, calls, style and layout; OBVIEW_SCRIPT:
+ *                         each script's compiles and top-level run; OBVIEW_ADDR
+ *                         for mapping PCs), ob_profile.h
  *   obcore-view -frames ...  also paint as a window does while the page runs
  *                         (what changed, at each rendering update and after
  *                         each turn of the run loop): OBVIEW_FRAME per paint,
@@ -50,6 +54,7 @@
 #include <unistd.h>
 
 #include "ob_webview.h"
+#include "ob_profile.h"
 #include "oam_stack.h"
 
 static const char version[] __attribute__((used)) = "$VER: obcore-view 0.2 (23.10.2026)";
@@ -621,7 +626,7 @@ static int viewMain(int argc, char **argv)
 {
     OBWebViewCallbacks callbacks = { 0 };
     OBWebView *view;
-    int width = 800, height = 600, argi = 1, isURL = 0, inputTest = 0, displayList = 0, showText = 0;
+    int width = 800, height = 600, argi = 1, isURL = 0, inputTest = 0, displayList = 0, showText = 0, profile = 0;
     unsigned long bytes = 0;
     double seconds = 120.0;
     const char *source, *png = NULL;
@@ -653,6 +658,11 @@ static int viewMain(int argc, char **argv)
         showText = 1;
         argi++;
     }
+    if (argc > argi && !strcmp(argv[argi], "-profile")) {
+        profile = 1;
+        ob_profile_start();
+        argi++;
+    }
     if (argc > argi && !strcmp(argv[argi], "-frames")) {
         framesMode = 1;
         argi++;
@@ -662,7 +672,7 @@ static int viewMain(int argc, char **argv)
         argi++;
     }
     if (argc <= argi) {
-        printf("usage: obcore-view [-wait seconds] [-settle seconds] [-tls file] [-input] [-dl] [-text] [-frames] [-url] <file.html|address> [width height] [page.png]\n");
+        printf("usage: obcore-view [-wait seconds] [-settle seconds] [-tls file] [-input] [-dl] [-text] [-profile] [-frames] [-url] <file.html|address> [width height] [page.png]\n");
         return 10;
     }
     source = argv[argi++];
@@ -780,6 +790,8 @@ static int viewMain(int argc, char **argv)
         ob_webcore_stop_threads();
     free(html);
     benchReport(bytes);
+    if (profile)
+        ob_profile_report();
     printf("OBVIEW_DONE\n");
     fflush(stdout);
     return 0;

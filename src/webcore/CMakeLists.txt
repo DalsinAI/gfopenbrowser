@@ -22,6 +22,7 @@ set(OB_CORE_SOURCES
     AmigaSessionStorage.cpp
     AmigaWebView.cpp
     ob_httpcache.c
+    ob_profile.cpp
     ob_webview.cpp
 )
 # Each program compiles these itself: they define symbols (library bases,
