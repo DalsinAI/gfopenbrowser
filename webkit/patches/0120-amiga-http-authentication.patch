@@ -1,0 +1,341 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: SacredTrees <121399723+SacredTrees@users.noreply.github.com>
+Date: Tue, 3 Nov 2026 23:00:00 +0000
+Subject: [PATCH] WebCore: HTTP log-ins on the Amiga (a 401 asks the window)
+
+A 401 whose WWW-Authenticate offers Basic or Digest no longer goes
+straight to the page. ResourceHandle::amigaDidReceiveResponse() hands it
+to amigaAuthenticate(), which makes an AuthenticationChallenge answered
+through the handle (the Amiga AuthenticationChallenge now carries its
+AuthenticationClient, weakly, so the handle's own challenge doesn't keep
+it alive) and gives it to the client: ResourceLoader asks the frame loader
+client, and GFOpenBrowser's shows its log-in panel. The body waits
+meanwhile, as openweb.fetch sends it only after the response is taken.
+
+- receivedCredential(): the request goes out again with the user name and
+  password, for openweb.fetch's own Basic or Digest answer, to the server
+  that asked (m_amigaCredentialURL; before, only the first request's
+  server had credentials). A credential kept for the session is
+  remembered by server and realm until the program ends, in memory only,
+  and goes out once without asking for the page's other parts and later
+  pages; refused, it is forgotten and the window asked again, with the
+  refusals counted (previousFailureCount), three at most.
+- receivedRequestToContinueWithoutCredential() (and default handling and
+  rejection): the 401 goes on to the page as before (amigaContinueResponse,
+  the rest of amigaDidReceiveResponse: the HTTP cache, redirects, the
+  response).
+- receivedCancellation(): the load is cancelled.
+- A synchronous load (synchronous XMLHttpRequest) has no panel: its 401 is
+  its answer, as before.
+
+With no client answering (no window), nothing changes: ResourceLoader
+continues without credentials itself.
+---
+  Source/WebCore/platform/network/ResourceHandle.h   |   3 +
+  .../platform/network/ResourceHandleInternal.h      |   8 ++
+  .../platform/network/amiga/ResourceHandleAmiga.cpp | 136 +++++++++++++++++++--
+  .../network/curl/AuthenticationChallenge.h         |  15 +++
+  .../network/curl/AuthenticationChallengeCurl.cpp   |   6 +
+  5 files changed, 161 insertions(+), 7 deletions(-)
+
+diff --git a/Source/WebCore/platform/network/ResourceHandle.h b/Source/WebCore/platform/network/ResourceHandle.h
+index 54a2cbc1..6b4de9ff 100644
+--- a/Source/WebCore/platform/network/ResourceHandle.h
++++ b/Source/WebCore/platform/network/ResourceHandle.h
+@@ -198,6 +198,9 @@ private:
+     void amigaLoadFromHttpCache();
+     void amigaCancelRequest();
+     void amigaDidReceiveResponse(const ResourceRequest& sentRequest, const Vector<String>& headerLines, ResourceResponse&&);
++    bool amigaAuthenticate(const ResourceRequest& sentRequest, const ResourceResponse&);
++    void amigaRetryWithCredential(const String& user, const String& password);
++    void amigaContinueResponse(const ResourceRequest& sentRequest, ResourceResponse&&);
+     void amigaDidReceiveData(Ref<SharedBuffer>&&);
+     void amigaDidFinish(const NetworkLoadMetrics&);
+     void amigaDidFail(const ResourceError&);
+diff --git a/Source/WebCore/platform/network/ResourceHandleInternal.h b/Source/WebCore/platform/network/ResourceHandleInternal.h
+index dc88d7b7..45c2dea6 100644
+--- a/Source/WebCore/platform/network/ResourceHandleInternal.h
++++ b/Source/WebCore/platform/network/ResourceHandleInternal.h
+@@ -110,6 +110,14 @@ public:
+     // The disk cache's part in the current request (AmigaNetwork.h).
+     std::unique_ptr<AmigaHttpCacheRequest> m_httpCache;
+     bool m_skipHttpCache { false };
++    // HTTP authentication: the 401 waiting for the window's log-in panel
++    // and the request it answered; the address whose server m_user and
++    // m_password are for (the first request's, or the one that asked); and
++    // how many times this load's credentials were refused.
++    ResourceResponse m_amigaAuthResponse;
++    ResourceRequest m_amigaAuthRequest;
++    URL m_amigaCredentialURL;
++    unsigned m_amigaAuthFailures { 0 };
+ #endif
+     Box<NetworkLoadMetrics> m_networkLoadMetrics;
+     MonotonicTime m_startTime;
+diff --git a/Source/WebCore/platform/network/amiga/ResourceHandleAmiga.cpp b/Source/WebCore/platform/network/amiga/ResourceHandleAmiga.cpp
+index f9fe7e95..de1dbf96 100644
+--- a/Source/WebCore/platform/network/amiga/ResourceHandleAmiga.cpp
++++ b/Source/WebCore/platform/network/amiga/ResourceHandleAmiga.cpp
+@@ -32,6 +32,8 @@
+ #include "ResourceHandle.h"
+ 
+ #include "AmigaNetwork.h"
++#include "AuthenticationChallenge.h"
++#include "Credential.h"
+ #include "HTTPParsers.h"
+ #include "MIMETypeRegistry.h"
+ #include "OriginAccessPatterns.h"
+@@ -43,6 +45,7 @@
+ #include "SecurityOrigin.h"
+ #include "SharedBuffer.h"
+ #include <wtf/FileSystem.h>
++#include <wtf/HashMap.h>
+ #include <wtf/NeverDestroyed.h>
+ #include <wtf/RunLoop.h>
+ #include <wtf/text/MakeString.h>
+@@ -136,9 +139,10 @@ void ResourceHandle::amigaStartRequest(ResourceRequest&& request)
+         amigaLoadFromHttpCache();
+         return;
+     }
+-    // The URL's credentials go to its own server only, not to another one a
+-    // redirect leads to.
+-    bool sameServer = protocolHostAndPortAreEqual(request.url(), d->m_firstRequest.url());
++    // The credentials go to their own server only (the URL's, or the one
++    // that asked for them), not to another one a redirect leads to.
++    const URL& credentialURL = d->m_amigaCredentialURL.isNull() ? d->m_firstRequest.url() : d->m_amigaCredentialURL;
++    bool sameServer = protocolHostAndPortAreEqual(request.url(), credentialURL);
+     d->m_webFetch = AmigaWebFetch::start(*this, request, sameServer ? d->m_user : String(), sameServer ? d->m_password : String());
+ }
+ 
+@@ -302,6 +306,80 @@ static bool shouldRedirectAsGET(const ResourceRequest& request, const ResourceRe
+     return false;
+ }
+ 
++// HTTP log-ins (Basic and Digest) the user gave this run, by server and
++// realm, so that the page's other parts and the next pages on the same
++// server don't ask again. Kept in memory only, never written out.
++static HashMap<String, std::pair<String, String>>& amigaCredentials()
++{
++    static NeverDestroyed<HashMap<String, std::pair<String, String>>> credentials;
++    return credentials;
++}
++
++static String amigaCredentialKey(const URL& url, const String& realm)
++{
++    return makeString(url.protocol(), "://"_s, url.host(), ':', url.port().value_or(defaultPortForProtocol(url.protocol()).value_or(0)), '\n', realm);
++}
++
++// A 401 with a Basic or Digest challenge: credentials kept for its server
++// and realm go out once without asking; otherwise the window is asked
++// through the frame loader client (dispatchDidReceiveAuthenticationChallenge),
++// which answers on this handle as its AuthenticationClient, now or later.
++// The body waits meanwhile (openweb.fetch sends it after the response is
++// taken). Returns false when the response goes to the page as it is.
++bool ResourceHandle::amigaAuthenticate(const ResourceRequest& sentRequest, const ResourceResponse& response)
++{
++    static constexpr unsigned maxRefusals = 3;
++    if (!response.isUnauthorized() || !d->m_webFetch || hasAuthenticationChallenge())
++        return false;
++    AuthenticationChallenge challenge(response, d->m_amigaAuthFailures, *this);
++    auto scheme = challenge.protectionSpace().authenticationScheme();
++    if (scheme != ProtectionSpace::AuthenticationScheme::HTTPBasic && scheme != ProtectionSpace::AuthenticationScheme::HTTPDigest)
++        return false;
++
++    auto key = amigaCredentialKey(response.url(), challenge.protectionSpace().realm());
++    bool sentCredentials = !d->m_user.isEmpty() && protocolHostAndPortAreEqual(response.url(),
++        d->m_amigaCredentialURL.isNull() ? d->m_firstRequest.url() : d->m_amigaCredentialURL);
++    if (sentCredentials) {
++        // Refused: those kept for the realm are wrong now.
++        auto kept = amigaCredentials().find(key);
++        if (kept != amigaCredentials().end() && kept->value.first == d->m_user && kept->value.second == d->m_password)
++            amigaCredentials().remove(kept);
++        if (++d->m_amigaAuthFailures >= maxRefusals)
++            return false;
++        challenge = AuthenticationChallenge(response, d->m_amigaAuthFailures, *this);
++    } else {
++        auto kept = amigaCredentials().find(key);
++        if (kept != amigaCredentials().end()) {
++            d->m_amigaAuthRequest = sentRequest;
++            d->m_amigaAuthResponse = response;
++            auto credential = kept->value;
++            amigaRetryWithCredential(credential.first, credential.second);
++            return true;
++        }
++    }
++
++    d->m_amigaAuthRequest = sentRequest;
++    d->m_amigaAuthResponse = response;
++    d->m_currentWebChallenge = challenge;
++    Ref protectedThis { *this };
++    client()->didReceiveAuthenticationChallenge(this, challenge);
++    return true;
++}
++
++void ResourceHandle::amigaRetryWithCredential(const String& user, const String& password)
++{
++    d->m_user = user;
++    d->m_password = password;
++    d->m_amigaCredentialURL = d->m_amigaAuthResponse.url();
++    ResourceRequest request = std::exchange(d->m_amigaAuthRequest, { });
++    d->m_amigaAuthResponse = { };
++    // amigaStartRequest() gives the request its cookies again.
++    request.removeHTTPHeaderField(HTTPHeaderName::Cookie);
++    request.removeHTTPHeaderField(HTTPHeaderName::Authorization);
++    amigaCancelRequest();
++    amigaStartRequest(WTF::move(request));
++}
++
+ void ResourceHandle::amigaDidReceiveResponse(const ResourceRequest& sentRequest, const Vector<String>& headerLines, ResourceResponse&& response)
+ {
+     if (!client())
+@@ -316,6 +394,16 @@ void ResourceHandle::amigaDidReceiveResponse(const ResourceRequest& sentRequest,
+         }
+     }
+ 
++    if (amigaAuthenticate(sentRequest, response))
++        return;
++    amigaContinueResponse(sentRequest, WTF::move(response));
++}
++
++void ResourceHandle::amigaContinueResponse(const ResourceRequest& sentRequest, ResourceResponse&& response)
++{
++    if (!client())
++        return;
++
+     if (auto& cache = d->m_httpCache) {
+         if (response.httpStatusCode() == 304) {
+             if (cache->notModified(response)) {
+@@ -399,6 +487,12 @@ public:
+         m_response = WTF::move(response);
+         completionHandler();
+     }
++    // No log-in panel for a synchronous load: the 401 is its answer.
++    void didReceiveAuthenticationChallenge(ResourceHandle*, const AuthenticationChallenge& challenge) final
++    {
++        if (RefPtr client = challenge.authenticationClient())
++            client->receivedRequestToContinueWithoutCredential(challenge);
++    }
+     void didReceiveData(ResourceHandle*, const SharedBuffer& buffer, int) final { m_data.append(buffer.span()); }
+     void didFinishLoading(ResourceHandle*, const NetworkLoadMetrics&) final { m_done = true; }
+     void didFail(ResourceHandle*, const ResourceError& error) final
+@@ -435,24 +529,52 @@ void ResourceHandle::didReceiveAuthenticationChallenge(const AuthenticationChall
+ {
+ }
+ 
+-void ResourceHandle::receivedCredential(const AuthenticationChallenge&, const Credential&)
++// The window's answer to amigaAuthenticate(): a log-in, to send the request
++// again with; nothing, and the 401 goes to the page as it came; or Cancel.
++void ResourceHandle::receivedCredential(const AuthenticationChallenge& challenge, const Credential& credential)
+ {
++    if (!hasAuthenticationChallenge())
++        return;
++    if (credential.user().isEmpty()) {
++        receivedRequestToContinueWithoutCredential(challenge);
++        return;
++    }
++    clearAuthentication();
++    if (credential.persistence() != CredentialPersistence::None)
++        amigaCredentials().set(amigaCredentialKey(d->m_amigaAuthResponse.url(), challenge.protectionSpace().realm()), std::make_pair(credential.user(), credential.password()));
++    amigaRetryWithCredential(credential.user(), credential.password());
+ }
+ 
+ void ResourceHandle::receivedRequestToContinueWithoutCredential(const AuthenticationChallenge&)
+ {
++    if (!hasAuthenticationChallenge())
++        return;
++    clearAuthentication();
++    ResourceRequest request = std::exchange(d->m_amigaAuthRequest, { });
++    ResourceResponse response = std::exchange(d->m_amigaAuthResponse, { });
++    amigaContinueResponse(request, WTF::move(response));
+ }
+ 
+-void ResourceHandle::receivedCancellation(const AuthenticationChallenge&)
++void ResourceHandle::receivedCancellation(const AuthenticationChallenge& challenge)
+ {
++    if (!hasAuthenticationChallenge())
++        return;
++    clearAuthentication();
++    d->m_amigaAuthRequest = { };
++    d->m_amigaAuthResponse = { };
++    amigaCancelRequest();
++    if (client())
++        client()->receivedCancellation(this, challenge);
+ }
+ 
+-void ResourceHandle::receivedRequestToPerformDefaultHandling(const AuthenticationChallenge&)
++void ResourceHandle::receivedRequestToPerformDefaultHandling(const AuthenticationChallenge& challenge)
+ {
++    receivedRequestToContinueWithoutCredential(challenge);
+ }
+ 
+-void ResourceHandle::receivedChallengeRejection(const AuthenticationChallenge&)
++void ResourceHandle::receivedChallengeRejection(const AuthenticationChallenge& challenge)
+ {
++    receivedRequestToContinueWithoutCredential(challenge);
+ }
+ 
+ } // namespace WebCore
+diff --git a/Source/WebCore/platform/network/curl/AuthenticationChallenge.h b/Source/WebCore/platform/network/curl/AuthenticationChallenge.h
+index f238eb98..be8283b3 100644
+--- a/Source/WebCore/platform/network/curl/AuthenticationChallenge.h
++++ b/Source/WebCore/platform/network/curl/AuthenticationChallenge.h
+@@ -28,6 +28,9 @@
+ 
+ #include <WebCore/AuthenticationChallengeBase.h>
+ #include <WebCore/AuthenticationClient.h>
++#if PLATFORM(AMIGA)
++#include <wtf/WeakPtr.h>
++#endif
+ 
+ namespace WebCore {
+ 
+@@ -51,12 +54,19 @@ public:
+     // scheme is the strongest the server's challenge offers. proxyURL is
+     // the proxy that asked, for a 407.
+     WEBCORE_EXPORT AuthenticationChallenge(const ResourceResponse&, unsigned previousFailureCount, const URL& proxyURL = { });
++    // The same, answered through client (the ResourceHandle that asks): the
++    // window's log-in panel gives its credential to authenticationClient().
++    WEBCORE_EXPORT AuthenticationChallenge(const ResourceResponse&, unsigned previousFailureCount, AuthenticationClient&);
+ #else
+     WEBCORE_EXPORT AuthenticationChallenge(const CurlResponse&, unsigned, const ResourceResponse&);
+ #endif
+     WEBCORE_EXPORT AuthenticationChallenge(const URL&, const CertificateInfo&, const ResourceError&);
+ 
++#if PLATFORM(AMIGA)
++    AuthenticationClient* authenticationClient() const { return m_authenticationClient.get(); }
++#else
+     AuthenticationClient* authenticationClient() const { return nullptr; }
++#endif
+ 
+ private:
+     ProtectionSpace::ServerType protectionSpaceServerTypeFromURI(const URL&, bool isForProxy);
+@@ -71,6 +81,11 @@ private:
+     std::optional<uint16_t> determineProxyPort(const URL&);
+     String parseRealm(const ResourceResponse&);
+     void removeLeadingAndTrailingQuotes(String&);
++
++#if PLATFORM(AMIGA)
++    // Weak: the handle keeps its current challenge, which must not keep it.
++    WeakPtr<AuthenticationClient> m_authenticationClient;
++#endif
+ };
+ 
+ } // namespace WebCore
+diff --git a/Source/WebCore/platform/network/curl/AuthenticationChallengeCurl.cpp b/Source/WebCore/platform/network/curl/AuthenticationChallengeCurl.cpp
+index 785769f0..e37de251 100644
+--- a/Source/WebCore/platform/network/curl/AuthenticationChallengeCurl.cpp
++++ b/Source/WebCore/platform/network/curl/AuthenticationChallengeCurl.cpp
+@@ -49,6 +49,12 @@ AuthenticationChallenge::AuthenticationChallenge(const ResourceResponse& respons
+     : AuthenticationChallengeBase(protectionSpaceForPasswordBased(response, proxyURL, authenticationSchemeFromHeader(response)), Credential(), previousFailureCount, response, ResourceError())
+ {
+ }
++
++AuthenticationChallenge::AuthenticationChallenge(const ResourceResponse& response, unsigned previousFailureCount, AuthenticationClient& client)
++    : AuthenticationChallengeBase(protectionSpaceForPasswordBased(response, { }, authenticationSchemeFromHeader(response)), Credential(), previousFailureCount, response, ResourceError())
++    , m_authenticationClient(client)
++{
++}
+ #else
+ AuthenticationChallenge::AuthenticationChallenge(const CurlResponse& curlResponse, unsigned previousFailureCount, const ResourceResponse& response)
+     : AuthenticationChallengeBase(protectionSpaceForPasswordBased(curlResponse, response), Credential(), previousFailureCount, response, ResourceError())
+-- 
+2.43.0

@@ -61,6 +61,11 @@
 #                   inline calls, for painting the window through GFOpenGPU
 #                   (WebKit patch 0076; headers only, required)
 #                   (default ../gfopenrtg beside this repository)
+#   GFOPENLAYOUT_DIR
+#                   gfopenlayout's checkout: gfopenlayout.library's UI calls,
+#                   for the window's dialogs, find bar, downloads and
+#                   preferences (src/webcore/ob_dialogs.c; headers only,
+#                   required) (default ../gfopenlayout beside this repository)
 #
 # No Ruby: WebKit's Ruby generators run as Python ports (patches 0019 and
 # 0021), with the python3 CMake finds.
@@ -219,6 +224,15 @@ openamigartg_dir() {
     fi
 }
 
+# gfopenlayout's checkout, as src/webcore/CMakeLists.txt finds it.
+gfopenlayout_dir() {
+    if [ -n "${GFOPENLAYOUT_DIR:-}" ] && [ -f "$GFOPENLAYOUT_DIR/include/inline/gfopenlayout.h" ]; then
+        echo "$GFOPENLAYOUT_DIR"
+    else
+        echo "$ROOT/../gfopenlayout"
+    fi
+}
+
 need_sources() {
     : "${WEBKIT_SOURCE:?set WEBKIT_SOURCE to the patched WebKit tree}"
     : "${OAB_DEPS:?set OAB_DEPS to the folder with icu78-m68k-amigaos and m68k-amigaos}"
@@ -227,6 +241,8 @@ need_sources() {
         die "gfopenservice missing at $(openservice_dir): the engine's network is openweb.fetch (set OPENSERVICE_DIR)"
     [ -f "$(openamigartg_dir)/include/inline/gfopengpu.h" ] ||
         die "gfopenrtg missing at $(openamigartg_dir): the window is painted through gfopengpu.library (set OPENAMIGARTG_DIR)"
+    [ -f "$(gfopenlayout_dir)/include/gfopenlayout_ui_amiga.h" ] ||
+        die "gfopenlayout missing at $(gfopenlayout_dir): the window's dialogs are gfopenlayout.library's (set GFOPENLAYOUT_DIR)"
     export OAB_DEPS
 }
 

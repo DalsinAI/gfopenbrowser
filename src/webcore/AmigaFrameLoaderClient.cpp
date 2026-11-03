@@ -8,6 +8,7 @@
 #include "config.h"
 #include "AmigaFrameLoaderClient.h"
 
+#include "AmigaDownload.h"
 #include "AmigaWebView.h"
 #include "ob_tata.h"
 
@@ -18,6 +19,7 @@
 #include <WebCore/AuthenticationChallenge.h>
 #include <WebCore/AuthenticationClient.h>
 #include <WebCore/Color.h>
+#include <WebCore/Credential.h>
 #include <WebCore/DocumentLoader.h>
 #include <WebCore/FormState.h>
 #include <WebCore/FrameLoadRequest.h>
@@ -118,7 +120,12 @@ private:
     void detachedFromParent2() final { }
     void detachedFromParent3() final { }
 
-    void convertMainResourceLoadToDownload(DocumentLoader*, const ResourceRequest&, const ResourceResponse&) final { }
+    // A page that is a download (dispatchDecidePolicyForResponse): asked for
+    // again as one, so it goes on after the page's load has ended.
+    void convertMainResourceLoadToDownload(DocumentLoader*, const ResourceRequest& request, const ResourceResponse& response) final
+    {
+        startDownload(request, response.suggestedFilename());
+    }
 
     void assignIdentifierToInitialRequest(ResourceLoaderIdentifier, DocumentLoader*, const ResourceRequest&) final { }
     bool shouldUseCredentialStorage(DocumentLoader*, ResourceLoaderIdentifier) final { return true; }
@@ -137,8 +144,17 @@ private:
     }
     void dispatchDidReceiveAuthenticationChallenge(DocumentLoader*, ResourceLoaderIdentifier, const AuthenticationChallenge& challenge) final
     {
-        // No HTTP log-in panel yet: carry on without credentials.
-        if (RefPtr client = challenge.authenticationClient())
+        // The window's log-in panel (a 401's Basic or Digest challenge,
+        // WebKit patch 0120). Without a log-in the server's page shows.
+        RefPtr client = challenge.authenticationClient();
+        if (!client)
+            return;
+        const auto& space = challenge.protectionSpace();
+        String user = challenge.proposedCredential().user();
+        String password;
+        if (m_view.runAuthentication(space.host(), space.realm(), challenge.previousFailureCount(), user, password))
+            client->receivedCredential(challenge, Credential(user, password, CredentialPersistence::ForSession));
+        else
             client->receivedRequestToContinueWithoutCredential(challenge);
     }
 
@@ -200,11 +216,14 @@ private:
 
     void dispatchDecidePolicyForResponse(const ResourceResponse& response, const ResourceRequest&, const String&, FramePolicyFunction&& function) final
     {
-        // Show what WebCore can show; downloads come later.
-        if (canShowMIMEType(response.mimeType()) || response.mimeType().isEmpty())
+        // Show what WebCore can show; an attachment, or a type it can't
+        // show, is a download (convertMainResourceLoadToDownload).
+        if (response.isAttachment())
+            function(PolicyAction::Download);
+        else if (canShowMIMEType(response.mimeType()) || response.mimeType().isEmpty())
             function(PolicyAction::Use);
         else
-            function(PolicyAction::Ignore);
+            function(PolicyAction::Download);
     }
 
     void dispatchDecidePolicyForNewWindowAction(const NavigationAction&, const ResourceRequest& request, FormState*, const String&, std::optional<HitTestResult>&&, FramePolicyFunction&& function) final
@@ -235,7 +254,11 @@ private:
     void setMainDocumentError(DocumentLoader*, const ResourceError&) final { }
     void setMainFrameDocumentReady(bool) final { }
 
-    void startDownload(const ResourceRequest&, const String&, FromDownloadAttribute) final { }
+    // A link with a download attribute (and data: pages that are downloads).
+    void startDownload(const ResourceRequest& request, const String& suggestedName, FromDownloadAttribute) final
+    {
+        GFOpenBrowser::startDownload(request, suggestedName);
+    }
 
     void willChangeTitle(DocumentLoader*) final { }
     void didChangeTitle(DocumentLoader*) final { }
