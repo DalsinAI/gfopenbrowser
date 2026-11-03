@@ -1,0 +1,370 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: SacredTrees <121399723+SacredTrees@users.noreply.github.com>
+Date: Tue, 3 Nov 2026 22:00:00 +0000
+Subject: [PATCH] WebCore: animated GIFs play, every frame from the datatype
+
+The datatypes decoder showed the first frame of an animated GIF only: it
+asked the datatype for one picture.
+
+A GIF of two images or more now goes, once all of it is in, to a datatype
+that gives every frame: gfopengif.datatype 47.1 (gfopendatatypes), which
+answers OIA_Frames and OIA_LoopCount and writes any frame, composited over
+the ones before it as browsers show them, with OIM_READFRAME
+(datatypes/gfopenimage.h). The decoder reports the frame count, each
+frame's delay and the repetition count (the file's loop count read as
+WebKit's own GIF decoder reads it), and WebCore's animation runs as on
+other ports. Frames are written straight into the frame's pixels; going
+forward from the frame read last is cheap in the datatype, and frames
+before the one shown can be dropped and read again.
+
+Without such a datatype (the system's gif.datatype answers no OIA_Frames),
+and for every other picture, nothing changes: one frame, decoded as before.
+
+---
+diff --git a/Source/WebCore/platform/image-decoders/amiga/DatatypesDecode.c b/Source/WebCore/platform/image-decoders/amiga/DatatypesDecode.c
+index 38a1f89..2c04403 100644
+--- a/Source/WebCore/platform/image-decoders/amiga/DatatypesDecode.c
++++ b/Source/WebCore/platform/image-decoders/amiga/DatatypesDecode.c
+@@ -402,6 +402,145 @@ void obdt_free(OBDTImage* image)
+     image->pixels = NULL;
+ }
+ 
++/* Animated GIFs through a datatype that gives every frame:
++ * gfopengif.datatype 47.1 and later (gfopendatatypes, datatypes/gfopenimage.h,
++ * whose numbers these are). A datatype without them (the system's
++ * gif.datatype) answers OIA_Frames with nothing, and the picture is decoded
++ * as a still, as before. */
++#define OIA_Frames (TAG_USER + 0x0DA15000 + 5)
++#define OIA_LoopCount (TAG_USER + 0x0DA15000 + 6)
++#define OIM_READFRAME (TAG_USER + 0x0DA15902)
++#define OIRF_PREMULTIPLIED 1UL
++struct oiReadFrame {
++    ULONG MethodID;
++    struct GadgetInfo* oirf_GInfo;
++    ULONG oirf_Frame;
++    UBYTE* oirf_Pixels;
++    ULONG oirf_Stride;
++    ULONG oirf_Flags;
++    ULONG oirf_Delay;
++    ULONG oirf_HasAlpha;
++};
++
++typedef struct {
++    Object* object;
++    char fileName[64];
++} OBDTAnimationObject;
++
++/* 1 when data is a GIF with more than one image: only those are tried as
++ * animations, so every other picture goes exactly as before. */
++static int isAnimatedGIF(const unsigned char* d, unsigned long size)
++{
++    unsigned long at = 13;
++    int images = 0;
++
++    if (size < 13 || memcmp(d, "GIF8", 4))
++        return 0;
++    if (d[10] & 0x80)
++        at += 3UL << ((d[10] & 7) + 1);
++    while (at < size) {
++        if (d[at] == 0x2c) {
++            if (++images == 2)
++                return 1;
++            if (at + 10 > size)
++                return 0;
++            if (d[at + 9] & 0x80)
++                at += 3UL << ((d[at + 9] & 7) + 1);
++            at += 11;                           /* the descriptor and the LZW code size */
++        } else if (d[at] == 0x21 && at + 2 < size)
++            at += 2;                            /* an extension: introducer and label */
++        else
++            return 0;
++        while (at < size && d[at])              /* sub-blocks */
++            at += d[at] + 1;
++        at++;
++    }
++    return 0;
++}
++
++int obdt_open_animation(const void* data, unsigned long size, OBDTAnimation* out)
++{
++    OBDTAnimationObject* animation;
++    struct BitMapHeader* header = NULL;
++    ULONG frames = 0, loops = (ULONG)-1;
++
++    memset(out, 0, sizeof *out);
++    if (!data || !isAnimatedGIF((const unsigned char*)data, size))
++        return 0;
++    pthread_once(&s_openOnce, openDataTypes);
++    if (!DataTypesBase || !(animation = (OBDTAnimationObject*)calloc(1, sizeof *animation)))
++        return 0;
++    /* The datatype reads the file when the object is made; the file stays
++     * until the object goes (datatypes.library keeps it open). */
++    if (!writeTemporaryFile(data, size, animation->fileName, sizeof animation->fileName)) {
++        free(animation);
++        return 0;
++    }
++    animation->object = NewDTObject((APTR)animation->fileName,
++        DTA_GroupID, GID_PICTURE,
++        PDTA_DestMode, PMODE_V43,
++        PDTA_Remap, FALSE,
++        TAG_DONE);
++    resetFPCR();
++    if (!animation->object) {
++        DeleteFile((CONST_STRPTR)animation->fileName);
++        free(animation);
++        return 0;
++    }
++    if (GetDTAttrs(animation->object, OIA_Frames, (ULONG)&frames, TAG_DONE) != 1 || frames < 2
++        || GetDTAttrs(animation->object, PDTA_BitMapHeader, (ULONG)&header, TAG_DONE) != 1
++        || !header || !header->bmh_Width || !header->bmh_Height) {
++        disposePicture(animation->object, animation->fileName);
++        free(animation);
++        return 0;
++    }
++    GetDTAttrs(animation->object, OIA_LoopCount, (ULONG)&loops, TAG_DONE);
++    out->handle = animation;
++    out->width = header->bmh_Width;
++    out->height = header->bmh_Height;
++    out->frames = frames;
++    out->loops = (long)loops;
++    return 1;
++}
++
++int obdt_read_frame(OBDTAnimation* animation, unsigned index, void* pixels, unsigned stride,
++    unsigned* delayMilliseconds, int* hasAlpha)
++{
++    OBDTAnimationObject* object = (OBDTAnimationObject*)animation->handle;
++    struct oiReadFrame message;
++    ULONG ok;
++
++    if (!object || index >= animation->frames || !pixels)
++        return 0;
++    message.MethodID = OIM_READFRAME;
++    message.oirf_GInfo = NULL;
++    message.oirf_Frame = index;
++    message.oirf_Pixels = (UBYTE*)pixels;
++    message.oirf_Stride = stride;
++    message.oirf_Flags = OIRF_PREMULTIPLIED;
++    message.oirf_Delay = 0;
++    message.oirf_HasAlpha = TRUE;
++    ok = DoMethodA(object->object, (Msg)&message);
++    resetFPCR();
++    if (!ok)
++        return 0;
++    *delayMilliseconds = message.oirf_Delay;
++    *hasAlpha = message.oirf_HasAlpha ? 1 : 0;
++    return 1;
++}
++
++void obdt_close_animation(OBDTAnimation* animation)
++{
++    OBDTAnimationObject* object = (OBDTAnimationObject*)animation->handle;
++
++    if (!object)
++        return;
++    pthread_once(&s_openOnce, openDataTypes);
++    disposePicture(object->object, object->fileName);
++    free(object);
++    animation->handle = NULL;
++}
++
+ /* The PNG datatypes tried for writing, ours first; any that writes PNG for
+  * DTM_WRITE with DTWM_RAW will do. */
+ static const char* const s_pngDataTypes[] = { "openpng", "png" };
+diff --git a/Source/WebCore/platform/image-decoders/amiga/DatatypesDecode.h b/Source/WebCore/platform/image-decoders/amiga/DatatypesDecode.h
+index 3fb2fbf..63a365b 100644
+--- a/Source/WebCore/platform/image-decoders/amiga/DatatypesDecode.h
++++ b/Source/WebCore/platform/image-decoders/amiga/DatatypesDecode.h
+@@ -48,6 +48,29 @@ typedef struct {
+ int obdt_decode(const void* data, unsigned long size, OBDTImage* out);
+ void obdt_free(OBDTImage*);
+ 
++/* An animated GIF, every frame from a datatype that gives them
++ * (gfopengif.datatype 47.1 and later: OIA_Frames and OIM_READFRAME, see
++ * gfopendatatypes' datatypes/gfopenimage.h). obdt_open_animation() returns 1
++ * with out filled when data is a GIF of two images or more and such a
++ * datatype took it; 0 otherwise (decode it as a still with obdt_decode()).
++ * loops is the file's loop count: -1 none (play once), 0 for ever, else
++ * that many repeats. obdt_read_frame() writes frame index, composited over
++ * the frames before it, as premultiplied 0xAARRGGBB words (WebCore's ARGB32
++ * on the 68k), rows stride bytes apart, with its delay in milliseconds as
++ * the file gives it; forward from the frame read last is cheap. 1, or 0 on
++ * failure. One thread at a time per animation. */
++typedef struct {
++    void* handle;
++    unsigned width;
++    unsigned height;
++    unsigned frames;
++    long loops;
++} OBDTAnimation;
++int obdt_open_animation(const void* data, unsigned long size, OBDTAnimation* out);
++int obdt_read_frame(OBDTAnimation*, unsigned index, void* pixels, unsigned stride,
++    unsigned* delayMilliseconds, int* hasAlpha);
++void obdt_close_animation(OBDTAnimation*);
++
+ /* A decoder elsewhere (OpenBrowser: media.decode/1 through
+  * gfopenservice.device), tried before the datatypes. It returns 1 with out
+  * filled (pixels from malloc), or 0 to leave the picture to the datatypes.
+diff --git a/Source/WebCore/platform/image-decoders/amiga/DatatypesImageDecoder.cpp b/Source/WebCore/platform/image-decoders/amiga/DatatypesImageDecoder.cpp
+index 57ff216..ac50b5a 100644
+--- a/Source/WebCore/platform/image-decoders/amiga/DatatypesImageDecoder.cpp
++++ b/Source/WebCore/platform/image-decoders/amiga/DatatypesImageDecoder.cpp
+@@ -36,6 +36,11 @@ DatatypesImageDecoder::DatatypesImageDecoder(AlphaOption alphaOption, GammaAndCo
+ {
+ }
+ 
++DatatypesImageDecoder::~DatatypesImageDecoder()
++{
++    obdt_close_animation(&m_animation);
++}
++
+ static inline unsigned readBigEndian16(std::span<const uint8_t> data, size_t offset)
+ {
+     return (data[offset] << 8) | data[offset + 1];
+@@ -175,9 +180,92 @@ bool DatatypesImageDecoder::decodeAll()
+     return true;
+ }
+ 
++// An animated GIF goes to a datatype that gives every frame
++// (gfopengif.datatype, DatatypesDecode.h) once all of it is in; anything
++// else, or a GIF no such datatype took, is one frame as before.
++void DatatypesImageDecoder::openAnimationIfNeeded() const
++{
++    assertIsHeld(m_lock);
++    if (m_animationTried || !isAllDataReceived() || failed() || !m_data)
++        return;
++    m_animationTried = true;
++    auto data = m_data->span();
++    if (!obdt_open_animation(data.data(), data.size(), &m_animation))
++        return;
++    if (IntSize(m_animation.width, m_animation.height) != size()) {
++        obdt_close_animation(&m_animation);
++        return;
++    }
++    m_frameCount = m_animation.frames;
++    // The file's loop count is the repeats after the first time through,
++    // as WebKit's own GIF decoder reads it.
++    if (m_animation.loops < 0)
++        m_repetitionCount = RepetitionCountOnce;
++    else if (!m_animation.loops)
++        m_repetitionCount = RepetitionCountInfinite;
++    else
++        m_repetitionCount = m_animation.loops + 1;
++}
++
++size_t DatatypesImageDecoder::decodeIfNeededAndGetFrameCount() const
++{
++    assertIsHeld(m_lock);
++    openAnimationIfNeeded();
++    return m_frameCount;
++}
++
++RepetitionCount DatatypesImageDecoder::repetitionCount() const
++{
++    Locker locker { m_lock };
++    openAnimationIfNeeded();
++    return m_repetitionCount;
++}
++
++bool DatatypesImageDecoder::decodeFrame(size_t index)
++{
++    assertIsHeld(m_lock);
++    auto& buffer = m_frameBufferCache[index];
++    if (!buffer.initialize(size(), premultiplyAlpha()))
++        return setFailed();
++    unsigned delay = 0;
++    int hasAlpha = 1;
++    // Straight into the frame's pixels: GIF alpha is 0 or 255, so the words
++    // are the same premultiplied or not.
++    if (!obdt_read_frame(&m_animation, index, &buffer.backingStore()->pixelAt(0, 0), size().width() * 4, &delay, &hasAlpha)) {
++        buffer.clear();
++        return false;
++    }
++    buffer.setHasAlpha(hasAlpha);
++    buffer.setDuration(Seconds::fromMilliseconds(delay));
++    buffer.setDecodingStatus(DecodingStatus::Complete);
++    return true;
++}
++
++void DatatypesImageDecoder::clearDecodedPixelDataIfNeeded(size_t clearBeforeFrame)
++{
++    assertIsHeld(m_lock);
++    // Any frame can be had again from the datatype, so the ones before
++    // clearBeforeFrame all go.
++    if (!m_animation.handle)
++        return;
++    for (size_t i = 0; i < clearBeforeFrame && i < m_frameBufferCache.size(); ++i)
++        m_frameBufferCache[i].clear();
++}
++
+ ScalableImageDecoderFrame* DatatypesImageDecoder::frameBufferAtIndex(size_t index)
+ {
+     assertIsHeld(m_lock);
++    openAnimationIfNeeded();
++    if (m_animation.handle) {
++        if (index >= m_frameCount)
++            return nullptr;
++        if (m_frameBufferCache.size() < m_frameCount)
++            m_frameBufferCache.grow(m_frameCount);
++        auto* buffer = &m_frameBufferCache[index];
++        if (!buffer->isComplete())
++            decodeFrame(index);
++        return buffer;
++    }
+     if (index)
+         return nullptr;
+     if (m_frameBufferCache.isEmpty())
+diff --git a/Source/WebCore/platform/image-decoders/amiga/DatatypesImageDecoder.h b/Source/WebCore/platform/image-decoders/amiga/DatatypesImageDecoder.h
+index 67409ae..47a00e7 100644
+--- a/Source/WebCore/platform/image-decoders/amiga/DatatypesImageDecoder.h
++++ b/Source/WebCore/platform/image-decoders/amiga/DatatypesImageDecoder.h
+@@ -25,6 +25,7 @@
+ 
+ #pragma once
+ 
++#include "DatatypesDecode.h"
+ #include "ScalableImageDecoder.h"
+ 
+ namespace WebCore {
+@@ -32,7 +33,8 @@ namespace WebCore {
+ // Every bitmap image in a page is decoded by the system's datatypes, so the
+ // formats a page can show are the ones the user has datatypes for: OS 3.2
+ // ships PNG, JPEG, GIF, BMP and ILBM. The size comes from the file's header
+-// as soon as it arrives; the pixels when all of the file is in.
++// as soon as it arrives; the pixels when all of the file is in. An animated
++// GIF plays when a datatype gives its frames (gfopengif.datatype).
+ class DatatypesImageDecoder final : public ScalableImageDecoder {
+ public:
+     static Ref<ScalableImageDecoder> create(AlphaOption alphaOption, GammaAndColorProfileOption gammaAndColorProfileOption)
+@@ -40,17 +42,29 @@ public:
+         return adoptRef(*new DatatypesImageDecoder(alphaOption, gammaAndColorProfileOption));
+     }
+ 
++    ~DatatypesImageDecoder();
++
+     String filenameExtension() const final { return "dt"_s; }
++    RepetitionCount repetitionCount() const final;
+ 
+ private:
+     DatatypesImageDecoder(AlphaOption, GammaAndColorProfileOption);
+ 
+     void tryDecodeSize(bool allDataReceived) final;
+     ScalableImageDecoderFrame* frameBufferAtIndex(size_t) final WTF_REQUIRES_LOCK(m_lock);
++    size_t decodeIfNeededAndGetFrameCount() const final WTF_REQUIRES_LOCK(m_lock);
++    void clearDecodedPixelDataIfNeeded(size_t) final WTF_REQUIRES_LOCK(m_lock);
+ 
+     bool decodeAll() WTF_REQUIRES_LOCK(m_lock);
++    void openAnimationIfNeeded() const WTF_REQUIRES_LOCK(m_lock);
++    bool decodeFrame(size_t) WTF_REQUIRES_LOCK(m_lock);
+ 
+     bool m_decodeAttempted { false };
++    // An animated GIF's frames from the datatype (see DatatypesDecode.h).
++    mutable OBDTAnimation m_animation { };
++    mutable bool m_animationTried { false };
++    mutable size_t m_frameCount { 1 };
++    mutable RepetitionCount m_repetitionCount { RepetitionCountNone };
+ };
+ 
+ } // namespace WebCore
+-- 
+2.53.0

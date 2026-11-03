@@ -488,6 +488,14 @@ The patches, in order:
   and redirect, with the page's site; a blocked one fails as cancelled from
   the run loop. GFOpenBrowser answers from Tata's ad and tracker rules
   (`src/webcore/ob_tata.c`).
+- `0110-amiga-animated-gif-frames-from-datatype.patch`: animated GIFs play.
+  A GIF of two images or more goes, once all of it is in, to a datatype
+  that gives every frame (gfopengif.datatype 47.1, gfopendatatypes:
+  `OIA_Frames`, `OIA_LoopCount` and `OIM_READFRAME` in
+  `datatypes/gfopenimage.h`); the decoder reports the frame count, each
+  frame's delay and the repetition count, and reads each frame straight
+  into its pixels. Without that datatype GIFs show their first frame, as
+  before; other pictures don't change.
 
 `0001-amiga-m68k-jsconly.patch` is one combined patch. It holds:
 
