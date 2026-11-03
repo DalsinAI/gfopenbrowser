@@ -99,6 +99,7 @@ public:
 private:
     void renderingUpdateTimerFired();
     void deferTimerFired();
+    void writeScriptCache();
     void addDirtyRect(const WebCore::IntRect&);
     void callString(void (*callback)(void*, const char*), const String&);
 
@@ -114,6 +115,7 @@ private:
     int m_openRequests { 0 };
     bool m_deferReleased { false };
     WebCore::Timer m_renderingUpdateTimer;
+    WebCore::Timer m_scriptCacheTimer; // writes the translated scripts a while after a load (writeScriptCache())
     MonotonicTime m_nextRenderingUpdate; // while a page loads, none before this
     unsigned m_renderingUpdates { 0 };
     unsigned m_paintedRenderingUpdate { 0 }; // the last one takeDirtyRects() gave out

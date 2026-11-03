@@ -1,0 +1,378 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: SacredTrees <121399723+SacredTrees@users.noreply.github.com>
+Date: Tue, 3 Nov 2026 21:00:00 +0000
+Subject: [PATCH] WebCore: page and worker scripts translated once
+
+On a 68040 compiling a page's scripts (parsing, bytecode) is a large part
+of a page's time: 0.85 s of bbc.co.uk's, 3.2 s of reddit's, every visit.
+JavaScriptCore already asks a script's SourceProvider for bytecode it saved
+before (cachedBytecode), hands it the script's when it makes them
+(cacheBytecode) and each function's when that function is first called
+(updateCache), and tells it to write (commitCachedBytecode); WebCore's
+providers kept nothing.
+
+AmigaScriptBytecode (bindings/js/amiga) does it for both of WebCore's
+providers, CachedScriptSourceProvider (scripts loaded for a page, module
+scripts) and ScriptBufferSourceProvider (workers', importScripts and the
+rest), as javascript.library's own cache does (gfopenbrowser's
+src/jslib/jsl_cache.cpp): one file per script text in the folder the
+browser names (setAmigaScriptBytecodeFolder; none, the default: nothing
+kept), named by an FNV-1a hash and the length of the text, read when the
+script is first compiled, written when the provider goes or the code cache
+is written. A file another task changed meanwhile is left alone, and a
+write that fails takes the file away. Scripts under 1 KB are not kept.
+JavaScriptCore checks the text's hash, its length and the engine's version
+again when it decodes, so a stale or foreign file is only made afresh.
+
+diff --git a/Source/WebCore/PlatformAmiga.cmake b/Source/WebCore/PlatformAmiga.cmake
+index 5e882ea..007c396 100644
+--- a/Source/WebCore/PlatformAmiga.cmake
++++ b/Source/WebCore/PlatformAmiga.cmake
+@@ -41,6 +41,7 @@ list(APPEND WebCore_PRIVATE_FRAMEWORK_HEADERS
+ # Form controls and scrollbars are drawn by the Adwaita theme, which paints
+ # with GraphicsContext only; the media controls it also carries are left out.
+ list(APPEND WebCore_PRIVATE_INCLUDE_DIRECTORIES
++    "${WEBCORE_DIR}/bindings/js/amiga"
+     "${WEBCORE_DIR}/platform/adwaita"
+     "${WEBCORE_DIR}/platform/amiga"
+     "${WEBCORE_DIR}/platform/generic"
+@@ -156,6 +157,9 @@ if (NOT ENABLE_INDEXED_DATABASE)
+ endif ()
+ 
+ list(APPEND WebCore_SOURCES
++    # Page and worker scripts translated once (WebKit patch 0099).
++    bindings/js/amiga/AmigaScriptBytecode.cpp
++
+     # WebCrypto without a crypto library: digests only (PAL's CryptoDigest).
+     crypto/amiga/CryptoAmiga.cpp
+ 
+@@ -210,6 +214,8 @@ list(APPEND WebCore_SOURCES
+ )
+ 
+ list(APPEND WebCore_PRIVATE_FRAMEWORK_HEADERS
++    bindings/js/amiga/AmigaScriptBytecode.h
++
+     platform/adwaita/AdwaitaScrollbarPainter.h
+     platform/adwaita/ScrollbarThemeAdwaita.h
+     platform/adwaita/ThemeAdwaita.h
+diff --git a/Source/WebCore/bindings/js/CachedScriptSourceProvider.h b/Source/WebCore/bindings/js/CachedScriptSourceProvider.h
+index 6b884b2..333c20d 100644
+--- a/Source/WebCore/bindings/js/CachedScriptSourceProvider.h
++++ b/Source/WebCore/bindings/js/CachedScriptSourceProvider.h
+@@ -30,6 +30,9 @@
+ #include "CachedScript.h"
+ #include "CachedScriptFetcher.h"
+ #include <JavaScriptCore/SourceProvider.h>
++#if PLATFORM(AMIGA)
++#include "AmigaScriptBytecode.h"
++#endif
+ 
+ namespace WebCore {
+ 
+@@ -56,6 +59,18 @@ public:
+         SUPPRESS_UNCOUNTED_ARG m_cachedScript->withScriptConcurrently(isModuleType() ? CachedScript::ShouldDecodeAsUTF8Only::Yes : CachedScript::ShouldDecodeAsUTF8Only::No, function);
+     }
+ 
++#if PLATFORM(AMIGA)
++    // Translated once (AmigaScriptBytecode.h): JavaScriptCore's bytecode for
++    // this script kept in the browser's folder and loaded the next time.
++    RefPtr<JSC::CachedBytecode> cachedBytecode() const final { return m_amigaBytecode.cachedBytecode(source()); }
++    void cacheBytecode(const JSC::BytecodeCacheGenerator& generator) const final { m_amigaBytecode.cacheBytecode(generator); }
++    void updateCache(const JSC::UnlinkedFunctionExecutable* executable, const JSC::SourceCode&, JSC::CodeSpecializationKind kind, const JSC::UnlinkedFunctionCodeBlock* codeBlock) const final
++    {
++        m_amigaBytecode.updateCache(executable, kind, codeBlock);
++    }
++    void commitCachedBytecode() const final { m_amigaBytecode.commit(); }
++#endif
++
+ private:
+     CachedScriptSourceProvider(CachedScript* cachedScript, JSC::SourceProviderSourceType sourceType, Ref<CachedScriptFetcher>&& scriptFetcher)
+         : SourceProvider(JSC::SourceOrigin { cachedScript->response().url(), WTF::move(scriptFetcher) }, String(cachedScript->response().url().string()), cachedScript->response().isRedirected() ? String(cachedScript->url().string()) : String(), cachedScript->requiresPrivacyProtections() ? JSC::SourceTaintedOrigin::KnownTainted : JSC::SourceTaintedOrigin::Untainted, TextPosition(), sourceType)
+@@ -65,6 +80,9 @@ private:
+     }
+ 
+     const CachedResourceHandle<CachedScript> m_cachedScript;
++#if PLATFORM(AMIGA)
++    AmigaScriptBytecode m_amigaBytecode;
++#endif
+ };
+ 
+ inline unsigned CachedScriptSourceProvider::hash() const
+diff --git a/Source/WebCore/bindings/js/ScriptBufferSourceProvider.h b/Source/WebCore/bindings/js/ScriptBufferSourceProvider.h
+index 956aeb9..07ee066 100644
+--- a/Source/WebCore/bindings/js/ScriptBufferSourceProvider.h
++++ b/Source/WebCore/bindings/js/ScriptBufferSourceProvider.h
+@@ -27,6 +27,9 @@
+ 
+ #include "ScriptBuffer.h"
+ #include <JavaScriptCore/SourceProvider.h>
++#if PLATFORM(AMIGA)
++#include "AmigaScriptBytecode.h"
++#endif
+ 
+ namespace WebCore {
+ 
+@@ -82,6 +85,18 @@ public:
+         function(sourceImpl(locker));
+     }
+ 
++#if PLATFORM(AMIGA)
++    // Translated once (AmigaScriptBytecode.h): JavaScriptCore's bytecode for
++    // this script kept in the browser's folder and loaded the next time.
++    RefPtr<JSC::CachedBytecode> cachedBytecode() const final { return m_amigaBytecode.cachedBytecode(source()); }
++    void cacheBytecode(const JSC::BytecodeCacheGenerator& generator) const final { m_amigaBytecode.cacheBytecode(generator); }
++    void updateCache(const JSC::UnlinkedFunctionExecutable* executable, const JSC::SourceCode&, JSC::CodeSpecializationKind kind, const JSC::UnlinkedFunctionCodeBlock* codeBlock) const final
++    {
++        m_amigaBytecode.updateCache(executable, kind, codeBlock);
++    }
++    void commitCachedBytecode() const final { m_amigaBytecode.commit(); }
++#endif
++
+ private:
+     ScriptBufferSourceProvider(const ScriptBuffer& scriptBuffer, const JSC::SourceOrigin& sourceOrigin, String&& sourceURL, String&& preRedirectURL, const TextPosition& startPosition, JSC::SourceProviderSourceType sourceType)
+         : JSC::SourceProvider(sourceOrigin, WTF::move(sourceURL), WTF::move(preRedirectURL), JSC::SourceTaintedOrigin::Untainted, startPosition, sourceType)
+@@ -121,6 +136,9 @@ private:
+     mutable String m_cachedScriptString;
+     mutable std::optional<bool> m_containsOnlyASCII;
+     mutable Lock m_lock;
++#if PLATFORM(AMIGA)
++    AmigaScriptBytecode m_amigaBytecode;
++#endif
+ };
+ 
+ } // namespace WebCore
+diff --git a/Source/WebCore/bindings/js/amiga/AmigaScriptBytecode.cpp b/Source/WebCore/bindings/js/amiga/AmigaScriptBytecode.cpp
+new file mode 100644
+index 0000000..ebb78d9
+--- /dev/null
++++ b/Source/WebCore/bindings/js/amiga/AmigaScriptBytecode.cpp
+@@ -0,0 +1,160 @@
++/*
++ * Copyright (C) 2026 AmiCradle Team.
++ *
++ * Redistribution and use in source and binary forms, with or without
++ * modification, are permitted provided that the following conditions
++ * are met:
++ * 1. Redistributions of source code must retain the above copyright
++ *    notice, this list of conditions and the following disclaimer.
++ * 2. Redistributions in binary form must reproduce the above copyright
++ *    notice, this list of conditions and the following disclaimer in the
++ *    documentation and/or other materials provided with the distribution.
++ *
++ * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS ``AS IS''
++ * AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO,
++ * THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR
++ * PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDERS OR
++ * CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL,
++ * EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO,
++ * PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS;
++ * OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY,
++ * WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR
++ * OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF
++ * ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
++ */
++
++#include "config.h"
++#include "AmigaScriptBytecode.h"
++
++#include <JavaScriptCore/BytecodeCacheError.h>
++#include <JavaScriptCore/CachedBytecode.h>
++#include <JavaScriptCore/CachedTypes.h>
++#include <JavaScriptCore/UnlinkedFunctionExecutable.h>
++#include <stdio.h>
++#include <sys/stat.h>
++#include <wtf/MallocSpan.h>
++#include <wtf/NeverDestroyed.h>
++#include <wtf/text/MakeString.h>
++
++namespace WebCore {
++
++static Lock folderLock;
++
++static String& folder() WTF_REQUIRES_LOCK(folderLock)
++{
++    static NeverDestroyed<String> path;
++    return path;
++}
++
++void setAmigaScriptBytecodeFolder(const String& path)
++{
++    Locker locker { folderLock };
++    folder() = path.isolatedCopy();
++    if (!path.isEmpty())
++        mkdir(path.utf8().data(), 0777);
++}
++
++// FNV-1a over the text's code units, with its length beside it in the name:
++// two texts share a file only if both match (and JavaScriptCore checks the
++// text's own hash and length again when it decodes).
++static uint32_t textHash(StringView text)
++{
++    uint32_t h = 2166136261u;
++    for (unsigned i = 0; i < text.length(); i++) {
++        char16_t c = text[i];
++        h = (h ^ (c & 0xff)) * 16777619u;
++        h = (h ^ (c >> 8)) * 16777619u;
++    }
++    return h;
++}
++
++AmigaScriptBytecode::~AmigaScriptBytecode()
++{
++    commit();
++}
++
++RefPtr<JSC::CachedBytecode> AmigaScriptBytecode::cachedBytecode(StringView source) const
++{
++    Locker locker { m_lock };
++    if (m_loaded)
++        return m_bytecode;
++    m_loaded = true;
++    String dir;
++    {
++        Locker folderLocker { folderLock };
++        dir = folder().isolatedCopy();
++    }
++    if (dir.isEmpty() || source.length() < 1024)
++        return nullptr;     // nothing kept, or a script too short to be worth a file
++    auto separator = dir.endsWith('/') || dir.endsWith(':') ? ""_s : "/"_s;
++    char name[24];
++    snprintf(name, sizeof name, "%08lx-%08lx.jsc", static_cast<unsigned long>(textHash(source)), static_cast<unsigned long>(source.length()));
++    m_path = makeString(dir, separator, String::fromLatin1(name));
++    FILE* file = fopen(m_path.utf8().data(), "rb");
++    if (!file)
++        return nullptr;
++    long size = -1;
++    if (!fseek(file, 0, SEEK_END))
++        size = ftell(file);
++    if (size > 0 && !fseek(file, 0, SEEK_SET)) {
++        auto data = MallocSpan<uint8_t, JSC::VMMalloc>::tryMalloc(size);
++        if (data && fread(data.mutableSpan().data(), 1, size, file) == static_cast<size_t>(size))
++            m_bytecode = JSC::CachedBytecode::create(WTF::move(data), { });
++    }
++    fclose(file);
++    return m_bytecode;
++}
++
++// Only called when the script was made afresh: no file, or one from another
++// engine version. Either way the file is written anew.
++void AmigaScriptBytecode::cacheBytecode(const JSC::BytecodeCacheGenerator& generator) const
++{
++    Locker locker { m_lock };
++    if (m_path.isEmpty())
++        return;
++    m_bytecode = JSC::CachedBytecode::create();
++    if (auto update = generator())
++        m_bytecode->addGlobalUpdate(*update);
++}
++
++void AmigaScriptBytecode::updateCache(const JSC::UnlinkedFunctionExecutable* executable, JSC::CodeSpecializationKind kind, const JSC::UnlinkedFunctionCodeBlock* codeBlock) const
++{
++    Locker locker { m_lock };
++    if (!m_bytecode)
++        return;
++    JSC::BytecodeCacheError error;
++    RefPtr<JSC::CachedBytecode> function = JSC::encodeFunctionCodeBlock(executable->vm(), codeBlock, error);
++    if (function && !error.isValid())
++        m_bytecode->addFunctionUpdate(executable, kind, *function);
++}
++
++void AmigaScriptBytecode::commit() const
++{
++    RefPtr<JSC::CachedBytecode> bytecode;
++    CString path;
++    {
++        Locker locker { m_lock };
++        if (!m_bytecode || !m_bytecode->hasUpdates())
++            return;
++        bytecode = std::exchange(m_bytecode, nullptr); // what is written is not added to again
++        path = m_path.utf8();
++    }
++    size_t had = bytecode->size();
++    FILE* file = fopen(path.data(), had ? "r+b" : "wb");
++    if (!file)
++        return;
++    // The file must still be the one read: another task may have written it.
++    if (had && (fseek(file, 0, SEEK_END) || static_cast<size_t>(ftell(file)) != had)) {
++        fclose(file);
++        return;
++    }
++    bool ok = true;
++    bytecode->commitUpdates([&](off_t offset, std::span<const uint8_t> data) {
++        if (ok && (fseek(file, static_cast<long>(offset), SEEK_SET) || fwrite(data.data(), 1, data.size(), file) != data.size()))
++            ok = false;
++    });
++    if (fclose(file) || !ok)
++        remove(path.data()); // half a file is no file
++}
++
++} // namespace WebCore
+diff --git a/Source/WebCore/bindings/js/amiga/AmigaScriptBytecode.h b/Source/WebCore/bindings/js/amiga/AmigaScriptBytecode.h
+new file mode 100644
+index 0000000..4eeb63d
+--- /dev/null
++++ b/Source/WebCore/bindings/js/amiga/AmigaScriptBytecode.h
+@@ -0,0 +1,63 @@
++/*
++ * Copyright (C) 2026 AmiCradle Team.
++ *
++ * Redistribution and use in source and binary forms, with or without
++ * modification, are permitted provided that the following conditions
++ * are met:
++ * 1. Redistributions of source code must retain the above copyright
++ *    notice, this list of conditions and the following disclaimer.
++ * 2. Redistributions in binary form must reproduce the above copyright
++ *    notice, this list of conditions and the following disclaimer in the
++ *    documentation and/or other materials provided with the distribution.
++ *
++ * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS ``AS IS''
++ * AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO,
++ * THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR
++ * PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDERS OR
++ * CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL,
++ * EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO,
++ * PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS;
++ * OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY,
++ * WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR
++ * OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF
++ * ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
++ */
++
++#pragma once
++
++#include <JavaScriptCore/SourceProvider.h>
++#include <wtf/Lock.h>
++#include <wtf/text/WTFString.h>
++
++namespace JSC {
++class CachedBytecode;
++}
++
++namespace WebCore {
++
++// Page and worker scripts translated once: what JavaScriptCore makes from a
++// script (its bytecode, and each function's when it is first called) kept in
++// a file in the browser's folder, named by a hash and the length of the
++// text, and loaded the next time the same text runs. The browser names the
++// folder (setAmigaScriptBytecodeFolder; none: nothing kept) and keeps it to
++// its size. One of these goes with each SourceProvider WebCore makes.
++WEBCORE_EXPORT void setAmigaScriptBytecodeFolder(const String&);
++
++class AmigaScriptBytecode {
++public:
++    AmigaScriptBytecode() = default;
++    ~AmigaScriptBytecode();
++
++    RefPtr<JSC::CachedBytecode> cachedBytecode(StringView source) const;
++    void cacheBytecode(const JSC::BytecodeCacheGenerator&) const;
++    void updateCache(const JSC::UnlinkedFunctionExecutable*, JSC::CodeSpecializationKind, const JSC::UnlinkedFunctionCodeBlock*) const;
++    void commit() const;
++
++private:
++    mutable Lock m_lock;
++    mutable RefPtr<JSC::CachedBytecode> m_bytecode;
++    mutable String m_path;
++    mutable bool m_loaded { false };
++};
++
++} // namespace WebCore

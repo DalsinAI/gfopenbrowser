@@ -13,6 +13,9 @@
 #include "AmigaLoaderStrategy.h"
 #include "AmigaSessionStorage.h"
 
+#include <JavaScriptCore/CodeCache.h>
+#include <JavaScriptCore/JSLock.h>
+#include <WebCore/CommonVM.h>
 #include <WebCore/DocumentPage.h>
 #include <WebCore/DocumentView.h>
 #include <WebCore/FrameDestructionObserverInlines.h>
@@ -96,6 +99,7 @@ WebView::WebView(const OBWebViewCallbacks& callbacks, const IntSize& size)
     , m_size(size)
     , m_deferTimer([this] { deferTimerFired(); })
     , m_renderingUpdateTimer([this] { renderingUpdateTimerFired(); })
+    , m_scriptCacheTimer([this] { writeScriptCache(); })
 {
     auto configuration = pageConfigurationWithEmptyClients(std::nullopt, PAL::SessionID::defaultSessionID());
     configuration.chromeClient = createChromeClient(*this);
@@ -163,6 +167,8 @@ WebView::~WebView()
 {
     m_renderingUpdateTimer.stop();
     m_deferTimer.stop();
+    m_scriptCacheTimer.stop();
+    writeScriptCache();
     if (RefPtr frame = mainFrame())
         frame->loader().detachFromParent();
     m_page = nullptr;
@@ -620,6 +626,20 @@ void WebView::didFinishLoad()
         m_renderingUpdateTimer.startOneShot(0_s);
     if (m_callbacks.loading)
         m_callbacks.loading(m_callbacks.context, 0, 100);
+    // The scripts a page runs after its load (a framework's hydration)
+    // compile their functions then: their translations are written a while
+    // later, with the rest (WebKit patch 0099).
+    m_scriptCacheTimer.startOneShot(5_s);
+}
+
+// What JavaScriptCore made from the page's scripts since the last write, into
+// their files in the scripts folder (ob_scriptcache.h).
+void WebView::writeScriptCache()
+{
+    JSC::VM& vm = commonVM();
+    JSC::JSLockHolder lock(vm);
+    if (auto* codeCache = vm.codeCache())
+        codeCache->write();
 }
 
 void WebView::didFailLoad(const ResourceError& error)
