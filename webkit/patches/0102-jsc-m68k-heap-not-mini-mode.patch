@@ -1,0 +1,88 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: SacredTrees <121399723+SacredTrees@users.noreply.github.com>
+Date: Tue, 3 Nov 2026 22:40:00 +0000
+Subject: [PATCH] JavaScriptCore: the 68k heap leaves mini mode when the
+ template JIT is on
+
+VM::isInMiniMode() is !useJIT. On the 68k useJIT (the baseline JIT, not
+built) is always off, so the heap ran in mini mode while the 68k template
+JIT ran the page: every collection was a full one, the heap grew by only
+a fifth after each (miniVMHeapGrowthFactor 1.2), the whole heap was swept
+synchronously at the end of each, and bytecode was thrown away to be
+compiled again. GC logs of bbc and reddit on Instance-32 showed nothing
+but full collections, at about the same cost on a 560 KB heap as on a
+34 MB one.
+
+VM::isInMiniModeForHeap() is false on the 68k when useM68KTemplateJIT is
+on and forceMiniVMMode is not set; the heap's four mini mode checks use
+it (generational collections, heap growth, synchronous sweep, bytecode
+jettisoning). The rest of mini mode (time zones at VM creation) is as it
+was. useGenerationalGC=false (OBJSC) still forces full collections.
+
+Team 3
+---
+diff --git a/Source/JavaScriptCore/heap/Collector.cpp b/Source/JavaScriptCore/heap/Collector.cpp
+index 3092a6d..c7e92f4 100644
+--- a/Source/JavaScriptCore/heap/Collector.cpp
++++ b/Source/JavaScriptCore/heap/Collector.cpp
+@@ -241,7 +241,7 @@ bool Collector::shouldCollectInCollectorThread()
+ 
+ CollectionScope Collector::decideCollectionScope()
+ {
+-    if (!Options::useGenerationalGC() || VM::isInMiniMode())
++    if (!Options::useGenerationalGC() || VM::isInMiniModeForHeap())
+         return CollectionScope::Full;
+     if (m_currentRequest.scope)
+         return *m_currentRequest.scope;
+diff --git a/Source/JavaScriptCore/heap/Heap.cpp b/Source/JavaScriptCore/heap/Heap.cpp
+index d928075..1d1b444 100644
+--- a/Source/JavaScriptCore/heap/Heap.cpp
++++ b/Source/JavaScriptCore/heap/Heap.cpp
+@@ -170,7 +170,7 @@ static size_t NODELETE maxEdenSizeForRateLimiting(GrowthMode growthMode, size_t
+ 
+ static size_t proportionalHeapSize(size_t heapSize, GrowthMode growthMode, size_t ramSize)
+ {
+-    if (VM::isInMiniMode())
++    if (VM::isInMiniModeForHeap())
+         return Options::miniVMHeapGrowthFactor() * heapSize;
+ 
+     bool useNewHeapGrowthFactor = growthMode == GrowthMode::Aggressive;
+@@ -2101,7 +2101,7 @@ void Heap::disableStopIfNecessaryTimer()
+ bool Heap::shouldSweepSynchronously()
+ {
+     // updateAllocationLimits() updates info that overCriticalMemoryThreshold() needs.
+-    return overCriticalMemoryThreshold() || Options::sweepSynchronously() || VM::isInMiniMode();
++    return overCriticalMemoryThreshold() || Options::sweepSynchronously() || VM::isInMiniModeForHeap();
+ }
+ 
+ void Heap::addDetachedWeakBlock(WeakBlock* block)
+diff --git a/Source/JavaScriptCore/runtime/VM.h b/Source/JavaScriptCore/runtime/VM.h
+index 556c6bc..240759d 100644
+--- a/Source/JavaScriptCore/runtime/VM.h
++++ b/Source/JavaScriptCore/runtime/VM.h
+@@ -735,9 +735,24 @@ public:
+         return !Options::useJIT() || Options::forceMiniVMMode();
+     }
+ 
++    // The heap's side of mini mode: full collections only, a heap that grows
++    // by a fifth, a synchronous sweep after every collection, and bytecode
++    // thrown away to be compiled again. On the 68k the template JIT is the
++    // JIT, but useJIT (the baseline JIT, not built) is off, so the heap ran
++    // in mini mode there; with the template JIT on it no longer does
++    // (forceMiniVMMode still asks for it). The rest of mini mode stays.
++    static bool isInMiniModeForHeap()
++    {
++#if CPU(M68K)
++        if (Options::useM68KTemplateJIT() && !Options::forceMiniVMMode())
++            return false;
++#endif
++        return isInMiniMode();
++    }
++
+     static bool useUnlinkedCodeBlockJettisoning()
+     {
+-        return Options::useUnlinkedCodeBlockJettisoning() || isInMiniMode();
++        return Options::useUnlinkedCodeBlockJettisoning() || isInMiniModeForHeap();
+     }
+ 
+     static void computeCanUseJIT();
