@@ -609,6 +609,12 @@ static int32_t unit_next(const struct uo_bi *b, int32_t i)
 }
 
 static inline int ea(UChar32 c) { return REC(c)->flags & UO_F_EA; }
+/* a unit East Asian for LB19a: a mark standing alone is AL (LB10), and
+   ICU 78 keeps it with a quotation mark whatever its width */
+static inline int ea_unit(const struct uo_bi *b, UChar32 base)
+{
+    return ea(base) && !IN(lb_of(b, base), CMS);
+}
 static inline int is_dotted(UChar32 c) { return c == 0x25CC; }
 static int line_break(const struct uo_bi *b, int32_t i);
 
@@ -799,17 +805,17 @@ static int line_rules(const struct uo_bi *b, int32_t i)
         return NOBRK;                                           /* LB19 */
     if (IN(A, QU_ANY)) {                                        /* LB19a */
         int32_t n;
-        if (!ea(ub.base))
+        if (!ea_unit(b, ub.base))
             return NOBRK;
         n = unit_next(b, i);
-        if (n >= b->len || !ea(cp_at(b, n)))
+        if (n >= b->len || !ea_unit(b, cp_at(b, n)))
             return NOBRK;
     }
     if (IN(B, QU_ANY)) {
         struct unit r;
-        if (!ea(ac))
+        if (!ea_unit(b, ac))
             return NOBRK;
-        if (!unit_before(b, ub.start, &r) || !ea(r.base))
+        if (!unit_before(b, ub.start, &r) || !ea_unit(b, r.base))
             return NOBRK;
     }
     if (A == UO_LB_CB || B == UO_LB_CB)
