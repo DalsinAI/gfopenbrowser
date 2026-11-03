@@ -53,11 +53,13 @@ for f in lib/libicuuc.a lib/libicui18n.a include/unicode/utypes.h share/icudt78b
 done
 UCD=${UCD_DIR:-"$OAB_DEPS/ucd-17.0.0"}
 # in GitHub's CI the UCD is fetched here, pinned (elsewhere: scripts/fetch-ucd.sh first)
-if [ ! -f "$UCD/UnicodeData.txt" ] && [ "${GITHUB_ACTIONS:-}" = true ]; then
+if [ ! -f "$UCD/security/IdentifierType.txt" ] && [ "${GITHUB_ACTIONS:-}" = true ]; then
     sh "$HERE/scripts/fetch-ucd.sh" "$UCD"
 fi
-[ -f "$UCD/UnicodeData.txt" ] ||
-    { echo "build-unicode-library.sh: no Unicode 17.0.0 UCD in $UCD (scripts/fetch-ucd.sh $UCD, or set UCD_DIR)" >&2; exit 2; }
+for f in UnicodeData.txt emoji/emoji-sequences.txt security/IdentifierType.txt; do
+    [ -f "$UCD/$f" ] ||
+        { echo "build-unicode-library.sh: no Unicode 17.0.0 $f in $UCD (scripts/fetch-ucd.sh $UCD, or set UCD_DIR)" >&2; exit 2; }
+done
 
 rm -rf "$OUT"
 mkdir -p "$OUT/obj" "$OUT/gen" "$OUT/tests" "$OUT/Unicode" "$OUT/icu/lib"
@@ -98,7 +100,7 @@ done
     -Wl,-Map,"$OUT/unicode.library.map" 2>"$OUT/obj/link.log" ||
     { grep -v 'duplicate section\|has different contents' "$OUT/obj/link.log" >&2; exit 1; }
 # ICU's files own/uo_icu.c stands in for must not be in the link
-for m in ubidi_props; do
+for m in ubidi_props uchar uprops; do
     if grep -q "libicuuc\.a($m\." "$OUT/unicode.library.map"; then
         echo "ICU's $m is linked: own/uo_icu.c misses one of its names" >&2
         exit 1
