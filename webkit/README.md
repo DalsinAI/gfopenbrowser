@@ -488,6 +488,14 @@ The patches, in order:
   and redirect, with the page's site; a blocked one fails as cancelled from
   the run loop. GFOpenBrowser answers from Tata's ad and tracker rules
   (`src/webcore/ob_tata.c`).
+- `0102-jsc-m68k-heap-not-mini-mode.patch`: the heap leaves mini mode when
+  the 68k template JIT is on. Mini mode is `!useJIT`, and the baseline JIT
+  is not built, so every collection was a full one, the heap grew by a fifth
+  after each, the whole heap was swept at the end of each and bytecode was
+  thrown away. `VM::isInMiniModeForHeap()` is false with
+  `useM68KTemplateJIT` on (unless `forceMiniVMMode`), and the heap's checks
+  use it: generational collections, normal heap growth, lazy sweeping, and
+  bytecode kept. `useGenerationalGC=false` still forces full collections.
 
 `0001-amiga-m68k-jsconly.patch` is one combined patch. It holds:
 
