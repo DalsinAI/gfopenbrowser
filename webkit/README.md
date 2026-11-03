@@ -482,6 +482,13 @@ The patches, in order:
   Adding them is tried again on the next lookup when it was first asked
   from a plain task or the library refused. What isn't found is printed
   on stderr.
+- `0095-amiga-profile-scopes.patch`: `JSC::OBProfileScope` calls the
+  program's hooks (`JSC::obProfileHooks`) at the begin and end of compiling
+  a script's or a function's code, a script's top-level run, a module's
+  evaluation, a call into JavaScript (with the called function's script),
+  a style update and a layout. With no hooks set each scope costs a test.
+  `obcore-view -profile` sets them (`src/webcore/ob_profile.cpp`) and
+  prints where a page's time went.
 - `0098-amiga-request-blocked-hook.patch`: `setAmigaRequestBlockedHook()`
   (`AmigaNetwork.h`) lets the browser say whether a request goes out at
   all. `ResourceHandle::amigaStartRequest()` asks it for every http request
