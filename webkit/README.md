@@ -488,6 +488,20 @@ The patches, in order:
   and redirect, with the page's site; a blocked one fails as cancelled from
   the run loop. GFOpenBrowser answers from Tata's ad and tracker rules
   (`src/webcore/ob_tata.c`).
+- `0101-jsc-m68k-jit-bit-operations.patch`: the template JIT's `&`, `|`,
+  `^`, `~`, `<<`, `>>` and `>>>` (and `op_unsigned` after `>>>`) on numbers.
+  `&`, `|` and `^` had int32 code only and the rest only the interpreter's
+  handlers, so any double operand (an int32 sum or product that overflowed,
+  a uint32 from `x >>> 0`, a fraction) called the C slow path. Now int32s
+  are done in a data register and doubles from -2^31 to 2^32 are truncated
+  on the FPU (round-to-zero FPCR for one `fmove.l`, put back after) by a
+  routine each compiled function writes once; larger doubles, NaN,
+  infinities and non-numbers still go to the template. Constant operands
+  become their ToInt32 when compiled, a negative int32 into `op_unsigned`
+  makes its double inline, and loops' register copies take the shifts,
+  `~` and `op_unsigned`. `JSC_useM68KBitFastPaths=0` (a `Set` variable)
+  turns it off. Tested by `tools/jsjit/test/bitops/run.sh` (the JIT's own
+  code under qemu-m68k, 20,216 cases) and `tools/jsjit/lab/correct23.js`.
 
 `0001-amiga-m68k-jsconly.patch` is one combined patch. It holds:
 
