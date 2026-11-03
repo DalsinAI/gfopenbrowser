@@ -58,7 +58,9 @@ jobs:
           rm icu-src/icu.tgz
           (cd icu-host && ../icu-src/icu/source/configure --disable-tests --disable-samples --disable-extras \
               --with-data-packaging=archive --prefix="$GITHUB_WORKSPACE/icu-host-inst" > configure.log && \
-              make -j"$(nproc)" > build.log && make install > install.log)
+              for d in stubdata common i18n io tools; do make -j"$(nproc)" -C $d >> build.log || exit 1; done && \
+              make -C data >> build.log && make install > install.log)
+          # (the data folder serially: its archive rules race under -j)
       - name: Our own code against ICU 78.3, every code point
         run: |
           # ICU's data as a file, and the library's trimmed copy of it
