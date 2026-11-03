@@ -47,7 +47,7 @@ jobs:
           path: |
             icu-src
             icu-host-inst
-          key: icu78-host-${{ env.ICU_SHA256 }}
+          key: icu78-host-archive-${{ env.ICU_SHA256 }}
       - name: ICU 78.3 for the host
         if: steps.icuhost.outputs.cache-hit != 'true'
         run: |
@@ -57,11 +57,20 @@ jobs:
           tar xzf icu-src/icu.tgz -C icu-src
           rm icu-src/icu.tgz
           (cd icu-host && ../icu-src/icu/source/configure --disable-tests --disable-samples --disable-extras \
-              --prefix="$GITHUB_WORKSPACE/icu-host-inst" > configure.log && make -j"$(nproc)" > build.log && make install > install.log)
+              --with-data-packaging=archive --prefix="$GITHUB_WORKSPACE/icu-host-inst" > configure.log && \
+              make -j"$(nproc)" > build.log && make install > install.log)
       - name: Our own code against ICU 78.3, every code point
         run: |
+          # ICU's data as a file, and the library's trimmed copy of it
+          # (icu/data-keep.lst, no dictionaries) for the breaking comparison
+          FULL=$(dirname "$(find "$PWD/icu-host-inst/share/icu" -name icudt78l.dat)")
+          mkdir -p icu-items icu-trimmed
+          LD_LIBRARY_PATH=icu-host-inst/lib icu-host-inst/bin/icupkg -x '*' -d icu-items "$FULL/icudt78l.dat"
+          LD_LIBRARY_PATH=icu-host-inst/lib icu-host-inst/bin/icupkg --ignore-deps -tl -s icu-items \
+              -a icu/data-keep.lst new icu-trimmed/icudt78l.dat
           sh scripts/fetch-ucd.sh "$PWD/ucd"
-          sh src/unicodelib/own/tests/run-host.sh "$PWD/ucd" "$PWD/icu-src/icu/source" "$PWD/icu-host-inst/lib" "$PWD/own-host"
+          ICU_DATA="$FULL" ICU_TRIMMED="$PWD/icu-trimmed" \
+              sh src/unicodelib/own/tests/run-host.sh "$PWD/ucd" "$PWD/icu-src/icu/source" "$PWD/icu-host-inst/lib" "$PWD/own-host"
       - uses: actions/upload-artifact@v4
         with:
           name: unicodeprops-expected
