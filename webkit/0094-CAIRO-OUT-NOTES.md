@@ -22,3 +22,7 @@ Work in progress from Team 3, handed on as it is.
 - **The open symptom:** on the i32 lab obcore-view paints almost nothing. The PNGs are tiny and nearly blank on test1 and on network pages, where main paints the full page.
 - **Not yet checked:** whether GraphicsContextOpenGPU's batches reach the surface at all with no cairo surface behind it (compare `gpu_draws`/`gpu_flushes` in `paint_us` with main's), and whether AmigaImage's surface is the one obcore-view encodes.
 - **Patch number:** 0094 is claimed in `~/WorkingSpace/patch-numbers.txt`.
+
+## 3 November 2026, 21:35 GMT: the blank page was the PNG writer
+
+On i32 (labs t3up-pf-c94-i32 and t3up-pf-base-i32) the paint report matches main: test1 has 370 draws against 373, wiki 1,103 against 1,134, and no calls are left undrawn. Wiki paints in 301,012 us against main's 643,834. The PNGs were palette files in the Workbench's 4 colours. obdt_encode_png (patch 0074) still asks for `openpng`, but the datatype is called gfopenpng.datatype since the rename. So OS 3.2's png.datatype wrote the picture, remapped to 4 pens. Main's obcore-view never showed this because it wrote its PNGs with cairo. 0094 now asks for `gfopenpng` first, and that fixes canvas toDataURL/toBlob as well.
