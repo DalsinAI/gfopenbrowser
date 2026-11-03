@@ -599,4 +599,5 @@ def main():
           f"tables {sizes['props']} + {sizes['bin']} + {sizes['case']} = {total} bytes")
 
 
-main()
+if __name__ == "__main__":
+    main()
