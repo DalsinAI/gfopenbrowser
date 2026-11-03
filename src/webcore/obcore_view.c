@@ -40,7 +40,6 @@
 #include <stdlib.h>
 #include <string.h>
 #include <strings.h>
-#include <cairo.h>
 #include <proto/dos.h>
 #include <proto/exec.h>
 #include <dos/dosextens.h>
@@ -50,6 +49,29 @@
 #include <unistd.h>
 
 #include "ob_webview.h"
+
+/* WebCore's datatypes glue (platform/image-decoders/amiga/DatatypesDecode.h):
+ * PNG through the PNG datatype's DTM_WRITE (WebKit patch 0083: no cairo). */
+int obdt_encode_png(const unsigned char *pixels, unsigned width, unsigned height, unsigned stride,
+    unsigned flags, unsigned char **data, unsigned long *size);
+void obdt_free_encoded(unsigned char *data);
+
+/* Premultiplied ARGB32 pixels to a PNG file: "success", or what failed. */
+static const char *writePng(const char *name, const unsigned char *pixels, int width, int height)
+{
+    unsigned char *png = NULL;
+    unsigned long size = 0;
+    const char *status;
+    FILE *file;
+    if (!obdt_encode_png(pixels, width, height, width * 4, 1 /* premultiplied */, &png, &size))
+        return "no PNG datatype could write it";
+    file = fopen(name, "wb");
+    status = file && fwrite(png, 1, size, file) == size ? "success" : "write error";
+    if (file)
+        fclose(file);
+    obdt_free_encoded(png);
+    return status;
+}
 #include "oam_stack.h"
 
 static const char version[] __attribute__((used)) = "$VER: obcore-view 0.2 (23.10.2026)";
@@ -584,14 +606,11 @@ static void reportDisplayList(OBWebView *view, int width, int height, const char
         char name[256];
         const char *dot = strrchr(png, '.');
         size_t stem = dot ? (size_t)(dot - png) : strlen(png);
-        cairo_surface_t *surface;
         if (stem > sizeof(name) - 8)
             stem = sizeof(name) - 8;
         memcpy(name, png, stem);
         strcpy(name + stem, "-dl.png");
-        surface = cairo_image_surface_create_for_data(replayed, CAIRO_FORMAT_ARGB32, width, height, width * 4);
-        printf("OBVIEW_DL_PNG %s %s\n", name, cairo_status_to_string(cairo_surface_write_to_png(surface, name)));
-        cairo_surface_destroy(surface);
+        printf("OBVIEW_DL_PNG %s %s\n", name, writePng(name, replayed, width, height));
     }
     fflush(stdout);
     free(direct);
@@ -754,10 +773,7 @@ static int viewMain(int argc, char **argv)
         availPainted = AvailMem(MEMF_ANY);
         printf("OBVIEW_PAINTED %dx%d\n", width, height);
         if (png) {
-            cairo_surface_t *surface = cairo_image_surface_create_for_data(pixels, CAIRO_FORMAT_ARGB32, width, height, width * 4);
-            cairo_status_t status = cairo_surface_write_to_png(surface, png);
-            printf("OBVIEW_PNG %s %s\n", png, cairo_status_to_string(status));
-            cairo_surface_destroy(surface);
+            printf("OBVIEW_PNG %s %s\n", png, writePng(png, pixels, width, height));
         }
         if (framesMode && framePixels)
             compareLastFrame(pixels, (size_t)width * height, png);
