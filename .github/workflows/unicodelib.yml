@@ -67,8 +67,8 @@ jobs:
           # (icu/data-keep.lst, no dictionaries) for the breaking comparison
           FULL=$(dirname "$(find "$PWD/icu-host-inst/share/icu" -name icudt78l.dat)")
           mkdir -p icu-items icu-trimmed
-          LD_LIBRARY_PATH=icu-host-inst/lib icu-host-inst/bin/icupkg -x '*' -d icu-items "$FULL/icudt78l.dat"
-          LD_LIBRARY_PATH=icu-host-inst/lib icu-host-inst/bin/icupkg --ignore-deps -tl -s icu-items \
+          LD_LIBRARY_PATH=icu-host-inst/lib icu-host-inst/sbin/icupkg -x '*' -d icu-items "$FULL/icudt78l.dat"
+          LD_LIBRARY_PATH=icu-host-inst/lib icu-host-inst/sbin/icupkg --ignore-deps -tl -s icu-items \
               -a icu/data-keep.lst new icu-trimmed/icudt78l.dat
           sh scripts/fetch-ucd.sh "$PWD/ucd"
           ICU_DATA="$FULL" ICU_TRIMMED="$PWD/icu-trimmed" \
