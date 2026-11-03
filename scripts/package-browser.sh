@@ -30,6 +30,10 @@
 #                  build/amiga/gfopenfont.library); the Installer puts it in
 #                  LIBS:. Required: the engine draws and shapes all its text
 #                  with it (WebKit patch 0090)
+#   OPENGPU_LIB    gfopengpu.library 0.24 or newer (gfopenrtg's
+#                  library/opengpu build); the Installer puts it in LIBS:.
+#                  Required: the window is painted through it (WebKit
+#                  patches 0076-0082b); without it the engine paints with cairo
 #   UNICODE_LIB    unicode.library (default WEBKIT_BUILD/unicode-library/,
 #                  where build-webcore.sh makes it); the Installer puts it
 #                  in LIBS:. Required when the engine was built on it
@@ -55,6 +59,7 @@
 # OUT_DIR/GFOpenBrowser/            the drawer: GFOpenBrowser (the launcher),
 #                                 Libs/ (webbrowser.library, GFOpenTLS,
 #                                 json.library, gfopenfont.library,
+#                                 gfopengpu.library,
 #                                 unicode.library, z.library and WebBrowser/: the engine with Fonts/,
 #                                 blocklist, Unicode/ and Network/, and
 #                                 with a jsimage engine JavaScript/
@@ -128,6 +133,9 @@ cp "$JSONLIB" "$D/Libs/"
 OPENFONTLIB=${OPENFONT_LIB:?set OPENFONT_LIB to gfopenfont.library 1.4 (gfopenfont); the engine draws its text with it}
 [ -f "$OPENFONTLIB" ] || { echo "package-browser.sh: no $OPENFONTLIB" >&2; exit 2; }
 cp "$OPENFONTLIB" "$D/Libs/gfopenfont.library"
+OPENGPULIB=${OPENGPU_LIB:?set OPENGPU_LIB to gfopengpu.library 0.24 or newer (gfopenrtg); the window is painted through it}
+[ -f "$OPENGPULIB" ] || { echo "package-browser.sh: no $OPENGPULIB" >&2; exit 2; }
+cp "$OPENGPULIB" "$D/Libs/gfopengpu.library"
 # unicode.library, when the engine was built on it (OB_ICU_DATA=library):
 # ICU's code, shared; the Installer puts it in LIBS:, and the engine also
 # finds the drawer's Libs/ copy

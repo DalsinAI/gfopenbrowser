@@ -108,6 +108,16 @@
                 (abort "Could not rename the old LIBS:gfopenfont.library.")))
         (copyfiles (source "GFOpenBrowser/Libs/gfopenfont.library") (dest "LIBS:") (nogauge))))
 
+; gfopengpu.library 0.24 or newer: the window is painted through it (without
+; it, the engine paints with cairo, more slowly). An older one is renamed
+; .before-20261101 (kept).
+(if (< (getversion "LIBS:gfopengpu.library") 24)
+    (
+        (if (exists "LIBS:gfopengpu.library")
+            (if (= 0 (rename "LIBS:gfopengpu.library" "LIBS:gfopengpu.library.before-20261101"))
+                (abort "Could not rename the old LIBS:gfopengpu.library.")))
+        (copyfiles (source "GFOpenBrowser/Libs/gfopengpu.library") (dest "LIBS:") (nogauge))))
+
 ; json.library: JSON for the browser and any other program (23 KB); the
 ; engine's JSON.parse parses through it
 (copylib (source "GFOpenBrowser/Libs/json.library") (dest "LIBS:") (nogauge)

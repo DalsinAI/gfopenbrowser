@@ -15,6 +15,8 @@
 ;  - LIBS:gfopenfont.library 1.4 or newer (the engine draws its text with
 ;    it): missing, it goes in; older, it is renamed .before-20261101 and
 ;    the drawer's goes in; unreadable, it is kept, as above;
+;  - LIBS:gfopengpu.library 0.24 or newer (the window is painted through
+;    it; without it the engine paints with cairo): the same rules;
 ;  - LIBS:json.library (the engine's JSON.parse needs it),
 ;    LIBS:unicode.library (its Unicode calls, when the package carries it)
 ;    and S:GFOpenTLS/ca-bundle.pem when missing;
@@ -125,6 +127,33 @@ If WARN
 EndIf
 Echo "Installed LIBS:gfopenfont.library"
 Lab fontdone
+
+Version gfopengpu.library 0 24 >NIL:
+Set vrc $RC
+If $vrc EQ 0 VAL
+  Echo "LIBS:gfopengpu.library is new enough, kept"
+  Skip gpudone
+EndIf
+If $vrc GE 10 VAL
+  ; no version to read: not loaded, and the file has no $VER
+  If EXISTS LIBS:gfopengpu.library
+    Echo "LIBS:gfopengpu.library is there; its version cannot be read from the Shell, so it is kept (Install-GFOpenBrowser checks it)"
+    Skip gpudone
+  EndIf
+Else
+  Rename LIBS:gfopengpu.library LIBS:gfopengpu.library.before-20261101
+  If WARN
+    Echo "Could not rename the old LIBS:gfopengpu.library; nothing changed."
+    Quit 20
+  EndIf
+EndIf
+Copy Libs/gfopengpu.library LIBS: QUIET
+If WARN
+  Echo "Could not copy gfopengpu.library to LIBS: (is LIBS: full or write-protected?)"
+  Quit 20
+EndIf
+Echo "Installed LIBS:gfopengpu.library"
+Lab gpudone
 
 If NOT EXISTS LIBS:json.library
   Copy Libs/json.library LIBS: QUIET
