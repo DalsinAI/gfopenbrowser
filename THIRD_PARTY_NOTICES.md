@@ -51,12 +51,13 @@ brotli.datatype (AmiCradle Team, MIT; brotli.datatype is our own decoder,
 written from RFC 7932, with the static dictionary taken from the RFC's
 text), built from their own repositories.
 
-The package's `Libs/WebBrowser/Fonts/` carries fonts that are not in this
-repository: the Liberation and DejaVu faces from the build machine's
-`OB_FONTS`, and, for Chinese, Japanese and Korean text, Droid Sans Fallback
-Full from the Android Open Source Project (Apache License 2.0), which
-`scripts/fetch-cjk-font.sh` fetches at build time at a pinned sha256 and
-copies there with its `DroidSansFallback.NOTICE`.
+The package carries fonts that are not in this repository: in
+`Libs/WebBrowser/Fonts/` the Liberation and DejaVu faces from the build
+machine's `OB_FONTS`, and, for Chinese, Japanese and Korean text, Droid Sans Fallback
+Full from the Android Open Source Project (Apache License 2.0), which is
+gfopenfont's CJK face: gfopenfont's `fonts/cjk/fetch-cjk-font.sh` fetches it at
+build time at a pinned sha256, and the package carries it with its
+`DroidSansFallback.NOTICE` in `Fonts/` for the Installer to put in `FONTS:`.
 
 Built programs also link, at build time on your machine (none of it is in this
 repository):

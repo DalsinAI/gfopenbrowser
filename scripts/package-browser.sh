@@ -30,6 +30,10 @@
 #                  build/amiga/gfopenfont.library); the Installer puts it in
 #                  LIBS:. Required: the engine draws and shapes all its text
 #                  with it (WebKit patch 0090)
+#   OPENFONT_SRC   gfopenfont's checkout (default: the one OPENFONT_LIB was
+#                  built in, build/amiga/../..); its fonts/cjk/fetch-cjk-font.sh fetches
+#                  gfopenfont's CJK face, which the package carries in Fonts/
+#                  and the Installer puts in FONTS: for every program
 #   OPENGPU_LIB    gfopengpu.library 0.24 or newer (gfopenrtg's
 #                  library/opengpu build); the Installer puts it in LIBS:.
 #                  Required: the window is painted through it (WebKit
@@ -79,8 +83,7 @@
 # (PROGDIR: of the launcher); Install keeps the engine in the drawer and
 # renames an older LIBS:WebBrowser/WebBrowserEngine. The engine reads its
 # files from its own drawer (PROGDIR: of the engine, Libs/WebBrowser):
-# Fonts/ (drawn by gfopenfont.library; the CJK one fetched by
-# scripts/fetch-cjk-font.sh), Tata.ads (Tata's ad and tracker list when Tata is not installed), the Public Suffix List (Network/
+# Fonts/ (drawn by gfopenfont.library), Tata.ads (Tata's ad and tracker list when Tata is not installed), the Public Suffix List (Network/
 # public-suffixes, WebKit patch 0070) and ICU's data (OB_ICU_DATA=file) from
 # LOCALE:Unicode/ or else Unicode/, so the drawer carries one copy of each
 # there; the Installer also puts the ICU data in LOCALE:Unicode/.
@@ -121,10 +124,6 @@ else
 fi
 cp "$WBLIB" "$D/Libs/"
 cp "$OB_FONTS"/*.ttf "$E/Fonts/"
-# the CJK font, fetched at build time (scripts/fetch-cjk-font.sh), and its
-# licence beside it
-CJK_FONT=$("$HERE/scripts/fetch-cjk-font.sh")
-cp "$CJK_FONT" "$(dirname "$CJK_FONT")/DroidSansFallback.NOTICE" "$E/Fonts/"
 cp "$HERE/src/webcore/Tata.ads" "$E/"
 cp "$ICU_DATA" "$E/Unicode/icudt78b.dat"
 # the Public Suffix List for cookies and sites (WebKit patch 0070), read from
@@ -138,6 +137,14 @@ cp "$JSONLIB" "$D/Libs/"
 OPENFONTLIB=${OPENFONT_LIB:?set OPENFONT_LIB to gfopenfont.library 1.4 (gfopenfont); the engine draws its text with it}
 [ -f "$OPENFONTLIB" ] || { echo "package-browser.sh: no $OPENFONTLIB" >&2; exit 2; }
 cp "$OPENFONTLIB" "$D/Libs/gfopenfont.library"
+# gfopenfont's CJK face (Chinese, Japanese and Korean; gfopenfont's
+# fonts/cjk), fetched at build time with its NOTICE: the Installer puts both
+# in FONTS:, where every program drawing with gfopenfont.library finds them
+OPENFONTSRC=${OPENFONT_SRC:-$(CDPATH= cd -- "$(dirname -- "$OPENFONTLIB")/../.." && pwd)}
+[ -x "$OPENFONTSRC/fonts/cjk/fetch-cjk-font.sh" ] || { echo "package-browser.sh: no fonts/cjk/fetch-cjk-font.sh in $OPENFONTSRC (set OPENFONT_SRC to gfopenfont's checkout)" >&2; exit 2; }
+CJK_FONT=$("$OPENFONTSRC/fonts/cjk/fetch-cjk-font.sh")
+mkdir -p "$D/Fonts"
+cp "$CJK_FONT" "$(dirname "$CJK_FONT")/DroidSansFallback.NOTICE" "$D/Fonts/"
 OPENGPULIB=${OPENGPU_LIB:?set OPENGPU_LIB to gfopengpu.library 0.24 or newer (gfopenrtg); the window is painted through it}
 [ -f "$OPENGPULIB" ] || { echo "package-browser.sh: no $OPENGPULIB" >&2; exit 2; }
 cp "$OPENGPULIB" "$D/Libs/gfopengpu.library"
