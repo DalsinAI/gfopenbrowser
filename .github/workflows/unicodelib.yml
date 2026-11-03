@@ -5,6 +5,9 @@ name: unicode.library
 # its stubs with the GFOpenAmigaGCC release and GFOpenNDK (pinned as
 # jsonlib.yml pins them), then UnicodeTest run against the library in
 # amitools' vamos (68040). The ICU build is cached on its inputs.
+# The host job checks our own code (src/unicodelib/own) against ICU 78.3
+# for every code point, and its UnicodeProps lines are what the Amiga
+# build of UnicodeProps, on the library, must print in vamos.
 on:
   push:
     paths:
@@ -13,6 +16,7 @@ on:
       - 'scripts/build-icu.sh'
       - 'scripts/build-unicode-library.sh'
       - 'scripts/gen-unicodelib-sdk.sh'
+      - 'scripts/fetch-ucd.sh'
       - '.github/workflows/unicodelib.yml'
   pull_request:
     paths:
@@ -21,6 +25,7 @@ on:
       - 'scripts/build-icu.sh'
       - 'scripts/build-unicode-library.sh'
       - 'scripts/gen-unicodelib-sdk.sh'
+      - 'scripts/fetch-ucd.sh'
       - '.github/workflows/unicodelib.yml'
   workflow_dispatch:
 
@@ -32,7 +37,39 @@ env:
   ICU_SHA256: 3a2e7a47604ba702f345878308e6fefeca612ee895cf4a5f222e7955fabfe0c0
 
 jobs:
+  host:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/cache@v4
+        id: icuhost
+        with:
+          path: |
+            icu-src
+            icu-host-inst
+          key: icu78-host-${{ env.ICU_SHA256 }}
+      - name: ICU 78.3 for the host
+        if: steps.icuhost.outputs.cache-hit != 'true'
+        run: |
+          mkdir -p icu-src icu-host
+          curl -fsSL -o icu-src/icu.tgz "$ICU_URL"
+          echo "$ICU_SHA256  icu-src/icu.tgz" | sha256sum -c -
+          tar xzf icu-src/icu.tgz -C icu-src
+          rm icu-src/icu.tgz
+          (cd icu-host && ../icu-src/icu/source/configure --disable-tests --disable-samples --disable-extras \
+              --prefix="$GITHUB_WORKSPACE/icu-host-inst" > configure.log && make -j"$(nproc)" > build.log && make install > install.log)
+      - name: Our own code against ICU 78.3, every code point
+        run: |
+          sh scripts/fetch-ucd.sh "$PWD/ucd"
+          sh src/unicodelib/own/tests/run-host.sh "$PWD/ucd" "$PWD/icu-src/icu/source" "$PWD/icu-host-inst/lib" "$PWD/own-host"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: unicodeprops-expected
+          path: own-host/UnicodeProps.expected
+          retention-days: 7
+
   amiga:
+    needs: host
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -85,6 +122,17 @@ jobs:
           cd vam
           vamos -C 68040 -m 65536 -H disable -s 64 -V "vam:$PWD" -a LIBS:vam:libs UnicodeTest | tee test.log
           grep -q '^ALL PASSED' test.log
+      - uses: actions/download-artifact@v4
+        with:
+          name: unicodeprops-expected
+          path: expected
+      - name: UnicodeProps in vamos against ICU 78.3's answers
+        run: |
+          cp build/unicode-library/tests/UnicodeProps vam/
+          cd vam
+          vamos -C 68040 -m 65536 -H disable -s 64 -V "vam:$PWD" -a LIBS:vam:libs UnicodeProps | tee props.log
+          grep '^UPROPS ' props.log > props.lines
+          diff -u ../expected/UnicodeProps.expected props.lines
       - name: Summary
         run: |
           B=build/unicode-library
@@ -93,6 +141,7 @@ jobs:
           ls -l $B/unicode.library $B/Unicode/icudt78b.dat $B/tests/UnicodeTest $B/icu/lib/libicuuc.a >> "$GITHUB_STEP_SUMMARY"
           sha256sum $B/unicode.library $B/Unicode/icudt78b.dat $B/tests/UnicodeTest | tee -a "$GITHUB_STEP_SUMMARY"
           cat vam/test.log >> "$GITHUB_STEP_SUMMARY"
+          cat vam/props.log >> "$GITHUB_STEP_SUMMARY"
           echo '```' >> "$GITHUB_STEP_SUMMARY"
       - uses: actions/upload-artifact@v4
         with:
@@ -101,5 +150,6 @@ jobs:
             build/unicode-library/unicode.library
             build/unicode-library/Unicode/icudt78b.dat
             build/unicode-library/tests/UnicodeTest
+            build/unicode-library/tests/UnicodeProps
             build/unicode-library/icu
           retention-days: 30
