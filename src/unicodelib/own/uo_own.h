@@ -76,4 +76,11 @@ int32_t uo_ubrk_getRuleStatus(UBreakIterator *bi);
 UText *uo_utext_setup(UText *ut, int32_t extraSpace, UErrorCode *status);
 UText *uo_utext_close(UText *ut);
 
+/* ICU's bidi properties (ubidi_props.h) */
+UJoiningType uo_ubidi_getJoiningType(UChar32 c);
+UJoiningGroup uo_ubidi_getJoiningGroup(UChar32 c);
+UBidiPairedBracketType uo_ubidi_getPairedBracketType(UChar32 c);
+UChar32 uo_u_getBidiPairedBracket(UChar32 c);
+int32_t uo_ubidi_getMaxValue(UProperty which);
+
 #endif

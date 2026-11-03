@@ -79,7 +79,7 @@ INC="-I$OUT/gen -I$LIB -I$LIB/sdk/Include_H -I$ICU/include -I$NDK_INCLUDE"
     -c "$LIB/ul_runtime.c" -o "$OUT/obj/ul_runtime.o"
 "$CC" $CPU -O2 -c "$OUT/gen/ul_table.c" -o "$OUT/obj/ul_table.o"
 OWN=
-for f in uo_props uo_case uo_brk uo_utext; do
+for f in uo_props uo_case uo_brk uo_utext uo_icu; do
     "$CC" $CPU -O2 -std=gnu99 -fno-delete-null-pointer-checks -fno-common $WARN $INC -I"$LIB/own" \
         -c "$LIB/own/$f.c" -o "$OUT/obj/$f.o"
     OWN="$OWN $OUT/obj/$f.o"
@@ -97,6 +97,13 @@ done
     "$ICU/lib/libicui18n.a" "$ICU/lib/libicuuc.a" -lstdc++ -lm -lgcc \
     -Wl,-Map,"$OUT/unicode.library.map" 2>"$OUT/obj/link.log" ||
     { grep -v 'duplicate section\|has different contents' "$OUT/obj/link.log" >&2; exit 1; }
+# ICU's files own/uo_icu.c stands in for must not be in the link
+for m in ubidi_props; do
+    if grep -q "libicuuc\.a($m\." "$OUT/unicode.library.map"; then
+        echo "ICU's $m is linked: own/uo_icu.c misses one of its names" >&2
+        exit 1
+    fi
+done
 
 # Checks: nothing undefined; none of libnix's per-program start-up or stdio;
 # the only start-up lists left are those ul_runtime_init stands in for.
