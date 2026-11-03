@@ -3,7 +3,7 @@
 # The rest are still ICU's (PLAN.md step 7, one piece at a time).
 #
 # Piece 1, properties and case (1 November 2026). Still ICU's from this
-# group: u_strToTitle (needs word breaking, piece 2), the uset_* calls,
+# group: the uset_* calls,
 # u_strFromUTF8, u_strToUTF8 and uscript_getCode; inside ours, Greek
 # uppercasing (locale "el") and the properties WebKit never asks for
 # (see own/uo_props.c) still go to ICU's own function.
@@ -35,3 +35,26 @@ uscript_getScript
 uscript_getShortName
 uscript_hasScript
 uscript_isRightToLeft
+u_strToTitle
+#
+# Piece 2, text breaking (3 November 2026): grapheme clusters, words,
+# sentences, lines (strict, normal and loose) and title-case segments
+# (own/uo_brk.c), and the UText setup WebKit's text providers use. Still
+# ICU's from this group: ubrk_countAvailable and ubrk_getAvailable (ICU's
+# list of locales).
+ubrk_clone
+ubrk_close
+ubrk_current
+ubrk_first
+ubrk_following
+ubrk_isBoundary
+ubrk_last
+ubrk_next
+ubrk_open
+ubrk_preceding
+ubrk_previous
+ubrk_getRuleStatus
+ubrk_setText
+ubrk_setUText
+utext_close
+utext_setup

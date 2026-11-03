@@ -64,6 +64,7 @@ mkdir -p "$OUT/obj" "$OUT/gen" "$OUT/tests" "$OUT/Unicode" "$OUT/icu/lib"
 python3 "$LIB/gen_calls.py" "$LIB/calls.txt" "$OUT/gen" "$LIB/own.txt"
 # our own code's tables, from the UCD (src/unicodelib/own)
 python3 "$LIB/own/gen_props.py" "$UCD" "$ICU/include" "$OUT/gen"
+python3 "$LIB/own/gen_brk.py" "$UCD" "$OUT/gen"
 
 # As build-icu.sh builds ICU for the engine
 CPU="-m68040 -m68881"
@@ -78,13 +79,15 @@ INC="-I$OUT/gen -I$LIB -I$LIB/sdk/Include_H -I$ICU/include -I$NDK_INCLUDE"
     -c "$LIB/ul_runtime.c" -o "$OUT/obj/ul_runtime.o"
 "$CC" $CPU -O2 -c "$OUT/gen/ul_table.c" -o "$OUT/obj/ul_table.o"
 OWN=
-for f in uo_props uo_case; do
+for f in uo_props uo_case uo_brk uo_utext; do
     "$CC" $CPU -O2 -std=gnu99 -fno-delete-null-pointer-checks -fno-common $WARN $INC -I"$LIB/own" \
         -c "$LIB/own/$f.c" -o "$OUT/obj/$f.o"
     OWN="$OWN $OUT/obj/$f.o"
 done
-"$CC" $CPU -O2 -std=gnu99 -fno-common $WARN $INC -c "$OUT/gen/uo_data.c" -o "$OUT/obj/uo_data.o"
-OWN="$OWN $OUT/obj/uo_data.o"
+for f in uo_data uo_brk_data; do
+    "$CC" $CPU -O2 -std=gnu99 -fno-common $WARN $INC -c "$OUT/gen/$f.c" -o "$OUT/obj/$f.o"
+    OWN="$OWN $OUT/obj/$f.o"
+done
 # ul_start.o first: its code is the file's first. ICU's archives, then the
 # pure parts of libstdc++, libnix and libm; ul_runtime.o's own versions of
 # the rest come first and win. The duplicate-section notes are ICU's inline
