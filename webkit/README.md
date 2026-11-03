@@ -482,6 +482,17 @@ The patches, in order:
   Adding them is tried again on the next lookup when it was first asked
   from a plain task or the library refused. What isn't found is printed
   on stderr.
+- `0096-webcore-cssom-inserted-rules-additive.patch`: a rule CSSOM's
+  `insertRule` puts into a style sheet already in use (a plain style rule,
+  or `@media` or `@supports` holding only those; a sheet with no `media`
+  attribute, in the document's scope) no longer throws the style resolver
+  away and restyles the whole document. The rule sets are built again from
+  the sheets (so the cascade's order stays exact) and only the elements the
+  inserted rules can match are restyled, through the Invalidator an added
+  sheet gets. CSS-in-JS libraries (Emotion, styled-components) insert their
+  rules this way while a page's script renders. `tests/pages/cssom-insert.html`:
+  100 inserts with a style read after each, 2,335 ms before, 337 ms after,
+  on i32.
 
 `0001-amiga-m68k-jsconly.patch` is one combined patch. It holds:
 

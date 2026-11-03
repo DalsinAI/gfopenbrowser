@@ -1,0 +1,236 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: SacredTrees <121399723+SacredTrees@users.noreply.github.com>
+Date: Tue, 3 Nov 2026 18:00:00 +0000
+Subject: [PATCH] WebCore: a rule CSSOM inserts into a sheet in use restyles only what it matches
+
+CSS-in-JS libraries (Emotion, styled-components) add their rules one at a
+time with CSSStyleSheet.insertRule while a page's script renders, at the
+end of a style sheet already in use. Each one took the path for any change
+to a sheet's contents: Style::Scope::didChangeStyleSheetContents() throws
+the resolver away (every rule set is built again) and
+Invalidator::invalidateAllStyle() restyles the whole document. On a 68040
+tests/pages/cssom-insert.html (100 rules, a style read after each, over
+1,000 elements) took 2,335 ms.
+
+Now, on PLATFORM(AMIGA), an inserted plain style rule (or @media or
+@supports holding only plain style rules), in a sheet with no media
+attribute, in the document's scope, with a resolver and no bigger update
+due, is taken as an addition (Scope::didInsertRuleIntoActiveStyleSheet()):
+the update is an ActiveSet one, the rule sets are built again from the
+sheets (ResolverUpdateType::Reset, so the cascade's order stays exact), and
+the invalidation is the inserted rules' alone, through the same Invalidator
+an added sheet gets (which still restyles everything for rules it cannot
+narrow: :has(), ::slotted and the like). MatchResultCache is emptied, as a
+contents change does. Any other insertion, and any other change, takes the
+path it took before. cssom-insert.html now takes 337 ms; its seven
+cascade and invalidation checks pass before and after.
+
+diff --git a/Source/WebCore/css/CSSStyleSheet.cpp b/Source/WebCore/css/CSSStyleSheet.cpp
+--- a/Source/WebCore/css/CSSStyleSheet.cpp
++++ b/Source/WebCore/css/CSSStyleSheet.cpp
+@@ -231,7 +231,28 @@
+ }
+ 
+ // FIXME: counter-style: we might need something similar for counter-style (rdar://103018993).
+-void CSSStyleSheet::didMutateRules(RuleMutationType mutationType, ContentsClonedForMutation contentsClonedForMutation, StyleRuleKeyframes* insertedKeyframesRule, const String& modifiedKeyframesRuleName)
++#if PLATFORM(AMIGA)
++// A rule CSSOM inserted into a sheet already in use that the scope can take
++// as an addition (Style::Scope::didInsertRuleIntoActiveStyleSheet()): a plain
++// style rule, or @media or @supports holding only those. Anything else (an
++// @import, @font-face, @keyframes, a layer, nesting) changes more than the
++// elements its selectors match.
++static bool canInsertAsAddition(const StyleRuleBase& rule)
++{
++    if (rule.type() == StyleRuleType::Style)
++        return true;
++    auto* group = dynamicDowncast<StyleRuleGroup>(rule);
++    if (!group || (rule.type() != StyleRuleType::Media && rule.type() != StyleRuleType::Supports))
++        return false;
++    for (auto& child : group->childRules()) {
++        if (child->type() != StyleRuleType::Style)
++            return false;
++    }
++    return true;
++}
++#endif
++
++void CSSStyleSheet::didMutateRules(RuleMutationType mutationType, ContentsClonedForMutation contentsClonedForMutation, StyleRuleKeyframes* insertedKeyframesRule, const String& modifiedKeyframesRuleName, StyleRuleBase* insertedRule)
+ {
+     ASSERT(m_contents->isMutable());
+     ASSERT(m_contents->hasOneClient());
+@@ -248,6 +269,17 @@
+             return;
+         }
+ 
++#if PLATFORM(AMIGA)
++        // CSS-in-JS libraries (Emotion, styled-components) insert their rules
++        // one at a time while a page's script renders: each would otherwise
++        // rebuild every rule set and restyle the whole document.
++        if (mutationType == RuleInsertion && contentsClonedForMutation == ContentsClonedForMutation::No && insertedRule
++            && m_mediaQueries.isEmpty() && canInsertAsAddition(*insertedRule) && scope.didInsertRuleIntoActiveStyleSheet(*this, *insertedRule)) {
++            m_wasMutated = true;
++            return;
++        }
++#endif
++
+         if (mutationType == KeyframesRuleMutation) {
+             if (RefPtr ownerDocument = this->ownerDocument())
+                 ownerDocument->keyframesRuleDidChange(modifiedKeyframesRuleName);
+@@ -389,7 +421,7 @@
+     if (m_wasConstructedByJS && rule->isImportRule())
+         return Exception { ExceptionCode::SyntaxError, "Cannot inserted an @import rule in a constructed CSSStyleSheet object"_s };
+ 
+-    RuleMutationScope mutationScope(this, RuleInsertion, dynamicDowncast<StyleRuleKeyframes>(*rule));
++    RuleMutationScope mutationScope(this, RuleInsertion, dynamicDowncast<StyleRuleKeyframes>(*rule), rule.get());
+ 
+     bool isNamespace = rule->isNamespaceRule();
+     bool success = m_contents.get().wrapperInsertRule(rule.releaseNonNull(), index);
+@@ -630,10 +662,11 @@
+     }
+ }
+ 
+-CSSStyleSheet::RuleMutationScope::RuleMutationScope(CSSStyleSheet* sheet, RuleMutationType mutationType, StyleRuleKeyframes* insertedKeyframesRule)
++CSSStyleSheet::RuleMutationScope::RuleMutationScope(CSSStyleSheet* sheet, RuleMutationType mutationType, StyleRuleKeyframes* insertedKeyframesRule, StyleRuleBase* insertedRule)
+     : m_styleSheet(sheet)
+     , m_mutationType(mutationType)
+     , m_insertedKeyframesRule(insertedKeyframesRule)
++    , m_insertedRule(insertedRule)
+ {
+     ASSERT(m_styleSheet);
+     m_contentsClonedForMutation = m_styleSheet->willMutateRules();
+@@ -656,7 +689,7 @@
+ CSSStyleSheet::RuleMutationScope::~RuleMutationScope()
+ {
+     if (RefPtr styleSheet = m_styleSheet.get()) {
+-        styleSheet->didMutateRules(m_mutationType, m_contentsClonedForMutation, m_insertedKeyframesRule.get(), m_modifiedKeyframesRuleName);
++        styleSheet->didMutateRules(m_mutationType, m_contentsClonedForMutation, m_insertedKeyframesRule.get(), m_modifiedKeyframesRuleName, m_insertedRule.get());
+         styleSheet->contents().clearHasNestingRulesCache();
+     }
+ }
+diff --git a/Source/WebCore/css/CSSStyleSheet.h b/Source/WebCore/css/CSSStyleSheet.h
+--- a/Source/WebCore/css/CSSStyleSheet.h
++++ b/Source/WebCore/css/CSSStyleSheet.h
+@@ -131,7 +131,7 @@
+     class RuleMutationScope {
+         WTF_MAKE_NONCOPYABLE(RuleMutationScope);
+     public:
+-        RuleMutationScope(CSSStyleSheet*, RuleMutationType = OtherMutation, StyleRuleKeyframes* insertedKeyframesRule = nullptr);
++        RuleMutationScope(CSSStyleSheet*, RuleMutationType = OtherMutation, StyleRuleKeyframes* insertedKeyframesRule = nullptr, StyleRuleBase* insertedRule = nullptr);
+         RuleMutationScope(CSSRule*);
+         ~RuleMutationScope();
+ 
+@@ -141,10 +141,11 @@
+         ContentsClonedForMutation m_contentsClonedForMutation;
+         const RefPtr<StyleRuleKeyframes> m_insertedKeyframesRule;
+         String m_modifiedKeyframesRuleName;
++        const RefPtr<StyleRuleBase> m_insertedRule;
+     };
+ 
+     ContentsClonedForMutation willMutateRules();
+-    void didMutateRules(RuleMutationType, ContentsClonedForMutation, StyleRuleKeyframes* insertedKeyframesRule, const String& modifiedKeyframesRuleName);
++    void didMutateRules(RuleMutationType, ContentsClonedForMutation, StyleRuleKeyframes* insertedKeyframesRule, const String& modifiedKeyframesRuleName, StyleRuleBase* insertedRule = nullptr);
+     void didMutateRuleFromCSSStyleDeclaration();
+     void didMutate();
+     
+diff --git a/Source/WebCore/style/StyleScope.cpp b/Source/WebCore/style/StyleScope.cpp
+--- a/Source/WebCore/style/StyleScope.cpp
++++ b/Source/WebCore/style/StyleScope.cpp
+@@ -64,6 +64,7 @@
+ #include "StyleCustomPropertyRegistry.h"
+ #include "StyleInvalidator.h"
+ #include "StyleResolver.h"
++#include "StyleRule.h"
+ #include "StyleSheetContents.h"
+ #include "StyleSheetList.h"
+ #include "UserContentController.h"
+@@ -585,6 +586,21 @@
+     auto styleSheetChange = StyleSheetChange { ResolverUpdateType::Reconstruct };
+     if (updateType == UpdateType::ActiveSet)
+         styleSheetChange = analyzeStyleSheetChange(activeCSSStyleSheets);
++#if PLATFORM(AMIGA)
++    // Rules inserted into sheets in use: every rule set is built again from
++    // the sheets (so the cascade's order stays exact), and the invalidation
++    // is the inserted rules' alone, as for a sheet added.
++    if (auto insertedRules = std::exchange(m_insertedRules, { }); !insertedRules.isEmpty()
++        && styleSheetChange.resolverUpdateType != ResolverUpdateType::Reconstruct) {
++        Ref insertedContents = StyleSheetContents::create(m_document->cssParserContext());
++        for (auto& rule : insertedRules)
++            insertedContents->parserAppendRule(rule.copyRef());
++        styleSheetChange.resolverUpdateType = ResolverUpdateType::Reset;
++        styleSheetChange.addedSheets.append(WTF::move(insertedContents));
++        if (auto* documentScope = dynamicDowncast<DocumentScope>(*this))
++            documentScope->m_matchResultCache = { };
++    }
++#endif
+ 
+     updateResolver(activeCSSStyleSheets, styleSheetChange.resolverUpdateType);
+ 
+@@ -723,6 +739,10 @@
+ 
+ void Scope::scheduleUpdate(UpdateType update)
+ {
++#if PLATFORM(AMIGA)
++    if (update != UpdateType::ActiveSet)
++        m_insertedRules.clear(); // every rule set is built again and everything restyled
++#endif
+     if (update == UpdateType::ContentsOrInterpretation) {
+         // :host and ::slotted rules might go away.
+         if (m_shadowRoot) {
+@@ -757,6 +777,21 @@
+     scheduleUpdate(UpdateType::ContentsOrInterpretation);
+ }
+ 
++#if PLATFORM(AMIGA)
++bool Scope::didInsertRuleIntoActiveStyleSheet(const CSSStyleSheet&, StyleRuleBase& rule)
++{
++    // A shadow tree's resolver can be shared, and without a resolver (or with
++    // a bigger update due) every rule set is built again anyway.
++    if (m_shadowRoot || !m_resolver || m_resolver->isSharedBetweenShadowTrees())
++        return false;
++    if (m_pendingUpdate && *m_pendingUpdate != UpdateType::ActiveSet)
++        return false;
++    m_insertedRules.append(rule);
++    scheduleUpdate(UpdateType::ActiveSet);
++    return true;
++}
++#endif
++
+ void Scope::didChangeViewportSize()
+ {
+     Ref<ContainerNode> rootNode = m_document;
+diff --git a/Source/WebCore/style/StyleScope.h b/Source/WebCore/style/StyleScope.h
+--- a/Source/WebCore/style/StyleScope.h
++++ b/Source/WebCore/style/StyleScope.h
+@@ -61,6 +61,7 @@
+ class RenderBoxModelObject;
+ class StyleSheet;
+ class StyleSheetContents;
++class StyleRuleBase;
+ class StyleSheetList;
+ class ShadowRoot;
+ class TreeScope;
+@@ -116,6 +117,12 @@
+     void didChangeActiveStyleSheetCandidates();
+     // This is called when contents of a stylesheet is mutated.
+     void didChangeStyleSheetContents();
++#if PLATFORM(AMIGA)
++    // CSSOM inserted a rule into an active sheet. True when the scope takes
++    // it as an addition: the rule sets are rebuilt and only the elements the
++    // rule can match restyled. False: call didChangeStyleSheetContents().
++    bool didInsertRuleIntoActiveStyleSheet(const CSSStyleSheet&, StyleRuleBase&);
++#endif
+ 
+     void didChangeViewportSize();
+ 
+@@ -231,6 +238,11 @@
+     WeakListHashSet<Node, WeakPtrImplWithEventTargetData> m_styleSheetCandidateNodes;
+ 
+     std::optional<UpdateType> m_pendingUpdate;
++#if PLATFORM(AMIGA)
++    // Rules inserted into active sheets since the last update, kept while the
++    // pending update is an ActiveSet one (didInsertRuleIntoActiveStyleSheet()).
++    Vector<Ref<StyleRuleBase>> m_insertedRules;
++#endif
+ 
+     bool m_hasDescendantWithPendingUpdate { false };
+     bool m_usesStyleBasedEditability { false };

@@ -15,6 +15,7 @@ fonts in `PROGDIR:Fonts` and gfopenfont.library 1.4 in `LIBS:` (or
 | `test5.html` | `obcore-view test5.html` | `insertAdjacentHTML` and `innerHTML` with Latin-1, Arabic and Cyrillic text (UTF-8 on big-endian CPUs) | `OBVIEW_TITLE t5 ascii ps=3; wide ps=5; b=2 i=2` |
 | `input.html` | `obcore-view -input input.html` | A click into a text box, typing an address key by key, then a click on a link | `OBVIEW_ALERT clicked with someone@example.com keys=19 inputs=19` |
 | `forin.html` | `obcore-view forin.html` | `for (k in o)` over a small object, an array and a 1000-key object | `OBVIEW_TITLE forin names=abcd sum=10 array=012 big=1000/499500` (before WebKit patch 0008 the loops never ended, and the program crashed) |
+| `cssom-insert.html` | `obcore-view cssom-insert.html` | Rules put into style sheets in use with `insertRule` (at the end, at the start, `@media`, a sibling combinator, a later sheet that must still win) and one `deleteRule`, then 100 rules each followed by a style read over 1,000 elements (WebKit patch 0096) | `OBTEST_CSSOM` with 7 PASS; on i32, 3 November 2026, `OBBENCH_JS insert-100-rules 337` (2335 before 0096) |
 
 The XML pages (`xml.html`, `xml-xhtml.xhtml`, `xml-svg.svg`) test WebKit
 patch 0030, XML through OXP. Their commands and expected results are in
