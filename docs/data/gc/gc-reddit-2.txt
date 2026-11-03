@@ -1,0 +1,14 @@
+[GC<0x45f21ee4>: starting 111.532763ms]
+[GC<0x45f21ee4>: START M 1951kb => FullCollection, v=0kb (C:0 M:0) o=0 b=0 i#1:CsMsrShDMsm(0) 445+0 v=289kb (C:289 M:0) o=3 b=0 i#2:WsO 8+0 v=292kb (C:292 M:0) o=3 b=0 i#3:WsOMsrShCsDMsm(0)CbDomo => 377kb, p=781.384845ms (max 781.384845), cycle 589.019410ms END]
+GC END!
+[GC<0x45f21ee4>: epilogue Full sweep: 1333kb => 1157kb, 6.494413ms142.830560ms]
+[GC<0x45f21ee4>: START M 12788kb => FullCollection, v=0kb (C:0 M:0) o=0 b=409 i#1:CsMsrShDMsm(0) 525+0 v=5182kb (C:5182 M:0) o=225 b=409 i#2:WsO 2086+0 v=5695kb (C:5695 M:0) o=273 b=409 i#3:Ws 71+0 v=5697kb (C:5697 M:0) o=273 b=409 i#4:WsOMsrShCsDMsm(0)CbDomo => 8945kb, p=674.993198ms (max 781.384845), cycle 601.908148ms END]
+GC END!
+[GC<0x45f21ee4>: epilogue Full sweep: 15868kb => 14092kb, 31.166697ms172.243610ms]
+[GC<0x45f21ee4>: START M 15797kb => FullCollection, v=0kb (C:0 M:0) o=0 b=1231 i#1:CsMsrShDMsm(0) 556+0 v=7037kb (C:7037 M:0) o=232 b=1231 i#2:WsO 2149+0 v=7565kb (C:7565 M:0) o=281 b=1231 i#3:Ws 74+0 v=7567kb (C:7567 M:0) o=281 b=1231 i#4:WsO 3+0 v=7567kb (C:7567 M:0) o=281 b=1231 i#5:OWsMsrShCsDMsm(0)CbDomo => 13203kb, p=998.518422ms (max 998.518422), cycle 895.680588ms END]
+GC END!
+[GC<0x45f21ee4>: epilogue Full sweep: 18180kb => 17876kb, 13.413140ms198.885222ms]
+[GC<0x45f21ee4>: START M 19032kb => FullCollection, v=0kb (C:0 M:0) o=0 b=200 i#1:CsMsrShDMsm(0) 505+0 v=8235kb (C:8235 M:0) o=237 b=200 i#2:WsO 2151+0 v=8769kb (C:8769 M:0) o=287 b=200 i#3:Ws 74+0 v=8772kb (C:8772 M:0) o=287 b=200 i#4:WsOMsrShCsDMsm(0)CbDomo => 14630kb, p=1207.726758ms (max 1207.726758), cycle 1102.293696ms END]
+GC END!
+[GC<0x45f21ee4>: epilogue Full sweep: 19255kb => 19095kb, 22.793175ms222.238042ms]
+[GC<0x4d4f2ff4>: starting 50.198836ms]

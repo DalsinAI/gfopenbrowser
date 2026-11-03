@@ -1,0 +1,18 @@
+[GC<0x45f23d14>: starting 97.380949ms]
+[GC<0x45f23d14>: START M 560kb => FullCollection, v=0kb (C:0 M:0) o=0 b=0 i#1:CsMsrShDMsm(0) 419+0 v=141kb (C:141 M:0) o=3 b=0 i#2:WsO 2+0 v=141kb (C:141 M:0) o=3 b=0 i#3:WsOMsrShCsDMsm(0)CbDomo => 798kb, p=802.445519ms (max 802.445519), cycle 695.088239ms END]
+GC END!
+[GC<0x45f23d14>: epilogue Full sweep: 1216kb => 1184kb, 11.060378ms238.703147ms]
+[GC<0x45f23d14>: START M 4221kb => FullCollection, v=0kb (C:0 M:0) o=0 b=230 i#1:CsMsrShDMsm(0) 587+0 v=2022kb (C:2022 M:0) o=5 b=230 i#2:WsO 10+0 v=2023kb (C:2023 M:0) o=5 b=230 i#3:WsOShMsrCsDMsm(0)CbDomo => 3878kb, p=770.627549ms (max 802.445519), cycle 688.815147ms END]
+GC END!
+[GC<0x45f23d14>: epilogue Full sweep: 5412kb => 5140kb, 12.571559ms245.228573ms]
+Requesting GC because bytes allocated this cycle: 29591192 exceed bytes allowed: 29582382 normal bytes: 29358088 oversized bytes: 233104 last oversized: 65584
+[GC<0x45f23d14>: START M 28445kb => FullCollection, v=0kb (C:0 M:0) o=0 b=3405 i#1:CsMsrShDMsm(0) 575+0 v=8112kb (C:8112 M:0) o=5 b=3405 i#2:WsO 1614+0 v=8167kb (C:8167 M:0) o=5 b=3405 i#3:WsOMsrShCsDMsm(0)CbDomo => 11416kb, p=875.767397ms (max 875.767397), cycle 786.452658ms END]
+GC END!
+[GC<0x45f23d14>: epilogue Full sweep: 29589kb => 21461kb, 218.299386ms543.266716ms]
+Requesting GC because bytes allocated this cycle: 21872414 exceed bytes allowed: 21863628 normal bytes: 21872414 oversized bytes: 0 last oversized: 0
+[GC<0x45f23d14>: START M 33429kb => FullCollection, v=0kb (C:0 M:0) o=0 b=2329 i#1:CsMsrShDMsm(0) 591+0 v=15811kb (C:15811 M:0) o=5 b=2329 i#2:WsO 917+0 v=15844kb (C:15844 M:0) o=5 b=2329 i#3:WsOMsrShCsDMsm(0)CbDomo => 20085kb, p=946.596953ms (max 946.596953), cycle 867.461540ms END]
+GC END!
+[GC<0x45f23d14>: epilogue Full sweep: 34421kb => 33205kb, 40.218275ms208.851686ms]
+[GC<0x45f23d14>: START M 34021kb => FullCollection, v=0kb (C:0 M:0) o=0 b=2926 i#1:CsMsrShDMsm(0) 510+0 v=17140kb (C:17140 M:0) o=5 b=2926 i#2:WsO 835+0 v=17170kb (C:17170 M:0) o=5 b=2926 i#3:WsOMsrShCsDMsm(0)CbDomo => 22134kb, p=902.517554ms (max 946.596953), cycle 807.899585ms END]
+GC END!
+[GC<0x45f23d14>: epilogue Full sweep: 34744kb => 34696kb, 16.924662ms261.599230ms]

@@ -1,0 +1,211 @@
+*** DataLog output to "logs/gc-bbc-1.txt" ***
+OBJSC "logGC=1": set; useJIT=0 useM68KTemplateJIT=1 slowPathAllocsBetweenGCs=0
+OBVIEW_CREATED 800x600 after 1s
+OBVIEW_LOADING 0 10%
+OBVIEW_LOADING 1 0%
+OBVIEW_REQUEST [1100 ms] https://www.bbc.co.uk/news
+OBVIEW_FRAME ms=1900 rects=1 area=480000
+OBVIEW_CONSOLE Unrecognized Content-Security-Policy directive 'manifest-src'.
+ (:0)
+OBVIEW_URL https://www.bbc.co.uk/news
+OBVIEW_TITLE Home - BBC News
+OBVIEW_REQUEST [3580 ms] https://ichef.bbci.co.uk/ace/standard/800/cpsprodpb/ff9a/live/71c4b070-d7c9-11f1-b441-2b33b063138f.jpg.webp
+OBVIEW_REQUEST [3600 ms] https://ichef.bbci.co.uk/ace/standard/480/cpsprodpb/c3a9/live/24cee420-d7bf-11f1-b441-2b33b063138f.jpg.webp
+OBVIEW_REQUEST [3620 ms] https://ichef.bbci.co.uk/ace/standard/480/cpsprodpb/d61f/live/6dc1cd30-d7c6-11f1-a701-fddedf244c16.jpg.webp
+OBVIEW_REQUEST [3640 ms] https://ichef.bbci.co.uk/ace/standard/480/cpsprodpb/3cf3/live/42789f10-d7c0-11f1-b441-2b33b063138f.jpg.webp
+OBVIEW_REQUEST [3660 ms] https://ichef.bbci.co.uk/ace/standard/480/cpsprodpb/db91/live/79069d70-d79d-11f1-84dd-e55f4bec0ecd.png.webp
+OBVIEW_REQUEST [3660 ms] https://ichef.bbci.co.uk/ace/standard/480/cpsprodpb/b716/live/ea4a32c0-d776-11f1-9539-05485195b558.jpg.webp
+OBVIEW_REQUEST [4580 ms] https://static.files.bbci.co.uk/core/bundle-vendor-optimizely.2bfa82918839199490db.js
+OBVIEW_REQUEST [4620 ms] https://static.files.bbci.co.uk/core/bundle-default-vendors.4e33cb57adca7a242ab5.js
+OBVIEW_REQUEST [4640 ms] https://static.files.bbci.co.uk/core/bundle-component-tabs.78ca436f28e4cb691263.js
+OBVIEW_REQUEST [4640 ms] https://static.files.bbci.co.uk/core/bundle-gel.de44b3aa0b98847c8fa9.js
+OBVIEW_REQUEST [4660 ms] https://static.files.bbci.co.uk/core/bundle-website.1da154c189c6c0a6e73a.js
+OBVIEW_REQUEST [4680 ms] https://static.files.bbci.co.uk/core/bundle-base-website.6d9099cc98c1be8ac6b8.js
+OBVIEW_REQUEST [4700 ms] https://static.files.bbci.co.uk/core/bundle-framework.849a8820d2da31564ad9.js
+OBVIEW_REQUEST [4700 ms] https://static.files.bbci.co.uk/core/bundle-pwa.139ec5d0d3fcda2d9408.js
+OBVIEW_REQUEST [4720 ms] https://static.files.bbci.co.uk/core/bundle-component-button.3d9c15cf1be58309b43d.js
+OBVIEW_REQUEST [4720 ms] https://static.files.bbci.co.uk/core/bundle-component-call-to-action-link.779ee3e960b63f955ee0.js
+OBVIEW_REQUEST [4740 ms] https://static.files.bbci.co.uk/core/bundle-component-global-navigation.4f6602e226fe8725b5fc.js
+OBVIEW_REQUEST [4740 ms] https://static.files.bbci.co.uk/core/bundle-global-navigation.b92c7c81f2de0e561546.js
+OBVIEW_REQUEST [4740 ms] https://static.files.bbci.co.uk/core/bundle-component-image.5f908ad5b3d29d5d9645.js
+OBVIEW_REQUEST [4760 ms] https://static.files.bbci.co.uk/core/bundle-component-product-navigation.a824338e65eb49709540.js
+OBVIEW_REQUEST [4760 ms] https://static.files.bbci.co.uk/core/bundle-component-masthead.963bc633502fba23007b.js
+OBVIEW_REQUEST [4760 ms] https://static.files.bbci.co.uk/core/bundle-product-navigation.c3b5fb6f88925c699740.js
+OBVIEW_REQUEST [4760 ms] https://static.files.bbci.co.uk/core/bundle-main-heading.808612238f3a7c8a8402.js
+OBVIEW_REQUEST [4780 ms] https://static.files.bbci.co.uk/core/bundle-component-metadata-snippet.86c6c5ecbe9d69430951.js
+OBVIEW_REQUEST [4780 ms] https://static.files.bbci.co.uk/core/bundle-component-information-panel.21907c36aa363bbb4b60.js
+OBVIEW_REQUEST [4780 ms] https://static.files.bbci.co.uk/core/bundle-component-metadata-strip.9ff9b662bf9ef4f476e9.js
+OBVIEW_REQUEST [4800 ms] https://static.files.bbci.co.uk/core/bundle-component-contributor.2f47ef57d89bded319b9.js
+OBVIEW_REQUEST [4800 ms] https://static.files.bbci.co.uk/core/bundle-component-error-message.e3735a67e1e5863d7244.js
+OBVIEW_REQUEST [4800 ms] https://static.files.bbci.co.uk/core/bundle-component-page-type-indicator.28478a16fc2f26a34dbf.js
+OBVIEW_REQUEST [4820 ms] https://static.files.bbci.co.uk/core/bundle-component-promo.aca8e6c106c56cf71d0c.js
+OBVIEW_REQUEST [4820 ms] https://static.files.bbci.co.uk/core/bundle-component-popover-panel.eed11610d616449ae3a5.js
+OBVIEW_REQUEST [4820 ms] https://static.files.bbci.co.uk/core/bundle-component-uas-button.07883ab5a326f8a2c0fd.js
+OBVIEW_REQUEST [4820 ms] https://static.files.bbci.co.uk/core/bundle-component-additional-links.fdebbd6d55af1f8737a7.js
+OBVIEW_REQUEST [4840 ms] https://static.files.bbci.co.uk/core/bundle-component-sport-badge.8ecb260875222397395c.js
+OBVIEW_REQUEST [4840 ms] https://static.files.bbci.co.uk/core/bundle-component-media-player.773cde1af116d04f3b4e.js
+OBVIEW_REQUEST [4840 ms] https://static.files.bbci.co.uk/core/bundle-component-follow.335321bc4f558e204579.js
+OBVIEW_REQUEST [4840 ms] https://static.files.bbci.co.uk/core/bundle-component-index-promo.d8d472d1572a081aa55b.js
+OBVIEW_REQUEST [4860 ms] https://static.files.bbci.co.uk/core/bundle-component-in-situ-media-promo.687d4f5bb1af9d70ef1c.js
+OBVIEW_REQUEST [4860 ms] https://static.files.bbci.co.uk/core/bundle-component-promo-with-ranking.f8525a30ac2e684a0ade.js
+OBVIEW_REQUEST [4860 ms] https://static.files.bbci.co.uk/core/bundle-component-live-preview-promo.ab004236c3093c246335.js
+OBVIEW_REQUEST [4880 ms] https://static.files.bbci.co.uk/core/bundle-component-high-impact-promo.61f0b5658c689a74a985.js
+OBVIEW_REQUEST [4880 ms] https://static.files.bbci.co.uk/core/bundle-component-portrait-video-promo.f5fe71d71682754e027a.js
+OBVIEW_REQUEST [4880 ms] https://static.files.bbci.co.uk/core/bundle-component-short-form-promo.c36311096acab16133b4.js
+OBVIEW_REQUEST [4900 ms] https://static.files.bbci.co.uk/core/bundle-component-non-vignette-billboard.7c53d26bd86229e4f2c6.js
+OBVIEW_REQUEST [4900 ms] https://static.files.bbci.co.uk/core/bundle-component-vignette-billboard.a168eccc1ae547b55a76.js
+OBVIEW_REQUEST [4900 ms] https://static.files.bbci.co.uk/core/bundle-billboard.b1614d84f489fd29bf40.js
+OBVIEW_REQUEST [4900 ms] https://static.files.bbci.co.uk/core/bundle-component-forms.165ce6c37151e54a5462.js
+OBVIEW_REQUEST [4920 ms] https://static.files.bbci.co.uk/core/bundle-component-collection-header.e7f3efec2224dea48edb.js
+OBVIEW_REQUEST [4920 ms] https://static.files.bbci.co.uk/core/bundle-component-hierarchical-promo-collection.4112e694ef8906e29c27.js
+OBVIEW_REQUEST [4940 ms] https://static.files.bbci.co.uk/core/bundle-component-nation-switcher.30a957de07e3eff6c879.js
+OBVIEW_REQUEST [4940 ms] https://static.files.bbci.co.uk/core/bundle-nations-news.16d4d81c34bfe70a2040.js
+OBVIEW_REQUEST [4940 ms] https://static.files.bbci.co.uk/core/bundle-component-information-wrapper.10bcd099fe28e6748960.js
+OBVIEW_REQUEST [4940 ms] https://static.files.bbci.co.uk/core/bundle-component-quick-user-actions-menu.3f49181695610cb1c84c.js
+OBVIEW_REQUEST [4960 ms] https://static.files.bbci.co.uk/core/bundle-component-promo-carousel.7fbbf9ae7eb952188f1c.js
+OBVIEW_REQUEST [4960 ms] https://static.files.bbci.co.uk/core/bundle-component-portrait-video-modal.df23562381263e390066.js
+OBVIEW_REQUEST [4980 ms] https://static.files.bbci.co.uk/core/bundle-portrait-video-experience.5ede0a1a4d40a3d4927b.js
+OBVIEW_REQUEST [4980 ms] https://static.files.bbci.co.uk/core/bundle-component-simple-promo-collection.3e03dff155503cbf3aab.js
+OBVIEW_REQUEST [4980 ms] https://static.files.bbci.co.uk/core/bundle-simple-promo-collection.6266b9d16ea2b0f9402f.js
+OBVIEW_REQUEST [5000 ms] https://static.files.bbci.co.uk/core/bundle-component-sign-in-call-to-action.bdc68db76c9a47c53f97.js
+OBVIEW_REQUEST [5000 ms] https://static.files.bbci.co.uk/core/bundle-component-sign-in-banner.cde7009ea44d2913d22f.js
+OBVIEW_REQUEST [5000 ms] https://static.files.bbci.co.uk/core/bundle-local-news.30fd252123bdb6f44b20.js
+OBVIEW_REQUEST [5000 ms] https://static.files.bbci.co.uk/core/bundle-hierarchical-promo-collection.2bc8e09275ffe6cc4fc9.js
+OBVIEW_REQUEST [5020 ms] https://static.files.bbci.co.uk/core/bundle-component-message-banner.dc17f5c57dd0684f466c.js
+OBVIEW_REQUEST [5020 ms] https://static.files.bbci.co.uk/core/bundle-message-banner.7915c36e5d25eb36d476.js
+OBVIEW_REQUEST [5040 ms] https://static.files.bbci.co.uk/core/bundle-onward-journeys.1a2024c52e5301e001fd.js
+OBVIEW_REQUEST [5040 ms] https://static.files.bbci.co.uk/core/bundle-component-static-links.05c8c0859a8ee5c3e254.js
+OBVIEW_REQUEST [5040 ms] https://static.files.bbci.co.uk/core/bundle-static-links.a0827159594f202b79f3.js
+OBVIEW_REQUEST [5040 ms] https://static.files.bbci.co.uk/core/bundle-global-footer.a01bbf845c6c88d47cd6.js
+OBVIEW_CONSOLE TypeError: undefined is not an object (evaluating 'window.localStorage.getItem') (https://www.bbc.co.uk/news:7)
+OBVIEW_REQUEST [6440 ms] https://static.files.bbci.co.uk/core/website/assets/static/container-background-masks/message-banner-ambient.005755961d.jpg
+OBVIEW_LOADED [8780 ms] https://www.bbc.co.uk/news
+OBVIEW_LOADED [10480 ms] https://static.files.bbci.co.uk/core/bundle-vendor-optimizely.2bfa82918839199490db.js
+OBVIEW_LOADED [10600 ms] https://static.files.bbci.co.uk/core/bundle-default-vendors.4e33cb57adca7a242ab5.js
+OBVIEW_LOADED [10620 ms] https://static.files.bbci.co.uk/core/bundle-component-tabs.78ca436f28e4cb691263.js
+OBVIEW_LOADED [10660 ms] https://static.files.bbci.co.uk/core/bundle-gel.de44b3aa0b98847c8fa9.js
+OBVIEW_LOADED [10740 ms] https://static.files.bbci.co.uk/core/bundle-website.1da154c189c6c0a6e73a.js
+OBVIEW_LOADED [10760 ms] https://static.files.bbci.co.uk/core/bundle-base-website.6d9099cc98c1be8ac6b8.js
+OBVIEW_LOADED [10800 ms] https://ichef.bbci.co.uk/ace/standard/480/cpsprodpb/c3a9/live/24cee420-d7bf-11f1-b441-2b33b063138f.jpg.webp
+OBVIEW_LOADED [10820 ms] https://ichef.bbci.co.uk/ace/standard/480/cpsprodpb/3cf3/live/42789f10-d7c0-11f1-b441-2b33b063138f.jpg.webp
+OBVIEW_LOADED [10820 ms] https://ichef.bbci.co.uk/ace/standard/480/cpsprodpb/db91/live/79069d70-d79d-11f1-84dd-e55f4bec0ecd.png.webp
+OBVIEW_LOADED [10820 ms] https://ichef.bbci.co.uk/ace/standard/480/cpsprodpb/b716/live/ea4a32c0-d776-11f1-9539-05485195b558.jpg.webp
+OBVIEW_FRAME ms=11660 rects=1 area=480000
+OBVIEW_LOADED [11240 ms] https://ichef.bbci.co.uk/ace/standard/800/cpsprodpb/ff9a/live/71c4b070-d7c9-11f1-b441-2b33b063138f.jpg.webp
+OBVIEW_LOADED [11280 ms] https://static.files.bbci.co.uk/core/bundle-framework.849a8820d2da31564ad9.js
+OBVIEW_LOADED [11300 ms] https://static.files.bbci.co.uk/core/bundle-pwa.139ec5d0d3fcda2d9408.js
+OBVIEW_LOADED [11300 ms] https://static.files.bbci.co.uk/core/bundle-component-button.3d9c15cf1be58309b43d.js
+OBVIEW_LOADED [11320 ms] https://static.files.bbci.co.uk/core/bundle-component-call-to-action-link.779ee3e960b63f955ee0.js
+OBVIEW_LOADED [11360 ms] https://static.files.bbci.co.uk/core/bundle-component-global-navigation.4f6602e226fe8725b5fc.js
+OBVIEW_LOADED [11360 ms] https://static.files.bbci.co.uk/core/bundle-global-navigation.b92c7c81f2de0e561546.js
+OBVIEW_LOADED [11400 ms] https://ichef.bbci.co.uk/ace/standard/480/cpsprodpb/d61f/live/6dc1cd30-d7c6-11f1-a701-fddedf244c16.jpg.webp
+OBVIEW_LOADED [11580 ms] https://static.files.bbci.co.uk/core/bundle-component-image.5f908ad5b3d29d5d9645.js
+OBVIEW_LOADED [11600 ms] https://static.files.bbci.co.uk/core/bundle-component-product-navigation.a824338e65eb49709540.js
+OBVIEW_LOADED [11620 ms] https://static.files.bbci.co.uk/core/bundle-component-masthead.963bc633502fba23007b.js
+OBVIEW_LOADED [11640 ms] https://static.files.bbci.co.uk/core/bundle-product-navigation.c3b5fb6f88925c699740.js
+OBVIEW_LOADED [11660 ms] https://static.files.bbci.co.uk/core/bundle-main-heading.808612238f3a7c8a8402.js
+OBVIEW_LOADED [11660 ms] https://static.files.bbci.co.uk/core/bundle-component-metadata-snippet.86c6c5ecbe9d69430951.js
+OBVIEW_LOADED [12020 ms] https://static.files.bbci.co.uk/core/bundle-component-information-panel.21907c36aa363bbb4b60.js
+OBVIEW_LOADED [12040 ms] https://static.files.bbci.co.uk/core/bundle-component-metadata-strip.9ff9b662bf9ef4f476e9.js
+OBVIEW_LOADED [12060 ms] https://static.files.bbci.co.uk/core/bundle-component-contributor.2f47ef57d89bded319b9.js
+OBVIEW_LOADED [12060 ms] https://static.files.bbci.co.uk/core/bundle-component-error-message.e3735a67e1e5863d7244.js
+OBVIEW_LOADED [12080 ms] https://static.files.bbci.co.uk/core/bundle-component-page-type-indicator.28478a16fc2f26a34dbf.js
+OBVIEW_FRAME ms=12860 rects=1 area=288800
+OBVIEW_LOADED [12520 ms] https://static.files.bbci.co.uk/core/bundle-component-promo.aca8e6c106c56cf71d0c.js
+OBVIEW_LOADED [12560 ms] https://static.files.bbci.co.uk/core/bundle-component-popover-panel.eed11610d616449ae3a5.js
+OBVIEW_LOADED [12600 ms] https://static.files.bbci.co.uk/core/bundle-component-uas-button.07883ab5a326f8a2c0fd.js
+OBVIEW_LOADED [12620 ms] https://static.files.bbci.co.uk/core/bundle-component-additional-links.fdebbd6d55af1f8737a7.js
+OBVIEW_LOADED [12640 ms] https://static.files.bbci.co.uk/core/bundle-component-sport-badge.8ecb260875222397395c.js
+OBVIEW_FRAME ms=13300 rects=1 area=480000
+OBVIEW_LOADED [12860 ms] https://static.files.bbci.co.uk/core/bundle-component-media-player.773cde1af116d04f3b4e.js
+OBVIEW_LOADED [12860 ms] https://static.files.bbci.co.uk/core/bundle-component-follow.335321bc4f558e204579.js
+OBVIEW_LOADED [12880 ms] https://static.files.bbci.co.uk/core/bundle-component-index-promo.d8d472d1572a081aa55b.js
+OBVIEW_LOADED [12900 ms] https://static.files.bbci.co.uk/core/bundle-component-in-situ-media-promo.687d4f5bb1af9d70ef1c.js
+OBVIEW_LOADED [12920 ms] https://static.files.bbci.co.uk/core/bundle-component-promo-with-ranking.f8525a30ac2e684a0ade.js
+OBVIEW_LOADED [13140 ms] https://static.files.bbci.co.uk/core/bundle-component-live-preview-promo.ab004236c3093c246335.js
+OBVIEW_LOADED [13160 ms] https://static.files.bbci.co.uk/core/bundle-component-high-impact-promo.61f0b5658c689a74a985.js
+OBVIEW_LOADED [13180 ms] https://static.files.bbci.co.uk/core/bundle-component-portrait-video-promo.f5fe71d71682754e027a.js
+OBVIEW_LOADED [13200 ms] https://static.files.bbci.co.uk/core/bundle-component-short-form-promo.c36311096acab16133b4.js
+OBVIEW_LOADED [13200 ms] https://static.files.bbci.co.uk/core/bundle-component-non-vignette-billboard.7c53d26bd86229e4f2c6.js
+OBVIEW_LOADED [13240 ms] https://static.files.bbci.co.uk/core/bundle-component-vignette-billboard.a168eccc1ae547b55a76.js
+OBVIEW_LOADED [13260 ms] https://static.files.bbci.co.uk/core/bundle-billboard.b1614d84f489fd29bf40.js
+OBVIEW_LOADED [13300 ms] https://static.files.bbci.co.uk/core/bundle-component-forms.165ce6c37151e54a5462.js
+OBVIEW_LOADED [13320 ms] https://static.files.bbci.co.uk/core/bundle-component-collection-header.e7f3efec2224dea48edb.js
+OBVIEW_LOADED [13320 ms] https://static.files.bbci.co.uk/core/bundle-component-hierarchical-promo-collection.4112e694ef8906e29c27.js
+OBVIEW_LOADED [13480 ms] https://static.files.bbci.co.uk/core/bundle-component-nation-switcher.30a957de07e3eff6c879.js
+OBVIEW_LOADED [13500 ms] https://static.files.bbci.co.uk/core/bundle-nations-news.16d4d81c34bfe70a2040.js
+OBVIEW_LOADED [13500 ms] https://static.files.bbci.co.uk/core/bundle-component-information-wrapper.10bcd099fe28e6748960.js
+OBVIEW_LOADED [13540 ms] https://static.files.bbci.co.uk/core/bundle-component-quick-user-actions-menu.3f49181695610cb1c84c.js
+OBVIEW_LOADED [13540 ms] https://static.files.bbci.co.uk/core/bundle-component-promo-carousel.7fbbf9ae7eb952188f1c.js
+OBVIEW_LOADED [13580 ms] https://static.files.bbci.co.uk/core/bundle-component-portrait-video-modal.df23562381263e390066.js
+OBVIEW_LOADED [13600 ms] https://static.files.bbci.co.uk/core/bundle-portrait-video-experience.5ede0a1a4d40a3d4927b.js
+OBVIEW_LOADED [13620 ms] https://static.files.bbci.co.uk/core/bundle-component-simple-promo-collection.3e03dff155503cbf3aab.js
+OBVIEW_LOADED [13640 ms] https://static.files.bbci.co.uk/core/bundle-simple-promo-collection.6266b9d16ea2b0f9402f.js
+OBVIEW_LOADED [13660 ms] https://static.files.bbci.co.uk/core/bundle-component-sign-in-call-to-action.bdc68db76c9a47c53f97.js
+OBVIEW_LOADED [13700 ms] https://static.files.bbci.co.uk/core/bundle-component-sign-in-banner.cde7009ea44d2913d22f.js
+OBVIEW_LOADED [13700 ms] https://static.files.bbci.co.uk/core/bundle-local-news.30fd252123bdb6f44b20.js
+OBVIEW_LOADED [13720 ms] https://static.files.bbci.co.uk/core/bundle-hierarchical-promo-collection.2bc8e09275ffe6cc4fc9.js
+OBVIEW_LOADED [13740 ms] https://static.files.bbci.co.uk/core/bundle-component-message-banner.dc17f5c57dd0684f466c.js
+OBVIEW_LOADED [13760 ms] https://static.files.bbci.co.uk/core/bundle-message-banner.7915c36e5d25eb36d476.js
+OBVIEW_LOADED [13800 ms] https://static.files.bbci.co.uk/core/bundle-onward-journeys.1a2024c52e5301e001fd.js
+OBVIEW_LOADED [13820 ms] https://static.files.bbci.co.uk/core/bundle-component-static-links.05c8c0859a8ee5c3e254.js
+OBVIEW_LOADED [13820 ms] https://static.files.bbci.co.uk/core/bundle-static-links.a0827159594f202b79f3.js
+OBVIEW_LOADED [13820 ms] https://static.files.bbci.co.uk/core/bundle-global-footer.a01bbf845c6c88d47cd6.js
+OBVIEW_LOADED [13840 ms] https://static.files.bbci.co.uk/core/website/assets/static/container-background-masks/message-banner-ambient.005755961d.jpg
+OBVIEW_TICK 15s loading=1 cycles=37 waits=3
+OBVIEW_STALL run loop still for 20 s
+OBVIEW_THREAD Background CLI (main) state=3 sigwait=10 sigrecvd=100 sigalloc=ffff pri=0 sp=454be95a stack=452bfd74-454bfd74: 174b664 3a0b764 39bb130 39e318c 39e329c 39e3298 39e3188 39cb4a4 39cb4b0 1b16838 1b16470 1b165ac 1b16550 1b16454 1b1643c 1b1641c 1b1662c 1b1681c
+OBVIEW_THREAD exec boot state=4 sigwait=0 sigrecvd=0 sigalloc=c000ffff pri=0 sp=97ae stack=5db8-9db8:
+OBVIEW_THREAD OpenUSB bus state=4 sigwait=c0000000 sigrecvd=0 sigalloc=c000ffff pri=1 sp=4005e5de stack=4005a6e8-4005e6e8:
+OBVIEW_THREAD OpenRTG cards state=4 sigwait=0 sigrecvd=100 sigalloc=ffff pri=0 sp=4004f61a stack=4004d6d8-4004f6d8:
+OBVIEW_THREAD DF0 state=4 sigwait=60000100 sigrecvd=0 sigalloc=e000ffff pri=a sp=400625e6 stack=4005e6e8-400626e8:
+OBVIEW_THREAD OpenBench ConClip state=4 sigwait=e0001000 sigrecvd=0 sigalloc=f000ffff pri=0 sp=799fe2e stack=78a0000-79a0000:
+OBVIEW_THREAD RexxMaster state=4 sigwait=1 sigrecvd=0 sigalloc=ffff pri=4 sp=788fed6 stack=7790000-7890000:
+OBVIEW_THREAD RexxMaster state=4 sigwait=e0000000 sigrecvd=100 sigalloc=e000ffff pri=0 sp=400b72d6 stack=400b53e0-400b73e0:
+OBVIEW_THREAD CON state=4 sigwait=100 sigrecvd=0 sigalloc=8000ffff pri=5 sp=6defd6e stack=6cf0000-6df0000:
+OBVIEW_THREAD CON state=4 sigwait=100 sigrecvd=0 sigalloc=8000ffff pri=5 sp=6bcfd6e stack=6ad0000-6bd0000:
+OBVIEW_THREAD CON state=4 sigwait=100 sigrecvd=0 sigalloc=8000ffff pri=5 sp=69afd6e stack=68b0000-69b0000:
+OBVIEW_THREAD OAPSpooler state=4 sigwait=80001000 sigrecvd=100 sigalloc=8000ffff pri=0 sp=6abfefe stack=69c0000-6ac0000:
+OBVIEW_THREAD CON state=4 sigwait=100 sigrecvd=0 sigalloc=8000ffff pri=5 sp=678fd6e stack=6690000-6790000:
+OBVIEW_THREAD IPrefs state=4 sigwait=e0000000 sigrecvd=100 sigalloc=f000ffff pri=0 sp=4007f13e stack=4007d2a8-4007f2a8:
+OBVIEW_THREAD OpenBench thumbnails state=4 sigwait=9000 sigrecvd=0 sigalloc=ffff pri=ff sp=4512c8ba stack=45128a80-4512ca80: 73bc78 741c6c
+OBVIEW_THREAD ROM state=4 sigwait=80000100 sigrecvd=0 sigalloc=8000ffff pri=5 sp=4004a4ae stack=40048b80-4004aac0:
+OBVIEW_THREAD CryptoQueue state=4 sigwait=80000000 sigrecvd=0 sigalloc=8000ffff pri=0 sp=48992642 stack=48792a50-48992a50: 13e287d
+OBVIEW_THREAD ramlib state=4 sigwait=80000000 sigrecvd=0 sigalloc=8000ffff pri=0 sp=4004d48e stack=4004b598-4004d598: 11bbc78
+OBVIEW_THREAD opensocket.packet state=4 sigwait=c000 sigrecvd=0 sigalloc=ffff pri=5 sp=40249806 stack=40247898-40249898:
+OBVIEW_THREAD scsi.device state=4 sigwait=50000 sigrecvd=0 sigalloc=fffff pri=a sp=400144aa stack=40013550-40014550:
+OBVIEW_THREAD trackdisk.device state=4 sigwait=90000 sigrecvd=0 sigalloc=3fffff pri=5 sp=400420c6 stack=40041170-40042170:
+OBVIEW_THREAD fetch state=4 sigwait=d0001000 sigrecvd=100 sigalloc=f000ffff pri=1 sp=4679832e stack=46598c10-46798c10: 22e1f26 888900 1fcaed9 1fc02f1
+OBVIEW_THREAD Background CLI state=4 sigwait=c000f000 sigrecvd=110 sigalloc=c000ffff pri=0 sp=7ccff26 stack=7bd0000-7cd0000:
+OBVIEW_THREAD Background CLI state=4 sigwait=fffc1000 sigrecvd=100 sigalloc=fffcffff pri=0 sp=7ddf962 stack=7ce0000-7de0000:
+OBVIEW_THREAD DH1 state=4 sigwait=100 sigrecvd=0 sigalloc=8000ffff pri=5 sp=7aafd16 stack=79b0000-7ab0000: 2fbc78 11bbc78
+OBVIEW_THREAD layers.library compositor state=4 sigwait=8000 sigrecvd=0 sigalloc=8000ffff pri=1 sp=401d5a8a stack=401d1b2c-401d5b2c:
+OBVIEW_THREAD OpenMeters state=4 sigwait=e0009000 sigrecvd=100 sigalloc=e000ffff pri=0 sp=689fd46 stack=67a0000-68a0000: bbbc78 2c7bc78
+OBVIEW_THREAD Background CLI state=4 sigwait=e0009000 sigrecvd=100 sigalloc=e000ffff pri=0 sp=722f2a6 stack=7130000-7230000: bbfca2 2bbbc78
+OBVIEW_THREAD Background CLI state=4 sigwait=80000000 sigrecvd=100 sigalloc=8000ffff pri=0 sp=766febe stack=7570000-7670000:
+OBVIEW_THREAD OpenBar state=4 sigwait=80000000 sigrecvd=0 sigalloc=8000ffff pri=0 sp=4005236a stack=40050a38-40052a38:
+OBVIEW_THREAD Background CLI state=4 sigwait=fe009000 sigrecvd=100 sigalloc=fe00ffff pri=0 sp=733ff1a stack=7240000-7340000: 364bc77
+OBVIEW_THREAD ACDrop state=4 sigwait=40000000 sigrecvd=100 sigalloc=c000ffff pri=0 sp=6cdfd4e stack=6be0000-6ce0000: ebbc78
+OBVIEW_THREAD ACClip state=4 sigwait=20000000 sigrecvd=100 sigalloc=e000ffff pri=0 sp=6effe4e stack=6e00000-6f00000:
+OBVIEW_THREAD Background CLI state=4 sigwait=7c009000 sigrecvd=100 sigalloc=fc00ffff pri=0 sp=755fdfa stack=7460000-7560000:
+OBVIEW_THREAD DH0 state=4 sigwait=100 sigrecvd=0 sigalloc=8000ffff pri=5 sp=7fffd16 stack=7f00000-8000000: 11bbc78
+OBVIEW_THREAD Background CLI state=4 sigwait=20000000 sigrecvd=100 sigalloc=e000ffff pri=0 sp=777feda stack=7680000-7780000: 2dabc77
+OBVIEW_THREAD input.device state=4 sigwait=f8000000 sigrecvd=0 sigalloc=f800ffff pri=14 sp=4000db3a stack=4000bbf0-4000dbf0:
+OBVIEW_THREAD acusb.device state=4 sigwait=e0000000 sigrecvd=0 sigalloc=e000ffff pri=5 sp=400665fe stack=40065700-40066700:
+OBVIEW_THREAD OpenInput state=4 sigwait=c0001000 sigrecvd=100 sigalloc=c000ffff pri=5 sp=402db80e stack=402d9918-402db918: 32ffc78
+OBVIEW_THREAD RAM state=4 sigwait=20000100 sigrecvd=80000000 sigalloc=e000ffff pri=a sp=7bbfe82 stack=7ac0000-7bc0000:
+OBVIEW_THREAD Background CLI state=4 sigwait=fde09000 sigrecvd=100 sigalloc=ffe0ffff pri=0 sp=711fe7a stack=7020000-7120000:
+OBVIEW_THREAD Background CLI state=3 sigwait=fc009000 sigrecvd=4000100 sigalloc=fc00ffff pri=0 sp=744fed2 stack=7350000-7450000:
+OBVIEW_THREAD Background CLI state=3 sigwait=fc009000 sigrecvd=100 sigalloc=fc00ffff pri=0 sp=700fc12 stack=6f10000-7010000: d1bc78 bbbc78
+OBVIEW_THREAD OpenBench backdrop state=3 sigwait=0 sigrecvd=110 sigalloc=ffff pri=ff sp=44e59212 stack=44e556a0-44e596a0: d1bc78 19fbc78 19ffc84 207fcb8 297fc7c 19ffc80 19fbc78 19ffc80 1a0015d 19ffc81 1a0015d 21d1fe3
+OBVIEW_FRAME ms=20820 rects=1 area=480000
+OBVIEW_LOADING 0 100%
+OBVIEW_SETTLED network quiet 2.0 s, 0 requests open, timers still running, at 49700 ms
+OBVIEW_RAN loading=0 invalidations=44 cycles=39 waits=3 at 54s
+OBVIEW_PAINTED 800x600
+OBVIEW_PNG *>logs/gc-bbc-1.err error while writing to output stream
+OBVIEW_FRAMES_DIFF 0 of 480000 pixels differ from the last frame (at 20820 ms)
+OBVIEW_PNG *>logs/gc-bbc-1-frame.png error while writing to output stream
+OBVIEW_FRAMES first_paint_ms=11660 frames=5 area=2208800 longest_gap_ms=9760 gap_from_ms=1900 last_frame_ms=20820
+OBVIEW_BENCH init_ms=460 load_ms=1500 commit_ms=2720 first_loaded_ms=9240 first_invalidate_ms=1380 load_done_ms=21020 last_resource_ms=14300 painted_ms=54820 end_ms=55160 requests=70 loaded=70 failed=0 bytes=3294197 avail_start=457222080 avail_ready=446203880 avail_min=322605688 avail_painted=322605688 avail_end=315657416 largest_start=448397968 paint_ms=500 paint_gpu=1 paint_us=182170 gpu_draws=397 gpu_flushes=31 cairo_calls=0
+OBVIEW_DONE

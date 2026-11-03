@@ -1,0 +1,62 @@
+[GC<0x45f21a54>: starting 57.860467ms]
+[GC<0x45f21a54>: START M 1951kb => FullCollection, v=0kb (C:0 M:0) o=0 b=0 i#1:CsMsrShDMsm(0) 445+0 v=289kb (C:289 M:0) o=3 b=0 i#2:WsO 8+0 v=292kb (C:292 M:0) o=3 b=0 i#3:WsOMsrShCsDMsm(0)CbDomo => 377kb, p=650.247611ms (max 650.247611), cycle 578.909159ms END]
+GC END!
+[GC<0x45f21a54>: epilogue Full sweep: 1333kb => 1157kb, 6.115208ms187.059386ms]
+[GC<0x45f21a54>: START M 12532kb => FullCollection, v=0kb (C:0 M:0) o=0 b=411 i#1:CsMsrShDMsm(0) 522+0 v=5141kb (C:5141 M:0) o=226 b=411 i#2:WsO 1956+0 v=5634kb (C:5634 M:0) o=274 b=411 i#3:Ws 71+0 v=5636kb (C:5636 M:0) o=274 b=411 i#4:WsOMsrShCsDMsm(0)CbDomo => 8679kb, p=1672.491010ms (max 1672.491010), cycle 1574.329096ms END]
+GC END!
+[GC<0x45f21a54>: epilogue Full sweep: 15407kb => 13695kb, 101.110972ms523.855372ms]
+[GC<0x45f21a54>: START M 14223kb => FullCollection, v=0kb (C:0 M:0) o=0 b=1071 i#1:CsMsrShDMsm(0) 509+0 v=5544kb (C:5544 M:0) o=229 b=1071 i#2:WsO 2015+0 v=6051kb (C:6051 M:0) o=279 b=1071 i#3:Ws 74+0 v=6053kb (C:6053 M:0) o=279 b=1071 i#4:WsO 3+0 v=6053kb (C:6053 M:0) o=279 b=1071 i#5:OWsMsrShCsDMsm(0)CbDomo => 9218kb, p=1327.778240ms (max 1672.491010), cycle 1225.759432ms END]
+GC END!
+[GC<0x45f21a54>: epilogue Full sweep: 14344kb => 14072kb, 16.132420ms214.920374ms]
+[GC<0x45f21a54>: START M 15152kb => FullCollection, v=0kb (C:0 M:0) o=0 b=389 i#1:CsMsrShDMsm(0) 504+0 v=6822kb (C:6822 M:0) o=232 b=389 i#2:WsO 2030+0 v=7333kb (C:7333 M:0) o=282 b=389 i#3:Ws 74+0 v=7335kb (C:7335 M:0) o=282 b=389 i#4:WsOMsrShCsDMsm(0)CbDomo => 12418kb, p=1168.636230ms (max 1672.491010), cycle 1064.130740ms END]
+GC END!
+[GC<0x45f21a54>: epilogue Full sweep: 17067kb => 16955kb, 19.704558ms412.455119ms]
+[GC<0x45f21a54>: START M 17951kb => FullCollection, v=0kb (C:0 M:0) o=0 b=91 i#1:CsMsrShDMsm(0) 504+0 v=8028kb (C:8028 M:0) o=238 b=91 i#2:WsO 2033+0 v=8546kb (C:8546 M:0) o=288 b=91 i#3:Ws 74+0 v=8549kb (C:8549 M:0) o=288 b=91 i#4:WsOMsrShCsDMsm(0)CbDomo => 14079kb, p=1139.592517ms (max 1672.491010), cycle 1041.138799ms END]
+GC END!
+[GC<0x45f21a54>: epilogue Full sweep: 18399kb => 18367kb, 10.786900ms199.692971ms]
+[GC<0x45f21a54>: START M 20993kb => FullCollection, v=0kb (C:0 M:0) o=0 b=1493 i#1:CsMsrShDMsm(0) 520+0 v=8412kb (C:8412 M:0) o=250 b=1493 i#2:WsO 2165+0 v=8953kb (C:8953 M:0) o=313 b=1493 i#3:Ws 91+0 v=8956kb (C:8956 M:0) o=313 b=1493 i#4:WsOMsrShCsDMsm(0)CbDomo => 14173kb, p=1636.383372ms (max 1672.491010), cycle 1526.308222ms END]
+GC END!
+[GC<0x45f21a54>: epilogue Full sweep: 20567kb => 18631kb, 30.022033ms526.733946ms]
+[GC<0x48df3064>: starting 329.758845ms]
+[GC<0x45f21a54>: START M 18750kb => FullCollection, v=0kb (C:0 M:0) o=0 b=861 i#1:CsMsrShDMsm(0) 518+0 v=8362kb (C:8362 M:0) o=265 b=861 i#2:WsO 2268+0 v=8916kb (C:8916 M:0) o=327 b=861 i#3:Ws 90+0 v=8919kb (C:8919 M:0) o=327 b=861 i#4:O 1+0 v=8919kb (C:8919 M:0) o=327 b=861 i#5:WsOMsrShCsDMsm(0)CbDomo => 13466kb, p=1310.300982ms (max 1672.491010), cycle 1192.138476ms END]
+GC END!
+[GC<0x45f21a54>: epilogue Full sweep: 18071kb => 17799kb, 18.860158ms226.051236ms]
+[GC<0x45f21a54>: START M 18477kb => FullCollection, v=0kb (C:0 M:0) o=0 b=772 i#1:CsMsrShDMsm(0) 529+0 v=8645kb (C:8645 M:0) o=268 b=772 i#2:WsO 2248+0 v=9196kb (C:9196 M:0) o=330 b=772 i#3:Ws 90+0 v=9199kb (C:9199 M:0) o=330 b=772 i#4:WsO 1+0 v=9200kb (C:9200 M:0) o=330 b=772 i#5:OWsMsrShCsDMsm(0)CbDomo => 14684kb, p=772.162694ms (max 1672.491010), cycle 672.065285ms END]
+GC END!
+[GC<0x45f21a54>: epilogue Full sweep: 19313kb => 19089kb, 25.769018ms221.039811ms]
+Requesting GC because bytes allocated this cycle: 18523038 exceed bytes allowed: 18517018 normal bytes: 18147956 oversized bytes: 375082 last oversized: 65600
+[GC<0x45f21a54>: START M 33893kb => FullCollection, v=0kb (C:0 M:0) o=0 b=1399 i#1:CsMsrShDMsm(0) 626+0 v=11449kb (C:11449 M:0) o=268 b=1399 i#2:WsO 5252+0 v=12103kb (C:12103 M:0) o=333 b=1399 i#3:Ws 90+0 v=12106kb (C:12106 M:0) o=333 b=1399 i#4:O 1+0 v=12106kb (C:12106 M:0) o=333 b=1399 i#5:WsOMsrShCsDMsm(0)CbDomo => 17435kb, p=1053.108423ms (max 1672.491010), cycle 997.741687ms END]
+GC END!
+[GC<0x45f21a54>: epilogue Full sweep: 33525kb => 27365kb, 29.190320ms151.023642ms]
+Requesting GC because bytes allocated this cycle: 15707596 exceed bytes allowed: 15700399 normal bytes: 15707596 oversized bytes: 0 last oversized: 0
+[GC<0x45f21a54>: START M 36160kb => FullCollection, v=0kb (C:0 M:0) o=0 b=324 i#1:CsMsrShDMsm(0) 673+0 v=13463kb (C:13463 M:0) o=269 b=324 i#2:WsO 5235+0 v=14120kb (C:14120 M:0) o=334 b=324 i#3:Ws 90+0 v=14122kb (C:14122 M:0) o=334 b=324 i#4:WsO 1+0 v=14123kb (C:14123 M:0) o=334 b=324 i#5:OWsMsrShCsDMsm(0)CbDomo => 18278kb, p=1432.207607ms (max 1672.491010), cycle 1374.696742ms END]
+GC END!
+[GC<0x45f21a54>: epilogue Full sweep: 34812kb => 28236kb, 47.101761ms355.375617ms]
+Requesting GC because bytes allocated this cycle: 14849332 exceed bytes allowed: 14836918 normal bytes: 14849332 oversized bytes: 0 last oversized: 0
+[GC<0x45f21a54>: START M 37911kb => FullCollection, v=0kb (C:0 M:0) o=0 b=27 i#1:CsMsrShDMsm(0) 668+0 v=13571kb (C:13571 M:0) o=269 b=27 i#2:WsO 5235+0 v=14226kb (C:14226 M:0) o=334 b=27 i#3:Ws 90+0 v=14229kb (C:14229 M:0) o=334 b=27 i#4:WsO 1+0 v=14229kb (C:14229 M:0) o=334 b=27 i#5:OWsMsrShCsDMsm(0)CbDomo => 17792kb, p=1520.504554ms (max 1672.491010), cycle 1407.219554ms END]
+GC END!
+[GC<0x45f21a54>: epilogue Full sweep: 37315kb => 27811kb, 16.961314ms158.462543ms]
+Requesting GC because bytes allocated this cycle: 15343144 exceed bytes allowed: 15334568 normal bytes: 15343144 oversized bytes: 0 last oversized: 0
+[GC<0x45f21a54>: START M 38202kb => FullCollection, v=0kb (C:0 M:0) o=0 b=4364 i#1:CsMsrShDMsm(0) 635+0 v=14310kb (C:14310 M:0) o=269 b=4364 i#2:WsO 5239+0 v=14966kb (C:14966 M:0) o=334 b=4364 i#3:Ws 90+0 v=14969kb (C:14969 M:0) o=334 b=4364 i#4:WsO 1+0 v=14970kb (C:14970 M:0) o=334 b=4364 i#5:OWsMsrShCsDMsm(0)CbDomo => 19023kb, p=1358.481150ms (max 1672.491010), cycle 1156.043525ms END]
+GC END!
+[GC<0x45f21a54>: epilogue Full sweep: 38690kb => 30210kb, 30.131989ms216.242657ms]
+Requesting GC because bytes allocated this cycle: 14131372 exceed bytes allowed: 14074053 normal bytes: 6038770 oversized bytes: 8092602 last oversized: 601904
+[GC<0x45f21a54>: START M 43144kb => FullCollection, v=0kb (C:0 M:0) o=0 b=308 i#1:CsMsrShDMsm(0) 722+0 v=11076kb (C:11076 M:0) o=269 b=308 i#2:WsO 5236+0 v=11732kb (C:11732 M:0) o=334 b=308 i#3:Ws 90+0 v=11735kb (C:11735 M:0) o=334 b=308 i#4:WsO 1+0 v=11735kb (C:11735 M:0) o=334 b=308 i#5:OWsMsrShCsDMsm(0)CbDomo => 15148kb, p=1144.188086ms (max 1672.491010), cycle 1041.481352ms END]
+GC END!
+[GC<0x45f21a54>: epilogue Full sweep: 37456kb => 20496kb, 30.745201ms180.318278ms]
+[GC<0x45f21a54>: START M 35867kb => FullCollection, v=0kb (C:0 M:0) o=0 b=404 i#1:CsMsrShDMsm(0) 530+0 v=8153kb (C:8153 M:0) o=269 b=404 i#2:WsO 5235+0 v=8813kb (C:8813 M:0) o=334 b=404 i#3:Ws 90+0 v=8815kb (C:8815 M:0) o=334 b=404 i#4:WsO 1+0 v=8816kb (C:8816 M:0) o=334 b=404 i#5:OWsMsrShCsDMsm(0)CbDomo => 11937kb, p=875.059735ms (max 1672.491010), cycle 782.078409ms END]
+GC END!
+[GC<0x45f21a54>: epilogue Full sweep: 24502kb => 17270kb, 14.927140ms183.282843ms]
+[GC<0x45f21a54>: START M 18290kb => FullCollection, v=0kb (C:0 M:0) o=0 b=606 i#1:CsMsrShDMsm(0) 541+0 v=8317kb (C:8317 M:0) o=272 b=606 i#2:WsO 5239+0 v=8976kb (C:8976 M:0) o=337 b=606 i#3:Ws 90+0 v=8979kb (C:8979 M:0) o=337 b=606 i#4:WsO 1+0 v=8979kb (C:8979 M:0) o=337 b=606 i#5:OWsMsrShCsDMsm(0)CbDomo => 12767kb, p=1327.124147ms (max 1672.491010), cycle 1148.253613ms END]
+GC END!
+[GC<0x45f21a54>: epilogue Full sweep: 18832kb => 18080kb, 16.030923ms293.978254ms]
+[GC<0x45f21a54>: START M 19488kb => FullCollection, v=0kb (C:0 M:0) o=0 b=478 i#1:CsMsrShDMsm(0) 704+0 v=8282kb (C:8282 M:0) o=273 b=478 i#2:WsO 5264+0 v=8942kb (C:8942 M:0) o=338 b=478 i#3:Ws 90+0 v=8945kb (C:8945 M:0) o=338 b=478 i#4:WsO 1+0 v=8945kb (C:8945 M:0) o=338 b=478 i#5:OWsShMsrCsDMsm(0)CbDomo => 12286kb, p=1123.811108ms (max 1672.491010), cycle 1036.178122ms END]
+GC END!
+[GC<0x45f21a54>: epilogue Full sweep: 19042kb => 17906kb, 12.954993ms138.732610ms]
+[GC<0x45f21a54>: START M 19396kb => FullCollection, v=0kb (C:0 M:0) o=0 b=954 i#1:CsMsrShDMsm(0) 538+0 v=8801kb (C:8801 M:0) o=356 b=954 i#2:WsO 5433+0 v=9484kb (C:9484 M:0) o=421 b=954 i#3:Ws 90+0 v=9487kb (C:9487 M:0) o=421 b=954 i#4:WsO 1+0 v=9487kb (C:9487 M:0) o=421 b=954 i#5:OWsMsrShCsDMsm(0)CbDomo => 13341kb, p=1421.267052ms (max 1672.491010), cycle 1338.063292ms END]
+GC END!
+[GC<0x45f21a54>: epilogue Full sweep: 19715kb => 18675kb, 26.158090ms292.522051ms]
+[GC<0x45f21a54>: START M 19978kb => FullCollection, v=0kb (C:0 M:0) o=0 b=1743 i#1:CsMsrShDMsm(0) 540+0 v=9491kb (C:9491 M:0) o=397 b=1743 i#2:WsO 5679+0 v=10232kb (C:10232 M:0) o=462 b=1743 i#3:Ws 91+0 v=10235kb (C:10235 M:0) o=462 b=1743 i#4:WsO 1+0 v=10236kb (C:10236 M:0) o=462 b=1743 i#5:OWsMsrShCsDMsm(0)CbDomo => 13603kb, p=1332.731868ms (max 1672.491010), cycle 1188.600170ms END]
+GC END!
+[GC<0x45f21a54>: epilogue Full sweep: 19282kb => 18802kb, 23.283745ms234.032865ms]
+[GC<0x48df3064>: shutdown: stopped collecting continuously, disabled collection, no collection pending, stopping the collector thread, stopped, 362.163244ms]
