@@ -764,6 +764,12 @@ static int viewMain(int argc, char **argv)
         free(pixels);
     }
     bytes = ob_webview_bytes_received(view);
+    {
+        unsigned held = 0, released = 0;
+        ob_webview_deferred_loads(&held, &released);
+        if (held)
+            printf("OBVIEW_TATA deferred=%u released=%u\n", held, released);
+    }
     if (framesMode) {
         printf("OBVIEW_FRAMES first_paint_ms=%ld frames=%ld area=%lu longest_gap_ms=%ld gap_from_ms=%ld last_frame_ms=%ld\n", framesFirst,
             framesCount, framesArea, framesGap, framesGapFrom, framesLast);

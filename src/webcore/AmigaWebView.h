@@ -76,6 +76,9 @@ public:
     void didCommitLoad(const String& url);
     void didStartLoad();
     void didFinishLoad();
+    // The loads Tata's defer rules held for this page go now (ob_tata.h): the
+    // page has painted and gone idle, or someone started on a form.
+    void releaseDeferredLoads();
     void didFailLoad(const WebCore::ResourceError&);
     void setProgress(double);
     void contentsSizeChanged(const WebCore::IntSize&);
@@ -91,6 +94,7 @@ public:
 
 private:
     void renderingUpdateTimerFired();
+    void deferTimerFired();
     void addDirtyRect(const WebCore::IntRect&);
     void callString(void (*callback)(void*, const char*), const String&);
 
@@ -100,6 +104,9 @@ private:
     RefPtr<AmigaBackForwardList> m_backForwardList;
     static constexpr unsigned maxDirtyRects = 8;
     Vector<WebCore::IntRect, maxDirtyRects> m_dirtyRects; // apart from each other
+    WebCore::Timer m_deferTimer; // releases the loads Tata's defer rules held (releaseDeferredLoads())
+    MonotonicTime m_firstPaintAt; // the page's first rendering update, for the defer rules
+    bool m_deferReleased { false };
     WebCore::Timer m_renderingUpdateTimer;
     MonotonicTime m_nextRenderingUpdate; // while a page loads, none before this
     unsigned m_renderingUpdates { 0 };

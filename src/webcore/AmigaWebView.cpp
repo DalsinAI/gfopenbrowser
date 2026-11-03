@@ -10,6 +10,7 @@
 #include "AmigaChromeClient.h"
 #include "AmigaEditorClient.h"
 #include "AmigaFrameLoaderClient.h"
+#include "AmigaLoaderStrategy.h"
 #include "AmigaSessionStorage.h"
 
 #include <WebCore/DocumentPage.h>
@@ -93,6 +94,7 @@ WTF_MAKE_TZONE_ALLOCATED_IMPL(WebView);
 WebView::WebView(const OBWebViewCallbacks& callbacks, const IntSize& size)
     : m_callbacks(callbacks)
     , m_size(size)
+    , m_deferTimer([this] { deferTimerFired(); })
     , m_renderingUpdateTimer([this] { renderingUpdateTimerFired(); })
 {
     auto configuration = pageConfigurationWithEmptyClients(std::nullopt, PAL::SessionID::defaultSessionID());
@@ -160,6 +162,7 @@ WebView::WebView(const OBWebViewCallbacks& callbacks, const IntSize& size)
 WebView::~WebView()
 {
     m_renderingUpdateTimer.stop();
+    m_deferTimer.stop();
     if (RefPtr frame = mainFrame())
         frame->loader().detachFromParent();
     m_page = nullptr;
@@ -514,6 +517,10 @@ void WebView::renderingUpdateTimerFired()
     m_page->updateRendering();
     m_page->finalizeRenderingUpdate({ });
     m_renderingUpdates++;
+    if (!m_deferReleased && !m_firstPaintAt) {
+        m_firstPaintAt = MonotonicTime::now();
+        m_deferTimer.startOneShot(1_s);
+    }
     // The next one while loading: a second from now, or twice as long as
     // this one took, so loading keeps at least two thirds of the time.
     auto end = MonotonicTime::now();
@@ -563,7 +570,35 @@ void WebView::setTitle(const String& title)
 
 void WebView::didCommitLoad(const String& url)
 {
+    // A new page: its deferred loads wait for its own first paint.
+    m_deferTimer.stop();
+    m_firstPaintAt = { };
+    m_deferReleased = false;
     callString(m_callbacks.url, url);
+}
+
+// Tata's defer rules: a second after the page's first rendering update, or
+// when no rendering update is due by then, its held loads go; while updates
+// keep coming, they wait three seconds at most from that first one.
+void WebView::deferTimerFired()
+{
+    if (m_renderingUpdateTimer.isActive() && MonotonicTime::now() - m_firstPaintAt < 3_s) {
+        m_deferTimer.startOneShot(500_ms);
+        return;
+    }
+    releaseDeferredLoads();
+}
+
+void WebView::releaseDeferredLoads()
+{
+    if (m_deferReleased)
+        return;
+    m_deferReleased = true;
+    m_deferTimer.stop();
+    if (RefPtr frame = mainFrame()) {
+        if (RefPtr document = frame->document())
+            GFOpenBrowser::releaseDeferredLoads(*document);
+    }
 }
 
 void WebView::didStartLoad()
