@@ -8,6 +8,11 @@
  * pairs: malloc() then free() at once, the same sizes for each allocator.
  * churn: a working set of [live] blocks, one freed and one allocated for
  *        each pair, so the heap fragments as a page's does.
+ * gcblocks: JavaScriptCore's 16 KB heap blocks (aligned_alloc(16384,
+ *        16384)) while the churn's blocks are live: a working set of 512
+ *        (8 MB), one freed and one allocated for each pair, [pairs]/20
+ *        pairs; the new allocator's block arenas against the large path
+ *        (libnix behind a header, 32 KB for each block) they replaced.
  * Times are timer.device's (GetSysTime), in whole microseconds; one line
  * for each allocator and test:
  *   MALLOCBENCH <allocator> <test> pairs=<n> us=<t> ns_per_pair=<t*1000/n>
@@ -95,6 +100,22 @@ static void old_free(void* p)
         __real_free((void*)((uintptr_t*)p)[-2]);
 }
 
+/* a GC block before the block arenas: the large path, libnix behind a header */
+static void* old_block(void)
+{
+    uintptr_t raw = (uintptr_t)__real_malloc(16384 + 16384 + 3 * sizeof(uintptr_t)), user;
+    if (!raw)
+        return NULL;
+    user = (raw + 3 * sizeof(uintptr_t) + 16383) & ~(uintptr_t)16383;
+    ((uint32_t*)user)[-1] = 0xA11C0DEDu;
+    ((uintptr_t*)user)[-2] = raw;
+    ((size_t*)user)[-3] = 16384;
+    return (void*)user;
+}
+
+void* aligned_alloc(size_t, size_t); /* the stove's (libnix has none) */
+static void* new_block(void) { return aligned_alloc(16384, 16384); }
+
 static const struct {
     const char* name;
     void* (*alloc)(size_t);
@@ -104,6 +125,8 @@ static const struct {
     { "old", old_malloc, old_free },
     { "libnix", __real_malloc, __real_free },
 };
+
+#define GCBLOCKS 512
 
 #define SIZES 4096
 static size_t sizes[SIZES];
@@ -194,6 +217,34 @@ int main(int argc, char** argv)
         for (i = 0; i < live; i++) {
             release(set[i]);
             set[i] = NULL;
+        }
+        /* GC blocks, with the churn's working set live beside them */
+        if (a < 2) {
+            void* (*block)(void) = a ? old_block : new_block;
+            void* blocks[GCBLOCKS];
+            unsigned long n = pairs / 20 ? pairs / 20 : 1;
+            for (i = 0; i < live; i++)
+                set[i] = alloc(sizes[rnd(&s) & (SIZES - 1)]);
+            t = now_us();
+            for (i = 0; i < GCBLOCKS; i++)
+                if (!(blocks[i] = block()))
+                    failed++;
+            for (i = 0; i < n; i++) {
+                unsigned long k = rnd(&s) % GCBLOCKS;
+                release(blocks[k]);
+                blocks[k] = block();
+                if (blocks[k])
+                    *(volatile char*)blocks[k] = 0;
+                else
+                    failed++;
+            }
+            for (i = 0; i < GCBLOCKS; i++)
+                release(blocks[i]);
+            report(allocators[a].name, "gcblocks", n + GCBLOCKS, now_us() - t);
+            for (i = 0; i < live; i++) {
+                release(set[i]);
+                set[i] = NULL;
+            }
         }
         if (failed)
             printf("MALLOCBENCH %s: %lu allocations failed\n", allocators[a].name, failed);
