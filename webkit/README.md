@@ -482,6 +482,12 @@ The patches, in order:
   Adding them is tried again on the next lookup when it was first asked
   from a plain task or the library refused. What isn't found is printed
   on stderr.
+- `0098-amiga-request-blocked-hook.patch`: `setAmigaRequestBlockedHook()`
+  (`AmigaNetwork.h`) lets the browser say whether a request goes out at
+  all. `ResourceHandle::amigaStartRequest()` asks it for every http request
+  and redirect, with the page's site; a blocked one fails as cancelled from
+  the run loop. GFOpenBrowser answers from Tata's ad and tracker rules
+  (`src/webcore/ob_tata.c`).
 
 `0001-amiga-m68k-jsconly.patch` is one combined patch. It holds:
 

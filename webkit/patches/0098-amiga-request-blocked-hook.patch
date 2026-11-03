@@ -1,0 +1,64 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: SacredTrees <121399723+SacredTrees@users.noreply.github.com>
+Date: Tue, 3 Nov 2026 20:00:00 +0000
+Subject: [PATCH] WebCore: the browser's blocker asked before a request goes out
+
+setAmigaRequestBlockedHook() (AmigaNetwork.h) lets the browser say whether
+a request goes out at all: GFOpenBrowser asks Tata's ad and tracker rules
+(src/webcore/ob_tata.c). ResourceHandle::amigaStartRequest() asks it on the
+main thread for every http request, before the cookie header and the HTTP
+cache, and again for each redirect, with the page's site (the first party)
+and the address. A blocked request fails as cancelled from the run loop,
+after start() has returned, as a load must. With no hook set nothing
+changes. The frame loader client's own check (dispatchWillSendRequest)
+still counts the page's blocked loads; this one covers every load, pings
+and workers' included.
+
+diff --git a/Source/WebCore/platform/network/amiga/AmigaNetwork.h b/Source/WebCore/platform/network/amiga/AmigaNetwork.h
+--- a/Source/WebCore/platform/network/amiga/AmigaNetwork.h
++++ b/Source/WebCore/platform/network/amiga/AmigaNetwork.h
+@@ -82,6 +82,13 @@
+ using AmigaHttpCacheHook = Function<std::unique_ptr<AmigaHttpCacheRequest>(ResourceRequest&)>;
+ WEBCORE_EXPORT void setAmigaHttpCache(AmigaHttpCacheHook&&);
+ 
++// The browser's blocker (Tata's ad and tracker rules): whether a request goes
++// out at all. Asked on the main thread for every http request, and again for
++// each redirect, with the page's site (the first party) and the address; a
++// request it blocks fails as cancelled, after start() has returned.
++using AmigaRequestBlockedHook = bool (*)(const URL& firstParty, const URL&);
++WEBCORE_EXPORT void setAmigaRequestBlockedHook(AmigaRequestBlockedHook);
++
+ // Stops the network thread, whatever it is loading; the browser calls this
+ // before it exits, as an AmigaOS program does not end while a thread runs.
+ WEBCORE_EXPORT void stopAmigaNetwork();
+diff --git a/Source/WebCore/platform/network/amiga/ResourceHandleAmiga.cpp b/Source/WebCore/platform/network/amiga/ResourceHandleAmiga.cpp
+--- a/Source/WebCore/platform/network/amiga/ResourceHandleAmiga.cpp
++++ b/Source/WebCore/platform/network/amiga/ResourceHandleAmiga.cpp
+@@ -71,6 +71,13 @@
+     httpCacheHook() = WTF::move(hook);
+ }
+ 
++static AmigaRequestBlockedHook requestBlockedHook;
++
++void setAmigaRequestBlockedHook(AmigaRequestBlockedHook hook)
++{
++    requestBlockedHook = hook;
++}
++
+ static AmigaNetworkThreadHooks networkThreadHooks;
+ 
+ void setAmigaNetworkThreadHooks(const AmigaNetworkThreadHooks& hooks)
+@@ -114,6 +121,13 @@
+ 
+ void ResourceHandle::amigaStartRequest(ResourceRequest&& request)
+ {
++    if (requestBlockedHook && requestBlockedHook(request.firstPartyForCookies(), request.url())) {
++        RunLoop::mainSingleton().dispatch([protectedThis = Ref { *this }, url = request.url()] {
++            protectedThis->amigaDidFail(ResourceError(errorDomainWebKitInternal, 0, url, "Blocked by the browser's ad and tracker rules."_s,
++                ResourceError::Type::Cancellation));
++        });
++        return;
++    }
+     appendCookieHeader(request);
+     d->m_httpCache = nullptr;
+     if (!std::exchange(d->m_skipHttpCache, false) && httpCacheHook())

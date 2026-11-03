@@ -22,7 +22,9 @@ set(OB_CORE_SOURCES
     AmigaSessionStorage.cpp
     AmigaWebView.cpp
     ob_httpcache.c
+    ob_tata.c
     ob_webview.cpp
+    tata/tata_ads.c
 )
 # Each program compiles these itself: they define symbols (library bases,
 # the stack size) that the C library also has, and an object in a program

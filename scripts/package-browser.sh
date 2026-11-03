@@ -61,7 +61,7 @@
 #                                 json.library, gfopenfont.library,
 #                                 gfopengpu.library,
 #                                 unicode.library, z.library and WebBrowser/: the engine with Fonts/,
-#                                 blocklist, Unicode/ and Network/, and
+#                                 Tata.ads, Unicode/ and Network/, and
 #                                 with a jsimage engine JavaScript/
 #                                 JavaScriptEngine),
 #                                 Classes/DataTypes/ and Devs/DataTypes/
@@ -79,7 +79,7 @@
 # (PROGDIR: of the launcher); Install keeps the engine in the drawer and
 # renames an older LIBS:WebBrowser/WebBrowserEngine. The engine reads its
 # files from its own drawer (PROGDIR: of the engine, Libs/WebBrowser):
-# Fonts/ (drawn by gfopenfont.library), blocklist, the Public Suffix List (Network/
+# Fonts/ (drawn by gfopenfont.library), Tata.ads (Tata's ad and tracker list when Tata is not installed), the Public Suffix List (Network/
 # public-suffixes, WebKit patch 0070) and ICU's data (OB_ICU_DATA=file) from
 # LOCALE:Unicode/ or else Unicode/, so the drawer carries one copy of each
 # there; the Installer also puts the ICU data in LOCALE:Unicode/.
@@ -120,7 +120,7 @@ else
 fi
 cp "$WBLIB" "$D/Libs/"
 cp "$OB_FONTS"/*.ttf "$E/Fonts/"
-cp "$HERE/src/webcore/blocklist" "$E/"
+cp "$HERE/src/webcore/Tata.ads" "$E/"
 cp "$ICU_DATA" "$E/Unicode/icudt78b.dat"
 # the Public Suffix List for cookies and sites (WebKit patch 0070), read from
 # PROGDIR:Network/public-suffixes

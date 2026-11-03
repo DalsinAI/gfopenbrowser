@@ -886,7 +886,7 @@ test_browser() {
         "$strip" -o "$OB_TEST_DIR/GFOpenBrowser.engine" "$BUILD/bin/GFOpenBrowser.engine"
     fi
     cp "$ROOT"/tests/pages/*.html "$OB_TEST_DIR/pages/"
-    cp "$ROOT/src/webcore/blocklist" "$OB_TEST_DIR/"
+    cp "$ROOT/src/webcore/Tata.ads" "$OB_TEST_DIR/"
     if [ "$(cache_value OB_ICU_DATA)" != linked ]; then
         mkdir -p "$OB_TEST_DIR/Unicode"
         cp "$(icu_data_file)" "$OB_TEST_DIR/Unicode/"
