@@ -16,6 +16,7 @@ bytecode instruction.
 | `stitch.h` | The stitcher's core: copy a template, fill its holes |
 | `check_templates.py` | Checks an assembled set: no PC-relative reference leaves a template, every hole is where its table says |
 | `test/run_qemu_test.sh` | Stitches real `op_mov` templates and runs them under `qemu-m68k -cpu m68040` |
+| `test/bitops/run.sh` | Patch 0101's bit operation code (int32, float path, slow path) under `qemu-m68k -cpu m68040`, checked against ToInt32 |
 
 ## How a template differs from its handler
 
