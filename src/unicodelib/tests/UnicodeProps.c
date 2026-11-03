@@ -15,6 +15,11 @@
 #include <string.h>
 #include <time.h>
 
+#ifdef __amigaos__
+#include <dos/dos.h>
+#include <proto/dos.h>
+#endif
+
 #include <unicode/uchar.h>
 #include <unicode/uscript.h>
 #include <unicode/ustring.h>
@@ -71,6 +76,26 @@ static const char *const locales[] = { "", "tr", "az", "lt", "nl", "en_US", 0 };
 static const UChar32 context[] = { 0x41, 0x61, 0x49, 0x69, 0x4A, 0x12E, 0xCC, 0x130, 0x131, 0x307, 0x300,
                                    0x323, 0x345, 0x3A3, 0x3C3, 0x391, 0x27, 0xAD, 0x20, 0xDF, 0x1F80, 0x10400, 0 };
 
+/* seconds since the first call: clock() needs timer.device, which vamos
+   (the CI's emulator) does not give; DateStamp is enough for this */
+static double seconds(void)
+{
+#ifdef __amigaos__
+    static struct DateStamp t0;
+    struct DateStamp t;
+    if (!t0.ds_Days && !t0.ds_Minute && !t0.ds_Tick)
+        DateStamp(&t0);
+    DateStamp(&t);
+    return (t.ds_Days - t0.ds_Days) * 86400.0 + (t.ds_Minute - t0.ds_Minute) * 60.0 +
+           (t.ds_Tick - t0.ds_Tick) / (double)TICKS_PER_SECOND;
+#else
+    static clock_t t0 = -1;
+    if (t0 == (clock_t)-1)
+        t0 = clock();
+    return (double)(clock() - t0) / CLOCKS_PER_SEC;
+#endif
+}
+
 int main(void)
 {
     static const UProperty ints[] = { UCHAR_BIDI_CLASS, UCHAR_BLOCK, UCHAR_CANONICAL_COMBINING_CLASS,
@@ -80,11 +105,11 @@ int main(void)
         USCRIPT_CYRILLIC, USCRIPT_ARABIC, USCRIPT_HEBREW, USCRIPT_HAN, USCRIPT_HIRAGANA, USCRIPT_KATAKANA,
         USCRIPT_HANGUL, USCRIPT_DEVANAGARI, USCRIPT_BENGALI, USCRIPT_THAI, USCRIPT_SYRIAC, USCRIPT_THAANA,
         USCRIPT_COPTIC, USCRIPT_GEORGIAN, USCRIPT_UNKNOWN, USCRIPT_BOPOMOFO };
-    clock_t t0 = clock();
     UChar32 c;
     unsigned i;
     int p, l;
 
+    seconds();
     printf("UnicodeProps: ICU %s interface, Unicode %s\n", U_ICU_VERSION, U_UNICODE_VERSION);
     group("chars");
     for (c = -2; c <= 0x110001; c++) {
@@ -192,6 +217,6 @@ int main(void)
             mix(u_countChar32(s, p));
     }
     done("misc");
-    printf("UPROPS_END %.2f\n", (double)(clock() - t0) / CLOCKS_PER_SEC);
+    printf("UPROPS_END %.2f\n", seconds());
     return 0;
 }
