@@ -13,6 +13,7 @@
 #include "AmigaPlatformStrategies.h"
 #include "AmigaWebView.h"
 #include "ob_network.h"
+#include "ob_tata.h"
 #if OB_ICU_DATA_FILE
 #include "ob_icudata.h"
 #endif
@@ -158,6 +159,17 @@ int ob_webcore_init_with_network(const char* cookieDatabase)
     };
     setAmigaCookieHooks(WTF::move(cookieHooks));
 
+    // Tata's ad and tracker rules (ob_tata.h) for every request (WebKit patch 0098).
+    setAmigaRequestBlockedHook([](const URL& firstParty, const URL& url) {
+        if (!url.protocolIsInHTTPFamily())
+            return false;
+        auto host = url.host().toString().convertToASCIILowercase().utf8();
+        auto path = url.path().toString().utf8();
+        auto site = firstParty.host().toString().convertToASCIILowercase().utf8();
+        return !!ob_tata_blocked(reinterpret_cast<const char*>(host.data()), reinterpret_cast<const char*>(path.data()),
+            reinterpret_cast<const char*>(site.data()));
+    });
+
     // Pages seen before load their files from the disk (ob_httpcache.h:
     // ENV:OB_HTTP_CACHE=0 turns this off).
     GFOpenBrowser::initializeHttpCache("PROGDIR:Cache");
@@ -273,6 +285,16 @@ void ob_webview_resize(OBWebView* handle, int width, int height)
 void ob_webview_paint(OBWebView* handle, unsigned char* argb, int stride, int x, int y, int width, int height)
 {
     handle->view->paint(argb, stride, IntRect(x, y, width, height));
+}
+
+void ob_webview_deferred_loads(unsigned* held, unsigned* released)
+{
+    unsigned h = 0, r = 0;
+    GFOpenBrowser::deferredLoadCounts(h, r);
+    if (held)
+        *held = h;
+    if (released)
+        *released = r;
 }
 
 unsigned long ob_webview_bytes_received(OBWebView* handle)

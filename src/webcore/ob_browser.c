@@ -38,6 +38,7 @@
 
 #include "ob_blit.h"
 #include "ob_webview.h"
+#include "ob_tata.h"
 #include "ob_splash.h"
 
 /* TLS sessions kept from the last run (ob_webview_load_tls_sessions). */
@@ -99,7 +100,8 @@ static int benchDue;
  * WEBFONTS=YES and LITE=YES). */
 static int scriptsOn = 1, picturesOn = 1, webFontsOn = 0, liteOn = 0;
 static struct Menu *menuStrip;
-enum { MENU_RELOAD = 1, MENU_QUIT, MENU_SCRIPTS, MENU_PICTURES, MENU_WEBFONTS, MENU_LITE };
+static char pageHost[256];     /* the page's host, for "Don't block ads on this site" (ob_tata.h) */
+enum { MENU_RELOAD = 1, MENU_QUIT, MENU_SCRIPTS, MENU_PICTURES, MENU_WEBFONTS, MENU_LITE, MENU_TATA_ALLOW };
 
 /* --- text: WebCore speaks UTF-8, Amiga gadgets Latin-1 ----------------------- */
 
@@ -438,6 +440,50 @@ static void onTitle(void *context, const char *title)
         SetWindowTitles(window, (UBYTE *)titleText, (UBYTE *)-1);
 }
 
+/* "Don't block ads on this site" ticked when Tata's rules allow the page's site */
+static void updateTataItem(void)
+{
+    struct MenuItem *item;
+    struct Menu *menu;
+    if (!menuStrip || !window)
+        return;
+    for (menu = menuStrip; menu; menu = menu->NextMenu) {
+        for (item = menu->FirstItem; item; item = item->NextItem) {
+            if ((ULONG)GTMENUITEM_USERDATA(item) != MENU_TATA_ALLOW)
+                continue;
+            ClearMenuStrip(window);
+            if (pageHost[0] && ob_tata_site_allowed(pageHost))
+                item->Flags |= CHECKED;
+            else
+                item->Flags &= ~CHECKED;
+            if (pageHost[0])
+                item->Flags |= ITEMENABLED;
+            else
+                item->Flags &= ~ITEMENABLED;
+            ResetMenuStrip(window, menuStrip);
+            return;
+        }
+    }
+}
+
+/* the host of an http or https address, in lower case; "" for any other */
+static void hostOf(const char *url, char *host, int size)
+{
+    const char *p = strstr(url, "://"), *q;
+    int n = 0;
+    host[0] = 0;
+    if (!p || (strncmp(url, "http", 4) != 0))
+        return;
+    p += 3;
+    if ((q = strchr(p, '@')) && q < p + strcspn(p, "/?#"))
+        p = q + 1;
+    while (*p && *p != '/' && *p != ':' && *p != '?' && *p != '#' && n < size - 1) {
+        char c = *p++;
+        host[n++] = c >= 'A' && c <= 'Z' ? (char)(c + 32) : c;
+    }
+    host[n] = 0;
+}
+
 static void onURL(void *context, const char *url)
 {
     char latin1[sizeof urlText];
@@ -445,6 +491,8 @@ static void onURL(void *context, const char *url)
     utf8ToLatin1(url, latin1, sizeof latin1);
     setURLGadget(latin1);
     updateButtons();
+    hostOf(url, pageHost, sizeof pageHost);
+    updateTataItem();
 }
 
 static void onStatus(void *context, const char *text)
@@ -688,11 +736,14 @@ static void makeMenus(void)
         { NM_ITEM, (STRPTR)"Pictures", (STRPTR)"P", CHECKIT | MENUTOGGLE | (picturesOn ? CHECKED : 0), 0, (APTR)MENU_PICTURES },
         { NM_ITEM, (STRPTR)"Web fonts", (STRPTR)"F", CHECKIT | MENUTOGGLE | (webFontsOn ? CHECKED : 0), 0, (APTR)MENU_WEBFONTS },
         { NM_ITEM, (STRPTR)"Lite (mobile pages)", (STRPTR)"L", CHECKIT | MENUTOGGLE | (liteOn ? CHECKED : 0), 0, (APTR)MENU_LITE },
+        { NM_ITEM, NM_BARLABEL, NULL, 0, 0, NULL },
+        { NM_ITEM, (STRPTR)"Don't block ads on this site", (STRPTR)"B", CHECKIT | MENUTOGGLE | NM_ITEMDISABLED, 0, (APTR)MENU_TATA_ALLOW },
         { NM_END, NULL, NULL, 0, 0, NULL }
     };
     menuStrip = CreateMenus(menus, TAG_DONE);
     if (menuStrip && LayoutMenus(menuStrip, visualInfo, GTMN_NewLookMenus, TRUE, TAG_DONE))
         SetMenuStrip(window, menuStrip);
+    updateTataItem();
 }
 
 static void handleMenu(UWORD code)
@@ -728,6 +779,21 @@ static void handleMenu(UWORD code)
             ob_webview_set_lite(view, liteOn);
             setStatus(liteOn ? "Lite: sites send their mobile pages (Reload to apply)." : "Lite off (Reload to apply).");
             break;
+        case MENU_TATA_ALLOW: {
+            /* Tata's per-site switch: an allow rule in ENVARC:Tata/Ads, which Tata's window shows too */
+            int allow = (item->Flags & CHECKED) != 0;
+            char text[300];
+            if (!pageHost[0])
+                break;
+            if (ob_tata_allow_site(pageHost, allow))
+                snprintf(text, sizeof text, allow ? "Ads and trackers are no longer blocked on %s (Reload to apply)."
+                                                  : "Ads and trackers are blocked on %s again (Reload to apply).", pageHost);
+            else
+                snprintf(text, sizeof text, "Couldn't write ENVARC:Tata/Ads for %s.", pageHost);
+            setStatus(text);
+            updateTataItem();
+            break;
+        }
         }
         code = item->NextSelect;
     }
