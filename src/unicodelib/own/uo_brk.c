@@ -337,8 +337,8 @@ static inline int word_pair(const struct uo_bi *b, const struct uo_brk *pr, cons
     v = wb_pairs[pr->wb][cr->wb];
     if (v == WB_SLOW)
         return word_rules(b, i);
-    if (v == NOBRK && pr->wb == UO_WB_OTHER && cr->wb == UO_WB_OTHER)
-        return word_rules(b, i);        /* Hangul syllables are Other here */
+    if (pr->wb == UO_WB_OTHER && cr->wb == UO_WB_OTHER)
+        return word_rules(b, i);        /* Hangul syllables are Other here, and join */
     return v;
 }
 
