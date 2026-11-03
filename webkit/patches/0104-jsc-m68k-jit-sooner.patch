@@ -1,4 +1,4 @@
-From ec1534062c4f5cfa6a22170e24e59acb967ea7eb Mon Sep 17 00:00:00 2001
+From 1c02cc999c7a6c106b5f167bd65ad4414aaa16ff Mon Sep 17 00:00:00 2001
 From: SacredTrees <121399723+SacredTrees@users.noreply.github.com>
 Date: Tue, 3 Nov 2026 21:25:44 +0000
 Subject: [PATCH] JavaScriptCore: the 68k template JIT sooner, and once more
@@ -115,7 +115,7 @@ index 9333b282..525c17de 100644
      
      if (std::optional<uint32_t> index = subscript.tryGetAsUint32Index()) {
 diff --git a/Source/JavaScriptCore/llint/M68KTemplateJIT.cpp b/Source/JavaScriptCore/llint/M68KTemplateJIT.cpp
-index 7a2dec8c..34924904 100644
+index 7a2dec8c..993c3280 100644
 --- a/Source/JavaScriptCore/llint/M68KTemplateJIT.cpp
 +++ b/Source/JavaScriptCore/llint/M68KTemplateJIT.cpp
 @@ -61,6 +61,10 @@
@@ -308,7 +308,7 @@ index 7a2dec8c..34924904 100644
 +        }
 +        if (!recompile && Options::useM68KTemplateJITRecompile() && !fastPaths.watches().isEmpty()) {
 +            if (!state)
-+                state = states().add(codeBlock, makeUnique<State>()).iterator->value.get();
++                state = states().add(codeBlock, std::make_unique<State>()).iterator->value.get();
 +            state->watches = fastPaths.watches();
 +            if (countStatistics()) {
 +                ++statistics.watchedCompiles;
