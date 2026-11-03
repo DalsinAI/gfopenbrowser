@@ -357,15 +357,11 @@ static void compareLastFrame(const unsigned char *pixels, size_t count, const ch
         char name[256];
         const char *dot = strrchr(png, '.');
         size_t stem = dot ? (size_t)(dot - png) : strlen(png);
-        cairo_surface_t *surface;
         if (stem > sizeof(name) - 16)
             stem = sizeof(name) - 16;
         memcpy(name, png, stem);
         strcpy(name + stem, "-frame.png");
-        surface = cairo_image_surface_create_for_data(framePixels, CAIRO_FORMAT_ARGB32, frameWidth, (int)(count / frameWidth),
-            frameWidth * 4);
-        printf("OBVIEW_PNG %s %s\n", name, cairo_status_to_string(cairo_surface_write_to_png(surface, name)));
-        cairo_surface_destroy(surface);
+        printf("OBVIEW_PNG %s %s\n", name, writePng(name, framePixels, frameWidth, (int)(count / frameWidth)));
     }
 }
 
