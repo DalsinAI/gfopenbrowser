@@ -132,7 +132,8 @@ private:
         }
         // Also called again for each redirect, with the new address.
         auto url = request.url().string();
-        m_requestURLs.set(identifier, url);
+        if (m_requestURLs.set(identifier, url).isNewEntry)
+            m_view.requestOpened();
         m_view.resourceStarted(url);
     }
     void dispatchDidReceiveAuthenticationChallenge(DocumentLoader*, ResourceLoaderIdentifier, const AuthenticationChallenge& challenge) final
@@ -147,10 +148,14 @@ private:
     void dispatchDidReceiveContentLength(DocumentLoader*, ResourceLoaderIdentifier, int length) final { m_view.addBytesReceived(length); }
     void dispatchDidFinishLoading(DocumentLoader*, ResourceLoaderIdentifier identifier) final
     {
+        if (m_requestURLs.contains(identifier))
+            m_view.requestClosed();
         m_view.resourceEnded(m_requestURLs.take(identifier), { });
     }
     void dispatchDidFailLoading(DocumentLoader*, ResourceLoaderIdentifier identifier, const ResourceError& error) final
     {
+        if (m_requestURLs.contains(identifier))
+            m_view.requestClosed();
         m_view.resourceEnded(m_requestURLs.take(identifier), error.localizedDescription().isEmpty() ? "failed"_s : error.localizedDescription());
     }
     bool dispatchDidLoadResourceFromMemoryCache(DocumentLoader*, const ResourceRequest&, const ResourceResponse&, int) final { return false; }

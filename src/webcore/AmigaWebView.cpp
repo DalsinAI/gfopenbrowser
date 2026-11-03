@@ -574,15 +574,19 @@ void WebView::didCommitLoad(const String& url)
     m_deferTimer.stop();
     m_firstPaintAt = { };
     m_deferReleased = false;
+    m_openRequests = 0;
     callString(m_callbacks.url, url);
 }
 
-// Tata's defer rules: a second after the page's first rendering update, or
-// when no rendering update is due by then, its held loads go; while updates
-// keep coming, they wait three seconds at most from that first one.
+// Tata's defer rules: once the page has painted, its held loads go when the
+// network has been idle for a second (none of the page's other requests open
+// and none started or ended), or ten seconds after that first paint at
+// most. Not at the load event: a held script would keep it from coming.
 void WebView::deferTimerFired()
 {
-    if (m_renderingUpdateTimer.isActive() && MonotonicTime::now() - m_firstPaintAt < 3_s) {
+    auto now = MonotonicTime::now();
+    bool busy = m_openRequests > 0 || now - m_lastRequestChange < 1_s;
+    if (busy && now - m_firstPaintAt < 10_s) {
         m_deferTimer.startOneShot(500_ms);
         return;
     }
@@ -677,6 +681,19 @@ void WebView::consoleMessage(const String& message, unsigned line, const String&
     CString utf8Message = message.utf8();
     CString utf8Source = source.utf8();
     m_callbacks.console(m_callbacks.context, cString(utf8Message), static_cast<int>(line), cString(utf8Source));
+}
+
+void WebView::requestOpened()
+{
+    m_openRequests++;
+    m_lastRequestChange = MonotonicTime::now();
+}
+
+void WebView::requestClosed()
+{
+    if (m_openRequests > 0)
+        m_openRequests--;
+    m_lastRequestChange = MonotonicTime::now();
 }
 
 void WebView::resourceStarted(const String& url)

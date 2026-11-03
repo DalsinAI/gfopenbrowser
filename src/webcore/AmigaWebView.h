@@ -87,6 +87,10 @@ public:
     bool runPrompt(const String& message, const String& defaultValue, String& result);
     void consoleMessage(const String& message, unsigned line, const String& source);
     void resourceStarted(const String& url);
+    // A request of the page opened or closed (once each, redirects or not):
+    // the network's idleness, for Tata's defer rules.
+    void requestOpened();
+    void requestClosed();
     void resourceEnded(const String& url, const String& error);
     // Bytes the page's requests have received so far (ob_webview_bytes_received).
     void addBytesReceived(int bytes) { if (bytes > 0) m_bytesReceived += static_cast<unsigned>(bytes); }
@@ -106,6 +110,8 @@ private:
     Vector<WebCore::IntRect, maxDirtyRects> m_dirtyRects; // apart from each other
     WebCore::Timer m_deferTimer; // releases the loads Tata's defer rules held (releaseDeferredLoads())
     MonotonicTime m_firstPaintAt; // the page's first rendering update, for the defer rules
+    MonotonicTime m_lastRequestChange; // a request started or ended, for the defer rules
+    int m_openRequests { 0 };
     bool m_deferReleased { false };
     WebCore::Timer m_renderingUpdateTimer;
     MonotonicTime m_nextRenderingUpdate; // while a page loads, none before this
