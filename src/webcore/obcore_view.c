@@ -10,6 +10,10 @@
  *                         the second time with caches warm), report the
  *                         commands and timings, and save the replayed
  *                         picture as page-dl.png beside page.png
+ *   obcore-view -frames ...  also paint as a window does while the page runs
+ *                         (what changed, at each rendering update and after
+ *                         each turn of the run loop): OBVIEW_FRAME per paint,
+ *                         OBVIEW_FRAMES at the end, see paintFrame()
  *   obcore-view -text ...  also print the page's text (OBVIEW_TEXT, cut
  *                         to 2000 bytes), for pages that show a score
  *   obcore-view -wait N ...    run the page for at most N seconds (120)
@@ -273,6 +277,82 @@ static void benchReport(unsigned long bytes)
     fflush(stdout);
 }
 
+/* -frames: paint as GFOpenBrowser's window does (ob_browser.c paintDirty()):
+ * the areas ob_webview_dirty_rects() gives out, laid out, at each rendering
+ * update and after each turn of the run loop, into a buffer of the view's
+ * size. Each paint prints OBVIEW_FRAME; OBVIEW_FRAMES at the end has the
+ * first paint after the commit (what a window shows first) and the longest
+ * time between two paints while the page ran. */
+static int framesMode;
+static OBWebView *framesView;
+static unsigned char *framePixels;
+static int frameWidth;
+static long framesFirst = -1, framesLast = -1, framesGap = -1, framesGapFrom = -1, framesCount;
+static unsigned long framesArea;
+
+static void paintFrame(void)
+{
+    int rects[8 * 4], n, i;
+    unsigned long area = 0;
+    long now;
+    if (!framesView || !framePixels)
+        return;
+    n = ob_webview_dirty_rects(framesView, rects, 8);
+    for (i = 0; i < n; i++) {
+        if (!ob_webview_paint_laid_out(framesView, framePixels, frameWidth * 4, rects[i * 4], rects[i * 4 + 1], rects[i * 4 + 2],
+                rects[i * 4 + 3]))
+            continue;
+        area += (unsigned long)rects[i * 4 + 2] * rects[i * 4 + 3];
+    }
+    if (!area)
+        return;
+    now = benchNow();
+    framesCount++;
+    framesArea += area;
+    if (benchCommit >= 0 && framesFirst < 0)
+        framesFirst = now;
+    if (framesLast >= 0 && now - framesLast > framesGap) {
+        framesGap = now - framesLast;
+        framesGapFrom = framesLast;
+    }
+    framesLast = now;
+    printf("OBVIEW_FRAME ms=%ld rects=%d area=%lu\n", now, n, area);
+}
+
+/* -frames at the end: how far the window's last paint (what it showed while
+ * the page ran on) differs from the page painted now, and, with a PNG name,
+ * the last paint beside it as <name>-frame.png. */
+static void compareLastFrame(const unsigned char *pixels, size_t count, const char *png)
+{
+    const unsigned *now = (const unsigned *)pixels, *shown = (const unsigned *)framePixels;
+    size_t i, differing = 0;
+    for (i = 0; i < count; i++)
+        if (now[i] != shown[i])
+            differing++;
+    printf("OBVIEW_FRAMES_DIFF %lu of %lu pixels differ from the last frame (at %ld ms)\n", (unsigned long)differing,
+        (unsigned long)count, framesLast);
+    if (png) {
+        char name[256];
+        const char *dot = strrchr(png, '.');
+        size_t stem = dot ? (size_t)(dot - png) : strlen(png);
+        cairo_surface_t *surface;
+        if (stem > sizeof(name) - 16)
+            stem = sizeof(name) - 16;
+        memcpy(name, png, stem);
+        strcpy(name + stem, "-frame.png");
+        surface = cairo_image_surface_create_for_data(framePixels, CAIRO_FORMAT_ARGB32, frameWidth, (int)(count / frameWidth),
+            frameWidth * 4);
+        printf("OBVIEW_PNG %s %s\n", name, cairo_status_to_string(cairo_surface_write_to_png(surface, name)));
+        cairo_surface_destroy(surface);
+    }
+}
+
+static void onRendered(void *context)
+{
+    (void)context;
+    paintFrame();
+}
+
 static void onInvalidate(void *context, int x, int y, int w, int h)
 {
     (void)context; (void)x; (void)y; (void)w; (void)h;
@@ -416,6 +496,8 @@ static void run(double seconds)
     while (difftime(time(NULL), start) < seconds) {
         double next;
         ob_webcore_cycle();
+        if (framesMode)
+            paintFrame();
         heartbeat++;
         benchSample(0);
         next = ob_webcore_next_timer();
@@ -571,12 +653,16 @@ static int viewMain(int argc, char **argv)
         showText = 1;
         argi++;
     }
+    if (argc > argi && !strcmp(argv[argi], "-frames")) {
+        framesMode = 1;
+        argi++;
+    }
     if (argc > argi && !strcmp(argv[argi], "-url")) {
         isURL = 1;
         argi++;
     }
     if (argc <= argi) {
-        printf("usage: obcore-view [-wait seconds] [-settle seconds] [-tls file] [-input] [-dl] [-text] [-url] <file.html|address> [width height] [page.png]\n");
+        printf("usage: obcore-view [-wait seconds] [-settle seconds] [-tls file] [-input] [-dl] [-text] [-frames] [-url] <file.html|address> [width height] [page.png]\n");
         return 10;
     }
     source = argv[argi++];
@@ -614,7 +700,13 @@ static int viewMain(int argc, char **argv)
     callbacks.alert = onAlert;
     callbacks.console = onConsole;
     callbacks.resource = onResource;
+    if (framesMode) {
+        callbacks.rendered = onRendered;
+        frameWidth = width;
+        framePixels = calloc((size_t)width * height, 4);
+    }
     view = ob_webview_create(width, height, &callbacks);
+    framesView = view;
     printf("OBVIEW_CREATED %dx%d after %lds\n", width, height, (long)(time(NULL) - startTime));
     fflush(stdout);
 
@@ -667,9 +759,18 @@ static int viewMain(int argc, char **argv)
             printf("OBVIEW_PNG %s %s\n", png, cairo_status_to_string(status));
             cairo_surface_destroy(surface);
         }
+        if (framesMode && framePixels)
+            compareLastFrame(pixels, (size_t)width * height, png);
         free(pixels);
     }
     bytes = ob_webview_bytes_received(view);
+    if (framesMode) {
+        printf("OBVIEW_FRAMES first_paint_ms=%ld frames=%ld area=%lu longest_gap_ms=%ld gap_from_ms=%ld last_frame_ms=%ld\n", framesFirst,
+            framesCount, framesArea, framesGap, framesGapFrom, framesLast);
+        framesView = NULL;
+        free(framePixels);
+        framePixels = NULL;
+    }
     ob_webview_destroy(view);
     if (isURL && tlsFile)
         ob_webview_save_tls_sessions(tlsFile);
