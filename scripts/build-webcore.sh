@@ -878,6 +878,9 @@ test_browser() {
     strip="$GCC16/prefix/bin/m68k-amigaos-strip"
     mkdir -p "$OB_TEST_DIR/pages" "$OB_TEST_DIR/Fonts"
     cp "$@" "$OB_TEST_DIR/Fonts/"
+    # the CJK font, fetched at build time (scripts/fetch-cjk-font.sh)
+    cjk_font=$("$ROOT/scripts/fetch-cjk-font.sh")
+    cp "$cjk_font" "$(dirname "$cjk_font")/DroidSansFallback.NOTICE" "$OB_TEST_DIR/Fonts/"
     for program in obcore-view obcore-dump; do
         "$strip" -o "$OB_TEST_DIR/$program" "$BUILD/bin/$program"
     done

@@ -79,7 +79,8 @@
 # (PROGDIR: of the launcher); Install keeps the engine in the drawer and
 # renames an older LIBS:WebBrowser/WebBrowserEngine. The engine reads its
 # files from its own drawer (PROGDIR: of the engine, Libs/WebBrowser):
-# Fonts/ (drawn by gfopenfont.library), Tata.ads (Tata's ad and tracker list when Tata is not installed), the Public Suffix List (Network/
+# Fonts/ (drawn by gfopenfont.library; the CJK one fetched by
+# scripts/fetch-cjk-font.sh), Tata.ads (Tata's ad and tracker list when Tata is not installed), the Public Suffix List (Network/
 # public-suffixes, WebKit patch 0070) and ICU's data (OB_ICU_DATA=file) from
 # LOCALE:Unicode/ or else Unicode/, so the drawer carries one copy of each
 # there; the Installer also puts the ICU data in LOCALE:Unicode/.
@@ -120,6 +121,10 @@ else
 fi
 cp "$WBLIB" "$D/Libs/"
 cp "$OB_FONTS"/*.ttf "$E/Fonts/"
+# the CJK font, fetched at build time (scripts/fetch-cjk-font.sh), and its
+# licence beside it
+CJK_FONT=$("$HERE/scripts/fetch-cjk-font.sh")
+cp "$CJK_FONT" "$(dirname "$CJK_FONT")/DroidSansFallback.NOTICE" "$E/Fonts/"
 cp "$HERE/src/webcore/Tata.ads" "$E/"
 cp "$ICU_DATA" "$E/Unicode/icudt78b.dat"
 # the Public Suffix List for cookies and sites (WebKit patch 0070), read from
