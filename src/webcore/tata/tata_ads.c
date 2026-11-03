@@ -1,4 +1,4 @@
-/* A copy of DalsinAI/gfopentata's src/tata_ads.c (Tata 0.6.0, aeba9f0): change it there first. */
+/* A copy of DalsinAI/gfopentata's src/tata_ads.c (Tata 0.6.1, 51e1fc9): change it there first. */
 /* Tata's ad and tracker rules (tata_ads.h): a hash of host names, each with
  * what its lines say (block it, block some of its paths, pass it, allow its
  * pages), looked up for a name and each name it is under. Plain C, no Amiga
@@ -8,10 +8,11 @@
 #include <string.h>
 #include "tata_ads.h"
 
-enum { BLOCK = 1, BLOCK_PATHS = 2, PASS = 4, ALLOW = 8 };
+enum { BLOCK = 1, BLOCK_PATHS = 2, PASS = 4, ALLOW = 8, DEFER = 16, DEFER_PATHS = 32 };
 
 struct ads_path {
     struct ads_path *next;
+    unsigned char kind;         /* BLOCK or DEFER */
     char path[1];               /* from its "/", as long as it is */
 };
 
@@ -33,7 +34,7 @@ struct tata_ads {
     tata_ads_release release;
     struct ads_entry *table;
     unsigned long slots, used;  /* slots: a power of two */
-    unsigned long blocks, passes, allows;
+    unsigned long blocks, passes, allows, defers;
     struct ads_chunk *chunks;   /* the names and paths */
 };
 
@@ -185,7 +186,8 @@ static const char *parse(const char *line, unsigned long len, int *verb, const c
     if (wn == 5 && same(w, "block", 5)) *verb = BLOCK;
     else if (wn == 4 && same(w, "pass", 4)) *verb = PASS;
     else if (wn == 5 && same(w, "allow", 5)) *verb = ALLOW;
-    else return "A rule starts with block, pass or allow.";
+    else if (wn == 5 && same(w, "defer", 5)) *verb = DEFER;
+    else return "A rule starts with block, defer, pass or allow.";
     while (p < end && is_space(*p)) p++;
     for (*host = p; p < end && host_char(*p); p++) {
     }
@@ -193,7 +195,7 @@ static const char *parse(const char *line, unsigned long len, int *verb, const c
     while (*hn && (*host)[*hn - 1] == '.') (*hn)--;
     if (!*hn || **host == '.') return "A rule names a host, such as doubleclick.net.";
     if (p < end && *p == '/') {
-        if (*verb != BLOCK) return "Only a block rule can have a path.";
+        if (*verb != BLOCK && *verb != DEFER) return "Only a block or defer rule can have a path.";
         for (*path = p; p < end && !is_space(*p); p++) {
         }
         *pn = (unsigned long)(p - *path);
@@ -225,19 +227,22 @@ long tata_ads_add_text(tata_ads *ads, const char *text, long len)
         struct ads_entry *e;
         if (n <= TATA_ADS_MAX_LINE && !parse(p, n, &verb, &host, &hn, &path, &pn) && verb) {
             if (!(e = entry(ads, host, hn))) return -1;
-            if (verb == BLOCK && path && pn > 1) {
+            if ((verb == BLOCK || verb == DEFER) && path && pn > 1) {
                 struct ads_path *ap = ads->alloc(sizeof *ap + pn);
                 if (!ap) return -1;
                 memcpy(ap->path, path, pn);
                 ap->path[pn] = 0;
+                ap->kind = (unsigned char)verb;
                 ap->next = e->paths;
                 e->paths = ap;
-                if (!(e->kinds & BLOCK_PATHS)) e->kinds |= BLOCK_PATHS;
-                ads->blocks++;
+                e->kinds |= verb == BLOCK ? BLOCK_PATHS : DEFER_PATHS;
+                if (verb == BLOCK) ads->blocks++;
+                else ads->defers++;
             } else {
                 if (!(e->kinds & verb)) {
                     if (verb == BLOCK) ads->blocks++;
                     else if (verb == PASS) ads->passes++;
+                    else if (verb == DEFER) ads->defers++;
                     else ads->allows++;
                 }
                 e->kinds |= (unsigned char)verb;
@@ -268,26 +273,46 @@ int tata_ads_allowed(const tata_ads *ads, const char *site)
     return ads && site && *site && under(ads, site, ALLOW) != 0;
 }
 
-int tata_ads_blocked(const tata_ads *ads, const char *host, const char *path, const char *site)
+/* Whether host (or a name it is under) has a whole-host rule of kind, or a
+ * path rule of kind (in paths) that path starts with. */
+static int matches(const tata_ads *ads, const char *host, const char *path, int kind, int paths)
 {
     const char *h;
-    if (!ads || !host || !*host) return 0;
-    if (site && *site && under(ads, site, ALLOW)) return 0;
-    if (under(ads, host, PASS)) return 0;
-    if (under(ads, host, BLOCK)) return 1;
+    if (under(ads, host, kind)) return 1;
     if (!path || !*path) path = "/";
     for (h = host; h && *h;) {
         unsigned long n = (unsigned long)strlen(h);
         const struct ads_entry *e = find(ads, h, n, hash_of(h, n));
-        if (e && (e->kinds & BLOCK_PATHS)) {
+        if (e && (e->kinds & paths)) {
             const struct ads_path *ap;
             for (ap = e->paths; ap; ap = ap->next)
-                if (!strncmp(path, ap->path, strlen(ap->path))) return 1;
+                if (ap->kind == kind && !strncmp(path, ap->path, strlen(ap->path))) return 1;
         }
         h = strchr(h, '.');
         if (h) h++;
     }
     return 0;
+}
+
+int tata_ads_blocked(const tata_ads *ads, const char *host, const char *path, const char *site)
+{
+    if (!ads || !host || !*host) return 0;
+    if (site && *site && under(ads, site, ALLOW)) return 0;
+    if (under(ads, host, PASS)) return 0;
+    return matches(ads, host, path, BLOCK, BLOCK_PATHS);
+}
+
+int tata_ads_deferred(const tata_ads *ads, const char *host, const char *path, const char *site)
+{
+    if (!ads || !host || !*host) return 0;
+    if (site && *site && under(ads, site, ALLOW)) return 0;
+    if (under(ads, host, PASS)) return 0;
+    return matches(ads, host, path, DEFER, DEFER_PATHS);
+}
+
+unsigned long tata_ads_defers(const tata_ads *ads)
+{
+    return ads ? ads->defers : 0;
 }
 
 long tata_ads_edit(const char *text, long len, const char *verb, const char *target, char *out, long size)
