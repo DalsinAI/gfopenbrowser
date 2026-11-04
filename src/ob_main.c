@@ -51,7 +51,7 @@ struct Library *WebLayoutBase = NULL;
 
 struct Library *GadToolsBase = NULL;
 
-#define VERSION_TEXT "GFOpenBrowserLite 0.4.2 (3.11.2026)"
+#define VERSION_TEXT "GFOpenBrowserLite 0.4.3 (4.11.2026)"
 static const char version[] __attribute__((used)) = "$VER: " VERSION_TEXT;
 #define PORT_NAME "AMICRADLE.BROWSER"
 #define HOME_PAGE "http://example.com/"
