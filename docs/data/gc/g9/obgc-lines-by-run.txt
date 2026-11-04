@@ -1,0 +1,9 @@
+run 5: OBGC_STALE_PUT vm 0x50a29c48 a 0x524f3ec0 live true fl 0 b 0x53929440 live false fl 0 c 0x530fd260 d 2667 gc 2
+run 5: OBGC_SELFPREV vm 0x50a29c48 a 0x53929440 live false fl 1 b 0x53929440 live false fl 1 c 0 d 0 gc 2
+run 5: OBGC_PREV_BASE vm 0x50a29c48 a 0x524f3ec0 live true fl 0 b 0x53929440 live false fl 1 c 0x3 d 3 gc 2
+run 15: OBGC_STALE_PUT vm 0x4f0bba60 a 0x51f0bec0 live true fl 0 b 0x52de5440 live false fl 0 c 0x5250d260 d 2667 gc 2
+run 15: OBGC_SELFPREV vm 0x4f0bba60 a 0x52de5440 live false fl 1 b 0x52de5440 live false fl 1 c 0 d 0 gc 2
+run 15: OBGC_PREV_BASE vm 0x4f0bba60 a 0x51f0bec0 live true fl 0 b 0x52de5440 live false fl 1 c 0x3 d 3 gc 2
+run 16: OBGC_STALE_PUT vm 0x4ff19aa0 a 0x5231fec0 live true fl 0 b 0x53891440 live false fl 0 c 0x53179260 d 2667 gc 2
+run 16: OBGC_SELFPREV vm 0x4ff19aa0 a 0x53891440 live false fl 1 b 0x53891440 live false fl 1 c 0 d 0 gc 2
+run 16: OBGC_PREV_BASE vm 0x4ff19aa0 a 0x5231fec0 live true fl 0 b 0x53891440 live false fl 1 c 0x3 d 3 gc 2
