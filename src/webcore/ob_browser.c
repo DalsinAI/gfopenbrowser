@@ -48,7 +48,7 @@
 #define TLS_SESSIONS "PROGDIR:TLSSessions"
 #include "oam_stack.h"
 
-static const char version[] __attribute__((used)) = "$VER: GFOpenBrowser 0.8.4 (1.11.2026)";
+static const char version[] __attribute__((used)) = "$VER: GFOpenBrowser 0.9.0 (4.11.2026)";
 
 #define HOME_PAGE "https://example.com/"
 

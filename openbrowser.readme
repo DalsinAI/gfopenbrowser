@@ -2,7 +2,7 @@ Short:        WebKit web browser for AmigaOS 3.2 (68040+FPU)
 Author:       AmiCradle Team
 Uploader:     UPLOADER-PLACEHOLDER
 Type:         comm/www
-Version:      0.8.4
+Version:      0.9.0
 Architecture: m68k-amigaos >= 3.2
 Distribution: Aminet
 
@@ -12,7 +12,7 @@ the Team's 68k template JIT. Pages are fetched with HTTP/2 and https
 (GFOpenTLS), pictures are decoded by the system's datatypes, and pages seen
 before load from a disk cache.
 
-This is a test version (0.8.4 test, 1 November 2026). Things will still go
+This is a release candidate (0.9.0 RC1, 4 November 2026). Things may still go
 wrong; reports are welcome.
 
 Installing
@@ -25,8 +25,8 @@ the certificates in S:GFOpenTLS. The browser has one engine,
 Libs/WebBrowser/WebBrowserEngine in the drawer, which webbrowser.library
 starts; it stays there. An older LIBS:WebBrowser/WebBrowserEngine (the
 engine, or the small script 0.8.0 and 0.8.1 test put there) is kept as
-WebBrowserEngine.before-20261101, and an older version's GFOpenBrowser.engine
-in the drawer as GFOpenBrowser.engine.before-20261101. Nothing is deleted. Novice, Intermediate and
+WebBrowserEngine.before-20261104, and an older version's GFOpenBrowser.engine
+in the drawer as GFOpenBrowser.engine.before-20261104. Nothing is deleted. Novice, Intermediate and
 Expert levels, pretend mode and the log all work.
 
 From a Shell instead: CD into the GFOpenBrowser drawer and type
@@ -46,9 +46,9 @@ Requirements
 Undo
 ----
 Delete the GFOpenBrowser drawer (or, if it was installed over an older one,
-rename the *.before-20261101 files in it back). Rename
-LIBS:WebBrowser/WebBrowserEngine.before-20261101, if there is one, back to
-WebBrowserEngine. Libraries kept as *.before-20261101 in LIBS: can be
+rename the *.before-20261104 files in it back). Rename
+LIBS:WebBrowser/WebBrowserEngine.before-20261104, if there is one, back to
+WebBrowserEngine. Libraries kept as *.before-20261104 in LIBS: can be
 renamed back the same way. The Installer's
 log in the drawer (Install-GFOpenBrowser.log, or install_log_file when the
 Installer is started from a Shell without LOGFILE), lists everything it did.
