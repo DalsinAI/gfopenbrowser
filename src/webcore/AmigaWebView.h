@@ -133,7 +133,7 @@ private:
     bool m_loading { false };
     bool m_liteMode { false };
     unsigned long long m_bytesReceived { 0 };
-    obgpu_counts m_paintCounts { }; // GFOpenGPU's draws and batches, and the calls cairo drew
+    obgpu_counts m_paintCounts { }; // GFOpenGPU's draws and batches, and the calls not drawn
     unsigned long m_paintMicroseconds { 0 }; // time in paint() since the last report
 };
 

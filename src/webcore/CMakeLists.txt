@@ -177,12 +177,10 @@ if (OB_ICU_DATA STREQUAL "library")
 endif ()
 set(OB_SYSTEM_INCLUDE_DIRECTORIES
     ${AC_WEBCORE_DEPS}/include
-    ${AC_WEBCORE_DEPS}/include/cairo
-    ${AC_WEBCORE_DEPS}/include/pixman-1
 )
 
 # Static archives that depend on each other (WebCore, JavaScriptCore, WTF,
-# cairo, pixman...) are linked as one group, so their order does not
+# OXP, SQLite...) are linked as one group, so their order does not
 # matter, followed by what libnix programs need. No curl or nghttp2 (WebKit
 # patch 0075): openweb.fetch's native transport opens bsdsocket.library,
 # gfopentls.library and datatypes.library itself, so there is no network or
@@ -200,7 +198,7 @@ macro(OB_LINK _target)
     target_link_libraries(${_target} PRIVATE
         -Wl,--start-group
         OBCore WebCore PAL JavaScriptCore WTF bmalloc
-        cairo pixman-1 png z oxp sqlite3
+        z oxp sqlite3
         icui18n icuuc icudata
         amiga pthread atomic stdc++ m
         -Wl,--end-group
