@@ -22,10 +22,10 @@ and for every other picture, nothing changes: one frame, decoded as before.
 
 ---
 diff --git a/Source/WebCore/platform/image-decoders/amiga/DatatypesDecode.c b/Source/WebCore/platform/image-decoders/amiga/DatatypesDecode.c
-index 38a1f89..5c92171 100644
+index 38a1f89..89cd33a 100644
 --- a/Source/WebCore/platform/image-decoders/amiga/DatatypesDecode.c
 +++ b/Source/WebCore/platform/image-decoders/amiga/DatatypesDecode.c
-@@ -396,6 +396,145 @@ static int obdt_decode_datatypes(const void* data, unsigned long size, OBDTImage
+@@ -396,6 +396,161 @@ static int obdt_decode_datatypes(const void* data, unsigned long size, OBDTImage
      return 1;
  }
  
@@ -85,6 +85,16 @@ index 38a1f89..5c92171 100644
 +    return 0;
 +}
 +
++/* OB_ANIM_TRACE set (any value): each animation opened and each frame read
++ * is told on stderr as OBANIM lines, to check delays and frames in a lab. */
++int obdt_anim_trace(void)
++{
++    static int s_trace = -1;
++    if (s_trace < 0)
++        s_trace = getenv("OB_ANIM_TRACE") != NULL;
++    return s_trace;
++}
++
 +int obdt_open_animation(const void* data, unsigned long size, OBDTAnimation* out)
 +{
 +    OBDTAnimationObject* animation;
@@ -127,6 +137,8 @@ index 38a1f89..5c92171 100644
 +    out->height = header->bmh_Height;
 +    out->frames = frames;
 +    out->loops = (long)loops;
++    if (obdt_anim_trace())
++        fprintf(stderr, "OBANIM open %ux%u frames=%u loops=%ld\n", out->width, out->height, out->frames, out->loops);
 +    return 1;
 +}
 +
@@ -149,6 +161,10 @@ index 38a1f89..5c92171 100644
 +    message.oirf_HasAlpha = TRUE;
 +    ok = DoMethodA(object->object, (Msg)&message);
 +    resetFPCR();
++    if (obdt_anim_trace())
++        fprintf(stderr, "OBANIM frame %u ok=%lu delay=%lu alpha=%lu ioerr=%ld task=%08lx\n", index, (unsigned long)ok,
++            (unsigned long)message.oirf_Delay, (unsigned long)message.oirf_HasAlpha, (long)(ok ? 0 : IoErr()),
++            (unsigned long)FindTask(NULL));
 +    if (!ok)
 +        return 0;
 +    *delayMilliseconds = message.oirf_Delay;
@@ -172,10 +188,10 @@ index 38a1f89..5c92171 100644
  {
      free(image->pixels);
 diff --git a/Source/WebCore/platform/image-decoders/amiga/DatatypesDecode.h b/Source/WebCore/platform/image-decoders/amiga/DatatypesDecode.h
-index 3fb2fbf..63a365b 100644
+index 3fb2fbf..4144699 100644
 --- a/Source/WebCore/platform/image-decoders/amiga/DatatypesDecode.h
 +++ b/Source/WebCore/platform/image-decoders/amiga/DatatypesDecode.h
-@@ -48,6 +48,29 @@ typedef struct {
+@@ -48,6 +48,31 @@ typedef struct {
  int obdt_decode(const void* data, unsigned long size, OBDTImage* out);
  void obdt_free(OBDTImage*);
  
@@ -201,15 +217,25 @@ index 3fb2fbf..63a365b 100644
 +int obdt_read_frame(OBDTAnimation*, unsigned index, void* pixels, unsigned stride,
 +    unsigned* delayMilliseconds, int* hasAlpha);
 +void obdt_close_animation(OBDTAnimation*);
++/* 1 when OB_ANIM_TRACE is set: OBANIM lines on stderr. */
++int obdt_anim_trace(void);
 +
  /* A decoder elsewhere (OpenBrowser: media.decode/1 through
   * gfopenservice.device), tried before the datatypes. It returns 1 with out
   * filled (pixels from malloc), or 0 to leave the picture to the datatypes.
 diff --git a/Source/WebCore/platform/image-decoders/amiga/DatatypesImageDecoder.cpp b/Source/WebCore/platform/image-decoders/amiga/DatatypesImageDecoder.cpp
-index 57ff216..ac50b5a 100644
+index 57ff216..8edc899 100644
 --- a/Source/WebCore/platform/image-decoders/amiga/DatatypesImageDecoder.cpp
 +++ b/Source/WebCore/platform/image-decoders/amiga/DatatypesImageDecoder.cpp
-@@ -36,6 +36,11 @@ DatatypesImageDecoder::DatatypesImageDecoder(AlphaOption alphaOption, GammaAndCo
+@@ -27,6 +27,7 @@
+ #include "DatatypesImageDecoder.h"
+ 
+ #include "DatatypesDecode.h"
++#include <cstdio>
+ #include <cstdlib>
+ 
+ namespace WebCore {
+@@ -36,6 +37,11 @@ DatatypesImageDecoder::DatatypesImageDecoder(AlphaOption alphaOption, GammaAndCo
  {
  }
  
@@ -221,7 +247,7 @@ index 57ff216..ac50b5a 100644
  static inline unsigned readBigEndian16(std::span<const uint8_t> data, size_t offset)
  {
      return (data[offset] << 8) | data[offset + 1];
-@@ -175,9 +180,92 @@ bool DatatypesImageDecoder::decodeAll()
+@@ -175,9 +181,99 @@ bool DatatypesImageDecoder::decodeAll()
      return true;
  }
  
@@ -250,6 +276,8 @@ index 57ff216..ac50b5a 100644
 +        m_repetitionCount = RepetitionCountInfinite;
 +    else
 +        m_repetitionCount = m_animation.loops + 1;
++    if (obdt_anim_trace())
++        fprintf(stderr, "OBANIM decoder %p frames=%zu repetition=%d\n", static_cast<const void*>(this), m_frameCount, m_repetitionCount);
 +}
 +
 +size_t DatatypesImageDecoder::decodeIfNeededAndGetFrameCount() const
@@ -293,6 +321,8 @@ index 57ff216..ac50b5a 100644
 +    // clearBeforeFrame all go.
 +    if (!m_animation.handle)
 +        return;
++    if (obdt_anim_trace())
++        fprintf(stderr, "OBANIM decoder %p clear before %zu\n", static_cast<const void*>(this), clearBeforeFrame);
 +    for (size_t i = 0; i < clearBeforeFrame && i < m_frameBufferCache.size(); ++i)
 +        m_frameBufferCache[i].clear();
 +}
@@ -309,6 +339,9 @@ index 57ff216..ac50b5a 100644
 +        auto* buffer = &m_frameBufferCache[index];
 +        if (!buffer->isComplete())
 +            decodeFrame(index);
++        if (obdt_anim_trace())
++            fprintf(stderr, "OBANIM decoder %p want %zu complete=%d duration_ms=%.0f\n", static_cast<const void*>(this), index,
++                buffer->isComplete() ? 1 : 0, buffer->duration().milliseconds());
 +        return buffer;
 +    }
      if (index)
