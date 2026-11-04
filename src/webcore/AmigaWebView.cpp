@@ -725,7 +725,7 @@ bool WebView::runAuthentication(const String& host, const String& realm, unsigne
     CString utf8Realm = realm.utf8();
     CString utf8User = user.utf8();
     // The window's panel starts with the user name the address gave, if any.
-    snprintf(userBuffer, sizeof userBuffer, "%s", utf8User.data());
+    snprintf(userBuffer, sizeof userBuffer, "%s", cString(utf8User));
     passwordBuffer[0] = 0;
     if (!m_callbacks.authenticate(m_callbacks.context, cString(utf8Host), cString(utf8Realm), static_cast<int>(previousFailures),
             userBuffer, sizeof userBuffer, passwordBuffer, sizeof passwordBuffer))
