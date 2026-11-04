@@ -532,6 +532,10 @@ The patches, in order:
   turns it on, and
   `JSC_reportM68KTemplateJITStatistics=1` prints at exit what was compiled
   and how often the interpreter's property caches missed.
+- `0106-jsc-parse-time-detail.patch`: with `JSC_reportParseTimes=1` each
+  parse line also says whether it was a whole script or a function body,
+  where it starts, how long it is and the eight characters before it, for
+  the study of compiling run-once functions straight away.
 - `0110-amiga-animated-gif-frames-from-datatype.patch`: animated GIFs play.
   A GIF of two images or more goes, once all of it is in, to a datatype
   that gives every frame (gfopengif.datatype 47.1, gfopendatatypes:
