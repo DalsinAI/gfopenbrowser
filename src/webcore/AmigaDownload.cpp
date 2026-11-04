@@ -16,6 +16,7 @@
 #include <WebCore/ResourceHandleClient.h>
 #include <WebCore/ResourceRequest.h>
 #include <WebCore/ResourceResponse.h>
+#include <WebCore/SecurityOrigin.h>
 #include <WebCore/SharedBuffer.h>
 #include <stdio.h>
 #include <string.h>
@@ -43,7 +44,7 @@ static HashMap<int, RefPtr<Download>>& downloads();
 static void amigaFileName(const String& name, char* out, size_t size)
 {
     CString latin1 = name.latin1();
-    const char* in = latin1.data();
+    const char* in = reinterpret_cast<const char*>(latin1.data());
     size_t n = 0;
     for (size_t i = 0; i < latin1.length() && n < size - 1 && n < 100; ++i) {
         char c = in[i];
@@ -113,8 +114,8 @@ public:
             return;
         releaseHandle(true);
         closeFile();
-        if (!m_path.isNull())
-            remove(m_path.data());
+        if (m_path[0])
+            remove(m_path);
         end(OB_DOWNLOAD_CANCELLED, nullptr);
     }
 
@@ -203,7 +204,7 @@ private:
             fail(makeString("The file "_s, String::fromLatin1(path), " could not be made."_s));
             return false;
         }
-        m_path = CString(path);
+        snprintf(m_path, sizeof m_path, "%s", path);
         m_name = String::fromLatin1(file);
         m_total = response.expectedContentLength() > 0 ? static_cast<unsigned long>(response.expectedContentLength()) : 0;
         m_lastReport = MonotonicTime::now();
@@ -244,9 +245,10 @@ private:
         releaseHandle(true);
         bool hadFile = m_file;
         closeFile();
-        if (hadFile && !m_path.isNull())
-            remove(m_path.data());
-        end(OB_DOWNLOAD_FAILED, message.utf8().data());
+        if (hadFile && m_path[0])
+            remove(m_path);
+        auto utf8 = message.utf8();
+        end(OB_DOWNLOAD_FAILED, reinterpret_cast<const char*>(utf8.data()));
     }
 
     void end(int state, const char* error)
@@ -263,15 +265,15 @@ private:
     {
         if (!downloadCallback)
             return;
-        CString name = m_name.isNull() ? nameFromURL(URL { m_url }).utf8() : m_name.utf8();
-        downloadCallback(downloadContext, m_id, state, name.data(), m_path.isNull() ? "" : m_path.data(), m_received, m_total, error);
+        auto name = (m_name.isNull() ? nameFromURL(URL { m_url }) : m_name).utf8();
+        downloadCallback(downloadContext, m_id, state, reinterpret_cast<const char*>(name.data()), m_path, m_received, m_total, error);
     }
 
     int m_id;
     String m_suggestedName;
     String m_url;
     String m_name;
-    CString m_path;
+    char m_path[400] { };
     RefPtr<ResourceHandle> m_handle;
     FILE* m_file { nullptr };
     unsigned long m_received { 0 };
@@ -323,7 +325,7 @@ int ob_download_url(const char* url)
     WTF::URL address { String::fromUTF8(url) };
     if (!address.isValid())
         return 0;
-    WebCore::ResourceRequest request(address);
+    WebCore::ResourceRequest request(URL { address });
     request.setFirstPartyForCookies(request.url());
     return startDownload(request, { });
 }
