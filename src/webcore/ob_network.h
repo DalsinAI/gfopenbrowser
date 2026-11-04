@@ -17,6 +17,10 @@ void ob_network_close(void);
 /* On the network thread, at its start. */
 void ob_network_thread_started(void);
 
+/* A Shell variable (local Set, else ENV:) as a switch: dflt when it is not
+ * set, 0 when it starts with '0', else 1. For OB_EARLYFETCH and OB_NETLOG. */
+int ob_network_switch(const char *name, int dflt);
+
 #ifdef __cplusplus
 }
 #endif
