@@ -532,6 +532,16 @@ The patches, in order:
   turns it on, and
   `JSC_reportM68KTemplateJITStatistics=1` prints at exit what was compiled
   and how often the interpreter's property caches missed.
+- `0105-jsc-m68k-structure-name-cache.patch`: a cache by structure and
+  name for the interpreter's property loads that its per-site caches do
+  not hold: `get_by_id` sites that already hold one structure and see
+  another, `get_by_id` that finds nothing (most of bbc's misses), and
+  `get_by_val` with a string or symbol key. It keeps its entries in VM's
+  `MegamorphicCache`, which the collector and every change to an object
+  that may be a prototype already invalidate, and fills it under the same
+  rules as the JITs' megamorphic `get_by_id` (not `length`, `name`,
+  `prototype`, `__proto__` or index names). `JSC_useM68KMegamorphicCache=0`
+  turns it off; the statistics report prints how many loads it answered.
 - `0120-amiga-http-authentication.patch`: HTTP log-ins. A 401 with a
   Basic or Digest challenge goes to the frame loader's client as an
   `AuthenticationChallenge` whose `authenticationClient()` is the handle
