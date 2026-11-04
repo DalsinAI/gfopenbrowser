@@ -35,7 +35,7 @@
 #include <WebCore/ForcedAccessibilityValue.h>
 #include <WebCore/FrameLoadRequest.h>
 #include <WebCore/FrameLoader.h>
-#include <WebCore/GraphicsContextCairo.h>
+#include <WebCore/AmigaImage.h>
 #include <WebCore/GraphicsContextOpenGPU.h>
 #include <WebCore/LocalFrame.h>
 #include <WebCore/LocalFrameInlines.h>
@@ -52,7 +52,6 @@
 #include <WebCore/SharedBuffer.h>
 #include <WebCore/SubstituteData.h>
 #include <WebCore/TrustedFonts.h>
-#include <cairo.h>
 #include <stdio.h>
 #include <string.h>
 #include <wtf/TZoneMallocInlines.h>
@@ -287,10 +286,13 @@ bool WebView::paint(unsigned char* argb, int stride, const IntRect& rect, bool l
         addDirtyRect(area);
         return false;
     }
+    // The window's pixels as a picture of their own (WebKit patch 0083: no
+    // cairo); everything is drawn through GFOpenGPU, and the context draws
+    // the last batch as it goes.
+    auto pixels = AmigaImage::wrap(argb + area.y() * stride + area.x() * 4, area.size(), stride, true, [] { });
     auto start = MonotonicTime::now();
-    cairo_surface_t* surface = cairo_image_surface_create_for_data(argb + area.y() * stride + area.x() * 4,
-        CAIRO_FORMAT_ARGB32, area.width(), area.height(), stride);
-    auto paintWith = [&](GraphicsContext& context) {
+    {
+        GraphicsContextOpenGPU context(pixels.get(), &m_paintCounts);
         // Scaled pictures with the cheapest filter: a 68k has no time for more.
         context.setImageInterpolationQuality(InterpolationQuality::Low);
         context.translate(-area.x(), -area.y());
@@ -298,18 +300,7 @@ bool WebView::paint(unsigned char* argb, int stride, const IntRect& rect, bool l
             context.fillRect(area, Color::white);
         if (view)
             view->paint(context, area);
-    };
-    // Through GFOpenGPU, where it can draw the call, unless OB_PAINT=cairo
-    // (or no gfopengpu.library); the context draws the last batch as it goes.
-    if (GraphicsContextOpenGPU::isWanted()) {
-        GraphicsContextOpenGPU context(surface, &m_paintCounts);
-        paintWith(context);
-    } else {
-        GraphicsContextCairo context(surface);
-        paintWith(context);
     }
-    cairo_surface_flush(surface);
-    cairo_surface_destroy(surface);
     m_paintMicroseconds += static_cast<unsigned long>((MonotonicTime::now() - start).microseconds());
     return true;
 }
@@ -325,6 +316,8 @@ int WebView::takePaintReport(char* buffer, int size)
             unsigned long handed = 0;
             for (auto calls : m_paintCounts.handed)
                 handed += calls;
+            // cairo_calls: the calls not drawn here (the name the tests read
+            // since 0076, when cairo drew them)
             used = snprintf(buffer, size, " paint_gpu=1 paint_us=%lu gpu_draws=%lu gpu_flushes=%lu cairo_calls=%lu",
                 m_paintMicroseconds, m_paintCounts.draws, m_paintCounts.flushes, handed);
             for (int kind = 0; kind < OBGPU_KINDS && used >= 0 && used < size; kind++) {
@@ -342,10 +335,10 @@ int WebView::takePaintReport(char* buffer, int size)
     return used;
 }
 
-// The display-list experiment (5 October 2026): paint the area as today,
-// directly with cairo into `direct`; then into WebKit's display-list recorder,
-// which keeps the drawing commands (rectangles, glyphs, pictures) instead of
-// pixels; then replay those commands with cairo into `replayed`. It prints
+// The display-list experiment (5 October 2026): paint the area as today
+// into `direct`; then into WebKit's display-list recorder, which keeps the
+// drawing commands (rectangles, glyphs, pictures) instead of pixels; then
+// replay those commands through GFOpenGPU into `replayed`. It prints
 // how long each step took, what the commands are and roughly how many bytes
 // they would take to send to something else to draw: a GPU, or the host.
 void WebView::reportDisplayList(unsigned char* direct, unsigned char* replayed, int stride, const IntRect& rect)
@@ -400,16 +393,13 @@ void WebView::reportDisplayList(unsigned char* direct, unsigned char* replayed, 
     count(list.get());
 
     start = MonotonicTime::now();
-    cairo_surface_t* surface = cairo_image_surface_create_for_data(replayed + area.y() * stride + area.x() * 4,
-        CAIRO_FORMAT_ARGB32, area.width(), area.height(), stride);
+    auto pixels = AmigaImage::wrap(replayed + area.y() * stride + area.x() * 4, area.size(), stride, true, [] { });
     {
-        GraphicsContextCairo context(surface);
+        GraphicsContextOpenGPU context(pixels.get(), nullptr);
         context.setImageInterpolationQuality(InterpolationQuality::Low);
         context.translate(-area.x(), -area.y());
         context.drawDisplayList(list.get());
     }
-    cairo_surface_flush(surface);
-    cairo_surface_destroy(surface);
     Seconds replayTime = MonotonicTime::now() - start;
 
     printf("OBVIEW_DL area=%dx%d pixel_bytes=%d commands=%zu glyphs=%zu pictures=%zu picture_pixels=%.0f command_bytes=%zu "

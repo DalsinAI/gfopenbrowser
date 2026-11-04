@@ -1,0 +1,3636 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: SacredTrees <121399723+SacredTrees@users.noreply.github.com>
+Date: Tue, 3 Nov 2026 14:00:00 +0000
+Subject: [PATCH] WebCore: cairo out (USE_CAIRO off), the engine's own pictures and paths
+
+Cairo-out item 7 (docs/CAIRO-OUT-0083.md). USE_CAIRO is off and
+USE_AMIGA_GRAPHICS on: cairo, pixman and libpng are no longer built into
+the engine. What cairo gave WebCore is the engine's own:
+
+- AmigaImage: premultiplied ARGB32 words (A, R, G, B in memory on the
+  68k), its own or someone else's held until the last reference goes.
+  PlatformImagePtr is RefPtr<AmigaImage>; NativeImageAmiga.cpp.
+- ImageBufferAmigaBackend: an AmigaImage drawn into by a
+  GraphicsContextOpenGPU (canvas, filters, layers); pixel copies through
+  BGRA8 rows on a big-endian CPU.
+- PathAmiga: WebCore's PathStream inside, with hit testing (fill by
+  winding on the path flattened to lines, stroke by distance) and stroke
+  bounds.
+- GraphicsAmiga.cpp: Gradient::fill, Pattern's platform pattern (none),
+  a decoder frame as a picture, PNG out through the datatypes.
+- ShareableBitmapAmiga.cpp, FontOpenFont.cpp (outlines, bounds and
+  advances from gfopenfont), FontCascadeAmigaInlines.h.
+- gfopenfont faces without the cairo user font: OpenFontFace owns its
+  OFFace; advances are the font's hmtx at the size rounded to whole
+  pixels, as cairo's metrics hinting gave them; glyph outlines as Paths.
+- GraphicsContextOpenGPU keeps the state cairo kept (the transform, the
+  clip's bounds, caps, joins, miter limit, dashes) and draws everything
+  through OpenGPU. Transparency layers are pictures of their own put on
+  what is under them by opacity and operator. Glyph runs OpenFont can't
+  draw with OF_DrawGlyphsA are their outlines filled as paths; spelling
+  markers a zigzag; focus rings strokes. Not drawn here yet (counted):
+  blend modes other than normal (drawn normal), shadows under a scale or
+  turn, clipToImageBuffer's mask (its rectangle clips), picture
+  orientations.
+- PNG stays the one encoding (MIMETypeRegistry). It is written by
+  gfopenpng.datatype first: the list of PNG writers still named it
+  openpng, so png.datatype wrote the page remapped to 4 pens.
+
+diff --git a/Source/WebCore/PlatformAmiga.cmake b/Source/WebCore/PlatformAmiga.cmake
+index 5e882ea3..b419e0b2 100644
+--- a/Source/WebCore/PlatformAmiga.cmake
++++ b/Source/WebCore/PlatformAmiga.cmake
+@@ -1,4 +1,3 @@
+-include(platform/Cairo.cmake)
+ include(platform/OpenFont.cmake)
+ 
+ # The network is openweb.fetch (platform/network/amiga), not curl:
+@@ -172,15 +171,21 @@ list(APPEND WebCore_SOURCES
+     platform/generic/KeyedDecoderGeneric.cpp
+     platform/generic/KeyedEncoderGeneric.cpp
+ 
+-    # The window is painted through gfopengpu.library, opened at run time
+-    # (cairo for what it doesn't draw, and with OB_PAINT=cairo). The
+-    # browser's build gives the two C files gfopenrtg's OpenGPU headers
++    # No cairo (patch 0083): the engine's pictures, paths, image buffers and
++    # drawing, painted through gfopengpu.library, opened at run time. The
++    # browser's build gives the C files gfopenrtg's OpenGPU headers
+     # (src/webcore/CMakeLists.txt); nothing more is linked.
++    platform/graphics/amiga/AmigaImage.cpp
++    platform/graphics/amiga/GraphicsAmiga.cpp
+     platform/graphics/amiga/GraphicsContextOpenGPU.cpp
+     platform/graphics/amiga/GraphicsLayerAmiga.cpp
++    platform/graphics/amiga/ImageBufferAmigaBackend.cpp
++    platform/graphics/amiga/NativeImageAmiga.cpp
+     platform/graphics/amiga/OpenGPUGlyphsAmiga.c
+     platform/graphics/amiga/OpenGPULibraryAmiga.c
+     platform/graphics/amiga/OpenGPUPaintAmiga.c
++    platform/graphics/amiga/PathAmiga.cpp
++    platform/graphics/amiga/ShareableBitmapAmiga.cpp
+     platform/graphics/amiga/SystemFontDatabaseAmiga.cpp
+ 
+     # Pictures in pages are decoded by the system's datatypes.
+@@ -188,7 +193,6 @@ list(APPEND WebCore_SOURCES
+     platform/image-decoders/ScalableImageDecoderFrame.cpp
+     platform/image-decoders/amiga/DatatypesDecode.c
+     platform/image-decoders/amiga/DatatypesImageDecoder.cpp
+-    platform/image-decoders/cairo/ImageBackingStoreCairo.cpp
+ 
+     platform/network/amiga/NetworkStateNotifierAmiga.cpp
+     platform/network/amiga/PublicSuffixAmiga.c
+@@ -216,8 +220,12 @@ list(APPEND WebCore_PRIVATE_FRAMEWORK_HEADERS
+ 
+     platform/amiga/PlatformScreenAmiga.h
+ 
++    platform/graphics/amiga/AmigaImage.h
++    platform/graphics/amiga/FontCascadeAmigaInlines.h
+     platform/graphics/amiga/GraphicsContextOpenGPU.h
++    platform/graphics/amiga/ImageBufferAmigaBackend.h
+     platform/graphics/amiga/OpenGPUPaintAmiga.h
++    platform/graphics/amiga/PathAmiga.h
+ 
+     platform/graphics/adwaita/Adwaita.h
+     platform/graphics/adwaita/ButtonControlAdwaita.h
+@@ -234,7 +242,7 @@ list(APPEND WebCore_PRIVATE_FRAMEWORK_HEADERS
+     rendering/adwaita/RenderThemeAdwaita.h
+ )
+ 
+-# PNG is written by gfopenpng.datatype (ImageUtilitiesCairo.cpp, canvas
++# PNG is written by gfopenpng.datatype (GraphicsAmiga.cpp, canvas
+ # toDataURL and toBlob) and read by the datatypes too: no libpng. libamiga
+ # has DoMethod().
+ list(APPEND WebCore_LIBRARIES
+diff --git a/Source/WebCore/platform/MIMETypeRegistry.cpp b/Source/WebCore/platform/MIMETypeRegistry.cpp
+index 9b54ff20..232c91ea 100644
+--- a/Source/WebCore/platform/MIMETypeRegistry.cpp
++++ b/Source/WebCore/platform/MIMETypeRegistry.cpp
+@@ -489,7 +489,7 @@ std::unique_ptr<MIMETypeRegistryThreadGlobalData> MIMETypeRegistry::createMIMETy
+         "image/png"_s,
+         "image/jpeg"_s,
+         "image/gif"_s,
+-#elif USE(CAIRO)
++#elif USE(CAIRO) || USE(AMIGA_GRAPHICS)
+         "image/png"_s,
+ #elif USE(SKIA)
+         "image/png"_s,
+diff --git a/Source/WebCore/platform/OpenFont.cmake b/Source/WebCore/platform/OpenFont.cmake
+index ed9f0b4b..cf83d1ee 100644
+--- a/Source/WebCore/platform/OpenFont.cmake
++++ b/Source/WebCore/platform/OpenFont.cmake
+@@ -1,6 +1,6 @@
+ # Text on gfopenfont.library (USE_OPENFONT): faces, metrics, glyph pages,
+ # web fonts and shaping, in place of FreeType, fontconfig and HarfBuzz.
+-# Glyphs are drawn through cairo user fonts that fill OpenFont's outlines.
++# Glyphs are drawn by GraphicsContextOpenGPU (OF_DrawGlyphsA, or the outlines as paths).
+ list(APPEND WebCore_PRIVATE_INCLUDE_DIRECTORIES
+     "${WEBCORE_DIR}/platform/graphics/openfont"
+ )
+@@ -24,9 +24,9 @@ list(APPEND WebCore_PRIVATE_FRAMEWORK_HEADERS
+     platform/graphics/openfont/OpenFontLibrary.h
+ )
+ 
+-if (USE_CAIRO)
++if (USE_AMIGA_GRAPHICS)
+     list(APPEND WebCore_SOURCES
+-        platform/graphics/cairo/FontCairoHarfbuzzNG.cpp
++        platform/graphics/openfont/FontOpenFont.cpp
+     )
+ endif ()
+ 
+diff --git a/Source/WebCore/platform/graphics/FontCascadeInlines.h b/Source/WebCore/platform/graphics/FontCascadeInlines.h
+index 0e2555c4..dfddd404 100644
+--- a/Source/WebCore/platform/graphics/FontCascadeInlines.h
++++ b/Source/WebCore/platform/graphics/FontCascadeInlines.h
+@@ -199,6 +199,10 @@ inline float FontCascade::widthOfSpaceString() const
+ 
+ #include <WebCore/FontCascadeCairoInlines.h>
+ 
++#elif USE(AMIGA_GRAPHICS)
++
++#include <WebCore/FontCascadeAmigaInlines.h>
++
+ #elif USE(SKIA)
+ 
+ #include <WebCore/FontCascadeSkiaInlines.h>
+diff --git a/Source/WebCore/platform/graphics/FontCustomPlatformData.h b/Source/WebCore/platform/graphics/FontCustomPlatformData.h
+index dd031778..06972031 100644
+--- a/Source/WebCore/platform/graphics/FontCustomPlatformData.h
++++ b/Source/WebCore/platform/graphics/FontCustomPlatformData.h
+@@ -47,6 +47,8 @@ typedef const struct __CTFontDescriptor* CTFontDescriptorRef;
+ #elif USE(CAIRO) && USE(OPENFONT)
+ #include "OpenFontFace.h"
+ #include "RefPtrCairo.h"
++#elif USE(AMIGA_GRAPHICS) && USE(OPENFONT)
++#include "OpenFontFace.h"
+ #elif USE(CAIRO)
+ #include "RefPtrCairo.h"
+ 
+@@ -87,7 +89,7 @@ public:
+         , m_renderingResourceIdentifier(RenderingResourceIdentifier::generate())
+     {
+     }
+-#elif USE(CAIRO) && USE(OPENFONT)
++#elif (USE(CAIRO) || USE(AMIGA_GRAPHICS)) && USE(OPENFONT)
+     FontCustomPlatformData(Ref<OpenFontFace>&&, FontPlatformData::CreationData&&);
+ #elif USE(CAIRO)
+     FontCustomPlatformData(FT_Face, FontPlatformData::CreationData&&);
+@@ -119,6 +121,8 @@ public:
+ #if USE(OPENFONT)
+     const Ref<OpenFontFace> m_openFontFace;
+ #endif
++#elif USE(AMIGA_GRAPHICS) && USE(OPENFONT)
++    const Ref<OpenFontFace> m_openFontFace;
+ #elif USE(SKIA)
+     sk_sp<SkTypeface> m_typeface;
+     mutable HashMap<unsigned, sk_sp<SkTypeface>> m_variationTypefacesCache;
+diff --git a/Source/WebCore/platform/graphics/FontPlatformData.h b/Source/WebCore/platform/graphics/FontPlatformData.h
+index bc319935..6d91757e 100644
+--- a/Source/WebCore/platform/graphics/FontPlatformData.h
++++ b/Source/WebCore/platform/graphics/FontPlatformData.h
+@@ -267,7 +267,7 @@ struct CustomFontCreationData {
+ struct FontPlatformSerializedData {
+     sk_sp<SkData> typefaceData;
+ };
+-#elif USE(CAIRO)
++#elif USE(CAIRO) || USE(AMIGA_GRAPHICS)
+ struct CustomFontCreationData {
+     Vector<uint8_t> fontFaceData;
+     String itemInCollection;
+@@ -327,7 +327,7 @@ public:
+ 
+ #if USE(FREETYPE) && USE(CAIRO)
+     FontPlatformData(cairo_font_face_t*, RefPtr<FcPattern>&&, float size, bool fixedWidth, bool syntheticBold, bool syntheticOblique, FontOrientation, const FontMetricsOverrides& = { }, const FontCustomPlatformData* = nullptr);
+-#elif USE(OPENFONT) && USE(CAIRO)
++#elif USE(OPENFONT) && (USE(CAIRO) || USE(AMIGA_GRAPHICS))
+     // fontFaceFeatures: the OpenType features an @font-face rule's
+     // font-feature-settings turns on, as tags.
+     FontPlatformData(Ref<OpenFontFace>&&, float size, bool syntheticBold, bool syntheticOblique, FontOrientation, const FontMetricsOverrides& = { }, const FontCustomPlatformData* = nullptr, Vector<uint32_t>&& fontFaceFeatures = { });
+diff --git a/Source/WebCore/platform/graphics/ImageBufferPlatformBackend.h b/Source/WebCore/platform/graphics/ImageBufferPlatformBackend.h
+index 273ae052..7edc232f 100644
+--- a/Source/WebCore/platform/graphics/ImageBufferPlatformBackend.h
++++ b/Source/WebCore/platform/graphics/ImageBufferPlatformBackend.h
+@@ -29,6 +29,8 @@
+ #include "ImageBufferCGBitmapBackend.h"
+ #elif USE(CAIRO)
+ #include "ImageBufferCairoImageSurfaceBackend.h"
++#elif USE(AMIGA_GRAPHICS)
++#include "ImageBufferAmigaBackend.h"
+ #elif USE(SKIA)
+ #include "ImageBufferSkiaUnacceleratedBackend.h"
+ #endif
+diff --git a/Source/WebCore/platform/graphics/Pattern.h b/Source/WebCore/platform/graphics/Pattern.h
+index b885cbbe..dd5a7cee 100644
+--- a/Source/WebCore/platform/graphics/Pattern.h
++++ b/Source/WebCore/platform/graphics/Pattern.h
+@@ -40,6 +40,8 @@ typedef RetainPtr<CGPatternRef> PlatformPatternPtr;
+ #elif USE(CAIRO)
+ typedef struct _cairo_pattern cairo_pattern_t;
+ typedef cairo_pattern_t* PlatformPatternPtr;
++#elif USE(AMIGA_GRAPHICS)
++typedef void* PlatformPatternPtr;
+ #elif USE(SKIA)
+ WTF_IGNORE_WARNINGS_IN_THIRD_PARTY_CODE_BEGIN
+ #include <skia/core/SkShader.h>
+diff --git a/Source/WebCore/platform/graphics/PlatformImage.h b/Source/WebCore/platform/graphics/PlatformImage.h
+index bfec7161..9deae5ef 100644
+--- a/Source/WebCore/platform/graphics/PlatformImage.h
++++ b/Source/WebCore/platform/graphics/PlatformImage.h
+@@ -32,6 +32,9 @@
+ typedef struct CGImage* CGImageRef;
+ #elif USE(CAIRO)
+ #include "RefPtrCairo.h"
++#elif USE(AMIGA_GRAPHICS)
++#include "AmigaImage.h"
++#include <wtf/RefPtr.h>
+ #elif USE(SKIA)
+ WTF_IGNORE_WARNINGS_IN_THIRD_PARTY_CODE_BEGIN
+ #include <skia/core/SkImage.h>
+@@ -44,6 +47,8 @@ namespace WebCore {
+ using PlatformImagePtr = RetainPtr<CGImageRef>;
+ #elif USE(CAIRO)
+ using PlatformImagePtr = RefPtr<cairo_surface_t>;
++#elif USE(AMIGA_GRAPHICS)
++using PlatformImagePtr = RefPtr<AmigaImage>;
+ #elif USE(SKIA)
+ using PlatformImagePtr = sk_sp<SkImage>;
+ #endif
+diff --git a/Source/WebCore/platform/graphics/PlatformPath.h b/Source/WebCore/platform/graphics/PlatformPath.h
+index 72094e43..e3f3a965 100644
+--- a/Source/WebCore/platform/graphics/PlatformPath.h
++++ b/Source/WebCore/platform/graphics/PlatformPath.h
+@@ -36,6 +36,11 @@ typedef struct CGPath PlatformPath;
+ typedef PlatformPath* PlatformPathPtr;
+ #elif USE(CAIRO)
+ typedef cairo_t* PlatformPathPtr;
++#elif USE(AMIGA_GRAPHICS)
++namespace WebCore {
++class PathAmiga;
++}
++typedef WebCore::PathAmiga* PlatformPathPtr;
+ #elif USE(SKIA)
+ class SkPath;
+ typedef SkPath* PlatformPathPtr;
+@@ -49,6 +54,8 @@ using PlatformPathImpl = PathCG;
+ #elif USE(CAIRO)
+ class PathCairo;
+ using PlatformPathImpl = PathCairo;
++#elif USE(AMIGA_GRAPHICS)
++using PlatformPathImpl = PathAmiga;
+ #elif USE(SKIA)
+ class PathSkia;
+ using PlatformPathImpl = PathSkia;
+diff --git a/Source/WebCore/platform/graphics/PlatformPathImpl.h b/Source/WebCore/platform/graphics/PlatformPathImpl.h
+index 1b1e3274..982b6e02 100644
+--- a/Source/WebCore/platform/graphics/PlatformPathImpl.h
++++ b/Source/WebCore/platform/graphics/PlatformPathImpl.h
+@@ -29,6 +29,8 @@
+ #include <WebCore/PathCG.h>
+ #elif USE(CAIRO)
+ #include <WebCore/PathCairo.h>
++#elif USE(AMIGA_GRAPHICS)
++#include <WebCore/PathAmiga.h>
+ #elif USE(SKIA)
+ #include <WebCore/PathSkia.h>
+ #endif
+diff --git a/Source/WebCore/platform/graphics/amiga/AmigaImage.cpp b/Source/WebCore/platform/graphics/amiga/AmigaImage.cpp
+new file mode 100644
+index 00000000..6fe4421b
+--- /dev/null
++++ b/Source/WebCore/platform/graphics/amiga/AmigaImage.cpp
+@@ -0,0 +1,74 @@
++/*
++ * The engine's picture without cairo (AmigaImage.h, patch 0083).
++ * MIT, Copyright (c) 2026 AmiCradle Team.
++ * SPDX-License-Identifier: MIT
++ */
++#include "config.h"
++#include "AmigaImage.h"
++
++#if USE(AMIGA_GRAPHICS)
++
++#include <atomic>
++#include <string.h>
++#include <wtf/CheckedArithmetic.h>
++#include <wtf/FastMalloc.h>
++
++namespace WebCore {
++
++static uint64_t nextUniqueID()
++{
++    static std::atomic<uint64_t> next { 1 };
++    return next++;
++}
++
++AmigaImage::AmigaImage(uint8_t* data, const IntSize& size, unsigned stride, bool hasAlpha, Function<void()>&& release)
++    : m_data(data)
++    , m_size(size)
++    , m_stride(stride)
++    , m_hasAlpha(hasAlpha)
++    , m_uniqueID(nextUniqueID())
++    , m_release(WTF::move(release))
++{
++}
++
++AmigaImage::~AmigaImage()
++{
++    if (m_release)
++        m_release();
++}
++
++RefPtr<AmigaImage> AmigaImage::create(const IntSize& size, bool hasAlpha)
++{
++    if (size.isEmpty())
++        return nullptr;
++    CheckedSize stride = CheckedSize(static_cast<size_t>(size.width())) * static_cast<size_t>(4);
++    CheckedSize bytes = stride * static_cast<size_t>(size.height());
++    if (bytes.hasOverflowed() || stride.value() > 0x7fffffff)
++        return nullptr;
++    void* data = nullptr;
++    if (!tryFastCalloc(bytes.value(), 1).getValue(data))
++        return nullptr;
++    return adoptRef(*new AmigaImage(static_cast<uint8_t*>(data), size, static_cast<unsigned>(stride.value()), hasAlpha, [data] {
++        fastFree(data);
++    }));
++}
++
++Ref<AmigaImage> AmigaImage::wrap(uint8_t* data, const IntSize& size, unsigned stride, bool hasAlpha, Function<void()>&& release)
++{
++    return adoptRef(*new AmigaImage(data, size, stride, hasAlpha, WTF::move(release)));
++}
++
++RefPtr<AmigaImage> AmigaImage::copy() const
++{
++    auto image = create(m_size, m_hasAlpha);
++    if (!image)
++        return nullptr;
++    size_t row = static_cast<size_t>(m_size.width()) * 4;
++    for (int y = 0; y < m_size.height(); y++)
++        memcpy(image->row(y), this->row(y), row);
++    return image;
++}
++
++} // namespace WebCore
++
++#endif // USE(AMIGA_GRAPHICS)
+diff --git a/Source/WebCore/platform/graphics/amiga/AmigaImage.h b/Source/WebCore/platform/graphics/amiga/AmigaImage.h
+new file mode 100644
+index 00000000..682121cb
+--- /dev/null
++++ b/Source/WebCore/platform/graphics/amiga/AmigaImage.h
+@@ -0,0 +1,59 @@
++/*
++ * The engine's picture without cairo (patch 0083): premultiplied ARGB32
++ * pixels, one 32-bit word each in the CPU's order (on the 68k A, R, G, B
++ * in memory, as cairo's CAIRO_FORMAT_ARGB32 and OpenGPU's OBGPU_ARGB), or
++ * the same with the alpha ignored (opaque, cairo's RGB24). The pixels are
++ * the picture's own, or someone else's held until the last reference goes
++ * (a decoder's frame, a PixelBuffer). NativeImage's PlatformImagePtr.
++ * MIT, Copyright (c) 2026 AmiCradle Team.
++ * SPDX-License-Identifier: MIT
++ */
++#pragma once
++
++#if USE(AMIGA_GRAPHICS)
++
++#include "IntSize.h"
++#include <wtf/Function.h>
++#include <wtf/ThreadSafeRefCounted.h>
++
++namespace WebCore {
++
++class AmigaImage : public ThreadSafeRefCounted<AmigaImage> {
++    WTF_MAKE_NONCOPYABLE(AmigaImage);
++public:
++    // New pixels, cleared to transparent black; null when there is no memory.
++    static RefPtr<AmigaImage> create(const IntSize&, bool hasAlpha = true);
++    // Someone else's pixels: release runs when the last reference goes.
++    static Ref<AmigaImage> wrap(uint8_t* data, const IntSize&, unsigned stride, bool hasAlpha, Function<void()>&& release);
++
++    ~AmigaImage();
++
++    uint8_t* data() const { return m_data; }
++    unsigned stride() const { return m_stride; }
++    const IntSize& size() const { return m_size; }
++    int width() const { return m_size.width(); }
++    int height() const { return m_size.height(); }
++    bool hasAlpha() const { return m_hasAlpha; }
++    uint32_t* row(int y) const { return reinterpret_cast<uint32_t*>(m_data + static_cast<size_t>(y) * m_stride); }
++    std::span<const uint8_t> span() const { return { m_data, static_cast<size_t>(m_stride) * m_size.height() }; }
++    std::span<uint8_t> mutableSpan() { return { m_data, static_cast<size_t>(m_stride) * m_size.height() }; }
++    // A number no other picture has had (display lists, caches).
++    uint64_t uniqueID() const { return m_uniqueID; }
++
++    // A copy with pixels of its own.
++    RefPtr<AmigaImage> copy() const;
++
++private:
++    AmigaImage(uint8_t* data, const IntSize&, unsigned stride, bool hasAlpha, Function<void()>&& release);
++
++    uint8_t* m_data;
++    IntSize m_size;
++    unsigned m_stride;
++    bool m_hasAlpha;
++    uint64_t m_uniqueID;
++    Function<void()> m_release;
++};
++
++} // namespace WebCore
++
++#endif // USE(AMIGA_GRAPHICS)
+diff --git a/Source/WebCore/platform/graphics/amiga/FontCascadeAmigaInlines.h b/Source/WebCore/platform/graphics/amiga/FontCascadeAmigaInlines.h
+new file mode 100644
+index 00000000..c4f556b2
+--- /dev/null
++++ b/Source/WebCore/platform/graphics/amiga/FontCascadeAmigaInlines.h
+@@ -0,0 +1,42 @@
++/*
++ * Copyright (C) 2024 Igalia S.L.
++ *
++ * Redistribution and use in source and binary forms, with or without
++ * modification, are permitted provided that the following conditions
++ * are met:
++ * 1. Redistributions of source code must retain the above copyright
++ *    notice, this list of conditions and the following disclaimer.
++ * 2. Redistributions in binary form must reproduce the above copyright
++ *    notice, this list of conditions and the following disclaimer in the
++ *    documentation and/or other materials provided with the distribution.
++ *
++ * THIS SOFTWARE IS PROVIDED BY APPLE INC. ``AS IS'' AND ANY
++ * EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
++ * IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR
++ * PURPOSE ARE DISCLAIMED.  IN NO EVENT SHALL APPLE INC. OR
++ * CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL,
++ * EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO,
++ * PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR
++ * PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY
++ * OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
++ * (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
++ * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
++ */
++
++#pragma once
++
++#include "FontCascade.h"
++
++namespace WebCore {
++
++inline constexpr bool FontCascade::canReturnFallbackFontsForComplexText()
++{
++    return false;
++}
++
++inline constexpr bool FontCascade::canExpandAroundIdeographsInComplexText()
++{
++    return false;
++}
++
++}
+diff --git a/Source/WebCore/platform/graphics/amiga/GraphicsAmiga.cpp b/Source/WebCore/platform/graphics/amiga/GraphicsAmiga.cpp
+new file mode 100644
+index 00000000..eda5f3ed
+--- /dev/null
++++ b/Source/WebCore/platform/graphics/amiga/GraphicsAmiga.cpp
+@@ -0,0 +1,73 @@
++/*
++ * The small platform pieces cairo's files gave WebCore (patch 0083):
++ * Gradient's stopsChanged and fill (GradientCairo.cpp), Pattern's platform
++ * pattern (PatternCairo.cpp: none, GraphicsContextOpenGPU reads Pattern
++ * itself), a decoder frame as a picture (ImageBackingStoreCairo.cpp) and
++ * PNG out through the datatypes (ImageUtilitiesCairo.cpp's Amiga part).
++ * MIT, Copyright (c) 2026 AmiCradle Team.
++ * SPDX-License-Identifier: MIT
++ */
++#include "config.h"
++
++#if USE(AMIGA_GRAPHICS)
++
++#include "AmigaImage.h"
++#include "DatatypesDecode.h"
++#include "Gradient.h"
++#include "GraphicsContext.h"
++#include "ImageBackingStore.h"
++#include "ImageUtilities.h"
++#include "NativeImage.h"
++#include "Pattern.h"
++
++namespace WebCore {
++
++void Gradient::stopsChanged()
++{
++}
++
++// GraphicsContextCairo's Gradient::fill: the rectangle filled with the
++// gradient in the fill's gradient space, no global alpha.
++void Gradient::fill(GraphicsContext& context, const FloatRect& rect)
++{
++    context.fillRect(rect, *this);
++}
++
++PlatformPatternPtr Pattern::createPlatformPattern(const AffineTransform&) const
++{
++    return nullptr;
++}
++
++// The decoder's pixels as they are (premultiplied ARGB32 words), held by
++// the picture until it goes.
++PlatformImagePtr ImageBackingStore::image() const
++{
++    m_pixels->ref();
++    auto* segment = m_pixels.get();
++    return AmigaImage::wrap(reinterpret_cast<uint8_t*>(const_cast<uint32_t*>(m_pixelsSpan.data())), size(),
++        size().width() * sizeof(uint32_t), true, [segment] {
++            segment->deref();
++        });
++}
++
++// PNG through the system's datatypes (a PNG datatype's DTM_WRITE);
++// obdt_encode_png() undoes the premultiplication.
++Vector<uint8_t> platformEncodeData(const NativeImage& nativeImage, const String& mimeType, std::optional<double>)
++{
++    ASSERT_UNUSED(mimeType, mimeType == "image/png"_s);
++    auto image = nativeImage.platformImage();
++    if (!image)
++        return { };
++    unsigned char* data = nullptr;
++    unsigned long size = 0;
++    if (!obdt_encode_png(image->data(), image->width(), image->height(), image->stride(),
++        image->hasAlpha() ? OBDT_PNG_PREMULTIPLIED : OBDT_PNG_OPAQUE, &data, &size))
++        return { };
++    Vector<uint8_t> output(std::span<const uint8_t> { data, size });
++    obdt_free_encoded(data);
++    return output;
++}
++
++} // namespace WebCore
++
++#endif // USE(AMIGA_GRAPHICS)
+diff --git a/Source/WebCore/platform/graphics/amiga/GraphicsContextOpenGPU.cpp b/Source/WebCore/platform/graphics/amiga/GraphicsContextOpenGPU.cpp
+--- a/Source/WebCore/platform/graphics/amiga/GraphicsContextOpenGPU.cpp
++++ b/Source/WebCore/platform/graphics/amiga/GraphicsContextOpenGPU.cpp
+@@ -1,22 +1,20 @@
+ /*
+- * The window's GraphicsContext on OpenGPU (GraphicsContextOpenGPU.h).
++ * The engine's GraphicsContext on OpenGPU, without cairo
++ * (GraphicsContextOpenGPU.h, patch 0083).
+  *
+- * Every state change goes to the cairo context too, as it happens, so
+- * cairo can take any call at any time: the batch is sent and waited for
+- * first (one flush however many cairo calls follow), and its pictures are
+- * held until then. What OpenGPU draws is checked against cairo's rules in
+- * OpenGPUPaintAmiga.c: the fill colour as cairo turns it into 8 bits, the
+- * global alpha only where cairo applies it, no shadow, normal blending,
+- * edges on whole pixels or anti-aliased as cairo's. Paths are read from
+- * WebCore's own Path elements; strokes take cairo's own width, caps,
+- * joins, miter limit and dashes from its context, as cairo_stroke does.
++ * What it draws is as cairo drew it (OpenGPUPaintAmiga.c keeps cairo's
++ * rules): the fill colour as cairo turned it into 8 bits, the global alpha
++ * only where cairo applied it, edges on whole pixels or anti-aliased as
++ * cairo's. Paths are read from WebCore's own Path elements; strokes take
++ * the state's width and this context's caps, joins, miter limit and
++ * dashes, as cairo_stroke took them from its context.
+  * MIT, Copyright (c) 2026 AmiCradle Team.
+  * SPDX-License-Identifier: MIT
+  */
+ #include "config.h"
+ #include "GraphicsContextOpenGPU.h"
+ 
+-#if USE(CAIRO)
++#if USE(AMIGA_GRAPHICS)
+ 
+ #include "AffineTransform.h"
+ #include "Color.h"
+@@ -27,6 +25,7 @@
+ #include "Path.h"
+ #include "Pattern.h"
+ #include "Font.h"
++#include "FontCascade.h"
+ #include "FontPlatformData.h"
+ #if USE(OPENFONT)
+ #include "OpenFontFace.h"
+@@ -35,7 +34,6 @@
+ #include "Adwaita.h"
+ #endif
+ #include <algorithm>
+-#include <cairo.h>
+ #include <cmath>
+ #include <numbers>
+ #include <stdio.h>
+@@ -58,11 +56,8 @@ static constexpr unsigned long maxWorkBytes = 128 * 1024;
+ bool GraphicsContextOpenGPU::isWanted()
+ {
+     static const bool wanted = [] {
+-        const char* value = getenv("OB_PAINT");
+-        if (value && equalLettersIgnoringASCIICase(String::fromLatin1(value), "cairo"_s))
+-            return false;
+         if (!(ob_opengpu_caps() & OBGPU_CAN_PD)) {
+-            fprintf(stderr, "OpenBrowser: no gfopengpu.library with COMPOSITE_PD; the window is painted with cairo\n");
++            fprintf(stderr, "GFOpenBrowser: no gfopengpu.library 0.24 or newer: nothing can be drawn\n");
+             return false;
+         }
+         return true;
+@@ -70,15 +65,26 @@ bool GraphicsContextOpenGPU::isWanted()
+     return wanted;
+ }
+ 
++// OB_PAINT_TRACE (the shell variable, any value): every drawing call, its
++// rectangle on the device, the clip and whether it was drawn, on stdout
++// as OBTRACE lines. For finding what a page loses; off, it costs a test.
++static bool tracing()
++{
++    static const bool on = !!getenv("OB_PAINT_TRACE");
++    return on;
++}
++
++#define OBTRACE(...) do { if (tracing()) { printf("OBTRACE " __VA_ARGS__); fflush(stdout); } } while (0)
++
+ static size_t gpuBytes()
+ {
+     return (sizeof(obgpu) + 7) & ~static_cast<size_t>(7);
+ }
+ 
+-GraphicsContextOpenGPU::GraphicsContextOpenGPU(cairo_surface_t* surface, obgpu_counts* counts)
+-    : m_cairo(surface)
+-    , m_surface(surface)
++GraphicsContextOpenGPU::GraphicsContextOpenGPU(AmigaImage& target, obgpu_counts* counts)
++    : m_target(target)
+     , m_counts(counts ? counts : &m_ownCounts)
++    , m_clipBounds(FloatPoint(), target.size())
+ {
+     void* block = nullptr;
+     int caps = ob_opengpu_caps();
+@@ -90,17 +96,14 @@ GraphicsContextOpenGPU::GraphicsContextOpenGPU(cairo_surface_t* surface, obgpu_c
+     obgpu_init(m_gpu, stream, streamWords, scratch, reinterpret_cast<uintptr_t>(scratch), scratchWords, submitBatch, this,
+         caps, m_counts);
+     obgpu_masks(m_gpu, allocMask, freeMask, this);
+-    if (cairo_surface_get_type(surface) != CAIRO_SURFACE_TYPE_IMAGE || cairo_image_surface_get_format(surface) != CAIRO_FORMAT_ARGB32
+-        || !cairo_image_surface_get_data(surface)) {
+-        m_gpu->broken = 1;
+-        return;
+-    }
+-    obgpu_target(m_gpu, reinterpret_cast<uintptr_t>(cairo_image_surface_get_data(surface)), cairo_image_surface_get_stride(surface),
+-        cairo_image_surface_get_width(surface), cairo_image_surface_get_height(surface));
++    obgpu_target(m_gpu, reinterpret_cast<uintptr_t>(target.data()), target.stride(), target.width(), target.height());
+ }
+ 
+ GraphicsContextOpenGPU::~GraphicsContextOpenGPU()
+ {
++    // layers left open are put down, as cairo's end of the context left them
++    while (!m_layers.isEmpty())
++        endTransparencyLayer();
+     flush();
+     if (m_gpu)
+         obgpu_release_masks(m_gpu);
+@@ -113,13 +116,7 @@ GraphicsContextOpenGPU::~GraphicsContextOpenGPU()
+ long GraphicsContextOpenGPU::submitBatch(void* user, const unsigned char* stream, long words)
+ {
+     auto& context = *static_cast<GraphicsContextOpenGPU*>(user);
+-    // cairo's own drawing finished first; afterwards it must not trust
+-    // anything it remembers of these pixels (the window's, or from 0081 a
+-    // transparency layer's group)
+-    cairo_surface_t* surface = context.m_drawSurface ? context.m_drawSurface : context.m_surface;
+-    cairo_surface_flush(surface);
+     long result = ob_opengpu_run(stream, words);
+-    cairo_surface_mark_dirty(surface);
+     context.m_pictures.shrink(0);
+     return result;
+ }
+@@ -146,21 +143,24 @@ void GraphicsContextOpenGPU::flush() const
+         obgpu_flush(m_gpu);
+ }
+ 
++// The device rectangle, the transform's move and the batch's clip, for a trace line.
++#define OBTRACE_AT(name, userRect, result) do { if (tracing()) { \
++    FloatRect d = m_ctm.mapRect(userRect); \
++    const obgpu_level* l = m_gpu ? &m_gpu->level[m_gpu->depth] : nullptr; \
++    OBTRACE("%s dev=%.1f,%.1f,%.1fx%.1f clip=%d,%d-%d,%d flags=%x depth=%d layers=%u -> %d\n", name, d.x(), d.y(), d.width(), d.height(), \
++        l ? l->cx0 : -1, l ? l->cy0 : -1, l ? l->cx1 : -1, l ? l->cy1 : -1, l ? l->flags : -1, m_gpu ? m_gpu->depth : -1, \
++        static_cast<unsigned>(m_layers.size()), static_cast<int>(result)); } } while (0)
++
+ void GraphicsContextOpenGPU::handOn(int kind) const
+ {
++    OBTRACE("handOn kind=%d\n", kind);
+     flush();
+     m_counts->handed[kind]++;
+ }
+ 
+-GraphicsContextCairo* GraphicsContextOpenGPU::platformContext() const
+-{
+-    handOn(OBGPU_PLATFORM);
+-    return &m_cairo;
+-}
+-
++// The state is read when it is drawn with (fillColor(), strokeThickness() ...).
+ void GraphicsContextOpenGPU::didUpdateState(GraphicsContextState& state)
+ {
+-    m_cairo.mergeLastChanges(state);
+     state.didApplyChanges();
+ }
+ 
+@@ -171,7 +171,7 @@ void GraphicsContextOpenGPU::syncMatrix()
+ {
+     if (!m_gpu)
+         return;
+-    auto ctm = m_cairo.getCTM(PossiblyIncludeDeviceScale);
++    auto& ctm = m_ctm;
+     double linear[4] = { ctm.a(), ctm.b(), ctm.c(), ctm.d() };
+     double move[2] = { ctm.e(), ctm.f() };
+     long m[6];
+@@ -207,9 +207,10 @@ static bool fixedRect(const FloatRect& rect, long* out)
+ void GraphicsContextOpenGPU::save(GraphicsContextState::Purpose purpose)
+ {
+     GraphicsContext::save(purpose);
+-    m_cairo.save(purpose);
++    m_saved.append({ m_ctm, m_clipBounds, m_lineCap, m_lineJoin, m_miterLimit, m_dashes, m_dashOffset });
+     if (m_gpu)
+         obgpu_save(m_gpu);
++    OBTRACE_AT("save", FloatRect(), 1);
+ }
+ 
+ void GraphicsContextOpenGPU::restore(GraphicsContextState::Purpose purpose)
+@@ -217,56 +218,75 @@ void GraphicsContextOpenGPU::restore(GraphicsContextState::Purpose purpose)
+     if (!stackSize())
+         return;
+     GraphicsContext::restore(purpose);
+-    m_cairo.restore(purpose);
+-    if (m_gpu)
++    if (!m_saved.isEmpty()) {
++        auto saved = m_saved.takeLast();
++        m_ctm = saved.ctm;
++        m_clipBounds = saved.clipBounds;
++        m_lineCap = saved.lineCap;
++        m_lineJoin = saved.lineJoin;
++        m_miterLimit = saved.miterLimit;
++        m_dashes = WTF::move(saved.dashes);
++        m_dashOffset = saved.dashOffset;
++    }
++    if (m_gpu) {
+         obgpu_restore(m_gpu);
++        syncMatrix();
++    }
++    OBTRACE_AT("restore", FloatRect(), 1);
+ }
+ 
+ void GraphicsContextOpenGPU::scale(const FloatSize& size)
+ {
+-    m_cairo.scale(size);
++    m_ctm.scale(size);
+     syncMatrix();
+ }
+ 
+ void GraphicsContextOpenGPU::rotate(float angleInRadians)
+ {
+-    m_cairo.rotate(angleInRadians);
++    m_ctm.rotate(rad2deg(angleInRadians));
+     syncMatrix();
+ }
+ 
+ void GraphicsContextOpenGPU::translate(float x, float y)
+ {
+-    m_cairo.translate(x, y);
++    m_ctm.translate(x, y);
+     syncMatrix();
+ }
+ 
+ void GraphicsContextOpenGPU::concatCTM(const AffineTransform& transform)
+ {
+-    m_cairo.concatCTM(transform);
++    m_ctm *= transform;
+     syncMatrix();
+ }
+ 
+ void GraphicsContextOpenGPU::setCTM(const AffineTransform& transform)
+ {
+-    m_cairo.setCTM(transform);
++    m_ctm = transform;
+     syncMatrix();
+ }
+ 
+ AffineTransform GraphicsContextOpenGPU::getCTM(IncludeDeviceScale includeScale) const
+ {
+-    return m_cairo.getCTM(includeScale);
++    UNUSED_PARAM(includeScale);
++    return m_ctm;
+ }
+ 
+ void GraphicsContextOpenGPU::resetClip()
+ {
+-    m_cairo.resetClip();
++    m_clipBounds = FloatRect(FloatPoint(), m_target->size());
+     if (m_gpu)
+         obgpu_reset_clip(m_gpu);
+ }
+ 
++// The clip's bounds on the device, narrowed by a shape's bounds in the user's space.
++void GraphicsContextOpenGPU::narrowClip(const FloatRect& userRect)
++{
++    m_clipBounds.intersect(m_ctm.mapRect(userRect));
++}
++
+ void GraphicsContextOpenGPU::clip(const FloatRect& rect)
+ {
+-    m_cairo.clip(rect);
++    narrowClip(rect);
+     if (!m_gpu)
+         return;
+     // a rectangle off whole pixels or turned is a mask, drawn by PATH_FILL
+@@ -279,6 +299,7 @@ void GraphicsContextOpenGPU::clip(const FloatRect& rect)
+         obgpu_clip(m_gpu, r[0], r[1], r[2], r[3]);
+     else
+         obgpu_clip_other(m_gpu);
++    OBTRACE_AT("clip(after)", rect, 1);
+ }
+ 
+ // A clip to a path, as cairo_clip makes it (Cairo::clipPath and clipOut):
+@@ -289,14 +310,17 @@ void GraphicsContextOpenGPU::clipToPath(const Path& path, int flags)
+         return;
+     if (!ensureWork() || !beginPath(path)) {
+         obgpu_clip_other(m_gpu);
++        OBTRACE_AT("clipToPath(other)", path.fastBoundingRect(), 0);
+         return;
+     }
+-    obgpu_clip_path(m_gpu, flags);
++    int made = obgpu_clip_path(m_gpu, flags);
++    OBTRACE("clipToPath flags=%d mask=%d\n", flags, m_gpu->level[m_gpu->depth].mask);
++    OBTRACE_AT("clipToPath(after)", path.fastBoundingRect(), made);
+ }
+ 
+ void GraphicsContextOpenGPU::clipRoundedRect(const FloatRoundedRect& rect)
+ {
+-    m_cairo.clipRoundedRect(rect);
++    narrowClip(rect.rect());
+     if (!m_gpu)
+         return;
+     long r[4];
+@@ -309,18 +333,18 @@ void GraphicsContextOpenGPU::clipRoundedRect(const FloatRoundedRect& rect)
+     Path path;
+     path.addRoundedRect(rect);
+     clipToPath(path, OBGPU_CLIP_EVENODD);
++    OBTRACE_AT("clipRoundedRect(after)", rect.rect(), 1);
+ }
+ 
+ void GraphicsContextOpenGPU::clipPath(const Path& path, WindRule windRule)
+ {
+-    m_cairo.clipPath(path, windRule);
++    narrowClip(path.fastBoundingRect());
+     // anti-aliased, as Cairo::clipPath enforces
+     clipToPath(path, windRule == WindRule::EvenOdd ? OBGPU_CLIP_EVENODD : 0);
+ }
+ 
+ void GraphicsContextOpenGPU::clipOut(const FloatRect& rect)
+ {
+-    m_cairo.clipOut(rect);
+     if (!m_gpu)
+         return;
+     // Cairo::clipOut: the clip's extents and the rectangle, even-odd, not anti-aliased
+@@ -335,118 +359,137 @@ void GraphicsContextOpenGPU::clipOut(const FloatRect& rect)
+         return;
+     }
+     obgpu_clip_path(m_gpu, OBGPU_CLIP_OUT | OBGPU_CLIP_EVENODD | OBGPU_CLIP_ALIASED);
++    OBTRACE_AT("clipOutRect(after)", rect, 1);
+ }
+ 
+ void GraphicsContextOpenGPU::clipOut(const Path& path)
+ {
+-    m_cairo.clipOut(path);
+     // Cairo::clipOut: the clip's extents and the path, even-odd, anti-aliased
+     clipToPath(path, OBGPU_CLIP_OUT | OBGPU_CLIP_EVENODD);
+ }
+ 
+-void GraphicsContextOpenGPU::clipToImageBuffer(ImageBuffer& buffer, const FloatRect& rect)
++// The buffer's alpha as a mask is not written yet: the clip is its rectangle.
++void GraphicsContextOpenGPU::clipToImageBuffer(ImageBuffer&, const FloatRect& rect)
+ {
+-    // cairo draws into a group from here, put on the window at the restore
+     handOn(OBGPU_LAYER);
+-    m_cairo.clipToImageBuffer(buffer, rect);
+-    if (m_gpu)
+-        obgpu_group(m_gpu);
++    clip(rect);
+ }
+ 
++// As cairo_clip_extents: the clip's device bounds in the user's space.
+ IntRect GraphicsContextOpenGPU::clipBounds() const
+ {
+-    return m_cairo.clipBounds();
++    if (auto inverse = m_ctm.inverse())
++        return enclosingIntRect(inverse->mapRect(m_clipBounds));
++    return { };
+ }
+ 
+-// A transparency layer: cairo pushes a group (its own image surface over
+-// the clip's extents) and, at the end, puts it on the window by the
+-// opacity, operator and blend mode (counted as a layer cairo drew). From
+-// 0081 what is drawn inside goes into that group's pixels here.
+-void GraphicsContextOpenGPU::groupHere()
++// A transparency layer (0081, 0083): a picture of its own over the clip's
++// device bounds, drawn into here through the same transforms and clips,
++// then put on what is under it by the opacity and operator. Blend modes
++// other than normal are drawn as normal.
++void GraphicsContextOpenGPU::beginLayer(float opacity, CompositeOperator op)
+ {
+-    if (!m_gpu)
+-        return;
++    Layer layer;
++    layer.opacity = opacity;
++    layer.op = op;
++    IntRect bounds = enclosingIntRect(m_clipBounds);
++    bounds.intersect(IntRect(IntPoint(), m_target->size()));
++    if (m_gpu && !bounds.isEmpty()) {
++        flush();
++        layer.image = AmigaImage::create(bounds.size());
++        layer.origin = bounds.location();
++    }
+     obgpu_save(m_gpu);
+-    m_layers.append({ false, m_drawSurface });
+-    cairo_surface_t* group = cairo_get_group_target(m_cairo.cr());
+-    double dx = 0, dy = 0, sx = 1, sy = 1;
+-    if (group && cairo_surface_get_type(group) == CAIRO_SURFACE_TYPE_IMAGE) {
+-        cairo_surface_get_device_offset(group, &dx, &dy);
+-        cairo_surface_get_device_scale(group, &sx, &sy);
++    if (layer.image) {
++        // the layer's pixel (0, 0) is device (origin)
++        layer.drawnHere = obgpu_group_surface(m_gpu, reinterpret_cast<uintptr_t>(layer.image->data()), layer.image->stride(),
++            layer.image->width(), layer.image->height(), layer.origin.x(), layer.origin.y());
+     }
+-    if (!group || cairo_surface_get_type(group) != CAIRO_SURFACE_TYPE_IMAGE || cairo_image_surface_get_format(group) != CAIRO_FORMAT_ARGB32
+-        || !cairo_image_surface_get_data(group) || sx != 1 || sy != 1 || dx != std::round(dx) || dy != std::round(dy)
+-        || !(std::abs(dx) < 32767) || !(std::abs(dy) < 32767)) {
++    if (!layer.drawnHere)
+         obgpu_group(m_gpu);
+-        return;
+-    }
+-    // the group's pixel (0, 0) is device (-dx, -dy)
+-    if (obgpu_group_surface(m_gpu, reinterpret_cast<uintptr_t>(cairo_image_surface_get_data(group)), cairo_image_surface_get_stride(group),
+-        cairo_image_surface_get_width(group), cairo_image_surface_get_height(group), static_cast<int>(-dx), static_cast<int>(-dy))) {
+-        m_layers.last().first = true;
+-        m_drawSurface = group;
+-    }
++    OBTRACE("beginLayer bounds=%d,%d,%dx%d image=%d drawnHere=%d opacity=%.2f op=%d\n", bounds.x(), bounds.y(), bounds.width(), bounds.height(),
++        !!layer.image, layer.drawnHere, opacity, static_cast<int>(op));
++    OBTRACE_AT("beginLayer(after)", m_ctm.inverse().value_or(AffineTransform()).mapRect(FloatRect(bounds)), layer.drawnHere);
++    m_layers.append(WTF::move(layer));
+ }
+ 
+ void GraphicsContextOpenGPU::beginTransparencyLayer(float opacity)
+ {
+-    handOn(OBGPU_LAYER);
+     GraphicsContext::beginTransparencyLayer(opacity);
+-    m_cairo.beginTransparencyLayer(opacity);
+     GraphicsContext::save(GraphicsContextState::Purpose::TransparencyLayer);
+-    groupHere();
++    m_saved.append({ m_ctm, m_clipBounds, m_lineCap, m_lineJoin, m_miterLimit, m_dashes, m_dashOffset });
++    if (m_gpu)
++        beginLayer(opacity, CompositeOperator::SourceOver);
+ }
+ 
+ void GraphicsContextOpenGPU::beginTransparencyLayer(CompositeOperator compositeOperator, BlendMode blendMode)
+ {
+-    handOn(OBGPU_LAYER);
+     GraphicsContext::beginTransparencyLayer(compositeOperator, blendMode);
+-    static_cast<GraphicsContext&>(m_cairo).beginTransparencyLayer(compositeOperator, blendMode);
+     GraphicsContext::save(GraphicsContextState::Purpose::TransparencyLayer);
+-    groupHere();
++    m_saved.append({ m_ctm, m_clipBounds, m_lineCap, m_lineJoin, m_miterLimit, m_dashes, m_dashOffset });
++    if (blendMode != BlendMode::Normal)
++        handOn(OBGPU_LAYER);
++    if (m_gpu)
++        beginLayer(1, compositeOperator);
+ }
+ 
+ void GraphicsContextOpenGPU::endTransparencyLayer()
+ {
+-    // what was drawn into the group goes first (obgpu_restore sends it),
+-    // then cairo puts the group on the window
+-    if (m_gpu) {
++    OBTRACE("endLayer layers=%u\n", static_cast<unsigned>(m_layers.size()));
++    if (m_gpu && !m_layers.isEmpty()) {
++        // what was drawn into the layer goes first (obgpu_restore sends it)
+         obgpu_restore(m_gpu);
+-        if (!m_layers.isEmpty()) {
+-            auto layer = m_layers.takeLast();
+-            if (layer.first)
+-                m_drawSurface = layer.second;
++        auto layer = m_layers.takeLast();
++        if (layer.drawnHere) {
++            // the layer onto the device, pixel for pixel, under the clip outside it
++            AffineTransform ctm = m_ctm;
++            m_ctm = AffineTransform();
++            syncMatrix();
++            FloatRect rect(layer.origin, layer.image->size());
++            imageHere(*layer.image, rect, FloatRect(FloatPoint(), layer.image->size()), layer.op, layer.opacity, -1);
++            m_ctm = ctm;
++            syncMatrix();
+         }
+     }
+-    flush();
+     GraphicsContext::endTransparencyLayer();
+-    m_cairo.endTransparencyLayer();
++    if (!m_saved.isEmpty()) {
++        auto saved = m_saved.takeLast();
++        m_ctm = saved.ctm;
++        m_clipBounds = saved.clipBounds;
++        m_lineCap = saved.lineCap;
++        m_lineJoin = saved.lineJoin;
++        m_miterLimit = saved.miterLimit;
++        m_dashes = WTF::move(saved.dashes);
++        m_dashOffset = saved.dashOffset;
++        syncMatrix();
++    }
+     GraphicsContext::restore(GraphicsContextState::Purpose::TransparencyLayer);
+ }
+ 
+ void GraphicsContextOpenGPU::setLineCap(LineCap lineCap)
+ {
+-    m_cairo.setLineCap(lineCap);
++    m_lineCap = lineCap;
+ }
+ 
++// As Cairo::setLineDash: no dashes when they are all zero.
+ void GraphicsContextOpenGPU::setLineDash(const DashArray& dashes, float dashOffset)
+ {
+-    m_cairo.setLineDash(dashes, dashOffset);
++    m_dashes.clear();
++    if (std::all_of(dashes.begin(), dashes.end(), [](auto dash) { return !dash; }))
++        return;
++    for (auto dash : dashes)
++        m_dashes.append(dash);
++    m_dashOffset = dashOffset;
+ }
+ 
+ void GraphicsContextOpenGPU::setLineJoin(LineJoin lineJoin)
+ {
+-    m_cairo.setLineJoin(lineJoin);
++    m_lineJoin = lineJoin;
+ }
+ 
+ void GraphicsContextOpenGPU::setMiterLimit(float limit)
+ {
+-    m_cairo.setMiterLimit(limit);
+-}
+-
+-RenderingMode GraphicsContextOpenGPU::renderingMode() const
+-{
+-    return m_cairo.renderingMode();
++    m_miterLimit = limit;
+ }
+ 
+ // ---- what OpenGPU draws -----------------------------------------------------------------
+@@ -612,20 +655,16 @@ bool GraphicsContextOpenGPU::gradientFor(const Gradient& gradient, const AffineT
+ // A picture's tile as paint: the tile's pixels to the user's space, and
+ // filter 0 nearest, 1 bilinear. false when OpenGPU can't take it (not
+ // ARGB32 or RGB24, past the fixed point).
+-bool GraphicsContextOpenGPU::pictureFor(cairo_surface_t* surface, const IntRect& tile, const AffineTransform& tileToUser, int filter, Paint& paint)
++bool GraphicsContextOpenGPU::pictureFor(AmigaImage* surface, const IntRect& tile, const AffineTransform& tileToUser, int filter, Paint& paint)
+ {
+-    if (!surface || cairo_surface_get_type(surface) != CAIRO_SURFACE_TYPE_IMAGE)
+-        return false;
+-    cairo_format_t format = cairo_image_surface_get_format(surface);
+-    if (format != CAIRO_FORMAT_ARGB32 && format != CAIRO_FORMAT_RGB24)
++    if (!surface)
+         return false;
+-    cairo_surface_flush(surface);
+     auto& p = paint.pattern;
+-    p.source.address = reinterpret_cast<uintptr_t>(cairo_image_surface_get_data(surface));
+-    p.source.bpr = cairo_image_surface_get_stride(surface);
+-    p.source.w = cairo_image_surface_get_width(surface);
+-    p.source.h = cairo_image_surface_get_height(surface);
+-    p.source.format = format == CAIRO_FORMAT_RGB24 ? OBGPU_RGB : OBGPU_ARGB;
++    p.source.address = reinterpret_cast<uintptr_t>(surface->data());
++    p.source.bpr = surface->stride();
++    p.source.w = surface->width();
++    p.source.h = surface->height();
++    p.source.format = surface->hasAlpha() ? OBGPU_ARGB : OBGPU_RGB;
+     if (!p.source.address || tile.x() < 0 || tile.y() < 0 || tile.isEmpty() || tile.maxX() > p.source.w || tile.maxY() > p.source.h)
+         return false;
+     p.x = tile.x();
+@@ -673,37 +712,60 @@ bool GraphicsContextOpenGPU::patternFor(const Pattern& pattern, float globalAlph
+     auto device = getCTM(PossiblyIncludeDeviceScale) * pattern.patternSpaceTransform();
+     if (device.b() || device.c() || device.a() < 1 || device.d() < 1)
+         return false;
+-    IntRect tile(0, 0, cairo_image_surface_get_width(surface.get()), cairo_image_surface_get_height(surface.get()));
++    IntRect tile(IntPoint(), surface->size());
+     return pictureFor(surface.get(), tile, pattern.patternSpaceTransform(), 1, paint);
+ }
+ 
+-// cairo's stroke state, as cairo_stroke reads it: the width given, and its
+-// context's caps, joins, miter limit and dashes (16.16 in the user's units).
++// The stroke as cairo_stroke took it: the width given, and this context's
++// caps, joins, miter limit and dashes (16.16 in the user's units).
++static int capFor(LineCap cap)
++{
++    switch (cap) {
++    case LineCap::Butt:
++        return OBGPU_CAP_BUTT;
++    case LineCap::Round:
++        return OBGPU_CAP_ROUND;
++    case LineCap::Square:
++        return OBGPU_CAP_SQUARE;
++    }
++    return OBGPU_CAP_BUTT;
++}
++
++static int joinFor(LineJoin join)
++{
++    switch (join) {
++    case LineJoin::Miter:
++        return OBGPU_JOIN_MITER;
++    case LineJoin::Round:
++        return OBGPU_JOIN_ROUND;
++    case LineJoin::Bevel:
++        return OBGPU_JOIN_BEVEL;
++    }
++    return OBGPU_JOIN_MITER;
++}
++
+ bool GraphicsContextOpenGPU::strokeFor(double width, obgpu_stroke& stroke, long* dashes)
+ {
+-    cairo_t* cr = m_cairo.cr();
+     if (!(std::abs(width) < 32767))
+         return false;
+     stroke.width = std::lround(width * 65536);
+-    stroke.cap = static_cast<int>(cairo_get_line_cap(cr));
+-    stroke.join = static_cast<int>(cairo_get_line_join(cr));
+-    stroke.miter = std::lround(std::clamp(cairo_get_miter_limit(cr), 0.0, 255.0) * 65536);
+-    stroke.dashes = cairo_get_dash_count(cr);
++    stroke.cap = capFor(m_lineCap);
++    stroke.join = joinFor(m_lineJoin);
++    stroke.miter = std::lround(std::clamp(static_cast<double>(m_miterLimit), 0.0, 255.0) * 65536);
++    stroke.dashes = static_cast<int>(m_dashes.size());
+     stroke.dash = dashes;
+     stroke.dash_offset = 0;
+     if (stroke.dashes > 64)
+         return false;
+     if (stroke.dashes) {
+-        double lengths[64], offset = 0;
+-        cairo_get_dash(cr, lengths, &offset);
+         for (int i = 0; i < stroke.dashes; i++) {
+-            if (!(lengths[i] >= 0 && lengths[i] < 32767))
++            if (!(m_dashes[i] >= 0 && m_dashes[i] < 32767))
+                 return false;
+-            dashes[i] = std::lround(lengths[i] * 65536);
++            dashes[i] = std::lround(m_dashes[i] * 65536);
+         }
+-        if (!(std::abs(offset) < 32767))
++        if (!(std::abs(m_dashOffset) < 32767))
+             return false;
+-        stroke.dash_offset = std::lround(offset * 65536);
++        stroke.dash_offset = std::lround(m_dashOffset * 65536);
+     }
+     return true;
+ }
+@@ -922,7 +984,6 @@ void GraphicsContextOpenGPU::fillRect(const FloatRect& rect, RequiresClipToRect
+             return;
+         handOn(OBGPU_PATTERN);
+     }
+-    m_cairo.fillRect(rect, requiresClipToRect);
+ }
+ 
+ void GraphicsContextOpenGPU::fillRect(const FloatRect& rect, const Color& color)
+@@ -932,10 +993,11 @@ void GraphicsContextOpenGPU::fillRect(const FloatRect& rect, const Color& color)
+     if (!color.isVisible() && compositeOperation() == CompositeOperator::SourceOver && blendMode() == BlendMode::Normal && !hasDropShadow())
+         return;
+     // with a shadow: ShadowBlur's rectangle shadow, of the rectangle's coverage
+-    if (hasDropShadow() ? shadowedRect(rect, color, 255) : solidFill(rect, color, compositeOperation(), blendMode()))
++    bool drawn = hasDropShadow() ? shadowedRect(rect, color, 255) : solidFill(rect, color, compositeOperation(), blendMode());
++    OBTRACE_AT("fillRectColor", rect, drawn);
++    if (drawn)
+         return;
+     handOn(OBGPU_FILL);
+-    m_cairo.fillRect(rect, color);
+ }
+ 
+ void GraphicsContextOpenGPU::clearRect(const FloatRect& rect)
+@@ -950,56 +1012,72 @@ void GraphicsContextOpenGPU::clearRect(const FloatRect& rect)
+             return;
+     }
+     handOn(OBGPU_CLEAR);
+-    m_cairo.clearRect(rect);
+ }
+ 
++// A picture into a rectangle by an operator and alpha, with a filter
++// (0 nearest, 1 bilinear, -1 pixel for pixel only): held until the batch
++// is drawn.
++bool GraphicsContextOpenGPU::imageHere(AmigaImage& image, const FloatRect& destRect, const FloatRect& srcRect, CompositeOperator op, float alpha, int filter)
++{
++    if (!m_gpu)
++        return false;
++    obgpu_source source;
++    source.address = reinterpret_cast<uintptr_t>(image.data());
++    source.bpr = image.stride();
++    source.w = image.width();
++    source.h = image.height();
++    source.format = image.hasAlpha() ? OBGPU_ARGB : OBGPU_RGB;
++    ensureWork();
++    float globalAlpha = std::clamp(alpha, 0.0f, 1.0f);
++    unsigned alpha8 = globalAlpha >= 1 ? 255 : static_cast<unsigned>(globalAlpha * 65535.0 + 0.5) >> 8;
++    long dst[4], src[4];
++    bool drawn = source.address && fixedRect(destRect, dst) && fixedRect(srcRect, src)
++        && obgpu_image(m_gpu, &source, dst, src, static_cast<int>(op), alpha8, filter);
++    OBTRACE("imageHere picture=%dx%d bpr=%u alpha=%d src=%.1f,%.1f,%.1fx%.1f op=%d a8=%u filter=%d\n", image.width(), image.height(),
++        image.stride(), image.hasAlpha(), srcRect.x(), srcRect.y(), srcRect.width(), srcRect.height(), static_cast<int>(op), alpha8, filter);
++    OBTRACE_AT("imageHere", destRect, drawn);
++    if (!drawn)
++        return false;
++    if (obgpu_pending(m_gpu))
++        m_pictures.append(&image);
++    return true;
++}
++
++// As Cairo::drawSurface's filters: nearest, bilinear, or (GOOD and BEST,
++// which are not bilinear when they shrink) pixel for pixel only; then, when
++// OpenGPU won't take it pixel for pixel, bilinear. Orientations other than
++// none, blend modes other than normal and shadows are not drawn here.
+ void GraphicsContextOpenGPU::drawNativeImage(const NativeImage& image, const FloatRect& destRect, const FloatRect& srcRect, ImagePaintingOptions options)
+ {
+-    cairo_surface_t* surface = image.platformImage().get();
+-    if (m_gpu && surface && options.orientation() == ImageOrientation::Orientation::None && options.blendMode() == BlendMode::Normal
+-        && !hasDropShadow() && cairo_surface_get_type(surface) == CAIRO_SURFACE_TYPE_IMAGE) {
+-        cairo_format_t format = cairo_image_surface_get_format(surface);
+-        if (format == CAIRO_FORMAT_ARGB32 || format == CAIRO_FORMAT_RGB24) {
+-            cairo_surface_flush(surface);
+-            obgpu_source source;
+-            source.address = reinterpret_cast<uintptr_t>(cairo_image_surface_get_data(surface));
+-            source.bpr = cairo_image_surface_get_stride(surface);
+-            source.w = cairo_image_surface_get_width(surface);
+-            source.h = cairo_image_surface_get_height(surface);
+-            source.format = format == CAIRO_FORMAT_RGB24 ? OBGPU_RGB : OBGPU_ARGB;
+-            ensureWork();
+-            // as Cairo::drawSurface's filters: nearest, bilinear, or (GOOD and
+-            // BEST, which are not bilinear when they shrink) pixel for pixel only
+-            int filter = -1;
+-            switch (imageInterpolationQualityForOptions(options)) {
+-            case InterpolationQuality::DoNotInterpolate:
+-                filter = 0;
+-                break;
+-            case InterpolationQuality::Low:
+-                filter = 1;
+-                break;
+-            default:
+-                break;
+-            }
+-            float globalAlpha = std::clamp(alpha(), 0.0f, 1.0f);
+-            unsigned alpha8 = globalAlpha >= 1 ? 255 : static_cast<unsigned>(globalAlpha * 65535.0 + 0.5) >> 8;
+-            long dst[4], src[4];
+-            if (source.address && fixedRect(destRect, dst) && fixedRect(srcRect, src)
+-                && obgpu_image(m_gpu, &source, dst, src, static_cast<int>(options.compositeOperator()), alpha8, filter)) {
+-                if (obgpu_pending(m_gpu))
+-                    m_pictures.append(surface);
+-                return;
+-            }
+-        }
++    auto picture = image.platformImage();
++    OBTRACE_AT("drawNativeImage", destRect, !!picture);
++    if (!picture)
++        return;
++    if (options.orientation() != ImageOrientation::Orientation::None || options.blendMode() != BlendMode::Normal || hasDropShadow())
++        handOn(OBGPU_IMAGE);
++    int filter = -1;
++    switch (imageInterpolationQualityForOptions(options)) {
++    case InterpolationQuality::DoNotInterpolate:
++        filter = 0;
++        break;
++    case InterpolationQuality::Low:
++        filter = 1;
++        break;
++    default:
++        break;
+     }
++    if (imageHere(*picture, destRect, srcRect, options.compositeOperator(), alpha(), filter))
++        return;
++    if (filter < 0 && imageHere(*picture, destRect, srcRect, options.compositeOperator(), alpha(), 1))
++        return;
+     handOn(OBGPU_IMAGE);
+-    m_cairo.drawNativeImage(image, destRect, srcRect, options);
+ }
+ 
+ void GraphicsContextOpenGPU::drawImageBuffer(ImageBuffer& buffer, const FloatRect& destination, const FloatRect& source, ImagePaintingOptions options)
+ {
+     // The picture is the buffer's own pixels, which may be drawn into again
+     // before the batch would go: it goes now.
++    OBTRACE_AT("drawImageBuffer", destination, 1);
+     GraphicsContext::drawImageBuffer(buffer, destination, source, options);
+     flush();
+ }
+@@ -1010,7 +1088,6 @@ void GraphicsContextOpenGPU::fillRect(const FloatRect& rect, Gradient& gradient)
+     if (gradientRect(rect, gradient, fillGradientSpaceTransform(), 1))
+         return;
+     handOn(OBGPU_GRADIENT);
+-    m_cairo.fillRect(rect, gradient);
+ }
+ 
+ void GraphicsContextOpenGPU::fillRect(const FloatRect& rect, Gradient& gradient, const AffineTransform& gradientSpaceTransform, RequiresClipToRect requiresClipToRect)
+@@ -1018,7 +1095,6 @@ void GraphicsContextOpenGPU::fillRect(const FloatRect& rect, Gradient& gradient,
+     if (gradientRect(rect, gradient, gradientSpaceTransform, alpha()))
+         return;
+     handOn(OBGPU_GRADIENT);
+-    m_cairo.fillRect(rect, gradient, gradientSpaceTransform, requiresClipToRect);
+ }
+ 
+ void GraphicsContextOpenGPU::fillRoundedRectImpl(const FloatRoundedRect& rect, const Color& color)
+@@ -1034,7 +1110,6 @@ void GraphicsContextOpenGPU::fillRoundedRectImpl(const FloatRoundedRect& rect, c
+             return;
+     }
+     handOn(OBGPU_ROUNDED);
+-    m_cairo.fillRoundedRectImpl(rect, color);
+ }
+ 
+ void GraphicsContextOpenGPU::fillRectWithRoundedHole(const FloatRect& rect, const FloatRoundedRect& hole, const Color& color)
+@@ -1054,7 +1129,6 @@ void GraphicsContextOpenGPU::fillRectWithRoundedHole(const FloatRect& rect, cons
+             return;
+     }
+     handOn(OBGPU_ROUNDED);
+-    m_cairo.fillRectWithRoundedHole(rect, hole, color);
+ }
+ 
+ void GraphicsContextOpenGPU::strokeRect(const FloatRect& rect, float lineWidth)
+@@ -1068,7 +1142,6 @@ void GraphicsContextOpenGPU::strokeRect(const FloatRect& rect, float lineWidth)
+             return;
+     }
+     handOn(OBGPU_STROKE);
+-    m_cairo.strokeRect(rect, lineWidth);
+ }
+ 
+ void GraphicsContextOpenGPU::fillPath(const Path& path)
+@@ -1076,11 +1149,12 @@ void GraphicsContextOpenGPU::fillPath(const Path& path)
+     if (path.isEmpty())
+         return;
+     Paint paint;
+-    if (pathsWanted(false) && paintFor(fillBrush(), paint)
+-        && fillPathWith(path, paint, fillRule() == WindRule::EvenOdd, compositeOperation(), brushShadowAlpha(fillBrush())))
++    bool drawn = pathsWanted(false) && paintFor(fillBrush(), paint)
++        && fillPathWith(path, paint, fillRule() == WindRule::EvenOdd, compositeOperation(), brushShadowAlpha(fillBrush()));
++    OBTRACE_AT("fillPath", path.fastBoundingRect(), drawn);
++    if (drawn)
+         return;
+     handOn(OBGPU_PATH);
+-    m_cairo.fillPath(path);
+ }
+ 
+ void GraphicsContextOpenGPU::strokePath(const Path& path)
+@@ -1089,10 +1163,9 @@ void GraphicsContextOpenGPU::strokePath(const Path& path)
+         return;
+     Paint paint;
+     if (pathsWanted(false) && paintFor(strokeBrush(), paint)
+-        && strokePathWith(path, paint, cairo_get_line_width(m_cairo.cr()), brushShadowAlpha(strokeBrush())))
++        && strokePathWith(path, paint, strokeThickness(), brushShadowAlpha(strokeBrush())))
+         return;
+     handOn(OBGPU_STROKE);
+-    m_cairo.strokePath(path);
+ }
+ 
+ // ---- borders, lines, list bullets (0080) --------------------------------------------------
+@@ -1109,56 +1182,6 @@ void GraphicsContextOpenGPU::plainFill(const FloatRect& rect, const Color& color
+             return;
+     }
+     handOn(OBGPU_FILL);
+-    cairo_t* cr = m_cairo.cr();
+-    cairo_save(cr);
+-    auto [red, green, blue, alpha] = color.toColorTypeLossy<SRGBA<float>>().resolved();
+-    cairo_set_source_rgba(cr, red, green, blue, alpha);
+-    cairo_rectangle(cr, rect.x(), rect.y(), rect.width(), rect.height());
+-    cairo_fill(cr);
+-    cairo_restore(cr);
+-}
+-
+-// A stroke on cairo itself, as the Cairo:: call it stands for would make it
+-// (its colour, width and dashes, the context's caps and joins).
+-void GraphicsContextOpenGPU::cairoStroke(const Path& path, const Color& color, double width, const double* dashes, int dashCount, double dashOffset, bool aliased)
+-{
+-    flush();
+-    cairo_t* cr = m_cairo.cr();
+-    cairo_save(cr);
+-    auto [red, green, blue, alpha] = color.toColorTypeLossy<SRGBA<float>>().resolved();
+-    cairo_set_source_rgba(cr, red, green, blue, alpha);
+-    cairo_set_line_width(cr, width);
+-    if (dashes)
+-        cairo_set_dash(cr, dashes, dashCount, dashOffset);
+-    if (aliased)
+-        cairo_set_antialias(cr, CAIRO_ANTIALIAS_NONE);
+-    cairo_new_path(cr);
+-    path.applyElements([&](const PathElement& element) {
+-        auto& p = element.points;
+-        switch (element.type) {
+-        case PathElement::Type::MoveToPoint:
+-            cairo_move_to(cr, p[0].x(), p[0].y());
+-            break;
+-        case PathElement::Type::AddLineToPoint:
+-            cairo_line_to(cr, p[0].x(), p[0].y());
+-            break;
+-        case PathElement::Type::AddQuadCurveToPoint: {
+-            double x0, y0;
+-            cairo_get_current_point(cr, &x0, &y0);
+-            cairo_curve_to(cr, x0 + 2.0 / 3 * (p[0].x() - x0), y0 + 2.0 / 3 * (p[0].y() - y0),
+-                p[1].x() + 2.0 / 3 * (p[0].x() - p[1].x()), p[1].y() + 2.0 / 3 * (p[0].y() - p[1].y()), p[1].x(), p[1].y());
+-            break;
+-        }
+-        case PathElement::Type::AddCurveToPoint:
+-            cairo_curve_to(cr, p[0].x(), p[0].y(), p[1].x(), p[1].y(), p[2].x(), p[2].y());
+-            break;
+-        case PathElement::Type::CloseSubpath:
+-            cairo_close_path(cr);
+-            break;
+-        }
+-    });
+-    cairo_stroke(cr);
+-    cairo_restore(cr);
+ }
+ 
+ // As Cairo::drawRect: the rectangle filled with the fill colour (as
+@@ -1167,9 +1190,9 @@ void GraphicsContextOpenGPU::cairoStroke(const Path& path, const Color& color, d
+ // alpha, no shadow.
+ void GraphicsContextOpenGPU::drawRect(const FloatRect& rect, float borderThickness)
+ {
++    UNUSED_PARAM(borderThickness);
+     if (!pathsWanted(false)) {
+         handOn(OBGPU_STROKE);
+-        m_cairo.drawRect(rect, borderThickness);
+         return;
+     }
+     plainFill(rect, fillColor());
+@@ -1185,7 +1208,6 @@ void GraphicsContextOpenGPU::drawRect(const FloatRect& rect, float borderThickne
+     if (strokePathWith(path, paint, 1))
+         return;
+     handOn(OBGPU_STROKE);
+-    cairoStroke(path, strokeColor(), 1, nullptr, 0, 0, false);
+ }
+ 
+ // As Cairo::drawLine (borders): a line between the points, centred across
+@@ -1208,13 +1230,12 @@ void GraphicsContextOpenGPU::drawLine(const FloatPoint& point1, const FloatPoint
+     if (!pathsWanted(false) || !(m_gpu->caps & OBGPU_CAN_ALIASED)
+         || (!color.isVisible() && compositeOperation() == CompositeOperator::SourceOver)) {
+         handOn(OBGPU_STROKE);
+-        m_cairo.drawLine(point1, point2);
+         return;
+     }
+     float cornerWidth = 0;
+     double dash[2] = { };
+     double dashOffset = 0;
+-    double width = cairo_get_line_width(m_cairo.cr());
++    double width = this->strokeThickness();
+     if (dashed) {
+         cornerWidth = strokeStyle() == StrokeStyle::DottedStroke ? strokeThickness
+             : std::min(2.0f * strokeThickness, std::max(strokeThickness, strokeWidth / 3.0f));
+@@ -1275,7 +1296,6 @@ void GraphicsContextOpenGPU::drawLine(const FloatPoint& point1, const FloatPoint
+     if (drawn)
+         return;
+     handOn(OBGPU_STROKE);
+-    cairoStroke(path, color, width, dashed ? dash : nullptr, 2, dashOffset, true);
+ }
+ 
+ // As Cairo::drawEllipse (list bullets): the ellipse filled with the fill
+@@ -1292,7 +1312,6 @@ void GraphicsContextOpenGPU::drawEllipse(const FloatRect& rect)
+     bool stroked = strokeStyle() != StrokeStyle::NoStroke;
+     if (!pathsWanted(false) || (stroked && !strokeFor(strokeThickness(), stroke, dashes))) {
+         handOn(OBGPU_PATH);
+-        m_cairo.drawEllipse(rect);
+         return;
+     }
+     Paint paint;
+@@ -1300,7 +1319,6 @@ void GraphicsContextOpenGPU::drawEllipse(const FloatRect& rect)
+         paint.argb = premultiplied(fillColor());
+         if (!fillPathWith(path, paint, false, compositeOperation())) {
+             handOn(OBGPU_PATH);
+-            m_cairo.drawEllipse(rect);
+             return;
+         }
+     }
+@@ -1311,7 +1329,6 @@ void GraphicsContextOpenGPU::drawEllipse(const FloatRect& rect)
+     if (strokePathWith(path, paint, strokeThickness()))
+         return;
+     handOn(OBGPU_STROKE);
+-    cairoStroke(path, strokeColor(), strokeThickness(), nullptr, 0, 0, false);
+ }
+ 
+ // As CairoUtilities' drawPatternToCairoContext: the tile repeated under the
+@@ -1323,7 +1340,7 @@ void GraphicsContextOpenGPU::drawEllipse(const FloatRect& rect)
+ // the picture is neither shrunk nor turned on the target.
+ void GraphicsContextOpenGPU::drawPattern(const NativeImage& image, const FloatRect& destRect, const FloatRect& tileRect, const AffineTransform& patternTransform, const FloatPoint& phase, const FloatSize& spacing, ImagePaintingOptions options)
+ {
+-    cairo_surface_t* surface = image.platformImage().get();
++    AmigaImage* surface = image.platformImage().get();
+     if (surface && std::isfinite(phase.x()) && std::isfinite(phase.y()) && spacing.isZero()
+         && options.blendMode() == BlendMode::Normal && pathsWanted()) {
+         IntRect tile = enclosingIntRect(tileRect);
+@@ -1355,12 +1372,14 @@ void GraphicsContextOpenGPU::drawPattern(const NativeImage& image, const FloatRe
+         if (filter >= 0 && FloatRect(tile) == tileRect && pictureFor(surface, tile, tileToUser, filter, paint)) {
+             Path path;
+             path.addRect(destRect);
+-            if (fillPathWith(path, paint, false, options.compositeOperator()))
++            bool drawn = fillPathWith(path, paint, false, options.compositeOperator());
++            OBTRACE_AT("drawPattern", destRect, drawn);
++            if (drawn)
+                 return;
+         }
+     }
++    OBTRACE_AT("drawPatternNot", destRect, !!surface);
+     handOn(OBGPU_PATTERN);
+-    m_cairo.drawPattern(image, destRect, tileRect, patternTransform, phase, spacing, options);
+ }
+ 
+ // Focus rings as GraphicsContextCairo draws them: with the Adwaita theme
+@@ -1374,7 +1393,15 @@ void GraphicsContextOpenGPU::drawFocusRing(const Path& path, float outlineWidth,
+     Adwaita::paintFocus(*this, path, color);
+ #else
+     handOn(OBGPU_FOCUS);
+-    m_cairo.drawFocusRing(path, outlineWidth, color, zoomFactor);
++    UNUSED_PARAM(zoomFactor);
++    {
++        save();
++        setStrokeColor(color);
++        setStrokeThickness(outlineWidth);
++        setLineDash({ }, 0);
++        strokePath(path);
++        restore();
++    }
+ #endif
+ }
+ 
+@@ -1386,7 +1413,10 @@ void GraphicsContextOpenGPU::drawFocusRing(const Vector<FloatRect>& rects, float
+     Adwaita::paintFocus(*this, rects, color);
+ #else
+     handOn(OBGPU_FOCUS);
+-    m_cairo.drawFocusRing(rects, outlineWidth, color, zoomFactor);
++    Path path;
++    for (auto& rect : rects)
++        path.addRect(rect);
++    drawFocusRing(path, outlineWidth, color, zoomFactor);
+ #endif
+ }
+ 
+@@ -1454,10 +1484,8 @@ bool GraphicsContextOpenGPU::glyphsHere(const FontBase& font, std::span<const Gl
+             x += advances[i].width();
+             y += advances[i].height();
+         }
+-        // OpenGPU draws at once: the batch before it, and cairo's own drawing, go first
++        // OpenGPU draws at once: the batch before it goes first
+         flush();
+-        cairo_surface_t* surface = m_drawSurface ? m_drawSurface : m_surface;
+-        cairo_surface_flush(surface);
+         Color color = alpha() < 1 ? fillColor().colorWithAlphaMultipliedBy(alpha()) : fillColor();
+         long drawn;
+         {
+@@ -1465,8 +1493,7 @@ bool GraphicsContextOpenGPU::glyphsHere(const FontBase& font, std::span<const Gl
+             drawn = ob_openfont_draw_glyphs(face->face(), &where, ids.span().data(), pens.span().data(), glyphs.size(), pixelSize,
+                 premultiplied(color), useMatrix ? matrix : nullptr, aliased);
+         }
+-        cairo_surface_mark_dirty(surface);
+-        // the first pass failing leaves nothing drawn: cairo draws it all
++        // the first pass failing leaves nothing drawn: the outlines draw it all
+         if (drawn < 0) {
+             if (pass)
+                 fprintf(stderr, "OpenBrowser: gfopenfont.library could not draw a run's synthetic bold (%ld)\n", drawn);
+@@ -1487,21 +1514,70 @@ bool GraphicsContextOpenGPU::glyphsHere(const FontBase& font, std::span<const Gl
+ 
+ void GraphicsContextOpenGPU::drawGlyphs(const Font& font, std::span<const GlyphBufferGlyph> glyphs, std::span<const GlyphBufferAdvance> advances, const FloatPoint& point, FontSmoothingMode smoothing)
+ {
+-    if (glyphsHere(font, glyphs, advances, point, smoothing))
++    bool drawn = glyphsHere(font, glyphs, advances, point, smoothing);
++    OBTRACE_AT("drawGlyphs", FloatRect(point, FloatSize(1, 1)), drawn);
++    if (drawn)
+         return;
+     handOn(OBGPU_GLYPHS);
+-    m_cairo.drawGlyphs(font, glyphs, advances, point, smoothing);
++    glyphOutlines(font, glyphs, advances, point);
++}
++
++// As Cairo::drawGlyphs did with the face's outlines: each glyph's path at
++// its pen, filled with the fill brush (with its shadow) and, by the text
++// drawing mode, stroked with the stroke brush; synthetic bold a second
++// fill moved by its offset. Colour glyphs (bitmaps) are not drawn here.
++void GraphicsContextOpenGPU::glyphOutlines(const FontBase& font, std::span<const GlyphBufferGlyph> glyphs, std::span<const GlyphBufferAdvance> advances, const FloatPoint& point)
++{
++#if USE(OPENFONT)
++    auto* face = font.platformData().openFontFace();
++    if (!face || !font.platformData().size())
++        return;
++    Path run;
++    float x = point.x(), y = point.y();
++    float boldOffset = font.syntheticBoldOffset();
++    for (size_t i = 0; i < glyphs.size(); i++) {
++        Path glyph = face->glyphPath(glyphs[i], font.platformData().size());
++        if (!glyph.isEmpty()) {
++            AffineTransform at = AffineTransform::makeTranslation({ x, y });
++            if (font.platformData().syntheticOblique())
++                at.multiply(AffineTransform(1, 0, -tanf(14 * std::numbers::pi_v<float> / 180), 1, 0, 0));
++            run.addPath(glyph, at);
++            if (boldOffset) {
++                at.translate(boldOffset, 0);
++                run.addPath(glyph, at);
++            }
++        }
++        x += advances[i].width();
++        y += advances[i].height();
++    }
++    if (run.isEmpty())
++        return;
++    auto mode = textDrawingMode();
++    if (mode.contains(TextDrawingMode::Fill)) {
++        Paint paint;
++        if (!pathsWanted(false) || !paintFor(fillBrush(), paint)
++            || !fillPathWith(run, paint, false, compositeOperation(), brushShadowAlpha(fillBrush())))
++            handOn(OBGPU_PATH);
++    }
++    if (mode.contains(TextDrawingMode::Stroke) && strokeThickness() > 0) {
++        Paint paint;
++        if (!pathsWanted(false) || !paintFor(strokeBrush(), paint) || !strokePathWith(run, paint, strokeThickness()))
++            handOn(OBGPU_STROKE);
++    }
++#else
++    UNUSED_PARAM(font);
++    UNUSED_PARAM(glyphs);
++    UNUSED_PARAM(advances);
++    UNUSED_PARAM(point);
++#endif
+ }
+ 
+-// Glyph runs WebKit replays from its glyph display lists (a run recorded
+-// once and drawn from the list, as canUseGlyphDisplayList allows) come
+-// here: through OF_DrawGlyphsA as drawGlyphs's, else cairo's.
+ void GraphicsContextOpenGPU::drawGlyphsImmediate(const FontBase& font, std::span<const GlyphBufferGlyph> glyphs, std::span<const GlyphBufferAdvance> advances, const FloatPoint& point, FontSmoothingMode smoothing)
+ {
+     if (glyphsHere(font, glyphs, advances, point, smoothing))
+         return;
+     handOn(OBGPU_GLYPHS);
+-    m_cairo.drawGlyphsImmediate(font, glyphs, advances, point, smoothing);
++    glyphOutlines(font, glyphs, advances, point);
+ }
+ 
+ // As Cairo::drawLinesForText (underlines, overlines, line-through): each
+@@ -1537,15 +1613,38 @@ void GraphicsContextOpenGPU::drawLinesForText(const FloatPoint& point, float thi
+     }
+ }
+ 
+-// Spelling and grammar markers: cairo's drawErrorUnderline, a squiggle
+-// filled as one path. Left to cairo here: its shape is cairo's own code
+-// (DrawErrorUnderline.h), to be written on the stream with cairo's leaving.
++// Spelling and grammar markers as cairo's drawErrorUnderline drew them
++// (DrawErrorUnderline.h): a squiggle of half-height up and down strokes
++// across the rectangle's width, filled as one path of the marker's colour.
+ void GraphicsContextOpenGPU::drawDotsForDocumentMarker(const FloatRect& rect, DocumentMarkerLineStyle style)
+ {
+-    handOn(OBGPU_TEXT_LINES);
+-    m_cairo.drawDotsForDocumentMarker(rect, style);
++    if (rect.width() <= 0 || rect.height() <= 0)
++        return;
++    float height = rect.height(), unit = height / 2;
++    float top = rect.y(), bottom = rect.maxY(), middle = top + unit;
++    Path path;
++    // the zigzag's upper edge left to right, then its lower edge back
++    path.moveTo({ rect.x(), middle });
++    float x = rect.x();
++    bool up = true;
++    while (x < rect.maxX()) {
++        x = std::min(x + unit, rect.maxX());
++        path.addLineTo({ x, up ? top : middle });
++        up = !up;
++    }
++    up = (static_cast<int>(std::ceil((rect.maxX() - rect.x()) / unit)) & 1);
++    while (x > rect.x()) {
++        path.addLineTo({ x, up ? middle : bottom });
++        x = std::max(x - unit, rect.x());
++        up = !up;
++    }
++    path.closeSubpath();
++    Paint paint;
++    paint.argb = premultiplied(style.color);
++    if (!pathsWanted(false) || !fillPathWith(path, paint, false, CompositeOperator::SourceOver))
++        handOn(OBGPU_TEXT_LINES);
+ }
+ 
+ } // namespace WebCore
+ 
+-#endif // USE(CAIRO)
++#endif // USE(AMIGA_GRAPHICS)
+diff --git a/Source/WebCore/platform/graphics/amiga/GraphicsContextOpenGPU.h b/Source/WebCore/platform/graphics/amiga/GraphicsContextOpenGPU.h
+index 2200e08a..5c8b90b3 100644
+--- a/Source/WebCore/platform/graphics/amiga/GraphicsContextOpenGPU.h
++++ b/Source/WebCore/platform/graphics/amiga/GraphicsContextOpenGPU.h
+@@ -1,47 +1,49 @@
+ /*
+- * The window's GraphicsContext on OpenGPU: rectangles of one colour,
+- * clearRect, clips (rectangles, and from 0078 paths, clip-outs and rounded
+- * rectangles as A8 masks), pictures, and paths filled and stroked with a
+- * colour or a linear or radial gradient, anti-aliased or not, by any
+- * operator cairo bounds by the shape (copy and clear included) go into one
+- * OpenGPU batch
+- * (OpenGPUPaintAmiga.h); from 0082 glyph runs (gfopenfont.library 1.5's
+- * OF_DrawGlyphsA, its glyph cache inside openfont); from 0081 also what is drawn inside transparency
+- * layers (into cairo's group); from 0080 drawRect, drawLine, drawEllipse,
+- * focus rings, text decorations and spelling markers; from 0079 also patterns (drawPattern, pattern
+- * brushes), conic gradients and stops of any alphas (mixed premultiplied,
+- * as CSS); every other call goes to a GraphicsContextCairo
+- * on the same pixels and the same state, after the batch is sent and drawn.
+- * The shell variable OB_PAINT=cairo, or no gfopengpu.library with stream
+- * v1.4's COMPOSITE_PD, keeps the window on cairo alone (isWanted()).
++ * The engine's GraphicsContext on OpenGPU, without cairo (patch 0083):
++ * the window, canvases, filters and layers are AmigaImage pixels, and
++ * every drawing call goes into one OpenGPU batch (OpenGPUPaintAmiga.h):
++ * rectangles, clears, clips (rectangles, and paths, clip-outs and rounded
++ * rectangles as A8 masks), pictures, paths filled and stroked with a
++ * colour, a gradient or a pattern, glyph runs (gfopenfont.library 1.5's
++ * OF_DrawGlyphsA, or the glyphs' outlines as paths), drop shadows as
++ * ShadowBlur casts them, and transparency layers (pictures of their own,
++ * put on what is under them by their opacity and operator at the end).
++ *
++ * This context keeps the state cairo kept before: the transform, the
++ * clip's bounds, and the stroke's caps, joins, miter limit and dashes.
++ * What OpenGPU can't draw (a transform past the fixed point, a blend mode
++ * other than normal, a shadow under a scale or a turn) is drawn without
++ * what it can't do, or not at all; it is counted as handed on
++ * (obgpu_counts) as cairo's calls were.
+  * MIT, Copyright (c) 2026 AmiCradle Team.
+  * SPDX-License-Identifier: MIT
+  */
+ #pragma once
+ 
+-#if USE(CAIRO)
++#if USE(AMIGA_GRAPHICS)
+ 
+-#include "GraphicsContextCairo.h"
++#include "AffineTransform.h"
++#include "AmigaImage.h"
++#include "GraphicsContext.h"
+ #include "OpenGPUPaintAmiga.h"
+-#include "RefPtrCairo.h"
+ #include <wtf/Vector.h>
+ 
+ namespace WebCore {
+ 
+-class WEBCORE_EXPORT GraphicsContextOpenGPU final : public GraphicsContext {
++class WEBCORE_EXPORT GraphicsContextOpenGPU : public GraphicsContext {
+     WTF_MAKE_NONCOPYABLE(GraphicsContextOpenGPU);
+ public:
+-    // An ARGB32 cairo image surface; counts may be null.
+-    GraphicsContextOpenGPU(cairo_surface_t*, obgpu_counts*);
+-    ~GraphicsContextOpenGPU();
++    // Premultiplied ARGB32 pixels; counts may be null.
++    GraphicsContextOpenGPU(AmigaImage&, obgpu_counts*);
++    virtual ~GraphicsContextOpenGPU();
+ 
+-    // OpenGPU is there and OB_PAINT does not say cairo.
++    // gfopengpu.library with COMPOSITE_PD is there: without it nothing is drawn.
+     static bool isWanted();
+ 
+-    bool hasPlatformContext() const final { return true; }
+-    // cairo's, for callers that draw with it themselves: after the batch.
+-    GraphicsContextCairo* platformContext() const final;
++    // The batch so far sent and drawn: for whoever reads the pixels next.
++    void flushBatch() { flush(); }
+ 
++    bool hasPlatformContext() const final { return false; }
+     void didUpdateState(GraphicsContextState&) final;
+ 
+     void save(GraphicsContextState::Purpose = GraphicsContextState::Purpose::SaveRestore) final;
+@@ -67,7 +69,7 @@ public:
+     void clearRect(const FloatRect&) final;
+     void strokeRect(const FloatRect&, float lineWidth) final;
+ 
+-    RenderingMode renderingMode() const final;
++    RenderingMode renderingMode() const final { return RenderingMode::Unaccelerated; }
+ 
+     void resetClip() final;
+     void clip(const FloatRect&) final;
+@@ -113,39 +115,53 @@ private:
+         obgpu_gradient gradient { };
+         bool hasPattern { false };
+         obgpu_pattern pattern { };
+-        cairo_surface_t* picture { nullptr };
++        AmigaImage* picture { nullptr };
++    };
++    // What save() keeps that the batch's writer doesn't.
++    struct Saved {
++        AffineTransform ctm;
++        FloatRect clipBounds;
++        LineCap lineCap;
++        LineJoin lineJoin;
++        float miterLimit;
++        Vector<float> dashes;
++        float dashOffset;
++    };
++    // A transparency layer: a picture over the clip's bounds when it began,
++    // put on what is under it at the end.
++    struct Layer {
++        RefPtr<AmigaImage> image;
++        IntPoint origin;
++        float opacity { 1 };
++        CompositeOperator op { CompositeOperator::SourceOver };
++        bool drawnHere { false };
++        AmigaImage* outside { nullptr };
+     };
+ 
+     static long submitBatch(void* user, const unsigned char* stream, long words);
+     static unsigned char* allocMask(void* user, unsigned long bytes, unsigned long* address);
+     static void freeMask(void* user, unsigned char* block);
+     void clipToPath(const Path&, int flags);
+-    // After cairo pushed a group: draw into its surface here (0081).
+-    void groupHere();
++    void narrowClip(const FloatRect& userRect);
+     // A glyph run drawn by gfopenfont.library through OpenGPU (0082).
+     bool glyphsHere(const FontBase&, std::span<const GlyphBufferGlyph>, std::span<const GlyphBufferAdvance>, const FloatPoint&, FontSmoothingMode);
+-    // The batch sent, then a call of this kind counted for cairo.
++    // A glyph run as the glyphs' outlines, filled (and stroked) as paths.
++    void glyphOutlines(const FontBase&, std::span<const GlyphBufferGlyph>, std::span<const GlyphBufferAdvance>, const FloatPoint&);
++    // Counted as a call of this kind not drawn here (obgpu_counts).
+     void handOn(int kind) const;
+     void flush() const;
+     void syncMatrix();
+     bool solidFill(const FloatRect&, const Color&, CompositeOperator, BlendMode);
+     bool ensureWork();
+-    // shadows: whether the cairo call this stands for draws the context's
+-    // shadow (fills and strokes do; drawRect, drawLine and the like don't)
+     bool pathsWanted(bool drawsShadow = true);
+-    // A rectangle of one colour as Cairo's fillRectWithColor (no global
+-    // alpha, no shadow, nothing for an invisible colour over), here or, when
+-    // OpenGPU can't, on cairo itself after the batch.
+     void plainFill(const FloatRect&, const Color&);
+-    void cairoStroke(const Path&, const Color&, double width, const double* dashes, int dashCount, double dashOffset, bool aliased);
+     bool paintFor(const SourceBrush&, Paint&);
+     bool gradientFor(const Gradient&, const AffineTransform& gradientSpaceTransform, float globalAlpha, Paint&);
+     bool patternFor(const Pattern&, float globalAlpha, Paint&);
+-    bool pictureFor(cairo_surface_t*, const IntRect& tile, const AffineTransform& tileToUser, int filter, Paint&);
++    bool pictureFor(AmigaImage*, const IntRect& tile, const AffineTransform& tileToUser, int filter, Paint&);
+     void keepPicture(const Paint&);
+     bool strokeFor(double width, obgpu_stroke&, long* dashes);
+     bool beginPath(const Path&);
+-    // shadowMaskAlpha: -1, no shadow; else as shadowHere (0082b)
+     bool fillPathWith(const Path&, const Paint&, bool evenOdd, CompositeOperator, int shadowMaskAlpha = -1);
+     bool strokePathWith(const Path&, const Paint&, double width, int shadowMaskAlpha = -1);
+     bool shadowHere(int shadowMaskAlpha);
+@@ -153,9 +169,10 @@ private:
+     static int brushShadowAlpha(const SourceBrush&);
+     bool gradientRect(const FloatRect&, Gradient&, const AffineTransform&, float globalAlpha);
+     bool patternRect(const FloatRect&, const Pattern&, float globalAlpha);
++    void beginLayer(float opacity, CompositeOperator);
++    bool imageHere(AmigaImage&, const FloatRect& destRect, const FloatRect& srcRect, CompositeOperator, float alpha, int filter);
+ 
+-    mutable GraphicsContextCairo m_cairo;
+-    cairo_surface_t* m_surface;
++    Ref<AmigaImage> m_target;
+     obgpu_counts m_ownCounts { };
+     obgpu_counts* m_counts;
+     // the state, the stream and the scratch words in one block (not on the stack)
+@@ -165,14 +182,19 @@ private:
+     // a gradient's stops for the batch's writer, while it writes them
+     Vector<unsigned long> m_stops;
+     // The pictures in the batch, kept until it is drawn.
+-    mutable Vector<RefPtr<cairo_surface_t>, 16> m_pictures;
+-    // the cairo surface the batch draws into: null the window's, else a
+-    // transparency layer's group (0081); the ones outside it
+-    cairo_surface_t* m_drawSurface { nullptr };
+-    // each layer begun here: whether its group is drawn into here, and the surface outside it
+-    Vector<std::pair<bool, cairo_surface_t*>, 4> m_layers;
++    mutable Vector<RefPtr<AmigaImage>, 16> m_pictures;
++
++    AffineTransform m_ctm;
++    FloatRect m_clipBounds;
++    LineCap m_lineCap { LineCap::Butt };
++    LineJoin m_lineJoin { LineJoin::Miter };
++    float m_miterLimit { 10 };
++    Vector<float> m_dashes;
++    float m_dashOffset { 0 };
++    Vector<Saved, 8> m_saved;
++    Vector<Layer, 4> m_layers;
+ };
+ 
+ } // namespace WebCore
+ 
+-#endif // USE(CAIRO)
++#endif // USE(AMIGA_GRAPHICS)
+diff --git a/Source/WebCore/platform/graphics/amiga/ImageBufferAmigaBackend.cpp b/Source/WebCore/platform/graphics/amiga/ImageBufferAmigaBackend.cpp
+new file mode 100644
+index 00000000..60830b45
+--- /dev/null
++++ b/Source/WebCore/platform/graphics/amiga/ImageBufferAmigaBackend.cpp
+@@ -0,0 +1,204 @@
++/*
++ * An ImageBuffer without cairo (ImageBufferAmigaBackend.h, patch 0083).
++ *
++ * WebKit's pixel copies (ImageBufferBackend::getPixelBuffer and
++ * putPixelBuffer) read and write BGRA8 bytes: B, G, R, A in memory. Our
++ * pixels are ARGB32 words, which are those bytes only on a little-endian
++ * CPU; on the 68k each copy goes through BGRA8 rows of its own.
++ * MIT, Copyright (c) 2026 AmiCradle Team.
++ * SPDX-License-Identifier: MIT
++ */
++#include "config.h"
++#include "ImageBufferAmigaBackend.h"
++
++#if USE(AMIGA_GRAPHICS)
++
++#include "Color.h"
++#include "ColorTransferFunctions.h"
++#include "GraphicsContextOpenGPU.h"
++#include "ImageBuffer.h"
++#include "NativeImage.h"
++#include "PixelBuffer.h"
++#include <wtf/CheckedArithmetic.h>
++#include <wtf/TZoneMallocInlines.h>
++#include <wtf/Vector.h>
++#include <wtf/text/TextStream.h>
++
++namespace WebCore {
++
++WTF_MAKE_TZONE_ALLOCATED_IMPL(ImageBufferAmigaBackend);
++
++// as cairo's image surfaces: 32767 pixels a side
++static constexpr int maxImageSide = 32767;
++
++IntSize ImageBufferAmigaBackend::calculateSafeBackendSize(const ImageBufferParameters& parameters)
++{
++    IntSize backendSize = parameters.backendSize();
++    if (backendSize.isEmpty() || backendSize.width() > maxImageSide || backendSize.height() > maxImageSide)
++        return { };
++    CheckedSize bytes = CheckedSize(static_cast<size_t>(backendSize.height())) * static_cast<size_t>(backendSize.width()) * static_cast<size_t>(4);
++    if (bytes.hasOverflowed())
++        return { };
++    return backendSize;
++}
++
++unsigned ImageBufferAmigaBackend::calculateBytesPerRow(const IntSize& backendSize)
++{
++    return backendSize.width() * 4;
++}
++
++std::unique_ptr<ImageBufferAmigaBackend> ImageBufferAmigaBackend::create(const ImageBufferParameters& parameters, const ImageBufferCreationContext&)
++{
++    IntSize backendSize = calculateSafeBackendSize(parameters);
++    if (backendSize.isEmpty())
++        return nullptr;
++    auto image = AmigaImage::create(backendSize);
++    if (!image)
++        return nullptr;
++    return std::unique_ptr<ImageBufferAmigaBackend>(new ImageBufferAmigaBackend(parameters, image.releaseNonNull()));
++}
++
++std::unique_ptr<ImageBufferAmigaBackend> ImageBufferAmigaBackend::create(const ImageBufferParameters& parameters, const GraphicsContext&)
++{
++    return create(parameters, ImageBufferCreationContext { });
++}
++
++ImageBufferAmigaBackend::ImageBufferAmigaBackend(const ImageBufferParameters& parameters, Ref<AmigaImage>&& image)
++    : ImageBufferBackend(parameters)
++    , m_image(WTF::move(image))
++    , m_context(makeUnique<GraphicsContextOpenGPU>(m_image.get(), nullptr))
++{
++    m_context->applyDeviceScaleFactor(parameters.resolutionScale);
++}
++
++ImageBufferAmigaBackend::~ImageBufferAmigaBackend() = default;
++
++GraphicsContext& ImageBufferAmigaBackend::context()
++{
++    return *m_context;
++}
++
++// the batch drawn: whoever reads the pixels next sees all of it
++void ImageBufferAmigaBackend::flushContext()
++{
++    m_context->flushBatch();
++}
++
++RefPtr<NativeImage> ImageBufferAmigaBackend::copyNativeImage()
++{
++    flushContext();
++    PlatformImagePtr copy = m_image->copy();
++    if (!copy)
++        return nullptr;
++    return NativeImage::create(WTF::move(copy));
++}
++
++RefPtr<NativeImage> ImageBufferAmigaBackend::createNativeImageReference()
++{
++    flushContext();
++    PlatformImagePtr image = m_image.ptr();
++    return NativeImage::create(WTF::move(image));
++}
++
++void ImageBufferAmigaBackend::transformToColorSpace(const ColorSpace& newColorSpace)
++{
++    if (m_colorSpace == newColorSpace)
++        return;
++    // only sRGB <-> linearRGB, as ImageBufferCairoBackend
++    if ((m_colorSpace != ColorSpace::LinearSRGB() && m_colorSpace != ColorSpace::SRGB())
++        || (newColorSpace != ColorSpace::LinearSRGB() && newColorSpace != ColorSpace::SRGB()))
++        return;
++    m_colorSpace = newColorSpace;
++    auto table = [](bool toLinear) {
++        std::array<uint8_t, 256> array;
++        for (unsigned i = 0; i < 256; i++) {
++            float color = i / 255.0f;
++            color = toLinear ? SRGBTransferFunction<float, TransferFunctionMode::Clamped>::toLinear(color)
++                : SRGBTransferFunction<float, TransferFunctionMode::Clamped>::toGammaEncoded(color);
++            array[i] = static_cast<uint8_t>(round(color * 255));
++        }
++        return array;
++    };
++    static const std::array<uint8_t, 256> linearTable = table(true);
++    static const std::array<uint8_t, 256> deviceTable = table(false);
++    auto& lookUpTable = newColorSpace == ColorSpace::LinearSRGB() ? linearTable : deviceTable;
++    flushContext();
++    for (int y = 0; y < m_image->height(); ++y) {
++        uint32_t* row = m_image->row(y);
++        for (int x = 0; x < m_image->width(); x++) {
++            auto c = unpremultiplied(asSRGBA(PackedColor::ARGB { row[x] })).resolved();
++            SRGBA<uint8_t> t { lookUpTable[c.red], lookUpTable[c.green], lookUpTable[c.blue], c.alpha };
++            row[x] = PackedColor::ARGB { premultipliedCeiling(t) }.value;
++        }
++    }
++}
++
++#if CPU(BIG_ENDIAN)
++// ARGB32 words to and from BGRA8 bytes: each word's bytes reversed.
++static inline uint32_t reversed(uint32_t word)
++{
++    return __builtin_bswap32(word);
++}
++
++static void reverseRows(const AmigaImage& from, uint8_t* to, unsigned toStride, int y0, int y1)
++{
++    for (int y = y0; y < y1; y++) {
++        const uint32_t* source = from.row(y);
++        uint32_t* destination = reinterpret_cast<uint32_t*>(to + static_cast<size_t>(y) * toStride);
++        for (int x = 0; x < from.width(); x++)
++            destination[x] = reversed(source[x]);
++    }
++}
++#endif
++
++void ImageBufferAmigaBackend::getPixelBuffer(const IntRect& srcRect, PixelBuffer& destination)
++{
++    flushContext();
++#if CPU(BIG_ENDIAN)
++    // BGRA8 rows of the rectangle's rows only; the others are not read
++    IntRect rows = intersection(srcRect, IntRect(IntPoint(), m_image->size()));
++    Vector<uint8_t> bytes;
++    if (!bytes.tryGrow(m_image->span().size()))
++        return;
++    if (!rows.isEmpty())
++        reverseRows(m_image.get(), bytes.mutableSpan().data(), m_image->stride(), rows.y(), rows.maxY());
++    ImageBufferBackend::getPixelBuffer(srcRect, bytes.span(), destination);
++#else
++    ImageBufferBackend::getPixelBuffer(srcRect, m_image->span(), destination);
++#endif
++}
++
++void ImageBufferAmigaBackend::putPixelBuffer(const PixelBufferSourceView& pixelBuffer, const IntRect& srcRect, const IntPoint& destPoint, AlphaPremultiplication destFormat)
++{
++    flushContext();
++#if CPU(BIG_ENDIAN)
++    IntRect rows = intersection(IntRect(destPoint, srcRect.size()), IntRect(IntPoint(), m_image->size()));
++    if (rows.isEmpty())
++        return;
++    Vector<uint8_t> bytes;
++    if (!bytes.tryGrow(m_image->span().size()))
++        return;
++    // the rows it writes, as BGRA8, so pixels it leaves stay as they were
++    reverseRows(m_image.get(), bytes.mutableSpan().data(), m_image->stride(), rows.y(), rows.maxY());
++    ImageBufferBackend::putPixelBuffer(pixelBuffer, srcRect, destPoint, destFormat, bytes.mutableSpan());
++    for (int y = rows.y(); y < rows.maxY(); y++) {
++        const uint32_t* source = reinterpret_cast<const uint32_t*>(bytes.span().data() + static_cast<size_t>(y) * m_image->stride());
++        uint32_t* row = m_image->row(y);
++        for (int x = rows.x(); x < rows.maxX(); x++)
++            row[x] = reversed(source[x]);
++    }
++#else
++    ImageBufferBackend::putPixelBuffer(pixelBuffer, srcRect, destPoint, destFormat, m_image->mutableSpan());
++#endif
++}
++
++String ImageBufferAmigaBackend::debugDescription() const
++{
++    TextStream stream;
++    stream << "ImageBufferAmigaBackend " << this << " " << m_image->size();
++    return stream.release();
++}
++
++} // namespace WebCore
++
++#endif // USE(AMIGA_GRAPHICS)
+diff --git a/Source/WebCore/platform/graphics/amiga/ImageBufferAmigaBackend.h b/Source/WebCore/platform/graphics/amiga/ImageBufferAmigaBackend.h
+new file mode 100644
+index 00000000..d0c51ff5
+--- /dev/null
++++ b/Source/WebCore/platform/graphics/amiga/ImageBufferAmigaBackend.h
+@@ -0,0 +1,55 @@
++/*
++ * An ImageBuffer without cairo (patch 0083): an AmigaImage's pixels, drawn
++ * into by a GraphicsContextOpenGPU (canvas, filters, layers, pictures the
++ * engine makes). In place of ImageBufferCairoImageSurfaceBackend.
++ * MIT, Copyright (c) 2026 AmiCradle Team.
++ * SPDX-License-Identifier: MIT
++ */
++#pragma once
++
++#if USE(AMIGA_GRAPHICS)
++
++#include "AmigaImage.h"
++#include "ImageBufferBackend.h"
++#include <wtf/TZoneMalloc.h>
++
++namespace WebCore {
++
++class GraphicsContextOpenGPU;
++
++class ImageBufferAmigaBackend final : public ImageBufferBackend {
++    WTF_MAKE_TZONE_ALLOCATED(ImageBufferAmigaBackend);
++    WTF_MAKE_NONCOPYABLE(ImageBufferAmigaBackend);
++public:
++    static IntSize calculateSafeBackendSize(const ImageBufferParameters&);
++    static unsigned calculateBytesPerRow(const IntSize& backendSize);
++    size_t memoryCost() const final { return ImageBufferBackend::calculateMemoryCost(size(), calculateBytesPerRow(size())); }
++
++    static std::unique_ptr<ImageBufferAmigaBackend> create(const ImageBufferParameters&, const ImageBufferCreationContext&);
++    static std::unique_ptr<ImageBufferAmigaBackend> create(const ImageBufferParameters&, const GraphicsContext&);
++    ~ImageBufferAmigaBackend();
++
++    GraphicsContext& context() final;
++    void flushContext() final;
++    RefPtr<NativeImage> copyNativeImage() final;
++    RefPtr<NativeImage> createNativeImageReference() final;
++    bool canMapBackingStore() const final { return true; }
++    void transformToColorSpace(const ColorSpace&) final;
++    void getPixelBuffer(const IntRect&, PixelBuffer&) final;
++    void putPixelBuffer(const PixelBufferSourceView&, const IntRect& srcRect, const IntPoint& destPoint, AlphaPremultiplication destFormat) final;
++
++private:
++    ImageBufferAmigaBackend(const ImageBufferParameters&, Ref<AmigaImage>&&);
++    unsigned bytesPerRow() const final { return m_image->stride(); }
++    String debugDescription() const final;
++
++    const Ref<AmigaImage> m_image;
++    std::unique_ptr<GraphicsContextOpenGPU> m_context;
++};
++
++using ImageBufferPlatformBackend = ImageBufferAmigaBackend;
++using ImageBufferPlatformBitmapBackend = ImageBufferAmigaBackend;
++
++} // namespace WebCore
++
++#endif // USE(AMIGA_GRAPHICS)
+diff --git a/Source/WebCore/platform/graphics/amiga/NativeImageAmiga.cpp b/Source/WebCore/platform/graphics/amiga/NativeImageAmiga.cpp
+new file mode 100644
+index 00000000..ed136090
+--- /dev/null
++++ b/Source/WebCore/platform/graphics/amiga/NativeImageAmiga.cpp
+@@ -0,0 +1,121 @@
++/*
++ * NativeImage on the engine's own pictures (AmigaImage, patch 0083), as
++ * NativeImageCairo.cpp did on cairo's image surfaces: premultiplied ARGB32
++ * words, or opaque ones whose alpha is ignored.
++ * MIT, Copyright (c) 2026 AmiCradle Team.
++ * SPDX-License-Identifier: MIT
++ */
++#include "config.h"
++#include "NativeImage.h"
++
++#if USE(AMIGA_GRAPHICS)
++
++#include "Color.h"
++#include "NotImplemented.h"
++#include "PixelBuffer.h"
++#include <algorithm>
++
++namespace WebCore {
++
++RefPtr<NativeImage> NativeImage::create(Ref<PixelBuffer>&& pixelBuffer)
++{
++    if (pixelBuffer->size().isEmpty())
++        return nullptr;
++    auto format = pixelBuffer->format();
++    bool hasAlpha = !pixelFormatIsOpaque(format.pixelFormat);
++    // Our pixels are 32-bit words A R G B, the bytes A, R, G, B on the 68k
++    // (big-endian): BGRA8 is that order on a little-endian CPU only.
++    enum class Order { RGBA, BGRA } order;
++    switch (format.pixelFormat) {
++    case PixelFormat::RGBX8:
++    case PixelFormat::RGBA8:
++        order = Order::RGBA;
++        break;
++    case PixelFormat::BGRX8:
++    case PixelFormat::BGRA8:
++        order = Order::BGRA;
++        break;
++    default:
++        return nullptr;
++    }
++    size_t totalBytes = pixelBuffer->bytes().size();
++    uint8_t* pixels = pixelBuffer->bytes().data();
++    bool premultiply = hasAlpha && format.alphaFormat == AlphaPremultiplication::Unpremultiplied;
++    for (size_t i = 0; i + 3 < totalBytes; i += 4) {
++        uint8_t r, g, b, a = pixels[i + 3];
++        if (order == Order::RGBA) {
++            r = pixels[i];
++            g = pixels[i + 1];
++            b = pixels[i + 2];
++        } else {
++            b = pixels[i];
++            g = pixels[i + 1];
++            r = pixels[i + 2];
++        }
++        if (premultiply) {
++            r = std::min(255, r * a / 255);
++            g = std::min(255, g * a / 255);
++            b = std::min(255, b * a / 255);
++        }
++        uint32_t word = static_cast<uint32_t>(hasAlpha ? a : 255) << 24 | static_cast<uint32_t>(r) << 16 | static_cast<uint32_t>(g) << 8 | b;
++        *reinterpret_cast<uint32_t*>(pixels + i) = word;
++    }
++    auto size = pixelBuffer->size();
++    auto* buffer = pixelBuffer.ptr();
++    SUPPRESS_RETAINPTR_CTOR_ADOPT (void) pixelBuffer.leakRef(); // NOLINT
++    PlatformImagePtr image = AmigaImage::wrap(pixels, size, size.width() * 4, hasAlpha, [buffer] {
++        buffer->deref();
++    });
++    return create(WTF::move(image));
++}
++
++IntSize NativeImage::size() const
++{
++    Locker locker { m_lock };
++    return m_platformImage ? m_platformImage->size() : IntSize();
++}
++
++bool NativeImage::hasAlpha() const
++{
++    Locker locker { m_lock };
++    return m_platformImage && m_platformImage->hasAlpha();
++}
++
++ColorSpace NativeImage::colorSpace() const
++{
++    return ColorSpace::SRGB();
++}
++
++NativeImage::UnpremultipliedPixels NativeImage::unpremultipliedPixels() const
++{
++    // premultiplied by definition, as cairo's ARGB32
++    return { };
++}
++
++std::optional<Color> NativeImage::singlePixelSolidColor() const
++{
++    if (size() != IntSize(1, 1))
++        return std::nullopt;
++    Locker locker { m_lock };
++    uint32_t pixel = *m_platformImage->row(0);
++    if (!m_platformImage->hasAlpha())
++        pixel |= 0xff000000;
++    return unpremultiplied(asSRGBA(PackedColor::ARGB { pixel }));
++}
++
++void NativeImage::clearSubimages()
++{
++}
++
++#if USE(COORDINATED_GRAPHICS)
++uint64_t NativeImage::uniqueID() const
++{
++    if (auto image = platformImage())
++        return image->uniqueID();
++    return 0;
++}
++#endif
++
++} // namespace WebCore
++
++#endif // USE(AMIGA_GRAPHICS)
+diff --git a/Source/WebCore/platform/graphics/amiga/PathAmiga.cpp b/Source/WebCore/platform/graphics/amiga/PathAmiga.cpp
+new file mode 100644
+--- /dev/null
++++ b/Source/WebCore/platform/graphics/amiga/PathAmiga.cpp
+@@ -0,0 +1,425 @@
++/*
++ * Path without cairo (PathAmiga.h, patch 0083).
++ * MIT, Copyright (c) 2026 AmiCradle Team.
++ * SPDX-License-Identifier: MIT
++ */
++#include "config.h"
++#include "PathAmiga.h"
++
++#if USE(AMIGA_GRAPHICS)
++
++#include "AffineTransform.h"
++#include "NullGraphicsContext.h"
++#include "FloatRoundedRect.h"
++#include "RotationDirection.h"
++#include <cmath>
++#include <numbers>
++#include <wtf/TZoneMallocInlines.h>
++
++namespace WebCore {
++
++WTF_MAKE_TZONE_ALLOCATED_IMPL(PathAmiga);
++
++static float distanceSquared(const FloatPoint& a, const FloatPoint& b)
++{
++    float dx = b.x() - a.x(), dy = b.y() - a.y();
++    return dx * dx + dy * dy;
++}
++
++// The segments as elements only (moves, lines, curves and closes): arcs,
++// ellipses and rectangles are turned into them as they are added, as
++// cairo's path held them, so applyElements always gives the whole path.
++Ref<PathAmiga> PathAmiga::create(std::span<const PathSegment> segments)
++{
++    auto path = adoptRef(*new PathAmiga(PathStream::create()));
++    for (auto& segment : segments)
++        path->addSegment(segment);
++    return path;
++}
++
++PlatformPathPtr PathAmiga::emptyPlatformPath()
++{
++    static NeverDestroyed<Ref<PathAmiga>> empty = create();
++    return empty.get().ptr();
++}
++
++PathAmiga::PathAmiga(Ref<PathStream>&& stream)
++    : m_stream(WTF::move(stream))
++{
++}
++
++static const PathImpl& base(const Ref<PathStream>& stream)
++{
++    return stream.get();
++}
++
++static PathImpl& base(Ref<PathStream>& stream)
++{
++    return stream.get();
++}
++
++bool PathAmiga::definitelyEqual(const PathImpl& other) const
++{
++    auto* path = dynamicDowncast<PathAmiga>(other);
++    if (!path)
++        return false;
++    return path == this || base(m_stream).definitelyEqual(base(path->m_stream));
++}
++
++Ref<PathImpl> PathAmiga::copy() const
++{
++    return adoptRef(*new PathAmiga(PathStream::create(segments())));
++}
++
++void PathAmiga::add(PathMoveTo segment) { base(m_stream).add(segment); }
++void PathAmiga::add(PathLineTo segment) { base(m_stream).add(segment); }
++void PathAmiga::add(PathQuadCurveTo segment) { base(m_stream).add(segment); }
++void PathAmiga::add(PathBezierCurveTo segment) { base(m_stream).add(segment); }
++void PathAmiga::add(PathCloseSubpath segment) { base(m_stream).add(segment); }
++
++bool PathAmiga::hasCurrentPoint() const
++{
++    auto* segments = m_stream->segmentsIfExists();
++    return segments && !segments->isEmpty();
++}
++
++// An elliptical arc as cairo_arc (clockwise: the angle growing) or
++// cairo_arc_negative draws it, on an ellipse turned by rotation: a line
++// from the current point to its start (a move when there is none), then
++// cubic Beziers of at most a quarter turn each.
++void PathAmiga::addArc(const FloatPoint& center, float radiusX, float radiusY, float rotation, float startAngle, float endAngle, bool clockwise)
++{
++    constexpr double twoPi = 2 * std::numbers::pi;
++    double start = startAngle, end = endAngle;
++    if (clockwise) {
++        while (end < start)
++            end += twoPi;
++        end = std::min(end, start + twoPi);
++    } else {
++        while (end > start)
++            end -= twoPi;
++        end = std::max(end, start - twoPi);
++    }
++    double cosR = std::cos(rotation), sinR = std::sin(rotation);
++    auto point = [&](double x, double y) {
++        x *= radiusX;
++        y *= radiusY;
++        return FloatPoint(center.x() + x * cosR - y * sinR, center.y() + x * sinR + y * cosR);
++    };
++    FloatPoint first = point(std::cos(start), std::sin(start));
++    auto& stream = base(m_stream);
++    if (hasCurrentPoint())
++        stream.add(PathLineTo { first });
++    else
++        stream.add(PathMoveTo { first });
++    double sweep = end - start;
++    int pieces = std::max(1, static_cast<int>(std::ceil(std::abs(sweep) / (std::numbers::pi / 2) - 1e-6)));
++    double step = sweep / pieces;
++    double k = 4.0 / 3.0 * std::tan(step / 4);
++    double a = start;
++    for (int i = 0; i < pieces; i++, a += step) {
++        double b = a + step;
++        double ca = std::cos(a), sa = std::sin(a), cb = std::cos(b), sb = std::sin(b);
++        stream.add(PathBezierCurveTo { point(ca - k * sa, sa + k * ca), point(cb + k * sb, sb - k * cb), point(cb, sb) });
++    }
++}
++
++void PathAmiga::add(PathArc arc)
++{
++    addArc(arc.center, arc.radius, arc.radius, 0, arc.startAngle, arc.endAngle, arc.direction == RotationDirection::Clockwise);
++}
++
++void PathAmiga::add(PathClosedArc closedArc)
++{
++    add(closedArc.arc);
++    add(PathCloseSubpath { });
++}
++
++void PathAmiga::add(PathEllipse ellipse)
++{
++    addArc(ellipse.center, ellipse.radiusX, ellipse.radiusY, ellipse.rotation, ellipse.startAngle, ellipse.endAngle,
++        ellipse.direction == RotationDirection::Clockwise);
++}
++
++// As PathCairo: cairo_arc of a whole turn under the rectangle's scale
++// (after a line from the current point, if there is one, as cairo_arc).
++void PathAmiga::add(PathEllipseInRect ellipseInRect)
++{
++    auto& rect = ellipseInRect.rect;
++    float radiusX = rect.width() / 2, radiusY = rect.height() / 2;
++    addArc({ rect.x() + radiusX, rect.y() + radiusY }, radiusX, radiusY, 0, 0, 2 * std::numbers::pi_v<float>, true);
++}
++
++void PathAmiga::add(PathRect rect)
++{
++    addLinesForRect(rect.rect);
++}
++
++void PathAmiga::add(PathRoundedRect roundedRect)
++{
++    for (auto& segment : PathImpl::beziersForRoundedRect(roundedRect.roundedRect))
++        addSegment(segment);
++}
++
++// Continuous corners as plain rounded ones, as PathCairo draws them.
++void PathAmiga::add(PathContinuousRoundedRect rect)
++{
++    add(PathRoundedRect { FloatRoundedRect { rect.rect, CornerRadii { rect.cornerWidth, rect.cornerHeight } }, PathRoundedRect::Strategy::PreferNative });
++}
++
++// The canvas's arcTo, as PathCairo::add(PathArcTo) works it out: a line to
++// the first tangent point and the arc between the two lines, or a line to
++// the corner when the points are in a line or the radius is 0.
++void PathAmiga::add(PathArcTo arcTo)
++{
++    auto& stream = base(m_stream);
++    const FloatPoint p1 = arcTo.controlPoint1;
++    const FloatPoint p2 = arcTo.controlPoint2;
++    const float radius = arcTo.radius;
++    if (!hasCurrentPoint()) {
++        stream.add(PathMoveTo { p1 });
++        return;
++    }
++    const FloatPoint p0 = currentPoint();
++    float area = p0.x() * (p1.y() - p2.y()) + p1.x() * (p2.y() - p0.y()) + p2.x() * (p0.y() - p1.y());
++    if (p1 == p0 || p1 == p2 || !radius || !area) {
++        stream.add(PathLineTo { p1 });
++        return;
++    }
++    FloatPoint p1p0(p0.x() - p1.x(), p0.y() - p1.y());
++    FloatPoint p1p2(p2.x() - p1.x(), p2.y() - p1.y());
++    float p1p0Length = std::hypot(p1p0.x(), p1p0.y());
++    float p1p2Length = std::hypot(p1p2.x(), p1p2.y());
++    double cosPhi = (p1p0.x() * p1p2.x() + p1p0.y() * p1p2.y()) / (p1p0Length * p1p2Length);
++    if (cosPhi == -1) {
++        stream.add(PathLineTo { p1 });
++        return;
++    }
++    if (cosPhi == 1) {
++        double factor = 65535 / p1p0Length;
++        stream.add(PathLineTo { FloatPoint(p0.x() + factor * p1p0.x(), p0.y() + factor * p1p0.y()) });
++        return;
++    }
++    float tangent = radius / std::tan(std::acos(cosPhi) / 2);
++    float factorP1P0 = tangent / p1p0Length;
++    FloatPoint tP1P0(p1.x() + factorP1P0 * p1p0.x(), p1.y() + factorP1P0 * p1p0.y());
++    FloatPoint orthP1P0(p1p0.y(), -p1p0.x());
++    float orthP1P0Length = std::hypot(orthP1P0.x(), orthP1P0.y());
++    float factorRadius = radius / orthP1P0Length;
++    double cosAlpha = (orthP1P0.x() * p1p2.x() + orthP1P0.y() * p1p2.y()) / (orthP1P0Length * p1p2Length);
++    if (cosAlpha < 0)
++        orthP1P0 = FloatPoint(-orthP1P0.x(), -orthP1P0.y());
++    FloatPoint center(tP1P0.x() + factorRadius * orthP1P0.x(), tP1P0.y() + factorRadius * orthP1P0.y());
++    orthP1P0 = FloatPoint(-orthP1P0.x(), -orthP1P0.y());
++    float startAngle = std::acos(orthP1P0.x() / orthP1P0Length);
++    if (orthP1P0.y() < 0)
++        startAngle = 2 * std::numbers::pi_v<float> - startAngle;
++    bool clockwise = true;
++    float factorP1P2 = tangent / p1p2Length;
++    FloatPoint tP1P2(p1.x() + factorP1P2 * p1p2.x(), p1.y() + factorP1P2 * p1p2.y());
++    FloatPoint orthP1P2(tP1P2.x() - center.x(), tP1P2.y() - center.y());
++    float orthP1P2Length = std::hypot(orthP1P2.x(), orthP1P2.y());
++    float endAngle = std::acos(orthP1P2.x() / orthP1P2Length);
++    if (orthP1P2.y() < 0)
++        endAngle = 2 * std::numbers::pi_v<float> - endAngle;
++    if ((startAngle > endAngle && startAngle - endAngle < std::numbers::pi_v<float>)
++        || (startAngle < endAngle && endAngle - startAngle > std::numbers::pi_v<float>))
++        clockwise = false;
++    stream.add(PathLineTo { tP1P0 });
++    addArc(center, radius, radius, 0, startAngle, endAngle, clockwise);
++}
++
++// Another path's elements, through a transform, as lines and cubics.
++void PathAmiga::addPath(const PathAmiga& path, const AffineTransform& transform)
++{
++    auto& to = base(m_stream);
++    path.applyElements([&](const PathElement& element) {
++        auto& p = element.points;
++        switch (element.type) {
++        case PathElement::Type::MoveToPoint:
++            to.add(PathMoveTo { transform.mapPoint(p[0]) });
++            break;
++        case PathElement::Type::AddLineToPoint:
++            to.add(PathLineTo { transform.mapPoint(p[0]) });
++            break;
++        case PathElement::Type::AddQuadCurveToPoint:
++            to.add(PathQuadCurveTo { transform.mapPoint(p[0]), transform.mapPoint(p[1]) });
++            break;
++        case PathElement::Type::AddCurveToPoint:
++            to.add(PathBezierCurveTo { transform.mapPoint(p[0]), transform.mapPoint(p[1]), transform.mapPoint(p[2]) });
++            break;
++        case PathElement::Type::CloseSubpath:
++            to.add(PathCloseSubpath { });
++            break;
++        }
++    });
++}
++
++void PathAmiga::applySegments(const PathSegmentApplier& applier) const
++{
++    base(m_stream).applySegments(applier);
++}
++
++bool PathAmiga::applyElements(const PathElementApplier& applier) const
++{
++    return base(m_stream).applyElements(applier);
++}
++
++bool PathAmiga::transform(const AffineTransform& transform)
++{
++    return base(m_stream).transform(transform);
++}
++
++FloatPoint PathAmiga::currentPoint() const
++{
++    return base(m_stream).currentPoint();
++}
++
++FloatRect PathAmiga::fastBoundingRect() const
++{
++    return base(m_stream).fastBoundingRect();
++}
++
++FloatRect PathAmiga::boundingRect() const
++{
++    return base(m_stream).boundingRect();
++}
++
++bool PathAmiga::hasSubpaths() const
++{
++    return base(m_stream).hasSubpaths();
++}
++
++bool PathAmiga::isClosed() const
++{
++    return base(m_stream).isClosed();
++}
++
++// Curves cut into lines: as many as keep each within about a quarter pixel
++// of the curve (by the control points' distance), 1 to 64.
++static unsigned linesFor(float span)
++{
++    float n = std::ceil(std::sqrt(std::max(span, 0.0f) * 2));
++    return static_cast<unsigned>(std::clamp(n, 1.0f, 64.0f));
++}
++
++void PathAmiga::flatten(const Function<void(const FloatPoint&, const FloatPoint&, bool)>& line) const
++{
++    FloatPoint start, current;
++    bool first = true;
++    auto lineTo = [&](const FloatPoint& point) {
++        line(current, point, first);
++        first = false;
++        current = point;
++    };
++    applyElements([&](const PathElement& element) {
++        auto& p = element.points;
++        switch (element.type) {
++        case PathElement::Type::MoveToPoint:
++            start = current = p[0];
++            first = true;
++            break;
++        case PathElement::Type::AddLineToPoint:
++            lineTo(p[0]);
++            break;
++        case PathElement::Type::AddQuadCurveToPoint: {
++            FloatPoint p0 = current;
++            unsigned n = linesFor(std::sqrt(std::max(distanceSquared(p0, p[0]), distanceSquared(p[0], p[1]))));
++            for (unsigned i = 1; i <= n; i++) {
++                float t = static_cast<float>(i) / n, u = 1 - t;
++                lineTo({ u * u * p0.x() + 2 * u * t * p[0].x() + t * t * p[1].x(), u * u * p0.y() + 2 * u * t * p[0].y() + t * t * p[1].y() });
++            }
++            break;
++        }
++        case PathElement::Type::AddCurveToPoint: {
++            FloatPoint p0 = current;
++            float span = std::sqrt(std::max(distanceSquared(p0, p[0]), std::max(distanceSquared(p[0], p[1]), distanceSquared(p[1], p[2]))));
++            unsigned n = linesFor(span);
++            for (unsigned i = 1; i <= n; i++) {
++                float t = static_cast<float>(i) / n, u = 1 - t;
++                float a = u * u * u, b = 3 * u * u * t, c = 3 * u * t * t, d = t * t * t;
++                lineTo({ a * p0.x() + b * p[0].x() + c * p[1].x() + d * p[2].x(), a * p0.y() + b * p[0].y() + c * p[1].y() + d * p[2].y() });
++            }
++            break;
++        }
++        case PathElement::Type::CloseSubpath:
++            if (current != start || first)
++                lineTo(start);
++            current = start;
++            break;
++        }
++    });
++}
++
++// The point's winding: every subpath taken as closed, as a fill takes it.
++bool PathAmiga::contains(const FloatPoint& point, WindRule rule) const
++{
++    if (!fastBoundingRect().contains(point))
++        return false;
++    int winding = 0;
++    FloatPoint subpathStart, last;
++    bool open = false;
++    auto edge = [&](const FloatPoint& a, const FloatPoint& b) {
++        if (a.y() <= point.y()) {
++            if (b.y() > point.y() && (b.x() - a.x()) * (point.y() - a.y()) - (point.x() - a.x()) * (b.y() - a.y()) > 0)
++                winding++;
++        } else if (b.y() <= point.y() && (b.x() - a.x()) * (point.y() - a.y()) - (point.x() - a.x()) * (b.y() - a.y()) < 0)
++            winding--;
++    };
++    flatten([&](const FloatPoint& a, const FloatPoint& b, bool startsSubpath) {
++        if (startsSubpath) {
++            if (open && last != subpathStart)
++                edge(last, subpathStart);
++            subpathStart = a;
++            open = true;
++        }
++        edge(a, b);
++        last = b;
++    });
++    if (open && last != subpathStart)
++        edge(last, subpathStart);
++    return rule == WindRule::EvenOdd ? (winding & 1) : winding;
++}
++
++static float strokeWidthFor(const Function<void(GraphicsContext&)>& strokeStyleApplier)
++{
++    NullGraphicsContext context;
++    if (strokeStyleApplier)
++        strokeStyleApplier(context);
++    return context.strokeThickness();
++}
++
++// Within half the stroke's width of a line of the path (caps and joins as
++// round ones: under half a width off at a miter).
++bool PathAmiga::strokeContains(const FloatPoint& point, const Function<void(GraphicsContext&)>& strokeStyleApplier) const
++{
++    float half = strokeWidthFor(strokeStyleApplier) / 2;
++    if (!(half > 0))
++        return false;
++    float limit = half * half;
++    bool hit = false;
++    flatten([&](const FloatPoint& a, const FloatPoint& b, bool) {
++        if (hit)
++            return;
++        float dx = b.x() - a.x(), dy = b.y() - a.y();
++        float length = dx * dx + dy * dy;
++        float t = length > 0 ? std::clamp(((point.x() - a.x()) * dx + (point.y() - a.y()) * dy) / length, 0.0f, 1.0f) : 0;
++        float px = a.x() + t * dx - point.x(), py = a.y() + t * dy - point.y();
++        hit = px * px + py * py <= limit;
++    });
++    return hit;
++}
++
++FloatRect PathAmiga::strokeBoundingRect(const Function<void(GraphicsContext&)>& strokeStyleApplier) const
++{
++    FloatRect rect = boundingRect();
++    float half = strokeWidthFor(strokeStyleApplier) / 2;
++    // a miter of the default limit (10) reaches 5 widths out; square caps sqrt 2 halves
++    if (half > 0)
++        rect.inflate(half * 1.5f);
++    return rect;
++}
++
++} // namespace WebCore
++
++#endif // USE(AMIGA_GRAPHICS)
+diff --git a/Source/WebCore/platform/graphics/amiga/PathAmiga.h b/Source/WebCore/platform/graphics/amiga/PathAmiga.h
+new file mode 100644
+--- /dev/null
++++ b/Source/WebCore/platform/graphics/amiga/PathAmiga.h
+@@ -0,0 +1,85 @@
++/*
++ * Path without cairo (patch 0083): WebCore's own segments (a PathStream
++ * kept inside, holding only moves, lines, curves and closes: arcs,
++ * ellipses and rectangles become those as they are added), with what Path asks of a platform path: hit testing (fill
++ * and stroke) and the stroke's bounds, on the path flattened to lines.
++ * GraphicsContextOpenGPU reads the elements, as it did from PathCairo.
++ * MIT, Copyright (c) 2026 AmiCradle Team.
++ * SPDX-License-Identifier: MIT
++ */
++#pragma once
++
++#if USE(AMIGA_GRAPHICS)
++
++#include "PathImpl.h"
++#include "PathStream.h"
++#include "PlatformPath.h"
++#include "WindRule.h"
++
++namespace WebCore {
++
++class GraphicsContext;
++
++class PathAmiga final : public PathImpl {
++    WTF_MAKE_TZONE_ALLOCATED(PathAmiga);
++    WTF_OVERRIDE_DELETE_FOR_CHECKED_PTR(PathAmiga);
++public:
++    WEBCORE_EXPORT static Ref<PathAmiga> create(std::span<const PathSegment> = { });
++    static PlatformPathPtr emptyPlatformPath();
++
++    explicit PathAmiga(Ref<PathStream>&&);
++
++    PlatformPathPtr platformPath() const { return const_cast<PathAmiga*>(this); }
++
++    void addPath(const PathAmiga&, const AffineTransform&);
++
++    bool definitelyEqual(const PathImpl&) const final;
++    Ref<PathImpl> copy() const final;
++    void add(PathMoveTo) final;
++    void add(PathLineTo) final;
++    void add(PathQuadCurveTo) final;
++    void add(PathBezierCurveTo) final;
++    void add(PathArcTo) final;
++    void add(PathArc) final;
++    void add(PathClosedArc) final;
++    void add(PathEllipse) final;
++    void add(PathEllipseInRect) final;
++    void add(PathRect) final;
++    void add(PathRoundedRect) final;
++    void add(PathContinuousRoundedRect) final;
++    void add(PathCloseSubpath) final;
++
++    const Vector<PathSegment>* segmentsIfExists() const LIFETIME_BOUND final { return static_cast<const PathImpl&>(m_stream.get()).segmentsIfExists(); }
++    Vector<PathSegment> segments() const final { return static_cast<const PathImpl&>(m_stream.get()).segments(); }
++    void applySegments(NOESCAPE const PathSegmentApplier&) const final;
++    bool applyElements(NOESCAPE const PathElementApplier&) const final;
++
++    bool transform(const AffineTransform&) final;
++
++    bool contains(const FloatPoint&, WindRule) const;
++    bool strokeContains(const FloatPoint&, NOESCAPE const Function<void(GraphicsContext&)>& strokeStyleApplier) const;
++    FloatRect strokeBoundingRect(NOESCAPE const Function<void(GraphicsContext&)>& strokeStyleApplier) const;
++
++private:
++    FloatPoint currentPoint() const final;
++    FloatRect fastBoundingRect() const final;
++    FloatRect boundingRect() const final;
++    bool hasSubpaths() const final;
++    bool isClosed() const final;
++
++    bool hasCurrentPoint() const;
++    void addArc(const FloatPoint& center, float radiusX, float radiusY, float rotation, float startAngle, float endAngle, bool clockwise);
++
++    // The path as polylines (curves cut into lines a quarter pixel from the curve).
++    void flatten(NOESCAPE const Function<void(const FloatPoint&, const FloatPoint&, bool startsSubpath)>&) const;
++
++    Ref<PathStream> m_stream;
++};
++
++} // namespace WebCore
++
++SPECIALIZE_TYPE_TRAITS_BEGIN(WebCore::PathAmiga)
++    static bool isType(const WebCore::PathImpl& pathImpl) { return !pathImpl.isPathStream(); }
++SPECIALIZE_TYPE_TRAITS_END()
++
++#endif // USE(AMIGA_GRAPHICS)
+diff --git a/Source/WebCore/platform/graphics/amiga/ShareableBitmapAmiga.cpp b/Source/WebCore/platform/graphics/amiga/ShareableBitmapAmiga.cpp
+new file mode 100644
+index 00000000..2929d474
+--- /dev/null
++++ b/Source/WebCore/platform/graphics/amiga/ShareableBitmapAmiga.cpp
+@@ -0,0 +1,109 @@
++/*
++ * ShareableBitmap without cairo (patch 0083), as ShareableBitmapCairo.cpp:
++ * ARGB32 words, four bytes a pixel; drawn into and read through an
++ * AmigaImage over the bitmap's own memory, which holds a reference.
++ * MIT, Copyright (c) 2026 AmiCradle Team.
++ * SPDX-License-Identifier: MIT
++ */
++#include "config.h"
++#include "ShareableBitmap.h"
++
++#if USE(AMIGA_GRAPHICS)
++
++#include "AmigaImage.h"
++#include "BitmapImage.h"
++#include "GraphicsContextOpenGPU.h"
++#include "NativeImage.h"
++
++namespace WebCore {
++
++ColorSpace ShareableBitmapConfiguration::validateColorSpace(const ColorSpace& colorSpace)
++{
++    return colorSpace;
++}
++
++CheckedUint32 ShareableBitmapConfiguration::calculateBitsPerComponent(PixelFormat pixelFormat, const ColorSpace& colorSpace)
++{
++    return (calculateBytesPerPixel(pixelFormat, colorSpace) / 4) * 8;
++}
++
++CheckedUint32 ShareableBitmapConfiguration::calculateBytesPerPixel(PixelFormat, const ColorSpace&)
++{
++    return 4;
++}
++
++CheckedUint32 ShareableBitmapConfiguration::calculateBytesPerRow(const IntSize& size, PixelFormat, const ColorSpace&)
++{
++    return CheckedUint32(size.width()) * 4;
++}
++
++// The bitmap's pixels as a picture, holding the bitmap until it goes.
++static Ref<AmigaImage> imageOf(ShareableBitmap& bitmap)
++{
++    bitmap.ref();
++    auto* owner = &bitmap;
++    return AmigaImage::wrap(bitmap.mutableSpan().data(), bitmap.size(), bitmap.size().width() * 4, true, [owner] {
++        owner->deref();
++    });
++}
++
++namespace {
++// A context over the bitmap that keeps its picture (and so the bitmap) alive.
++class ShareableBitmapContext final : public GraphicsContextOpenGPU {
++public:
++    explicit ShareableBitmapContext(Ref<AmigaImage>&& image)
++        : GraphicsContextOpenGPU(image.get(), nullptr)
++        , m_image(WTF::move(image))
++    {
++    }
++private:
++    Ref<AmigaImage> m_image;
++};
++}
++
++std::unique_ptr<GraphicsContext> ShareableBitmap::createGraphicsContext()
++{
++    return makeUnique<ShareableBitmapContext>(imageOf(*this));
++}
++
++void ShareableBitmap::paint(GraphicsContext& context, const IntPoint& dstPoint, const IntRect& srcRect)
++{
++    paint(context, 1, dstPoint, srcRect);
++}
++
++void ShareableBitmap::paint(GraphicsContext& context, float scaleFactor, const IntPoint& dstPoint, const IntRect& srcRect)
++{
++    PlatformImagePtr picture = imageOf(*this);
++    auto image = NativeImage::create(WTF::move(picture));
++    if (!image)
++        return;
++    FloatRect source(srcRect);
++    source.scale(scaleFactor);
++    context.drawNativeImage(*image, FloatRect(dstPoint, srcRect.size()), source);
++}
++
++PlatformImagePtr ShareableBitmap::createBasePlatformImage(BackingStoreCopy copyBehavior, ShouldInterpolate)
++{
++    auto image = imageOf(*this);
++    if (copyBehavior == CopyBackingStore)
++        return image->copy();
++    return image;
++}
++
++PlatformImagePtr ShareableBitmap::createPlatformImage(BackingStoreCopy copyBehavior, ShouldInterpolate shouldInterpolate)
++{
++    return createBasePlatformImage(copyBehavior, shouldInterpolate);
++}
++
++RefPtr<BitmapImage> ShareableBitmap::createImage()
++{
++    return BitmapImage::create(createBasePlatformImage(DontCopyBackingStore));
++}
++
++void ShareableBitmap::setOwnershipOfMemory(const ProcessIdentity&)
++{
++}
++
++} // namespace WebCore
++
++#endif // USE(AMIGA_GRAPHICS)
+diff --git a/Source/WebCore/platform/graphics/openfont/ComplexTextControllerOpenFont.cpp b/Source/WebCore/platform/graphics/openfont/ComplexTextControllerOpenFont.cpp
+index 7fa0639d..1b2d2981 100644
+--- a/Source/WebCore/platform/graphics/openfont/ComplexTextControllerOpenFont.cpp
++++ b/Source/WebCore/platform/graphics/openfont/ComplexTextControllerOpenFont.cpp
+@@ -26,7 +26,7 @@
+ #include "config.h"
+ #include "ComplexTextController.h"
+ 
+-#if USE(OPENFONT) && USE(CAIRO)
++#if USE(OPENFONT) && (USE(CAIRO) || USE(AMIGA_GRAPHICS))
+ 
+ #include "FontCascadeInlines.h"
+ #include "FontFeatureValues.h"
+@@ -35,7 +35,6 @@
+ #include "OpenFontLibrary.h"
+ #include "SurrogatePairAwareTextIterator.h"
+ #include "TextFlags.h"
+-#include <cairo.h>
+ #include <unicode/uscript.h>
+ 
+ namespace WebCore {
+@@ -202,7 +201,6 @@ void ComplexTextController::collectComplexTextRunsForCharacters(std::span<const
+     // The face is at a pixel size of its units per em: 26.6 font units.
+     const float scale = size / (64 * unitsPerEm);
+     const bool vertical = fontPlatformData.orientation() == FontOrientation::Vertical;
+-    auto* scaledFont = fontPlatformData.scaledFont();
+ 
+     Vector<OBOFGlyph, 64> shaped;
+     for (unsigned i = 0; i < runCount; ++i) {
+@@ -257,10 +255,7 @@ void ComplexTextController::collectComplexTextRunsForCharacters(std::span<const
+             // shaper took it away (a mark).
+             float advanceX = 0;
+             if (glyphInfo.xAdvance) {
+-                cairo_text_extents_t glyphExtents;
+-                cairo_glyph_t cairoGlyph = { glyph, 0, 0 };
+-                cairo_scaled_font_glyph_extents(scaledFont, &cairoGlyph, 1, &glyphExtents);
+-                float cairoAdvance = vertical ? -glyphExtents.y_advance : glyphExtents.x_advance;
++                float cairoAdvance = face->hintedAdvance(glyph, size);
+                 float unshapedAdvance = face->advance(glyph) * size / unitsPerEm;
+                 advanceX = cairoAdvance + (glyphInfo.xAdvance * scale - unshapedAdvance);
+             }
+@@ -275,4 +270,4 @@ void ComplexTextController::collectComplexTextRunsForCharacters(std::span<const
+ 
+ } // namespace WebCore
+ 
+-#endif // USE(OPENFONT) && USE(CAIRO)
++#endif // USE(OPENFONT) && (USE(CAIRO) || USE(AMIGA_GRAPHICS))
+diff --git a/Source/WebCore/platform/graphics/openfont/FontCacheOpenFont.cpp b/Source/WebCore/platform/graphics/openfont/FontCacheOpenFont.cpp
+index 22877235..5c80bf6f 100644
+--- a/Source/WebCore/platform/graphics/openfont/FontCacheOpenFont.cpp
++++ b/Source/WebCore/platform/graphics/openfont/FontCacheOpenFont.cpp
+@@ -26,7 +26,7 @@
+ #include "config.h"
+ #include "FontCache.h"
+ 
+-#if USE(OPENFONT) && USE(CAIRO)
++#if USE(OPENFONT) && (USE(CAIRO) || USE(AMIGA_GRAPHICS))
+ 
+ #include "Font.h"
+ #include "FontCreationContext.h"
+@@ -224,4 +224,4 @@ void FontCache::platformInvalidate()
+ 
+ } // namespace WebCore
+ 
+-#endif // USE(OPENFONT) && USE(CAIRO)
++#endif // USE(OPENFONT) && (USE(CAIRO) || USE(AMIGA_GRAPHICS))
+diff --git a/Source/WebCore/platform/graphics/openfont/FontCustomPlatformDataOpenFont.cpp b/Source/WebCore/platform/graphics/openfont/FontCustomPlatformDataOpenFont.cpp
+index 9690afd8..e1264e4d 100644
+--- a/Source/WebCore/platform/graphics/openfont/FontCustomPlatformDataOpenFont.cpp
++++ b/Source/WebCore/platform/graphics/openfont/FontCustomPlatformDataOpenFont.cpp
+@@ -26,7 +26,7 @@
+ #include "config.h"
+ #include "FontCustomPlatformData.h"
+ 
+-#if USE(OPENFONT) && USE(CAIRO)
++#if USE(OPENFONT) && (USE(CAIRO) || USE(AMIGA_GRAPHICS))
+ 
+ #include "CSSFontFaceSrcValue.h"
+ #include "Font.h"
+@@ -39,8 +39,11 @@
+ namespace WebCore {
+ 
+ FontCustomPlatformData::FontCustomPlatformData(Ref<OpenFontFace>&& face, FontPlatformData::CreationData&& data)
+-    : m_fontFace(face->cairoFontFace())
+-    , m_openFontFace(WTF::move(face))
++    :
++#if USE(CAIRO)
++    m_fontFace(face->cairoFontFace()),
++#endif
++    m_openFontFace(WTF::move(face))
+     , creationData(WTF::move(data))
+     , m_renderingResourceIdentifier(RenderingResourceIdentifier::generate())
+ {
+@@ -119,4 +122,4 @@ FontCustomPlatformSerializedData FontCustomPlatformData::serializedData() const
+ 
+ } // namespace WebCore
+ 
+-#endif // USE(OPENFONT) && USE(CAIRO)
++#endif // USE(OPENFONT) && (USE(CAIRO) || USE(AMIGA_GRAPHICS))
+diff --git a/Source/WebCore/platform/graphics/openfont/FontOpenFont.cpp b/Source/WebCore/platform/graphics/openfont/FontOpenFont.cpp
+new file mode 100644
+index 00000000..848e4f7c
+--- /dev/null
++++ b/Source/WebCore/platform/graphics/openfont/FontOpenFont.cpp
+@@ -0,0 +1,194 @@
++/*
++ * FontCascade and Font without cairo (patch 0083), for gfopenfont.library:
++ * what FontCairo.cpp and FontCairoHarfbuzzNG.cpp gave. Glyph runs are
++ * drawn by GraphicsContextOpenGPU itself (drawGlyphs and
++ * drawGlyphsImmediate, 0082's OF_DrawGlyphsA); FontCascade::drawGlyphs is
++ * reached only from contexts that draw no pixels. Outlines, bounds and
++ * advances come from the face (OpenFontFace), at the font's size.
++ * The combining-sequence and emoji choice is FontCairoHarfbuzzNG.cpp's.
++ * MIT, Copyright (c) 2026 AmiCradle Team.
++ * SPDX-License-Identifier: MIT
++ */
++#include "config.h"
++#include "FontCascadeInlines.h"
++
++#if USE(AMIGA_GRAPHICS) && USE(OPENFONT)
++
++#include "AffineTransform.h"
++#include "Font.h"
++#include "FontCache.h"
++#include "GraphicsContext.h"
++#include "OpenFontFace.h"
++#include "Path.h"
++#include "SurrogatePairAwareTextIterator.h"
++#include <wtf/text/CharacterProperties.h>
++
++namespace WebCore {
++
++void FontCascade::drawGlyphs(GraphicsContext&, const FontBase&, std::span<const GlyphBufferGlyph>, std::span<const GlyphBufferAdvance>, const FloatPoint&, FontSmoothingMode)
++{
++}
++
++Path Font::platformPathForGlyph(Glyph glyph) const
++{
++    auto* face = platformData().openFontFace();
++    if (!face || !platformData().size())
++        return { };
++    Path path = face->glyphPath(glyph, platformData().size());
++    if (float offset = syntheticBoldOffset()) {
++        Path bold = face->glyphPath(glyph, platformData().size());
++        path.addPath(bold, AffineTransform::makeTranslation({ offset, 0 }));
++    }
++    return path;
++}
++
++// The ink box as cairo's glyph extents gave it: the face's box at the size.
++FloatRect Font::platformBoundsForGlyph(Glyph glyph) const
++{
++    auto* face = m_platformData.openFontFace();
++    if (!face || !m_platformData.size())
++        return FloatRect();
++    FloatRect bounds;
++    if (!face->glyphBounds(glyph, bounds))
++        return FloatRect();
++    bounds.scale(m_platformData.size() / face->unitsPerEm());
++    return bounds;
++}
++
++float Font::platformWidthForGlyph(Glyph glyph) const
++{
++    auto* face = m_platformData.openFontFace();
++    if (!face || !m_platformData.size())
++        return 0;
++    float width = face->hintedAdvance(glyph, m_platformData.size());
++    return width ? width : m_spaceWidth;
++}
++
++ResolvedEmojiPolicy FontCascade::resolveEmojiPolicy(FontVariantEmoji fontVariantEmoji, char32_t)
++{
++    switch (fontVariantEmoji) {
++    case FontVariantEmoji::Normal:
++    case FontVariantEmoji::Unicode:
++        return ResolvedEmojiPolicy::NoPreference;
++    case FontVariantEmoji::Text:
++        return ResolvedEmojiPolicy::RequireText;
++    case FontVariantEmoji::Emoji:
++        return ResolvedEmojiPolicy::RequireEmoji;
++    }
++    return ResolvedEmojiPolicy::NoPreference;
++}
++
++bool FontCascade::canUseGlyphDisplayList(const Style::ComputedStyle&)
++{
++    return true;
++}
++
++static bool characterSequenceIsEmoji(SurrogatePairAwareTextIterator& iterator, char32_t firstCharacter, unsigned firstClusterLength)
++{
++    char32_t character = firstCharacter;
++    unsigned clusterLength = firstClusterLength;
++    if (!iterator.consume(character, clusterLength))
++        return false;
++
++    if (isEmojiKeycapBase(character)) {
++        iterator.advance(clusterLength);
++        char32_t nextCharacter;
++        if (!iterator.consume(nextCharacter, clusterLength))
++            return false;
++
++        if (nextCharacter == combiningEnclosingKeycap)
++            return true;
++
++        // Variation selector 16.
++        if (nextCharacter == 0xFE0F) {
++            iterator.advance(clusterLength);
++            if (!iterator.consume(nextCharacter, clusterLength))
++                return false;
++
++            if (nextCharacter == combiningEnclosingKeycap)
++                return true;
++        }
++
++        return false;
++    }
++
++    // Regional indicator.
++    if (isEmojiRegionalIndicator(character)) {
++        iterator.advance(clusterLength);
++        char32_t nextCharacter;
++        if (!iterator.consume(nextCharacter, clusterLength))
++            return false;
++
++        if (isEmojiRegionalIndicator(nextCharacter))
++            return true;
++
++        return false;
++    }
++
++    if (character == combiningEnclosingKeycap)
++        return true;
++
++    if (isEmojiWithPresentationByDefault(character)
++        || isEmojiModifierBase(character)
++        || isEmojiFitzpatrickModifier(character))
++        return true;
++
++    return false;
++}
++
++RefPtr<const Font> FontCascade::fontForCombiningCharacterSequence(StringView stringView) const
++{
++    auto normalizedString = normalizedNFC(stringView);
++
++    // Code below relies on normalizedNFC never narrowing a 16-bit input string into an 8-bit output string.
++    // At the time of this writing, the function never does this, but in theory a future version could, and
++    // we would then need to add code paths here for the simpler 8-bit case.
++    auto characters = normalizedString.view.span16();
++    auto length = normalizedString.view.length();
++
++    char32_t character;
++    unsigned clusterLength = 0;
++    SurrogatePairAwareTextIterator iterator(characters, 0, length);
++    if (!iterator.consume(character, clusterLength))
++        return nullptr;
++
++    bool isEmoji = characterSequenceIsEmoji(iterator, character, clusterLength);
++    bool preferColoredFont = isEmoji;
++    // U+FE0E forces text style.
++    // U+FE0F forces emoji style.
++    if (characters[length - 1] == 0xFE0E)
++        preferColoredFont = false;
++    else if (characters[length - 1] == 0xFE0F)
++        preferColoredFont = true;
++
++    RefPtr baseFont = glyphDataForCharacter(character, false, FontVariant::Normal).font.get();
++    if (baseFont
++        && (clusterLength == length || baseFont->canRenderCombiningCharacterSequence(normalizedString.view))
++        && (!preferColoredFont || baseFont->platformData().isColorBitmapFont()))
++        return baseFont.get();
++
++    for (unsigned i = 0; !fallbackRangesAt(i).isNull(); ++i) {
++        RefPtr fallbackFont = fallbackRangesAt(i).fontForCharacter(character);
++        if (!fallbackFont || fallbackFont == baseFont)
++            continue;
++
++        if (fallbackFont->canRenderCombiningCharacterSequence(normalizedString.view) && (!preferColoredFont || fallbackFont->platformData().isColorBitmapFont()))
++            return fallbackFont.get();
++    }
++
++    const auto& originalFont = fallbackRangesAt(0).fontForFirstRange();
++    if (auto systemFallback = FontCache::forCurrentThread().systemFallbackForCharacterCluster(m_fontDescription, originalFont, IsForPlatformFont::No, preferColoredFont ? FontCache::PreferColoredFont::Yes : FontCache::PreferColoredFont::No, normalizedString.view)) {
++        if (systemFallback->canRenderCombiningCharacterSequence(normalizedString.view) && (!preferColoredFont || systemFallback->platformData().isColorBitmapFont()))
++            return systemFallback.get();
++
++        // In case of emoji, if fallback font is colored try again without the variation selector character.
++        if (isEmoji && characters[length - 1] == 0xFE0F && systemFallback->platformData().isColorBitmapFont() && systemFallback->canRenderCombiningCharacterSequence(characters.first(length - 1)))
++            return systemFallback.get();
++    }
++
++    return baseFont.get();
++}
++
++} // namespace WebCore
++
++#endif // USE(AMIGA_GRAPHICS) && USE(OPENFONT)
+diff --git a/Source/WebCore/platform/graphics/openfont/FontPlatformDataOpenFont.cpp b/Source/WebCore/platform/graphics/openfont/FontPlatformDataOpenFont.cpp
+index 29640d40..6afde853 100644
+--- a/Source/WebCore/platform/graphics/openfont/FontPlatformDataOpenFont.cpp
++++ b/Source/WebCore/platform/graphics/openfont/FontPlatformDataOpenFont.cpp
+@@ -26,13 +26,16 @@
+ #include "config.h"
+ #include "FontPlatformData.h"
+ 
+-#if USE(OPENFONT) && USE(CAIRO)
++#if USE(OPENFONT) && (USE(CAIRO) || USE(AMIGA_GRAPHICS))
+ 
++#if USE(CAIRO)
+ #include "CairoUniquePtr.h"
+ #include "CairoUtilities.h"
++#include <cairo.h>
++#endif
+ #include "FontCustomPlatformData.h"
+ #include "SharedBuffer.h"
+-#include <cairo.h>
++#include <wtf/HashFunctions.h>
+ #include <wtf/MathExtras.h>
+ #include <wtf/text/WTFString.h>
+ 
+@@ -45,15 +48,19 @@ FontPlatformData::FontPlatformData(Ref<OpenFontFace>&& face, float size, bool sy
+     m_fontFaceFeatures = WTF::move(fontFaceFeatures);
+     m_fixedWidth = m_openFontFace->isFixedPitch();
+     m_isColorBitmapFont = m_openFontFace->hasColor();
++#if USE(CAIRO)
+     buildScaledFont();
++#endif
+ }
+ 
+ FontPlatformData FontPlatformData::cloneWithOrientation(const FontPlatformData& source, FontOrientation orientation)
+ {
+     FontPlatformData copy(source);
+-    if (copy.m_scaledFont && copy.m_metadata.orientation != orientation) {
++    if (copy.m_metadata.orientation != orientation) {
+         copy.m_metadata.orientation = orientation;
++#if USE(CAIRO)
+         copy.buildScaledFont();
++#endif
+     }
+     return copy;
+ }
+@@ -70,7 +77,9 @@ void FontPlatformData::updateSize(float size)
+     m_metadata.pointSize = size;
+     // A new size needs a new scaled font.
+     ASSERT(m_openFontFace);
++#if USE(CAIRO)
+     buildScaledFont();
++#endif
+ }
+ 
+ bool FontPlatformData::isFixedPitch() const
+@@ -80,13 +89,20 @@ bool FontPlatformData::isFixedPitch() const
+ 
+ unsigned FontPlatformData::hash() const
+ {
++#if USE(CAIRO)
+     return PtrHash<cairo_scaled_font_t*>::hash(m_scaledFont.get());
++#else
++    // the face, the size and how it is drawn: what a scaled font stood for
++    return computeHash(m_openFontFace.get(), m_metadata.pointSize, m_metadata.orientation, syntheticBold(), syntheticOblique());
++#endif
+ }
+ 
+ bool FontPlatformData::platformIsEqual(const FontPlatformData& other) const
+ {
+     return m_openFontFace == other.m_openFontFace
++#if USE(CAIRO)
+         && m_scaledFont == other.m_scaledFont
++#endif
+         && m_fontFaceFeatures == other.m_fontFaceFeatures;
+ }
+ 
+@@ -102,6 +118,7 @@ String FontPlatformData::familyName() const
+     return m_openFontFace ? m_openFontFace->familyName() : String();
+ }
+ 
++#if USE(CAIRO)
+ void FontPlatformData::buildScaledFont()
+ {
+     ASSERT(m_openFontFace);
+@@ -137,6 +154,7 @@ void FontPlatformData::buildScaledFont()
+ 
+     m_scaledFont = adoptRef(cairo_scaled_font_create(m_openFontFace->cairoFontFace(), &fontMatrix, &ctm, options.get()));
+ }
++#endif
+ 
+ RefPtr<SharedBuffer> FontPlatformData::openTypeTable(uint32_t table) const
+ {
+@@ -180,4 +198,4 @@ FontPlatformData::IPCData FontPlatformData::toIPCData() const
+ 
+ } // namespace WebCore
+ 
+-#endif // USE(OPENFONT) && USE(CAIRO)
++#endif // USE(OPENFONT) && (USE(CAIRO) || USE(AMIGA_GRAPHICS))
+diff --git a/Source/WebCore/platform/graphics/openfont/OpenFontFace.cpp b/Source/WebCore/platform/graphics/openfont/OpenFontFace.cpp
+index 70948938..a3d1e249 100644
+--- a/Source/WebCore/platform/graphics/openfont/OpenFontFace.cpp
++++ b/Source/WebCore/platform/graphics/openfont/OpenFontFace.cpp
+@@ -30,9 +30,12 @@
+ 
+ #include "FloatRect.h"
+ #include "OpenFontLibrary.h"
++#include "Path.h"
+ #include <array>
+ #include <cmath>
++#if USE(CAIRO)
+ #include <cairo.h>
++#endif
+ #include <wtf/HashMap.h>
+ #include <wtf/Lock.h>
+ #include <wtf/NeverDestroyed.h>
+@@ -44,22 +47,6 @@
+ 
+ namespace WebCore {
+ 
+-// What the cairo user font face's callbacks need. It belongs to the cairo
+-// face and closes the OFFace when cairo destroys the face, which can be
+-// after the OpenFontFace has gone (scaled fonts in cairo's own cache).
+-struct OpenFontCairoFace {
+-    WTF_DEPRECATED_MAKE_STRUCT_FAST_ALLOCATED(OpenFontCairoFace);
+-
+-    OFFace* face { nullptr };
+-    unsigned unitsPerEm { 1000 };
+-    std::span<const uint8_t> horizontalMetrics;
+-    unsigned horizontalMetricCount { 0 };
+-    bool hasColorBitmaps { false };
+-    cairo_font_extents_t extents { };
+-};
+-
+-static cairo_user_data_key_t openFontCairoFaceKey;
+-
+ static inline unsigned readUInt16(std::span<const uint8_t> data, size_t offset)
+ {
+     return offset + 2 <= data.size() ? (data[offset] << 8) | data[offset + 1] : 0;
+@@ -78,6 +65,23 @@ static unsigned advanceFromHorizontalMetrics(std::span<const uint8_t> metrics, u
+     return readUInt16(metrics, std::min<unsigned>(glyph, count - 1) * 4);
+ }
+ 
++#if USE(CAIRO)
++// What the cairo user font face's callbacks need. It belongs to the cairo
++// face and closes the OFFace when cairo destroys the face, which can be
++// after the OpenFontFace has gone (scaled fonts in cairo's own cache).
++struct OpenFontCairoFace {
++    WTF_DEPRECATED_MAKE_STRUCT_FAST_ALLOCATED(OpenFontCairoFace);
++
++    OFFace* face { nullptr };
++    unsigned unitsPerEm { 1000 };
++    std::span<const uint8_t> horizontalMetrics;
++    unsigned horizontalMetricCount { 0 };
++    bool hasColorBitmaps { false };
++    cairo_font_extents_t extents { };
++};
++
++static cairo_user_data_key_t openFontCairoFaceKey;
++
+ static OpenFontCairoFace* cairoFaceData(cairo_scaled_font_t* scaledFont)
+ {
+     return static_cast<OpenFontCairoFace*>(cairo_font_face_get_user_data(cairo_scaled_font_get_font_face(scaledFont), &openFontCairoFaceKey));
+@@ -260,6 +264,8 @@ static void destroyCairoFaceData(void* pointer)
+     delete data;
+ }
+ 
++#endif // USE(CAIRO)
++
+ OpenFontFace::OpenFontFace(OFFace* face, const String& familyName, unsigned unitsPerEm, unsigned weight, unsigned flags, unsigned glyphCount)
+     : m_face(face)
+     , m_familyName(familyName)
+@@ -274,6 +280,7 @@ OpenFontFace::OpenFontFace(OFFace* face, const String& familyName, unsigned unit
+     m_horizontalMetrics = table(tag('h', 'm', 't', 'x'));
+     m_horizontalMetricCount = std::min<unsigned>(readUInt16(horizontalHeader, 34), m_horizontalMetrics.size() / 4);
+ 
++#if USE(CAIRO)
+     auto* data = new OpenFontCairoFace;
+     data->face = face;
+     data->unitsPerEm = unitsPerEm;
+@@ -296,10 +303,19 @@ OpenFontFace::OpenFontFace(OFFace* face, const String& familyName, unsigned unit
+         cairo_user_font_face_set_render_color_glyph_func(m_cairoFontFace.get(), renderColorGlyph);
+     if (cairo_font_face_set_user_data(m_cairoFontFace.get(), &openFontCairoFaceKey, data, destroyCairoFaceData) != CAIRO_STATUS_SUCCESS)
+         destroyCairoFaceData(data);
++#endif
+ }
+ 
++#if USE(CAIRO)
+ // The cairo face closes the OFFace when it goes.
+ OpenFontFace::~OpenFontFace() = default;
++#else
++OpenFontFace::~OpenFontFace()
++{
++    Locker locker { lock() };
++    obof_close_face(m_face);
++}
++#endif
+ 
+ RefPtr<OpenFontFace> OpenFontFace::adopt(OFFace* face, bool shareInstalled)
+ {
+@@ -435,6 +451,69 @@ bool OpenFontFace::glyphBounds(Glyph glyph, FloatRect& bounds) const
+     return true;
+ }
+ 
++Path OpenFontFace::glyphPath(Glyph glyph, float size) const
++{
++    Path path;
++    Locker locker { lock() };
++    std::array<uint8_t, 256> verbBuffer;
++    std::array<int32_t, 1024> pointBuffer;
++    std::span<uint8_t> verbs { verbBuffer };
++    std::span<int32_t> points { pointBuffer };
++    Vector<uint8_t> largeVerbs;
++    Vector<int32_t> largePoints;
++    uint32_t verbCount = 0, pointCount = 0;
++    if (!obof_glyph_outline(m_face, glyph, verbs.data(), verbs.size(), points.data(), points.size() / 2, &verbCount, &pointCount)) {
++        if (verbCount <= verbs.size() && pointCount <= points.size() / 2)
++            return path;
++        largeVerbs.grow(verbCount);
++        largePoints.grow(pointCount * 2);
++        verbs = largeVerbs.mutableSpan();
++        points = largePoints.mutableSpan();
++        if (!obof_glyph_outline(m_face, glyph, verbs.data(), verbCount, points.data(), pointCount, &verbCount, &pointCount))
++            return path;
++    }
++    // the face is at a pixel size of its units per em: 26.6 font units
++    float scale = size / (64.f * m_unitsPerEm);
++    size_t point = 0;
++    auto next = [&](FloatPoint& p) -> bool {
++        if (point >= pointCount)
++            return false;
++        p = { points[point * 2] * scale, -points[point * 2 + 1] * scale };
++        ++point;
++        return true;
++    };
++    for (uint32_t i = 0; i < verbCount; ++i) {
++        FloatPoint a, b, c;
++        switch (verbs[i]) {
++        case OBOF_PATH_MOVE:
++            if (!next(a))
++                return path;
++            path.moveTo(a);
++            break;
++        case OBOF_PATH_LINE:
++            if (!next(a))
++                return path;
++            path.addLineTo(a);
++            break;
++        case OBOF_PATH_QUAD:
++            if (!next(a) || !next(b))
++                return path;
++            path.addQuadCurveTo(a, b);
++            break;
++        case OBOF_PATH_CUBIC:
++            if (!next(a) || !next(b) || !next(c))
++                return path;
++            path.addBezierCurveTo(a, b, c);
++            break;
++        case OBOF_PATH_CLOSE:
++            path.closeSubpath();
++            break;
++        }
++    }
++    return path;
++}
++
+ } // namespace WebCore
+ 
++
+ #endif // USE(OPENFONT)
+diff --git a/Source/WebCore/platform/graphics/openfont/OpenFontFace.h b/Source/WebCore/platform/graphics/openfont/OpenFontFace.h
+index cc8bf3cb..78ec30b5 100644
+--- a/Source/WebCore/platform/graphics/openfont/OpenFontFace.h
++++ b/Source/WebCore/platform/graphics/openfont/OpenFontFace.h
+@@ -28,7 +28,10 @@
+ #if USE(OPENFONT)
+ 
+ #include "Glyph.h"
++#if USE(CAIRO)
+ #include "RefPtrCairo.h"
++#endif
++#include <cmath>
+ #include <span>
+ #include <wtf/Forward.h>
+ #include <wtf/RecursiveLockAdapter.h>
+@@ -40,6 +43,7 @@ struct OFFace;
+ namespace WebCore {
+ 
+ class FloatRect;
++class Path;
+ 
+ // One face of gfopenfont.library, as WebCore's fonts use it: opened once and
+ // kept at a pixel size equal to its units per em, so the library's 26.6
+@@ -68,7 +72,9 @@ public:
+     static RecursiveLock& lock();
+ 
+     OFFace* face() const { return m_face; }
++#if USE(CAIRO)
+     cairo_font_face_t* cairoFontFace() const { return m_cairoFontFace.get(); }
++#endif
+ 
+     const String& familyName() const LIFETIME_BOUND { return m_familyName; }
+     unsigned unitsPerEm() const { return m_unitsPerEm; }
+@@ -81,10 +87,16 @@ public:
+     Glyph glyphForCharacter(char32_t) const;
+     // Font units, from hmtx: the advance before shaping.
+     unsigned advance(Glyph) const;
++    // The advance at a size as WebKit lays text out: whole pixels, as cairo's
++    // scaled font gave it with metrics hinting.
++    float hintedAdvance(Glyph glyph, float size) const { return std::round(advance(glyph) * size / m_unitsPerEm); }
+     // A table of the font as it is in the file, or an empty span.
+     std::span<const uint8_t> table(uint32_t tag) const;
+     // The glyph's ink box in font units, y down; false when it has none.
+     bool glyphBounds(Glyph, FloatRect&) const;
++    // The glyph's outline at a size (pixels to the em), y down, origin at
++    // the pen; empty for a glyph with none.
++    Path glyphPath(Glyph, float size) const;
+ 
+     static constexpr uint32_t tag(char a, char b, char c, char d)
+     {
+@@ -97,7 +109,9 @@ private:
+     OpenFontFace(OFFace*, const String& familyName, unsigned unitsPerEm, unsigned weight, unsigned flags, unsigned glyphCount);
+ 
+     OFFace* m_face { nullptr };
++#if USE(CAIRO)
+     RefPtr<cairo_font_face_t> m_cairoFontFace;
++#endif
+     String m_familyName;
+     unsigned m_unitsPerEm { 1000 };
+     unsigned m_weight { 400 };
+diff --git a/Source/WebCore/platform/graphics/openfont/SimpleFontDataOpenFont.cpp b/Source/WebCore/platform/graphics/openfont/SimpleFontDataOpenFont.cpp
+index e56929a9..5dccbba0 100644
+--- a/Source/WebCore/platform/graphics/openfont/SimpleFontDataOpenFont.cpp
++++ b/Source/WebCore/platform/graphics/openfont/SimpleFontDataOpenFont.cpp
+@@ -26,13 +26,12 @@
+ #include "config.h"
+ #include "Font.h"
+ 
+-#if USE(OPENFONT) && USE(CAIRO)
++#if USE(OPENFONT) && (USE(CAIRO) || USE(AMIGA_GRAPHICS))
+ 
+ #include "FloatRect.h"
+ #include "FontDescription.h"
+ #include "NotImplemented.h"
+ #include "OpenFontFace.h"
+-#include <cairo.h>
+ #include <wtf/MathExtras.h>
+ 
+ namespace WebCore {
+@@ -132,10 +131,8 @@ void FontBase::platformInit()
+         m_fontMetrics.setUnderlineThickness((thickness / static_cast<float>(unitsPerEm)) * size);
+     }
+ 
+-    cairo_glyph_t spaceGlyph = { face->glyphForCharacter(' '), 0, 0 };
+-    cairo_text_extents_t textExtents;
+-    cairo_scaled_font_glyph_extents(m_platformData.scaledFont(), &spaceGlyph, 1, &textExtents);
+-    m_spaceWidth = narrowPrecisionToFloat((platformData().orientation() == FontOrientation::Horizontal) ? textExtents.x_advance : -textExtents.y_advance);
++    // as cairo's scaled font gave it (metrics hinting: whole pixels)
++    m_spaceWidth = face->hintedAdvance(face->glyphForCharacter(' '), m_platformData.size() ? m_platformData.size() : 1);
+     m_syntheticBoldOffset = m_platformData.syntheticBold() ? 1.0f : 0.f;
+ 
+     // Disable antialiasing for the Ahem font because many tests require this.
+@@ -191,4 +188,4 @@ bool Font::platformSupportsCodePoint(char32_t character, std::optional<char32_t>
+ 
+ } // namespace WebCore
+ 
+-#endif // USE(OPENFONT) && USE(CAIRO)
++#endif // USE(OPENFONT) && (USE(CAIRO) || USE(AMIGA_GRAPHICS))
+diff --git a/Source/WebCore/platform/image-decoders/amiga/DatatypesDecode.c b/Source/WebCore/platform/image-decoders/amiga/DatatypesDecode.c
+--- a/Source/WebCore/platform/image-decoders/amiga/DatatypesDecode.c
++++ b/Source/WebCore/platform/image-decoders/amiga/DatatypesDecode.c
+@@ -402,9 +402,10 @@ void obdt_free(OBDTImage* image)
+     image->pixels = NULL;
+ }
+ 
+-/* The PNG datatypes tried for writing, ours first; any that writes PNG for
++/* The PNG datatypes tried for writing, ours first (gfopenpng.datatype; it
++ * was openpng.datatype before the rename); any that writes PNG for
+  * DTM_WRITE with DTWM_RAW will do. */
+-static const char* const s_pngDataTypes[] = { "openpng", "png" };
++static const char* const s_pngDataTypes[] = { "gfopenpng", "openpng", "png" };
+ 
+ /* Straight (not premultiplied) A, R, G, B, rows packed, from malloc. */
+ static unsigned char* straightPixels(const unsigned char* pixels, unsigned width, unsigned height, unsigned stride, unsigned flags)
+diff --git a/Source/cmake/OptionsAmiga.cmake b/Source/cmake/OptionsAmiga.cmake
+index 8e14a6cc..8b2d2561 100644
+--- a/Source/cmake/OptionsAmiga.cmake
++++ b/Source/cmake/OptionsAmiga.cmake
+@@ -31,7 +31,6 @@ set(ENABLE_TOOLS OFF)
+ find_package(ICU 70.1 REQUIRED COMPONENTS data i18n uc)
+ 
+ if (ENABLE_WEBCORE)
+-    find_package(Cairo 1.16.0 REQUIRED)
+     find_package(OpenFont 1.3 REQUIRED)
+     find_package(OXP 0.1 REQUIRED)
+     find_package(SQLite3 3.23.1 REQUIRED)
+@@ -117,7 +116,10 @@ SET_AND_EXPOSE_TO_BUILD(USE_GENERIC_EVENT_LOOP 1)
+ SET_AND_EXPOSE_TO_BUILD(WTF_DEFAULT_EVENT_LOOP 0)
+ 
+ # Set even when only JavaScriptCore is built, so cmakeconfig.h stays the same.
+-SET_AND_EXPOSE_TO_BUILD(USE_CAIRO ON)
++# No cairo (patch 0083): pictures, paths and drawing are the engine's own
++# (platform/graphics/amiga), drawn through gfopengpu.library.
++SET_AND_EXPOSE_TO_BUILD(USE_CAIRO OFF)
++SET_AND_EXPOSE_TO_BUILD(USE_AMIGA_GRAPHICS ON)
+ # USE_CURL picks the network types in platform/network/curl (ResourceError,
+ # ResourceResponse, the cookie database), which call no curl; curl itself
+ # is not built (PlatformAmiga.cmake).
