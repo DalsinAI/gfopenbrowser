@@ -43,3 +43,13 @@ printed 51 STALE_PUT + 9 STALE_GET false positives (cells in the block being
 allocated from) before any worker reached a report. This gives each VM its
 own cap of 30 lines and drops not-live cells in a free-listed block from every
 check (STALE_GET, STALE_PUT, STALE_PUTCACHE, DEADPREV).
+
+## obgc-baseinfo.patch (after all four above; LLIntSlowPaths.cpp only)
+
+G9: worker put_by_id at bytecode 2667 finds a live base whose Structure is
+already dead (no GC during the put), then the transition reuses that cell
+(SELFPREV). So the base kept a Structure the last GC did not mark. This logs
+up to 6 `OBGC_BASEINFO` lines on a stale base: base JSType, cellState, whether
+the heap counts the base marked, the dead Structure's class name / type /
+dictionary flag (read as left), and the function, script URL, first line and
+bytecode offset, to name the object and the code.

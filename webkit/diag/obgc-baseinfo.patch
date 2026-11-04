@@ -1,0 +1,27 @@
+--- a/Source/JavaScriptCore/llint/LLIntSlowPaths.cpp
++++ b/Source/JavaScriptCore/llint/LLIntSlowPaths.cpp
+@@ -961,8 +961,23 @@
+         return;
+     JSCell* cell = base.asCell();
+     Structure* structure = cell->structure();
+-    if (obgcCellIsDead(vm, cell) || obgcCellIsDead(vm, structure))
++    if (obgcCellIsDead(vm, cell) || obgcCellIsDead(vm, structure)) {
+         obgcReport(what, vm, cell, structure, codeBlock, codeBlock->bytecodeOffset(pc));
++        // Which object and which script (G9: a live base with a dead
++        // Structure, always at the same bytecode). The dead Structure's
++        // fields are read as they were left; its block has not been reused.
++        static unsigned obgcInfoReports;
++        if (obgcInfoReports < 6) {
++            obgcInfoReports++;
++            const ClassInfo* classInfo = structure->classInfoForCells();
++            dataLogLn("OBGC_BASEINFO vm ", RawPointer(&vm), " base type ", static_cast<unsigned>(cell->type()),
++                " cellState ", static_cast<unsigned>(cell->cellState()), " marked ", vm.heap.isMarked(cell),
++                " structure class ", classInfo ? classInfo->className : "(null)"_s,
++                " stype ", static_cast<unsigned>(structure->typeInfo().type()), " dict ", structure->isDictionary(),
++                " func ", codeBlock->inferredNameWithHash(), " url ", codeBlock->ownerExecutable()->sourceURL(),
++                " line ", codeBlock->ownerExecutable()->firstLine(), " bc ", codeBlock->bytecodeOffset(pc));
++        }
++    }
+ }
+ #endif
+ 
