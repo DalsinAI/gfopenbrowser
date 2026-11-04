@@ -53,7 +53,9 @@
 #                  Devs/DataTypes/GZip and Brotli. Required: openweb.fetch's
 #                  native transport decodes compressed pages through them
 #                  (WebKit patch 0075); the Installer puts them in
-#                  SYS:Classes/DataTypes and DEVS:DataTypes
+#                  SYS:Classes/DataTypes and DEVS:DataTypes. With
+#                  gfopengif.datatype and Devs/DataTypes/GFOpenGIF there too
+#                  (Datatypes/gif/build.sh), animated GIFs play (patch 0110)
 #   ZLIB_LIB       z.library 53.12 or newer (GFOpenZlib), which gzip.datatype
 #                  opens. Required; the Installer puts it in LIBS:
 #   OB_JSIMAGE     1 (the default when the WebCore build has one): the engine
@@ -180,6 +182,16 @@ cp "$DTDIR/Classes/DataTypes/stream.datatype" "$DTDIR/Classes/DataTypes/gzip.dat
    "$DTDIR/Classes/DataTypes/brotli.datatype" "$D/Classes/DataTypes/"
 cp "$DTDIR/Devs/DataTypes/GZip" "$DTDIR/Devs/DataTypes/Brotli" "$D/Devs/DataTypes/"
 cp "$ZLIBLIB" "$D/Libs/z.library"
+# animated GIFs: gfopengif.datatype gives every frame (WebKit patch 0110),
+# from the same build (gfopendatatypes Datatypes/gif/build.sh PREFIX); the
+# Installer puts it in SYS:Classes/DataTypes and its descriptor in
+# DEVS:DataTypes. Without it GIFs show their first frame, as before.
+if [ -f "$DTDIR/Classes/DataTypes/gfopengif.datatype" ] && [ -f "$DTDIR/Devs/DataTypes/GFOpenGIF" ]; then
+    cp "$DTDIR/Classes/DataTypes/gfopengif.datatype" "$D/Classes/DataTypes/"
+    cp "$DTDIR/Devs/DataTypes/GFOpenGIF" "$D/Devs/DataTypes/"
+else
+    echo "package-browser.sh: no gfopengif.datatype in $DTDIR: animated GIFs will show their first frame"
+fi
 cp "$CA_BUNDLE/ca-bundle.pem" "$D/S/GFOpenTLS/"
 [ -f "$CA_BUNDLE/ca-bundle.LICENSE" ] && cp "$CA_BUNDLE/ca-bundle.LICENSE" "$D/S/GFOpenTLS/"
 cp "$HERE/dist/GFOpenBrowser/Install" "$D/Install"
