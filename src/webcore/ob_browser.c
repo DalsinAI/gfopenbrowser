@@ -387,6 +387,10 @@ static void benchStart(void)
         ob_webview_paint_report(view, NULL, 0);
 }
 
+/* OB_ANIM_TRACE (WebKit patch 0110's DatatypesDecode.c): a line in
+ * T:OBANIM.log for each round that had areas to paint, beside the decoder's. */
+void obdt_anim_log(const char *format, ...);
+
 /* What changed on the page: each area by itself once it is laid out (see
  * ob_webview_dirty_rects()), or, with OB_PAINT_LEGACY, one area around them
  * all, laid out at once. */
@@ -407,6 +411,9 @@ static void paintDirty(void)
     }
     if (painted)
         benchRounds++;
+    if (n)
+        obdt_anim_log("OBANIM window %d areas, painted=%d, first %d,%d %dx%d at %lu ms\n", n, painted, rects[0], rects[1],
+            rects[2], rects[3], (unsigned long)(clockMicros() / 1000));
     if (benchDue && !n && !loading && !ob_webview_rendering_pending(view))
         benchReport();
 }
