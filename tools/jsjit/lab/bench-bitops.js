@@ -3,6 +3,11 @@
 // (Set, not SetEnv, on the Amiga). The checksums must match between runs.
 // MIT, Copyright (c) 2026 The AmiCradle Team.
 if (typeof print === "undefined") var print = console.log;
+// Each case repeats SCALE times (50; ?scale=N on a page, or scale=N as an argument).
+var SCALE = 50;
+if (typeof location !== "undefined" && /[?&]scale=(\d+)/.test(location.search)) SCALE = +RegExp.$1;
+if (typeof arguments !== "undefined" && arguments.length && /^scale=(\d+)$/.test(arguments[0])) SCALE = +RegExp.$1;
+if (typeof process !== "undefined" && process.argv && /^scale=(\d+)$/.test(process.argv[2] || "")) SCALE = +RegExp.$1;
 var now = typeof preciseTime === "function" ? preciseTime : function () { return Date.now() / 1000; };
 var text = ""; for (var i = 0; i < 4000; i++) text += String.fromCharCode(32 + (i * 7919) % 90);
 var table = []; for (var n = 0; n < 256; n++) { var c = n; for (var b = 0; b < 8; b++) c = c & 1 ? 0xedb88320 ^ (c >>> 1) : c >>> 1; table[n] = c >>> 0; }
@@ -19,7 +24,7 @@ var cases = [["int32 & ^ << >>", function () { return int32Ops(200000); }], ["va
 var total = 0;
 for (var c = 0; c < cases.length; c++) {
     cases[c][1]();
-    var t0 = now(), v = cases[c][1](), t = now() - t0; total += t;
+    var t0 = now(), v; for (var r = 0; r < SCALE; r++) v = cases[c][1](); var t = now() - t0; total += t;
     print(cases[c][0] + ": " + t.toFixed(2) + " s, checksum " + v);
 }
-print("total: " + total.toFixed(2) + " s");
+print("total: " + total.toFixed(2) + " s (scale " + SCALE + ")");
