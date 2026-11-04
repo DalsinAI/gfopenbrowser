@@ -1,4 +1,4 @@
-From c1a2a175ce335ff6ae46c8651206832667350b76 Mon Sep 17 00:00:00 2001
+From 2c4197e3d399b93369a719d284647ae297d186a7 Mon Sep 17 00:00:00 2001
 From: SacredTrees <121399723+SacredTrees@users.noreply.github.com>
 Date: Wed, 4 Nov 2026 06:30:22 +0000
 Subject: [PATCH] JavaScriptCore: a structure+name cache for the 68k
@@ -19,7 +19,7 @@ Team 3
  4 files changed, 133 insertions(+)
 
 diff --git a/Source/JavaScriptCore/llint/LLIntSlowPaths.cpp b/Source/JavaScriptCore/llint/LLIntSlowPaths.cpp
-index 5f3debca..452abb77 100644
+index 5f3debca..2cacce4b 100644
 --- a/Source/JavaScriptCore/llint/LLIntSlowPaths.cpp
 +++ b/Source/JavaScriptCore/llint/LLIntSlowPaths.cpp
 @@ -65,6 +65,7 @@
@@ -72,7 +72,7 @@ index 5f3debca..452abb77 100644
 +    M68K_COUNT(++statistics.megamorphicHits; statistics.megamorphicAbsentHits += !entry.m_holder);
 +    if (!entry.m_holder)
 +        return jsUndefined();
-+    JSObject* holder = entry.m_holder == JSCell::seenMultipleCalleeObjects() ? base : jsCast<JSObject*>(entry.m_holder);
++    JSObject* holder = entry.m_holder == JSCell::seenMultipleCalleeObjects() ? base : asObject(entry.m_holder);
 +    return holder->getDirect(entry.m_offset);
 +}
 +
