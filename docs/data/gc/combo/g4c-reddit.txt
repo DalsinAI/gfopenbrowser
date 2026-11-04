@@ -1,0 +1,13 @@
+[GC<0x40b58dec>: starting 26.737470ms]
+[GC<0x40b58dec>: START M 2281kb => EdenCollection, v=0kb (C:0 M:0) o=0 b=0 i#1:CsMsrShDMsm(0) 456+0 v=362kb (C:362 M:0) o=3 b=0 i#2:WsO 20+0 v=387kb (C:387 M:0) o=4 b=0 i#3:WsOMsrShCsDMsm(0)CbDomo => 1232kb, p=325.256316ms (max 325.256316), cycle 275.770780ms END]
+GC END!
+[GC<0x40b58dec>: epilogue 50.869845ms]
+[GC<0x40b58dec>: START M 17085kb => FullCollection, v=0kb (C:0 M:0) o=0 b=450 i#1:CsMsrShDMsm(0) 563+0 v=6134kb (C:6134 M:0) o=257 b=450 i#2:WsO 2276+0 v=6669kb (C:6669 M:0) o=321 b=450 i#3:Ws 92+0 v=6672kb (C:6672 M:0) o=321 b=450 i#4:WsO 2+0 v=6672kb (C:6672 M:0) o=321 b=450 i#5:OWsMsrShCsDMsm(0)CbDomo => 10772kb, p=477.142684ms (max 477.142684), cycle 429.017493ms END]
+GC END!
+[GC<0x40b58dec>: epilogue 39.211761ms]
+[GC<0x4ed13c5c>: starting 187.382203ms]
+Requesting GC because bytes allocated this cycle: 4196728 exceed bytes allowed: 4194304 normal bytes: 3123004 oversized bytes: 1073724 last oversized: 697167
+[GC<0x4ed13c5c>: START M 3084kb => EdenCollection, v=0kb (C:0 M:0) o=0 b=0 i#1:CsMsrShDMsm(0) 4188+0 v=1784kb (C:1784 M:0) o=6 b=0 i#2:WsO 2+0 v=1784kb (C:1784 M:0) o=6 b=0 i#3:WsOCsShMsrDMsm(0)CbDomo => 4418kb, p=3156.831539ms (max 3156.831539), cycle 3122.993491ms END]
+GC END!
+[GC<0x4ed13c5c>: epilogue 32.202814ms]
+[GC<0x4ed13c5c>: shutdown: stopped collecting continuously, disabled collection, no collection pending, stopping the collector thread, stopped, 182.872625ms]

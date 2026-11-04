@@ -1,0 +1,11 @@
+[GC<0x40b562a4>: starting 29.974104ms]
+[GC<0x40b562a4>: START M 3638kb => EdenCollection, v=0kb (C:0 M:0) o=0 b=0 i#1:CsMsrShDMsm(0) 598+0 v=2038kb (C:2038 M:0) o=5 b=0 i#2:WsO 10+0 v=2038kb (C:2038 M:0) o=5 b=0 i#3:WsOShMsrCsDMsm(0)CbDomo => 3848kb, p=373.697276ms (max 373.697276), cycle 332.110198ms END]
+GC END!
+[GC<0x40b562a4>: epilogue 37.787981ms]
+Requesting GC because bytes allocated this cycle: 33554825 exceed bytes allowed: 33554432 normal bytes: 33321721 oversized bytes: 233104 last oversized: 65584
+[GC<0x40b562a4>: START M 31838kb => EdenCollection, v=0kb (C:0 M:0) o=5 b=3627 i#1:CsMsrShDMsm(3627) 66+3627 v=8488kb (C:8488 M:0) o=5 b=3627 i#2:WsO 1270+0 v=8528kb (C:8528 M:0) o=5 b=3627 i#3:WsOMsm(0)ShCsMsrDCbDomo => 15905kb, p=411.672745ms (max 411.672745), cycle 370.283022ms END]
+GC END!
+[GC<0x40b562a4>: epilogue 52.801112ms]
+[GC<0x40b562a4>: START M 35518kb => FullCollection, v=0kb (C:0 M:0) o=0 b=3681 i#1:CsMsrShDMsm(0) 653+0 v=16166kb (C:16166 M:0) o=5 b=3681 i#2:WsO 786+0 v=16194kb (C:16194 M:0) o=5 b=3681 i#3:WsOShMsrCsMsm(0)DCbDomo => 21080kb, p=464.375179ms (max 464.375179), cycle 422.315857ms END]
+GC END!
+[GC<0x40b562a4>: epilogue 35.195572ms]
