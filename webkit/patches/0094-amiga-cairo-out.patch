@@ -565,7 +565,6 @@ index 00000000..eda5f3ed
 +
 +#endif // USE(AMIGA_GRAPHICS)
 diff --git a/Source/WebCore/platform/graphics/amiga/GraphicsContextOpenGPU.cpp b/Source/WebCore/platform/graphics/amiga/GraphicsContextOpenGPU.cpp
-index e312c6e5..517bc628 100644
 --- a/Source/WebCore/platform/graphics/amiga/GraphicsContextOpenGPU.cpp
 +++ b/Source/WebCore/platform/graphics/amiga/GraphicsContextOpenGPU.cpp
 @@ -1,22 +1,20 @@
@@ -629,7 +628,23 @@ index e312c6e5..517bc628 100644
              return false;
          }
          return true;
-@@ -75,10 +70,10 @@ static size_t gpuBytes()
+@@ -70,15 +65,26 @@ bool GraphicsContextOpenGPU::isWanted()
+     return wanted;
+ }
+ 
++// OB_PAINT_TRACE (the shell variable, any value): every drawing call, its
++// rectangle on the device, the clip and whether it was drawn, on stdout
++// as OBTRACE lines. For finding what a page loses; off, it costs a test.
++static bool tracing()
++{
++    static const bool on = !!getenv("OB_PAINT_TRACE");
++    return on;
++}
++
++#define OBTRACE(...) do { if (tracing()) { printf("OBTRACE " __VA_ARGS__); fflush(stdout); } } while (0)
++
+ static size_t gpuBytes()
+ {
      return (sizeof(obgpu) + 7) & ~static_cast<size_t>(7);
  }
  
@@ -643,7 +658,7 @@ index e312c6e5..517bc628 100644
  {
      void* block = nullptr;
      int caps = ob_opengpu_caps();
-@@ -90,17 +85,14 @@ GraphicsContextOpenGPU::GraphicsContextOpenGPU(cairo_surface_t* surface, obgpu_c
+@@ -90,17 +96,14 @@ GraphicsContextOpenGPU::GraphicsContextOpenGPU(cairo_surface_t* surface, obgpu_c
      obgpu_init(m_gpu, stream, streamWords, scratch, reinterpret_cast<uintptr_t>(scratch), scratchWords, submitBatch, this,
          caps, m_counts);
      obgpu_masks(m_gpu, allocMask, freeMask, this);
@@ -665,7 +680,7 @@ index e312c6e5..517bc628 100644
      flush();
      if (m_gpu)
          obgpu_release_masks(m_gpu);
-@@ -113,13 +105,7 @@ GraphicsContextOpenGPU::~GraphicsContextOpenGPU()
+@@ -113,13 +116,7 @@ GraphicsContextOpenGPU::~GraphicsContextOpenGPU()
  long GraphicsContextOpenGPU::submitBatch(void* user, const unsigned char* stream, long words)
  {
      auto& context = *static_cast<GraphicsContextOpenGPU*>(user);
@@ -679,7 +694,22 @@ index e312c6e5..517bc628 100644
      context.m_pictures.shrink(0);
      return result;
  }
-@@ -152,15 +138,9 @@ void GraphicsContextOpenGPU::handOn(int kind) const
+@@ -146,21 +143,24 @@ void GraphicsContextOpenGPU::flush() const
+         obgpu_flush(m_gpu);
+ }
+ 
++// The device rectangle, the transform's move and the batch's clip, for a trace line.
++#define OBTRACE_AT(name, userRect, result) do { if (tracing()) { \
++    FloatRect d = m_ctm.mapRect(userRect); \
++    const obgpu_level* l = m_gpu ? &m_gpu->level[m_gpu->depth] : nullptr; \
++    OBTRACE("%s dev=%.1f,%.1f,%.1fx%.1f clip=%d,%d-%d,%d flags=%x depth=%d layers=%u -> %d\n", name, d.x(), d.y(), d.width(), d.height(), \
++        l ? l->cx0 : -1, l ? l->cy0 : -1, l ? l->cx1 : -1, l ? l->cy1 : -1, l ? l->flags : -1, m_gpu ? m_gpu->depth : -1, \
++        static_cast<unsigned>(m_layers.size()), static_cast<int>(result)); } } while (0)
++
+ void GraphicsContextOpenGPU::handOn(int kind) const
+ {
++    OBTRACE("handOn kind=%d\n", kind);
+     flush();
      m_counts->handed[kind]++;
  }
  
@@ -696,7 +726,7 @@ index e312c6e5..517bc628 100644
      state.didApplyChanges();
  }
  
-@@ -171,7 +151,7 @@ void GraphicsContextOpenGPU::syncMatrix()
+@@ -171,7 +171,7 @@ void GraphicsContextOpenGPU::syncMatrix()
  {
      if (!m_gpu)
          return;
@@ -705,7 +735,7 @@ index e312c6e5..517bc628 100644
      double linear[4] = { ctm.a(), ctm.b(), ctm.c(), ctm.d() };
      double move[2] = { ctm.e(), ctm.f() };
      long m[6];
-@@ -207,7 +187,7 @@ static bool fixedRect(const FloatRect& rect, long* out)
+@@ -207,7 +207,7 @@ static bool fixedRect(const FloatRect& rect, long* out)
  void GraphicsContextOpenGPU::save(GraphicsContextState::Purpose purpose)
  {
      GraphicsContext::save(purpose);
@@ -714,7 +744,7 @@ index e312c6e5..517bc628 100644
      if (m_gpu)
          obgpu_save(m_gpu);
  }
-@@ -217,56 +197,74 @@ void GraphicsContextOpenGPU::restore(GraphicsContextState::Purpose purpose)
+@@ -217,56 +217,75 @@ void GraphicsContextOpenGPU::restore(GraphicsContextState::Purpose purpose)
      if (!stackSize())
          return;
      GraphicsContext::restore(purpose);
@@ -796,10 +826,11 @@ index e312c6e5..517bc628 100644
  {
 -    m_cairo.clip(rect);
 +    narrowClip(rect);
++    OBTRACE_AT("clip", rect, 1);
      if (!m_gpu)
          return;
      // a rectangle off whole pixels or turned is a mask, drawn by PATH_FILL
-@@ -296,7 +294,7 @@ void GraphicsContextOpenGPU::clipToPath(const Path& path, int flags)
+@@ -296,7 +315,7 @@ void GraphicsContextOpenGPU::clipToPath(const Path& path, int flags)
  
  void GraphicsContextOpenGPU::clipRoundedRect(const FloatRoundedRect& rect)
  {
@@ -808,7 +839,7 @@ index e312c6e5..517bc628 100644
      if (!m_gpu)
          return;
      long r[4];
-@@ -313,14 +311,13 @@ void GraphicsContextOpenGPU::clipRoundedRect(const FloatRoundedRect& rect)
+@@ -313,14 +332,13 @@ void GraphicsContextOpenGPU::clipRoundedRect(const FloatRoundedRect& rect)
  
  void GraphicsContextOpenGPU::clipPath(const Path& path, WindRule windRule)
  {
@@ -824,7 +855,7 @@ index e312c6e5..517bc628 100644
      if (!m_gpu)
          return;
      // Cairo::clipOut: the clip's extents and the rectangle, even-odd, not anti-aliased
-@@ -339,114 +336,128 @@ void GraphicsContextOpenGPU::clipOut(const FloatRect& rect)
+@@ -339,114 +357,131 @@ void GraphicsContextOpenGPU::clipOut(const FloatRect& rect)
  
  void GraphicsContextOpenGPU::clipOut(const Path& path)
  {
@@ -902,6 +933,8 @@ index e312c6e5..517bc628 100644
 -        m_layers.last().first = true;
 -        m_drawSurface = group;
 -    }
++    OBTRACE("beginLayer bounds=%d,%d,%dx%d image=%d drawnHere=%d opacity=%.2f op=%d\n", bounds.x(), bounds.y(), bounds.width(), bounds.height(),
++        !!layer.image, layer.drawnHere, opacity, static_cast<int>(op));
 +    m_layers.append(WTF::move(layer));
  }
  
@@ -936,6 +969,7 @@ index e312c6e5..517bc628 100644
 -    // what was drawn into the group goes first (obgpu_restore sends it),
 -    // then cairo puts the group on the window
 -    if (m_gpu) {
++    OBTRACE("endLayer layers=%u\n", static_cast<unsigned>(m_layers.size()));
 +    if (m_gpu && !m_layers.isEmpty()) {
 +        // what was drawn into the layer goes first (obgpu_restore sends it)
          obgpu_restore(m_gpu);
@@ -1008,7 +1042,7 @@ index e312c6e5..517bc628 100644
  }
  
  // ---- what OpenGPU draws -----------------------------------------------------------------
-@@ -612,20 +623,16 @@ bool GraphicsContextOpenGPU::gradientFor(const Gradient& gradient, const AffineT
+@@ -612,20 +647,16 @@ bool GraphicsContextOpenGPU::gradientFor(const Gradient& gradient, const AffineT
  // A picture's tile as paint: the tile's pixels to the user's space, and
  // filter 0 nearest, 1 bilinear. false when OpenGPU can't take it (not
  // ARGB32 or RGB24, past the fixed point).
@@ -1036,7 +1070,7 @@ index e312c6e5..517bc628 100644
      if (!p.source.address || tile.x() < 0 || tile.y() < 0 || tile.isEmpty() || tile.maxX() > p.source.w || tile.maxY() > p.source.h)
          return false;
      p.x = tile.x();
-@@ -673,37 +680,60 @@ bool GraphicsContextOpenGPU::patternFor(const Pattern& pattern, float globalAlph
+@@ -673,37 +704,60 @@ bool GraphicsContextOpenGPU::patternFor(const Pattern& pattern, float globalAlph
      auto device = getCTM(PossiblyIncludeDeviceScale) * pattern.patternSpaceTransform();
      if (device.b() || device.c() || device.a() < 1 || device.d() < 1)
          return false;
@@ -1111,7 +1145,7 @@ index e312c6e5..517bc628 100644
      }
      return true;
  }
-@@ -922,7 +952,6 @@ void GraphicsContextOpenGPU::fillRect(const FloatRect& rect, RequiresClipToRect
+@@ -922,7 +976,6 @@ void GraphicsContextOpenGPU::fillRect(const FloatRect& rect, RequiresClipToRect
              return;
          handOn(OBGPU_PATTERN);
      }
@@ -1119,15 +1153,21 @@ index e312c6e5..517bc628 100644
  }
  
  void GraphicsContextOpenGPU::fillRect(const FloatRect& rect, const Color& color)
-@@ -935,7 +964,6 @@ void GraphicsContextOpenGPU::fillRect(const FloatRect& rect, const Color& color)
-     if (hasDropShadow() ? shadowedRect(rect, color, 255) : solidFill(rect, color, compositeOperation(), blendMode()))
+@@ -932,10 +985,11 @@ void GraphicsContextOpenGPU::fillRect(const FloatRect& rect, const Color& color)
+     if (!color.isVisible() && compositeOperation() == CompositeOperator::SourceOver && blendMode() == BlendMode::Normal && !hasDropShadow())
+         return;
+     // with a shadow: ShadowBlur's rectangle shadow, of the rectangle's coverage
+-    if (hasDropShadow() ? shadowedRect(rect, color, 255) : solidFill(rect, color, compositeOperation(), blendMode()))
++    bool drawn = hasDropShadow() ? shadowedRect(rect, color, 255) : solidFill(rect, color, compositeOperation(), blendMode());
++    OBTRACE_AT("fillRectColor", rect, drawn);
++    if (drawn)
          return;
      handOn(OBGPU_FILL);
 -    m_cairo.fillRect(rect, color);
  }
  
  void GraphicsContextOpenGPU::clearRect(const FloatRect& rect)
-@@ -950,50 +978,60 @@ void GraphicsContextOpenGPU::clearRect(const FloatRect& rect)
+@@ -950,56 +1004,72 @@ void GraphicsContextOpenGPU::clearRect(const FloatRect& rect)
              return;
      }
      handOn(OBGPU_CLEAR);
@@ -1151,8 +1191,12 @@ index e312c6e5..517bc628 100644
 +    float globalAlpha = std::clamp(alpha, 0.0f, 1.0f);
 +    unsigned alpha8 = globalAlpha >= 1 ? 255 : static_cast<unsigned>(globalAlpha * 65535.0 + 0.5) >> 8;
 +    long dst[4], src[4];
-+    if (!source.address || !fixedRect(destRect, dst) || !fixedRect(srcRect, src)
-+        || !obgpu_image(m_gpu, &source, dst, src, static_cast<int>(op), alpha8, filter))
++    bool drawn = source.address && fixedRect(destRect, dst) && fixedRect(srcRect, src)
++        && obgpu_image(m_gpu, &source, dst, src, static_cast<int>(op), alpha8, filter);
++    OBTRACE("imageHere picture=%dx%d bpr=%u alpha=%d src=%.1f,%.1f,%.1fx%.1f op=%d a8=%u filter=%d\n", image.width(), image.height(),
++        image.stride(), image.hasAlpha(), srcRect.x(), srcRect.y(), srcRect.width(), srcRect.height(), static_cast<int>(op), alpha8, filter);
++    OBTRACE_AT("imageHere", destRect, drawn);
++    if (!drawn)
 +        return false;
 +    if (obgpu_pending(m_gpu))
 +        m_pictures.append(&image);
@@ -1202,6 +1246,7 @@ index e312c6e5..517bc628 100644
 -            }
 -        }
 +    auto picture = image.platformImage();
++    OBTRACE_AT("drawNativeImage", destRect, !!picture);
 +    if (!picture)
 +        return;
 +    if (options.orientation() != ImageOrientation::Orientation::None || options.blendMode() != BlendMode::Normal || hasDropShadow())
@@ -1226,7 +1271,14 @@ index e312c6e5..517bc628 100644
  }
  
  void GraphicsContextOpenGPU::drawImageBuffer(ImageBuffer& buffer, const FloatRect& destination, const FloatRect& source, ImagePaintingOptions options)
-@@ -1010,7 +1048,6 @@ void GraphicsContextOpenGPU::fillRect(const FloatRect& rect, Gradient& gradient)
+ {
+     // The picture is the buffer's own pixels, which may be drawn into again
+     // before the batch would go: it goes now.
++    OBTRACE_AT("drawImageBuffer", destination, 1);
+     GraphicsContext::drawImageBuffer(buffer, destination, source, options);
+     flush();
+ }
+@@ -1010,7 +1080,6 @@ void GraphicsContextOpenGPU::fillRect(const FloatRect& rect, Gradient& gradient)
      if (gradientRect(rect, gradient, fillGradientSpaceTransform(), 1))
          return;
      handOn(OBGPU_GRADIENT);
@@ -1234,7 +1286,7 @@ index e312c6e5..517bc628 100644
  }
  
  void GraphicsContextOpenGPU::fillRect(const FloatRect& rect, Gradient& gradient, const AffineTransform& gradientSpaceTransform, RequiresClipToRect requiresClipToRect)
-@@ -1018,7 +1055,6 @@ void GraphicsContextOpenGPU::fillRect(const FloatRect& rect, Gradient& gradient,
+@@ -1018,7 +1087,6 @@ void GraphicsContextOpenGPU::fillRect(const FloatRect& rect, Gradient& gradient,
      if (gradientRect(rect, gradient, gradientSpaceTransform, alpha()))
          return;
      handOn(OBGPU_GRADIENT);
@@ -1242,7 +1294,7 @@ index e312c6e5..517bc628 100644
  }
  
  void GraphicsContextOpenGPU::fillRoundedRectImpl(const FloatRoundedRect& rect, const Color& color)
-@@ -1034,7 +1070,6 @@ void GraphicsContextOpenGPU::fillRoundedRectImpl(const FloatRoundedRect& rect, c
+@@ -1034,7 +1102,6 @@ void GraphicsContextOpenGPU::fillRoundedRectImpl(const FloatRoundedRect& rect, c
              return;
      }
      handOn(OBGPU_ROUNDED);
@@ -1250,7 +1302,7 @@ index e312c6e5..517bc628 100644
  }
  
  void GraphicsContextOpenGPU::fillRectWithRoundedHole(const FloatRect& rect, const FloatRoundedRect& hole, const Color& color)
-@@ -1054,7 +1089,6 @@ void GraphicsContextOpenGPU::fillRectWithRoundedHole(const FloatRect& rect, cons
+@@ -1054,7 +1121,6 @@ void GraphicsContextOpenGPU::fillRectWithRoundedHole(const FloatRect& rect, cons
              return;
      }
      handOn(OBGPU_ROUNDED);
@@ -1258,7 +1310,7 @@ index e312c6e5..517bc628 100644
  }
  
  void GraphicsContextOpenGPU::strokeRect(const FloatRect& rect, float lineWidth)
-@@ -1068,7 +1102,6 @@ void GraphicsContextOpenGPU::strokeRect(const FloatRect& rect, float lineWidth)
+@@ -1068,7 +1134,6 @@ void GraphicsContextOpenGPU::strokeRect(const FloatRect& rect, float lineWidth)
              return;
      }
      handOn(OBGPU_STROKE);
@@ -1266,15 +1318,23 @@ index e312c6e5..517bc628 100644
  }
  
  void GraphicsContextOpenGPU::fillPath(const Path& path)
-@@ -1080,7 +1113,6 @@ void GraphicsContextOpenGPU::fillPath(const Path& path)
-         && fillPathWith(path, paint, fillRule() == WindRule::EvenOdd, compositeOperation(), brushShadowAlpha(fillBrush())))
+@@ -1076,11 +1141,12 @@ void GraphicsContextOpenGPU::fillPath(const Path& path)
+     if (path.isEmpty())
+         return;
+     Paint paint;
+-    if (pathsWanted(false) && paintFor(fillBrush(), paint)
+-        && fillPathWith(path, paint, fillRule() == WindRule::EvenOdd, compositeOperation(), brushShadowAlpha(fillBrush())))
++    bool drawn = pathsWanted(false) && paintFor(fillBrush(), paint)
++        && fillPathWith(path, paint, fillRule() == WindRule::EvenOdd, compositeOperation(), brushShadowAlpha(fillBrush()));
++    OBTRACE_AT("fillPath", path.fastBoundingRect(), drawn);
++    if (drawn)
          return;
      handOn(OBGPU_PATH);
 -    m_cairo.fillPath(path);
  }
  
  void GraphicsContextOpenGPU::strokePath(const Path& path)
-@@ -1089,10 +1121,9 @@ void GraphicsContextOpenGPU::strokePath(const Path& path)
+@@ -1089,10 +1155,9 @@ void GraphicsContextOpenGPU::strokePath(const Path& path)
          return;
      Paint paint;
      if (pathsWanted(false) && paintFor(strokeBrush(), paint)
@@ -1286,7 +1346,7 @@ index e312c6e5..517bc628 100644
  }
  
  // ---- borders, lines, list bullets (0080) --------------------------------------------------
-@@ -1109,56 +1140,6 @@ void GraphicsContextOpenGPU::plainFill(const FloatRect& rect, const Color& color
+@@ -1109,56 +1174,6 @@ void GraphicsContextOpenGPU::plainFill(const FloatRect& rect, const Color& color
              return;
      }
      handOn(OBGPU_FILL);
@@ -1343,7 +1403,7 @@ index e312c6e5..517bc628 100644
  }
  
  // As Cairo::drawRect: the rectangle filled with the fill colour (as
-@@ -1167,9 +1148,9 @@ void GraphicsContextOpenGPU::cairoStroke(const Path& path, const Color& color, d
+@@ -1167,9 +1182,9 @@ void GraphicsContextOpenGPU::cairoStroke(const Path& path, const Color& color, d
  // alpha, no shadow.
  void GraphicsContextOpenGPU::drawRect(const FloatRect& rect, float borderThickness)
  {
@@ -1354,7 +1414,7 @@ index e312c6e5..517bc628 100644
          return;
      }
      plainFill(rect, fillColor());
-@@ -1185,7 +1166,6 @@ void GraphicsContextOpenGPU::drawRect(const FloatRect& rect, float borderThickne
+@@ -1185,7 +1200,6 @@ void GraphicsContextOpenGPU::drawRect(const FloatRect& rect, float borderThickne
      if (strokePathWith(path, paint, 1))
          return;
      handOn(OBGPU_STROKE);
@@ -1362,7 +1422,7 @@ index e312c6e5..517bc628 100644
  }
  
  // As Cairo::drawLine (borders): a line between the points, centred across
-@@ -1208,13 +1188,12 @@ void GraphicsContextOpenGPU::drawLine(const FloatPoint& point1, const FloatPoint
+@@ -1208,13 +1222,12 @@ void GraphicsContextOpenGPU::drawLine(const FloatPoint& point1, const FloatPoint
      if (!pathsWanted(false) || !(m_gpu->caps & OBGPU_CAN_ALIASED)
          || (!color.isVisible() && compositeOperation() == CompositeOperator::SourceOver)) {
          handOn(OBGPU_STROKE);
@@ -1377,7 +1437,7 @@ index e312c6e5..517bc628 100644
      if (dashed) {
          cornerWidth = strokeStyle() == StrokeStyle::DottedStroke ? strokeThickness
              : std::min(2.0f * strokeThickness, std::max(strokeThickness, strokeWidth / 3.0f));
-@@ -1275,7 +1254,6 @@ void GraphicsContextOpenGPU::drawLine(const FloatPoint& point1, const FloatPoint
+@@ -1275,7 +1288,6 @@ void GraphicsContextOpenGPU::drawLine(const FloatPoint& point1, const FloatPoint
      if (drawn)
          return;
      handOn(OBGPU_STROKE);
@@ -1385,7 +1445,7 @@ index e312c6e5..517bc628 100644
  }
  
  // As Cairo::drawEllipse (list bullets): the ellipse filled with the fill
-@@ -1292,7 +1270,6 @@ void GraphicsContextOpenGPU::drawEllipse(const FloatRect& rect)
+@@ -1292,7 +1304,6 @@ void GraphicsContextOpenGPU::drawEllipse(const FloatRect& rect)
      bool stroked = strokeStyle() != StrokeStyle::NoStroke;
      if (!pathsWanted(false) || (stroked && !strokeFor(strokeThickness(), stroke, dashes))) {
          handOn(OBGPU_PATH);
@@ -1393,7 +1453,7 @@ index e312c6e5..517bc628 100644
          return;
      }
      Paint paint;
-@@ -1300,7 +1277,6 @@ void GraphicsContextOpenGPU::drawEllipse(const FloatRect& rect)
+@@ -1300,7 +1311,6 @@ void GraphicsContextOpenGPU::drawEllipse(const FloatRect& rect)
          paint.argb = premultiplied(fillColor());
          if (!fillPathWith(path, paint, false, compositeOperation())) {
              handOn(OBGPU_PATH);
@@ -1401,7 +1461,7 @@ index e312c6e5..517bc628 100644
              return;
          }
      }
-@@ -1311,7 +1287,6 @@ void GraphicsContextOpenGPU::drawEllipse(const FloatRect& rect)
+@@ -1311,7 +1321,6 @@ void GraphicsContextOpenGPU::drawEllipse(const FloatRect& rect)
      if (strokePathWith(path, paint, strokeThickness()))
          return;
      handOn(OBGPU_STROKE);
@@ -1409,7 +1469,7 @@ index e312c6e5..517bc628 100644
  }
  
  // As CairoUtilities' drawPatternToCairoContext: the tile repeated under the
-@@ -1323,7 +1298,7 @@ void GraphicsContextOpenGPU::drawEllipse(const FloatRect& rect)
+@@ -1323,7 +1332,7 @@ void GraphicsContextOpenGPU::drawEllipse(const FloatRect& rect)
  // the picture is neither shrunk nor turned on the target.
  void GraphicsContextOpenGPU::drawPattern(const NativeImage& image, const FloatRect& destRect, const FloatRect& tileRect, const AffineTransform& patternTransform, const FloatPoint& phase, const FloatSize& spacing, ImagePaintingOptions options)
  {
@@ -1418,15 +1478,24 @@ index e312c6e5..517bc628 100644
      if (surface && std::isfinite(phase.x()) && std::isfinite(phase.y()) && spacing.isZero()
          && options.blendMode() == BlendMode::Normal && pathsWanted()) {
          IntRect tile = enclosingIntRect(tileRect);
-@@ -1360,7 +1335,6 @@ void GraphicsContextOpenGPU::drawPattern(const NativeImage& image, const FloatRe
+@@ -1355,12 +1364,14 @@ void GraphicsContextOpenGPU::drawPattern(const NativeImage& image, const FloatRe
+         if (filter >= 0 && FloatRect(tile) == tileRect && pictureFor(surface, tile, tileToUser, filter, paint)) {
+             Path path;
+             path.addRect(destRect);
+-            if (fillPathWith(path, paint, false, options.compositeOperator()))
++            bool drawn = fillPathWith(path, paint, false, options.compositeOperator());
++            OBTRACE_AT("drawPattern", destRect, drawn);
++            if (drawn)
+                 return;
          }
      }
++    OBTRACE_AT("drawPatternNot", destRect, !!surface);
      handOn(OBGPU_PATTERN);
 -    m_cairo.drawPattern(image, destRect, tileRect, patternTransform, phase, spacing, options);
  }
  
  // Focus rings as GraphicsContextCairo draws them: with the Adwaita theme
-@@ -1374,7 +1348,15 @@ void GraphicsContextOpenGPU::drawFocusRing(const Path& path, float outlineWidth,
+@@ -1374,7 +1385,15 @@ void GraphicsContextOpenGPU::drawFocusRing(const Path& path, float outlineWidth,
      Adwaita::paintFocus(*this, path, color);
  #else
      handOn(OBGPU_FOCUS);
@@ -1443,7 +1512,7 @@ index e312c6e5..517bc628 100644
  #endif
  }
  
-@@ -1386,7 +1368,10 @@ void GraphicsContextOpenGPU::drawFocusRing(const Vector<FloatRect>& rects, float
+@@ -1386,7 +1405,10 @@ void GraphicsContextOpenGPU::drawFocusRing(const Vector<FloatRect>& rects, float
      Adwaita::paintFocus(*this, rects, color);
  #else
      handOn(OBGPU_FOCUS);
@@ -1455,7 +1524,7 @@ index e312c6e5..517bc628 100644
  #endif
  }
  
-@@ -1454,10 +1439,8 @@ bool GraphicsContextOpenGPU::glyphsHere(const FontBase& font, std::span<const Gl
+@@ -1454,10 +1476,8 @@ bool GraphicsContextOpenGPU::glyphsHere(const FontBase& font, std::span<const Gl
              x += advances[i].width();
              y += advances[i].height();
          }
@@ -1467,7 +1536,7 @@ index e312c6e5..517bc628 100644
          Color color = alpha() < 1 ? fillColor().colorWithAlphaMultipliedBy(alpha()) : fillColor();
          long drawn;
          {
-@@ -1465,8 +1448,7 @@ bool GraphicsContextOpenGPU::glyphsHere(const FontBase& font, std::span<const Gl
+@@ -1465,8 +1485,7 @@ bool GraphicsContextOpenGPU::glyphsHere(const FontBase& font, std::span<const Gl
              drawn = ob_openfont_draw_glyphs(face->face(), &where, ids.span().data(), pens.span().data(), glyphs.size(), pixelSize,
                  premultiplied(color), useMatrix ? matrix : nullptr, aliased);
          }
@@ -1477,8 +1546,14 @@ index e312c6e5..517bc628 100644
          if (drawn < 0) {
              if (pass)
                  fprintf(stderr, "OpenBrowser: gfopenfont.library could not draw a run's synthetic bold (%ld)\n", drawn);
-@@ -1490,18 +1472,65 @@ void GraphicsContextOpenGPU::drawGlyphs(const Font& font, std::span<const GlyphB
-     if (glyphsHere(font, glyphs, advances, point, smoothing))
+@@ -1487,21 +1506,70 @@ bool GraphicsContextOpenGPU::glyphsHere(const FontBase& font, std::span<const Gl
+ 
+ void GraphicsContextOpenGPU::drawGlyphs(const Font& font, std::span<const GlyphBufferGlyph> glyphs, std::span<const GlyphBufferAdvance> advances, const FloatPoint& point, FontSmoothingMode smoothing)
+ {
+-    if (glyphsHere(font, glyphs, advances, point, smoothing))
++    bool drawn = glyphsHere(font, glyphs, advances, point, smoothing);
++    OBTRACE_AT("drawGlyphs", FloatRect(point, FloatSize(1, 1)), drawn);
++    if (drawn)
          return;
      handOn(OBGPU_GLYPHS);
 -    m_cairo.drawGlyphs(font, glyphs, advances, point, smoothing);
@@ -1548,7 +1623,7 @@ index e312c6e5..517bc628 100644
  }
  
  // As Cairo::drawLinesForText (underlines, overlines, line-through): each
-@@ -1537,15 +1566,38 @@ void GraphicsContextOpenGPU::drawLinesForText(const FloatPoint& point, float thi
+@@ -1537,15 +1605,38 @@ void GraphicsContextOpenGPU::drawLinesForText(const FloatPoint& point, float thi
      }
  }
  
