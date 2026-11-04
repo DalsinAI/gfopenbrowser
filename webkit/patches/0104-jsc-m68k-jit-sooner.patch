@@ -1,4 +1,4 @@
-From 1c02cc999c7a6c106b5f167bd65ad4414aaa16ff Mon Sep 17 00:00:00 2001
+From 0e21579fb94594ef0f428193353aae8033c50beb Mon Sep 17 00:00:00 2001
 From: SacredTrees <121399723+SacredTrees@users.noreply.github.com>
 Date: Tue, 3 Nov 2026 21:25:44 +0000
 Subject: [PATCH] JavaScriptCore: the 68k template JIT sooner, and once more
@@ -22,7 +22,9 @@ compiles it again after m68kTemplateJITRecompileThreshold (100) more.
 Replaced code stays allocated, with its structure tables still cleared of
 dead structures, until the CodeBlock dies, since a frame or a caller can
 still be running it; it leaves through redispatch to the current code.
-JSC_useM68KTemplateJITRecompile=0 turns the second compile off.
+The second compile is off by default (JSC_useM68KTemplateJITRecompile=1
+turns it on): timed on i32 and i14, it gave no gain on bbc or reddit
+and was 0.5-0.8 s slower on some runs.
 
 JSC_reportM68KTemplateJITStatistics=1 prints at exit what was compiled
 (compiles, second compiles, bytes) and how often the interpreter's
@@ -467,7 +469,7 @@ index 24e44b75..f984bea3 100644
  } // namespace JSC
  
 diff --git a/Source/JavaScriptCore/runtime/OptionsList.h b/Source/JavaScriptCore/runtime/OptionsList.h
-index caaf2f3c..841ad7db 100644
+index caaf2f3c..d6f529a2 100644
 --- a/Source/JavaScriptCore/runtime/OptionsList.h
 +++ b/Source/JavaScriptCore/runtime/OptionsList.h
 @@ -43,6 +43,15 @@ JS_EXPORT_PRIVATE bool canUseJITCage();
@@ -499,7 +501,7 @@ index caaf2f3c..841ad7db 100644
      v(Bool, useM68KInlining, true, Normal, "68k only: the template JIT writes small functions into their callers' code at call sites that always call them."_s) \
      v(Unsigned, m68kTemplateJITMaximumInlineSize, 64, Normal, "68k only: largest function, in bytecode bytes, the template JIT inlines."_s) \
      v(Unsigned, m68kTemplateJITMaximumBytecodeSize, 4096, Normal, "68k only: largest CodeBlock, in bytecode bytes, the template JIT compiles."_s) \
-+    v(Bool, useM68KTemplateJITRecompile, true, Normal, "68k only: code compiled while some of its sites' caches were still empty is compiled once more after they fill."_s) \
++    v(Bool, useM68KTemplateJITRecompile, false, Normal, "68k only: code compiled while some of its sites' caches were still empty is compiled once more after they fill. Off: no gain on bbc or reddit, 0.5-0.8 s slower on some."_s) \
 +    v(Int32, m68kTemplateJITRecompileThreshold, 100, Normal, "68k only: how much more the interpreter runs such a CodeBlock (as thresholdForJITAfterWarmUp counts) before it is compiled again."_s) \
 +    v(Bool, reportM68KTemplateJITStatistics, false, Normal, "68k only: at exit, print what the template JIT compiled and how often the interpreter's property caches missed."_s) \
      v(Bool, useBaselineJITCodeSharing, jitEnabledByDefault(), Normal, nullptr) \
