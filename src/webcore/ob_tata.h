@@ -21,6 +21,10 @@ extern "C" {
  * site (its host, or 0), is to be left out. A page's own site is never
  * blocked. */
 int ob_tata_blocked(const char *host, const char *path, const char *site);
+/* Whether a request to host (path, site as above) is to wait until the
+ * page has painted and gone idle or a form is used (a defer rule; asked
+ * after ob_tata_blocked()). A page's own site is never held back. */
+int ob_tata_deferred(const char *host, const char *path, const char *site);
 /* Whether nothing is blocked on site's pages (an allow rule covers it). */
 int ob_tata_site_allowed(const char *site);
 /* "Don't block on this site": an allow rule for site put in the user's

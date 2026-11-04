@@ -2,7 +2,7 @@ Short:        Small web browser for AmigaOS 3.2 (no WebKit)
 Author:       AmiCradle Team
 Uploader:     UPLOADER-PLACEHOLDER
 Type:         comm/www
-Version:      0.4.1
+Version:      0.4.2
 Architecture: m68k-amigaos >= 3.2
 Distribution: Aminet
 

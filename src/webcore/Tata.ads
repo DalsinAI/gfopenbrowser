@@ -6,7 +6,11 @@
 #   AdAway default blocklist, https://adaway.org/: CC BY 3.0 (https://creativecommons.org/licenses/by/3.0/); 1647 of 6540
 #   FadeMind hosts.extras add.2o7Net, https://github.com/FadeMind/hosts.extras: MIT (https://github.com/FadeMind/hosts.extras/blob/master/LICENSE); 0 of 2030
 #   FadeMind hosts.extras UncheckyAds, https://github.com/FadeMind/hosts.extras: MIT (https://github.com/FadeMind/hosts.extras/blob/master/LICENSE); 0 of 9
-# A block line covers the host and every name under it (src/tata_ads.h).
+# A block line covers the host and every name under it; a defer line holds its requests until the
+# page has painted and gone idle, or someone starts on a form (src/tata_ads.h).
+defer www.google.com/recaptcha
+defer www.gstatic.com/recaptcha
+defer recaptcha.net
 block 100234.advision-adnw.jp
 block 100602.advision-adnw.jp
 block 100651.advision-adnw.jp
