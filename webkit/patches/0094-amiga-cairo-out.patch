@@ -2263,10 +2263,9 @@ index 00000000..ed136090
 +#endif // USE(AMIGA_GRAPHICS)
 diff --git a/Source/WebCore/platform/graphics/amiga/PathAmiga.cpp b/Source/WebCore/platform/graphics/amiga/PathAmiga.cpp
 new file mode 100644
-index 00000000..695dca0f
 --- /dev/null
 +++ b/Source/WebCore/platform/graphics/amiga/PathAmiga.cpp
-@@ -0,0 +1,272 @@
+@@ -0,0 +1,425 @@
 +/*
 + * Path without cairo (PathAmiga.h, patch 0083).
 + * MIT, Copyright (c) 2026 AmiCradle Team.
@@ -2279,7 +2278,10 @@ index 00000000..695dca0f
 +
 +#include "AffineTransform.h"
 +#include "NullGraphicsContext.h"
++#include "FloatRoundedRect.h"
++#include "RotationDirection.h"
 +#include <cmath>
++#include <numbers>
 +#include <wtf/TZoneMallocInlines.h>
 +
 +namespace WebCore {
@@ -2292,9 +2294,15 @@ index 00000000..695dca0f
 +    return dx * dx + dy * dy;
 +}
 +
++// The segments as elements only (moves, lines, curves and closes): arcs,
++// ellipses and rectangles are turned into them as they are added, as
++// cairo's path held them, so applyElements always gives the whole path.
 +Ref<PathAmiga> PathAmiga::create(std::span<const PathSegment> segments)
 +{
-+    return adoptRef(*new PathAmiga(PathStream::create(Vector<PathSegment>(segments))));
++    auto path = adoptRef(*new PathAmiga(PathStream::create()));
++    for (auto& segment : segments)
++        path->addSegment(segment);
++    return path;
 +}
 +
 +PlatformPathPtr PathAmiga::emptyPlatformPath()
@@ -2335,15 +2343,159 @@ index 00000000..695dca0f
 +void PathAmiga::add(PathLineTo segment) { base(m_stream).add(segment); }
 +void PathAmiga::add(PathQuadCurveTo segment) { base(m_stream).add(segment); }
 +void PathAmiga::add(PathBezierCurveTo segment) { base(m_stream).add(segment); }
-+void PathAmiga::add(PathArcTo segment) { base(m_stream).add(segment); }
-+void PathAmiga::add(PathArc segment) { base(m_stream).add(segment); }
-+void PathAmiga::add(PathClosedArc segment) { base(m_stream).add(segment); }
-+void PathAmiga::add(PathEllipse segment) { base(m_stream).add(segment); }
-+void PathAmiga::add(PathEllipseInRect segment) { base(m_stream).add(segment); }
-+void PathAmiga::add(PathRect segment) { base(m_stream).add(segment); }
-+void PathAmiga::add(PathRoundedRect segment) { base(m_stream).add(segment); }
-+void PathAmiga::add(PathContinuousRoundedRect segment) { base(m_stream).add(segment); }
 +void PathAmiga::add(PathCloseSubpath segment) { base(m_stream).add(segment); }
++
++bool PathAmiga::hasCurrentPoint() const
++{
++    auto* segments = m_stream->segmentsIfExists();
++    return segments && !segments->isEmpty();
++}
++
++// An elliptical arc as cairo_arc (clockwise: the angle growing) or
++// cairo_arc_negative draws it, on an ellipse turned by rotation: a line
++// from the current point to its start (a move when there is none), then
++// cubic Beziers of at most a quarter turn each.
++void PathAmiga::addArc(const FloatPoint& center, float radiusX, float radiusY, float rotation, float startAngle, float endAngle, bool clockwise)
++{
++    constexpr double twoPi = 2 * std::numbers::pi;
++    double start = startAngle, end = endAngle;
++    if (clockwise) {
++        while (end < start)
++            end += twoPi;
++        end = std::min(end, start + twoPi);
++    } else {
++        while (end > start)
++            end -= twoPi;
++        end = std::max(end, start - twoPi);
++    }
++    double cosR = std::cos(rotation), sinR = std::sin(rotation);
++    auto point = [&](double x, double y) {
++        x *= radiusX;
++        y *= radiusY;
++        return FloatPoint(center.x() + x * cosR - y * sinR, center.y() + x * sinR + y * cosR);
++    };
++    FloatPoint first = point(std::cos(start), std::sin(start));
++    auto& stream = base(m_stream);
++    if (hasCurrentPoint())
++        stream.add(PathLineTo { first });
++    else
++        stream.add(PathMoveTo { first });
++    double sweep = end - start;
++    int pieces = std::max(1, static_cast<int>(std::ceil(std::abs(sweep) / (std::numbers::pi / 2) - 1e-6)));
++    double step = sweep / pieces;
++    double k = 4.0 / 3.0 * std::tan(step / 4);
++    double a = start;
++    for (int i = 0; i < pieces; i++, a += step) {
++        double b = a + step;
++        double ca = std::cos(a), sa = std::sin(a), cb = std::cos(b), sb = std::sin(b);
++        stream.add(PathBezierCurveTo { point(ca - k * sa, sa + k * ca), point(cb + k * sb, sb - k * cb), point(cb, sb) });
++    }
++}
++
++void PathAmiga::add(PathArc arc)
++{
++    addArc(arc.center, arc.radius, arc.radius, 0, arc.startAngle, arc.endAngle, arc.direction == RotationDirection::Clockwise);
++}
++
++void PathAmiga::add(PathClosedArc closedArc)
++{
++    add(closedArc.arc);
++    add(PathCloseSubpath { });
++}
++
++void PathAmiga::add(PathEllipse ellipse)
++{
++    addArc(ellipse.center, ellipse.radiusX, ellipse.radiusY, ellipse.rotation, ellipse.startAngle, ellipse.endAngle,
++        ellipse.direction == RotationDirection::Clockwise);
++}
++
++// As PathCairo: cairo_arc of a whole turn under the rectangle's scale
++// (after a line from the current point, if there is one, as cairo_arc).
++void PathAmiga::add(PathEllipseInRect ellipseInRect)
++{
++    auto& rect = ellipseInRect.rect;
++    float radiusX = rect.width() / 2, radiusY = rect.height() / 2;
++    addArc({ rect.x() + radiusX, rect.y() + radiusY }, radiusX, radiusY, 0, 0, 2 * std::numbers::pi_v<float>, true);
++}
++
++void PathAmiga::add(PathRect rect)
++{
++    addLinesForRect(rect.rect);
++}
++
++void PathAmiga::add(PathRoundedRect roundedRect)
++{
++    for (auto& segment : PathImpl::beziersForRoundedRect(roundedRect.roundedRect))
++        addSegment(segment);
++}
++
++// Continuous corners as plain rounded ones, as PathCairo draws them.
++void PathAmiga::add(PathContinuousRoundedRect rect)
++{
++    add(PathRoundedRect { FloatRoundedRect { rect.rect, CornerRadii { rect.cornerWidth, rect.cornerHeight } }, PathRoundedRect::Strategy::PreferNative });
++}
++
++// The canvas's arcTo, as PathCairo::add(PathArcTo) works it out: a line to
++// the first tangent point and the arc between the two lines, or a line to
++// the corner when the points are in a line or the radius is 0.
++void PathAmiga::add(PathArcTo arcTo)
++{
++    auto& stream = base(m_stream);
++    const FloatPoint p1 = arcTo.controlPoint1;
++    const FloatPoint p2 = arcTo.controlPoint2;
++    const float radius = arcTo.radius;
++    if (!hasCurrentPoint()) {
++        stream.add(PathMoveTo { p1 });
++        return;
++    }
++    const FloatPoint p0 = currentPoint();
++    float area = p0.x() * (p1.y() - p2.y()) + p1.x() * (p2.y() - p0.y()) + p2.x() * (p0.y() - p1.y());
++    if (p1 == p0 || p1 == p2 || !radius || !area) {
++        stream.add(PathLineTo { p1 });
++        return;
++    }
++    FloatPoint p1p0(p0.x() - p1.x(), p0.y() - p1.y());
++    FloatPoint p1p2(p2.x() - p1.x(), p2.y() - p1.y());
++    float p1p0Length = std::hypot(p1p0.x(), p1p0.y());
++    float p1p2Length = std::hypot(p1p2.x(), p1p2.y());
++    double cosPhi = (p1p0.x() * p1p2.x() + p1p0.y() * p1p2.y()) / (p1p0Length * p1p2Length);
++    if (cosPhi == -1) {
++        stream.add(PathLineTo { p1 });
++        return;
++    }
++    if (cosPhi == 1) {
++        double factor = 65535 / p1p0Length;
++        stream.add(PathLineTo { FloatPoint(p0.x() + factor * p1p0.x(), p0.y() + factor * p1p0.y()) });
++        return;
++    }
++    float tangent = radius / std::tan(std::acos(cosPhi) / 2);
++    float factorP1P0 = tangent / p1p0Length;
++    FloatPoint tP1P0(p1.x() + factorP1P0 * p1p0.x(), p1.y() + factorP1P0 * p1p0.y());
++    FloatPoint orthP1P0(p1p0.y(), -p1p0.x());
++    float orthP1P0Length = std::hypot(orthP1P0.x(), orthP1P0.y());
++    float factorRadius = radius / orthP1P0Length;
++    double cosAlpha = (orthP1P0.x() * p1p2.x() + orthP1P0.y() * p1p2.y()) / (orthP1P0Length * p1p2Length);
++    if (cosAlpha < 0)
++        orthP1P0 = FloatPoint(-orthP1P0.x(), -orthP1P0.y());
++    FloatPoint center(tP1P0.x() + factorRadius * orthP1P0.x(), tP1P0.y() + factorRadius * orthP1P0.y());
++    orthP1P0 = FloatPoint(-orthP1P0.x(), -orthP1P0.y());
++    float startAngle = std::acos(orthP1P0.x() / orthP1P0Length);
++    if (orthP1P0.y() < 0)
++        startAngle = 2 * std::numbers::pi_v<float> - startAngle;
++    bool clockwise = true;
++    float factorP1P2 = tangent / p1p2Length;
++    FloatPoint tP1P2(p1.x() + factorP1P2 * p1p2.x(), p1.y() + factorP1P2 * p1p2.y());
++    FloatPoint orthP1P2(tP1P2.x() - center.x(), tP1P2.y() - center.y());
++    float orthP1P2Length = std::hypot(orthP1P2.x(), orthP1P2.y());
++    float endAngle = std::acos(orthP1P2.x() / orthP1P2Length);
++    if (orthP1P2.y() < 0)
++        endAngle = 2 * std::numbers::pi_v<float> - endAngle;
++    if ((startAngle > endAngle && startAngle - endAngle < std::numbers::pi_v<float>)
++        || (startAngle < endAngle && endAngle - startAngle > std::numbers::pi_v<float>))
++        clockwise = false;
++    stream.add(PathLineTo { tP1P0 });
++    addArc(center, radius, radius, 0, startAngle, endAngle, clockwise);
++}
 +
 +// Another path's elements, through a transform, as lines and cubics.
 +void PathAmiga::addPath(const PathAmiga& path, const AffineTransform& transform)
@@ -2541,13 +2693,13 @@ index 00000000..695dca0f
 +#endif // USE(AMIGA_GRAPHICS)
 diff --git a/Source/WebCore/platform/graphics/amiga/PathAmiga.h b/Source/WebCore/platform/graphics/amiga/PathAmiga.h
 new file mode 100644
-index 00000000..64c4d10f
 --- /dev/null
 +++ b/Source/WebCore/platform/graphics/amiga/PathAmiga.h
-@@ -0,0 +1,81 @@
+@@ -0,0 +1,85 @@
 +/*
 + * Path without cairo (patch 0083): WebCore's own segments (a PathStream
-+ * kept inside), with what Path asks of a platform path: hit testing (fill
++ * kept inside, holding only moves, lines, curves and closes: arcs,
++ * ellipses and rectangles become those as they are added), with what Path asks of a platform path: hit testing (fill
 + * and stroke) and the stroke's bounds, on the path flattened to lines.
 + * GraphicsContextOpenGPU reads the elements, as it did from PathCairo.
 + * MIT, Copyright (c) 2026 AmiCradle Team.
@@ -2612,6 +2764,9 @@ index 00000000..64c4d10f
 +    FloatRect boundingRect() const final;
 +    bool hasSubpaths() const final;
 +    bool isClosed() const final;
++
++    bool hasCurrentPoint() const;
++    void addArc(const FloatPoint& center, float radiusX, float radiusY, float rotation, float startAngle, float endAngle, bool clockwise);
 +
 +    // The path as polylines (curves cut into lines a quarter pixel from the curve).
 +    void flatten(NOESCAPE const Function<void(const FloatPoint&, const FloatPoint&, bool startsSubpath)>&) const;
