@@ -527,7 +527,9 @@ The patches, in order:
   filled (checked at the end of each collection) the code is compiled once
   more, after `m68kTemplateJITRecompileThreshold` (100) more counts in the
   interpreter. The replaced code is kept until its CodeBlock dies.
-  `JSC_useM68KTemplateJITRecompile=0` turns the second compile off, and
+  The second compile is off by default (no gain on bbc or reddit on i32
+  and i14, 0.5-0.8 s slower on some runs); `JSC_useM68KTemplateJITRecompile=1`
+  turns it on, and
   `JSC_reportM68KTemplateJITStatistics=1` prints at exit what was compiled
   and how often the interpreter's property caches missed.
 - `0120-amiga-http-authentication.patch`: HTTP log-ins. A 401 with a
