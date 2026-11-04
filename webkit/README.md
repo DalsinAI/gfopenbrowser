@@ -502,6 +502,15 @@ The patches, in order:
   and redirect, with the page's site; a blocked one fails as cancelled from
   the run loop. GFOpenBrowser answers from Tata's ad and tracker rules
   (`src/webcore/ob_tata.c`).
+- `0099-amiga-script-bytecode-cache.patch`: page and worker scripts are
+  translated once. WebCore's two script source providers keep what
+  JavaScriptCore makes from a script (its bytecode, and each function's when
+  first called) in a file in the folder the browser names
+  (`setAmigaScriptBytecodeFolder`), named by a hash and the length of the
+  text, and load it the next time the same text runs. GFOpenBrowser uses
+  `PROGDIR:Cache/Scripts`, trims it to 32 MB at start (`ob_scriptcache.c`)
+  and writes the translations 5 s after each load, through
+  `JSC::amigaWriteCodeCache()` (`runtime/AmigaCodeCacheWrite.h`).
 - `0101-jsc-m68k-jit-bit-operations.patch`: the template JIT's `&`, `|`,
   `^`, `~`, `<<`, `>>` and `>>>` (and `op_unsigned` after `>>>`) on numbers.
   `&`, `|` and `^` had int32 code only and the rest only the interpreter's

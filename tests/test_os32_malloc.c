@@ -230,6 +230,85 @@ static void check_contract(void)
     __wrap_free(r);
 }
 
+/* GC blocks (aligned_alloc(16384, 16384)): aligned, apart, kept whole, freed
+ * back to libnix but for one empty arena, and told apart from other blocks
+ * that happen to sit on a 16 KB boundary */
+static void check_blocks(void)
+{
+    enum { N = 3 * OS32_BLOCKS + 5 };
+    unsigned char* b[N];
+    unsigned i, k;
+    unsigned kept = os32.nbarenas; /* check_contract's empty arena, if any */
+    long calls = realCalls;
+    CHECK(kept <= 1);
+    for (i = 0; i < N; i++) {
+        b[i] = (unsigned char*)os32_aligned_alloc(OS32_BLOCK, OS32_BLOCK);
+        CHECK(b[i] && ((uintptr_t)b[i] & (OS32_BLOCK - 1)) == 0);
+        CHECK(os32_malloc_usable_size(b[i]) == OS32_BLOCK);
+        if (b[i])
+            memset(b[i], (int)(i + 1), OS32_BLOCK);
+    }
+    /* 53 blocks: 4 arenas, one libnix call for each new one */
+    CHECK(os32.nbarenas == 4 && realCalls - calls == 4 - (long)kept);
+    for (i = 0; i < N; i++)
+        for (k = 0; k < N; k++)
+            if (i != k && b[i] && b[k])
+                CHECK((uintptr_t)(b[i] - b[k]) >= OS32_BLOCK || (uintptr_t)(b[k] - b[i]) >= OS32_BLOCK);
+    for (i = 0; i < N; i++)
+        for (k = 0; b[i] && k < OS32_BLOCK; k += 509)
+            CHECK(b[i][k] == (unsigned char)(i + 1));
+    /* a smaller block at the same alignment is one too; realloc keeps it
+     * while it fits and moves it, contents and all, when it does not */
+    {
+        unsigned char* s = (unsigned char*)os32_aligned_alloc(OS32_BLOCK, 100);
+        unsigned char* r;
+        CHECK(s && ((uintptr_t)s & (OS32_BLOCK - 1)) == 0);
+        memset(s, 7, OS32_BLOCK);
+        CHECK(__wrap_realloc(s, OS32_BLOCK) == s);
+        r = (unsigned char*)__wrap_realloc(s, OS32_BLOCK + 1);
+        CHECK(r && r != s && r[0] == 7 && r[OS32_BLOCK - 1] == 7);
+        __wrap_free(r);
+    }
+    /* other alignments and sizes keep their paths */
+    {
+        void* big = os32_aligned_alloc(OS32_BLOCK, OS32_BLOCK + 8);
+        void* half = os32_aligned_alloc(OS32_BLOCK / 2, OS32_BLOCK / 2);
+        CHECK(big && !os32_barena_of(big) && os32_malloc_usable_size(big) >= OS32_BLOCK + 8);
+        CHECK(half && !os32_barena_of(half));
+        __wrap_free(big);
+        __wrap_free(half);
+    }
+    /* a small or large block on a 16 KB boundary is not taken for a GC block */
+    {
+        void* q[4096];
+        unsigned n = 0, onBoundary = 0;
+        for (i = 0; i < 4096; i++) {
+            q[n] = __wrap_malloc(8 + (i % 40) * 8);
+            if (q[n] && !((uintptr_t)q[n] & (OS32_BLOCK - 1)))
+                onBoundary++;
+            n++;
+        }
+        for (i = 0; i < n; i++) {
+            CHECK(os32_malloc_usable_size(q[i]) >= 8);
+            __wrap_free(q[i]);
+        }
+        printf("os32 malloc: %u small blocks on a 16 KB boundary freed as small blocks\n", onBoundary);
+    }
+    for (i = 0; i < N; i++)
+        __wrap_free(b[i]);
+    /* every block free: one arena kept */
+    CHECK(os32.nbarenas == 1 && os32.bempty == 1 && os32.broom && !os32.broom->next);
+    /* the kept arena serves the next block without libnix */
+    {
+        void* again;
+        calls = realCalls;
+        again = os32_aligned_alloc(OS32_BLOCK, OS32_BLOCK);
+        CHECK(again && realCalls == calls && os32.bempty == 0);
+        __wrap_free(again);
+        CHECK(os32.bempty == 1);
+    }
+}
+
 #ifdef OS32_MALLOC_DEBUG
 /* a write past the end, or after free(), stops the program */
 static int dies(int how)
@@ -307,7 +386,9 @@ static void* worker(void* arg)
         if (!b->p) {
             size_t size = some_size(&s);
             if (op < 2) {
-                size_t a = (size_t)1 << (rnd(&s) % 13);
+                size_t a = (size_t)1 << (rnd(&s) % 15); /* to 16 KB: GC blocks too */
+                if (a == OS32_BLOCK && size > OS32_BLOCK)
+                    size = OS32_BLOCK - size % 64;
                 b->p = (unsigned char*)os32_aligned_alloc(a, size);
                 if (b->p && ((uintptr_t)b->p & (a - 1)))
                     __atomic_store_n(&bad, 1, __ATOMIC_SEQ_CST);
@@ -403,7 +484,8 @@ static void stress(const char* what)
 static void check_returned(void)
 {
     unsigned kept = class_pages();
-    long arenas = __atomic_load_n(&realLive, __ATOMIC_SEQ_CST);
+    long arenas = __atomic_load_n(&realLive, __ATOMIC_SEQ_CST) - (long)os32.nbarenas;
+    CHECK(os32.nbarenas <= 1 && os32.bempty == os32.nbarenas);
     CHECK(os32.nempty < 2 * OS32_PAGES);
     CHECK(arenas <= 5 && (unsigned long)arenas * OS32_PAGES == kept + os32.nempty);
     printf("os32 malloc: all freed: %ld arenas kept, %u pages kept by a class, %u in the pool; %ld calls to libnix\n",
@@ -417,6 +499,7 @@ int main(int argc, char** argv)
     check_classes();
     check_racing_arenas();
     check_contract();
+    check_blocks();
 #ifdef OS32_MALLOC_DEBUG
     CHECK(dies(0));
     CHECK(dies(1));
