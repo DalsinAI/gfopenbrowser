@@ -130,6 +130,20 @@ EndIf
 Echo "Installed LIBS:gfopenfont.library"
 Lab fontdone
 
+; gfopenfont's CJK face (Droid Sans Fallback, Apache License 2.0) with its
+; NOTICE in FONTS:, for every program drawing with gfopenfont.library: one
+; already there is kept
+If EXISTS Fonts/DroidSansFallbackFull.ttf
+  If NOT EXISTS FONTS:DroidSansFallbackFull.ttf
+    Copy Fonts/DroidSansFallbackFull.ttf Fonts/DroidSansFallback.NOTICE FONTS: QUIET
+    If WARN
+      Echo "Could not copy the CJK font to FONTS: (is FONTS: full or write-protected?)"
+      Quit 20
+    EndIf
+    Echo "Installed FONTS:DroidSansFallbackFull.ttf"
+  EndIf
+EndIf
+
 Version gfopengpu.library 0 24 >NIL:
 Set vrc $RC
 If $vrc EQ 0 VAL

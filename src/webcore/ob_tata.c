@@ -108,6 +108,13 @@ int ob_tata_blocked(const char *host, const char *path, const char *site)
     return tata_ads_blocked(current(), host, path, site);
 }
 
+int ob_tata_deferred(const char *host, const char *path, const char *site)
+{
+    if (!host || !*host || sameSite(host, site))
+        return 0;
+    return tata_ads_deferred(current(), host, path, site);
+}
+
 int ob_tata_site_allowed(const char *site)
 {
     return tata_ads_allowed(current(), site);

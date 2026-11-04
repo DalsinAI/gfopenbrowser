@@ -287,6 +287,16 @@ void ob_webview_paint(OBWebView* handle, unsigned char* argb, int stride, int x,
     handle->view->paint(argb, stride, IntRect(x, y, width, height));
 }
 
+void ob_webview_deferred_loads(unsigned* held, unsigned* released)
+{
+    unsigned h = 0, r = 0;
+    GFOpenBrowser::deferredLoadCounts(h, r);
+    if (held)
+        *held = h;
+    if (released)
+        *released = r;
+}
+
 unsigned long ob_webview_bytes_received(OBWebView* handle)
 {
     return static_cast<unsigned long>(handle->view->bytesReceived());

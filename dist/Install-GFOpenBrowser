@@ -108,6 +108,14 @@
                 (abort "Could not rename the old LIBS:gfopenfont.library.")))
         (copyfiles (source "GFOpenBrowser/Libs/gfopenfont.library") (dest "LIBS:") (nogauge))))
 
+; gfopenfont's CJK face (Droid Sans Fallback, Apache License 2.0) with its
+; NOTICE in FONTS:, where every program drawing with gfopenfont.library finds
+; it: Chinese, Japanese and Korean text, not boxes. One already there is kept.
+(if (and (exists "GFOpenBrowser/Fonts/DroidSansFallbackFull.ttf")
+         (not (exists "FONTS:DroidSansFallbackFull.ttf")))
+    (copyfiles (source "GFOpenBrowser/Fonts") (dest "FONTS:")
+        (choices "DroidSansFallbackFull.ttf" "DroidSansFallback.NOTICE") (nogauge)))
+
 ; gfopengpu.library 0.24 or newer: the window is painted through it (without
 ; it, the engine paints with cairo, more slowly). An older one is renamed
 ; .before-20261101 (kept).
