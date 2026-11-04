@@ -4,12 +4,9 @@ Date: Tue, 3 Nov 2026 21:25:44 +0000
 Subject: [PATCH] JavaScriptCore: the 68k template JIT sooner, and once more
  when its caches fill
 
-Functions and loops go to the template JIT after about a fifth of the
-interpreter's run they needed before: thresholdForJITAfterWarmUp is 100 on
-the 68k (500 elsewhere), so a function is compiled on about its seventh
-call (op_enter counts 5, op_ret 10) and a loop at its 100th iteration. The
-template JIT copies the interpreter's handlers, so its compile is cheap
-next to the interpreting it saves (V8's Sparkplug makes the same trade).
+thresholdForJITAfterWarmUp stays 500 on the 68k: 100 (about the seventh
+call) and 50 were timed on i32 and i14 and were slower on bbc and reddit,
+with up to 43 MB more peak RAM and more than twice the code.
 
 Compiling sooner means more sites whose inline caches are still empty
 when the code is written, and those get the plain template instead of
@@ -559,11 +556,11 @@ index caaf2f3c..d6f529a2 100644
  bool canUseWasm();
  bool hasCapacityToUseLargeGigacage();
  
-+// The 68k template JIT copies the interpreter's handlers, so compiling is
-+// cheap next to interpreting: functions and loops go to it sooner than to
-+// the baseline JIT elsewhere (about 7 calls, or 100 loop iterations).
++// The 68k template JIT tiers up at 500 too: 100 and 50 were timed slower
++// on bbc and reddit (i32 and i14), with up to 43 MB more peak RAM and more
++// than twice the code. JSC_thresholdForJITAfterWarmUp still sets it.
 +#if CPU(M68K) && ENABLE(C_LOOP)
-+constexpr int32_t defaultThresholdForJITAfterWarmUp = 100;
++constexpr int32_t defaultThresholdForJITAfterWarmUp = 500;
 +#else
 +constexpr int32_t defaultThresholdForJITAfterWarmUp = 500;
 +#endif
