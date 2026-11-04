@@ -533,10 +533,10 @@ The patches, in order:
   `useM68KTemplateJIT` on (unless `forceMiniVMMode`), and the heap's checks
   use it: generational collections, normal heap growth, lazy sweeping, and
   bytecode kept. `useGenerationalGC=false` still forces full collections.
-- `0104-jsc-m68k-jit-sooner.patch`: functions and loops go to the 68k
-  template JIT sooner: `thresholdForJITAfterWarmUp` is 100 on the 68k
-  (500 elsewhere), so a function is compiled on about its seventh call and a
-  loop at its 100th iteration. Code compiled while some of its sites'
+- `0104-jsc-m68k-jit-sooner.patch`: `thresholdForJITAfterWarmUp` stays
+  500 on the 68k (100 and 50 were timed slower on bbc and reddit, with up
+  to 43 MB more peak RAM and more than twice the code;
+  `JSC_thresholdForJITAfterWarmUp` still sets it). Code compiled while some of its sites'
   inline caches were still empty notes those cache words; once one has
   filled (checked at the end of each collection) the code is compiled once
   more, after `m68kTemplateJITRecompileThreshold` (100) more counts in the
