@@ -1,0 +1,71 @@
+From b51623d327cd83b83d0f5c1e3384ecd433579b08 Mon Sep 17 00:00:00 2001
+From: SacredTrees <121399723+SacredTrees@users.noreply.github.com>
+Date: Wed, 4 Nov 2026 07:31:27 +0000
+Subject: [PATCH] JavaScriptCore: say what each parse was in the parse-time
+ report
+
+With JSC_reportParseTimes each line also says whether it was a whole script
+or a function body, where it starts, how long it is and the eight characters
+before it, so the run-once study can tell immediately-called functions and
+the scripts that pre-parse them apart.
+
+Team 3
+---
+ Source/JavaScriptCore/parser/Parser.h | 27 +++++++++++++++++++++++++--
+ 1 file changed, 25 insertions(+), 2 deletions(-)
+
+diff --git a/Source/JavaScriptCore/parser/Parser.h b/Source/JavaScriptCore/parser/Parser.h
+index 96d8cb11..5f3d0a7a 100644
+--- a/Source/JavaScriptCore/parser/Parser.h
++++ b/Source/JavaScriptCore/parser/Parser.h
+@@ -2244,6 +2244,27 @@ std::unique_ptr<ParsedNode> Parser<LexerType>::parse(ParserError& error, const I
+     return result;
+ }
+ 
++// JSC_reportParseTimes: what each parse was, after its time: a whole script
++// or a function body, where it starts and how long it is, and the eight
++// characters before it (a "(" or "!" just before "function" mostly means a
++// function that is called as soon as it is made).
++inline void dataLogParseTimeDetail(const SourceCode& source, bool isFunction)
++{
++    StringView text = source.provider()->source();
++    unsigned start = source.startOffset();
++    constexpr unsigned leadLength = 8;
++    char lead[leadLength + 1] = { };
++    for (unsigned i = 0; i < leadLength; ++i) {
++        unsigned back = leadLength - i;
++        lead[i] = ' ';
++        if (start >= back && start - back < text.length()) {
++            char16_t c = text[start - back];
++            lead[i] = (c >= 0x21 && c < 0x7f) ? static_cast<char>(c) : '_';
++        }
++    }
++    dataLogLn(" ", isFunction ? "function" : "script", " at ", start, " length ", source.length(), " after [", static_cast<const char*>(lead), "]");
++}
++
+ template <class ParsedNode>
+ std::unique_ptr<ParsedNode> parse(
+     VM& vm, const SourceCode& source,
+@@ -2285,7 +2306,8 @@ std::unique_ptr<ParsedNode> parse(
+     if (Options::reportParseTimes()) [[unlikely]] {
+         MonotonicTime after = MonotonicTime::now();
+         ParseHash hash(source);
+-        dataLogLn(result ? "Parsed #" : "Failed to parse #", hash.hashForCall(), "/#", hash.hashForConstruct(), " in ", (after - before).milliseconds(), " ms.");
++        dataLog(result ? "Parsed #" : "Failed to parse #", hash.hashForCall(), "/#", hash.hashForConstruct(), " in ", (after - before).milliseconds(), " ms.");
++        dataLogParseTimeDetail(source, isFunctionParseMode(parseMode));
+     }
+ 
+     return result;
+@@ -2327,7 +2349,8 @@ std::unique_ptr<ParsedNode> parseRootNode(
+     if (Options::reportParseTimes()) [[unlikely]] {
+         MonotonicTime after = MonotonicTime::now();
+         ParseHash hash(source);
+-        dataLogLn(result ? "Parsed #" : "Failed to parse #", hash.hashForCall(), "/#", hash.hashForConstruct(), " in ", (after - before).milliseconds(), " ms.");
++        dataLog(result ? "Parsed #" : "Failed to parse #", hash.hashForCall(), "/#", hash.hashForConstruct(), " in ", (after - before).milliseconds(), " ms.");
++        dataLogParseTimeDetail(source, isFunctionParseMode(parseMode));
+     }
+ 
+     return result;
+-- 
+2.43.0
+
