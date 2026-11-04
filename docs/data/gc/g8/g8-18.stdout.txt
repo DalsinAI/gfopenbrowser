@@ -1,0 +1,214 @@
+*** DataLog output to "logs/g8-18.txt" ***
+OBJSC "smallHeapSize=262144": set; useJIT=0 useM68KTemplateJIT=1 slowPathAllocsBetweenGCs=0
+OBVIEW_CREATED 800x600 after 1s
+OBVIEW_LOADING 0 10%
+OBVIEW_LOADING 1 0%
+OBVIEW_REQUEST [420 ms] https://www.reddit.com/
+OBVIEW_FRAME ms=760 rects=1 area=480000
+OBVIEW_URL https://www.reddit.com/
+OBVIEW_LOADED [1440 ms] https://www.reddit.com/
+OBVIEW_TITLE Reddit
+OBVIEW_FRAME ms=3840 rects=1 area=480000
+OBVIEW_REQUEST [3660 ms] https://www.reddit.com/?solution=479713521cf8e55b479713521cf8e55b&js_challenge=1&jsc_token=2824be10929bdc604753c70a67a1c33133081a8218ddf0a83d884f2e57d1f78b&jsc_orig_r=
+OBVIEW_FRAME ms=3900 rects=2 area=468800
+OBVIEW_CONSOLE Unrecognized Content-Security-Policy directive 'manifest-src'.
+ (:0)
+OBVIEW_FRAME ms=4920 rects=2 area=468800
+OBVIEW_URL https://www.reddit.com/?solution=479713521cf8e55b479713521cf8e55b&js_challenge=1&jsc_token=2824be10929bdc604753c70a67a1c33133081a8218ddf0a83d884f2e57d1f78b&jsc_orig_r=
+OBVIEW_REQUEST [5100 ms] https://www.reddit.com/svc/events/preload-head?renderId=81906c68-648a-424b-bda6-f1f3ce87b1d7&pageType=popular
+OBVIEW_TITLE Reddit - The heart of the internet
+OBVIEW_FRAME ms=11820 rects=1 area=480000
+OBVIEW_LOADED [14940 ms] https://www.reddit.com/?solution=479713521cf8e55b479713521cf8e55b&js_challenge=1&jsc_token=2824be10929bdc604753c70a67a1c33133081a8218ddf0a83d884f2e57d1f78b&jsc_orig_r=
+OBVIEW_TICK 15s loading=1 cycles=24 waits=15
+OBVIEW_LOADED [15760 ms] https://www.reddit.com/svc/events/preload-head?renderId=81906c68-648a-424b-bda6-f1f3ce87b1d7&pageType=popular
+OBVIEW_REQUEST [15780 ms] data:text/javascript,%0A%20%20%20%20%20%20%20%20window.STICKY_CANARY%20%3D%20'false'%3B%0A%20%20%20%20%20%20%20%20window.PRE_PRODUCTION%20%3D%20'false'%3B%0A%20%20%20%20%20%20%20%20if(%60fetch%60in%20
+OBVIEW_REQUEST [16180 ms] data:text/javascript,let%20navPromise%3Dnull%2ChasNativeNavigation%3Dtypeof%20window%3C%60u%60%26%26!!window.navigation%3Basync%20function%20getNavigation()%7Breturn%20navPromise%7C%7C(navPromise%3D_g
+OBVIEW_REQUEST [16260 ms] https://www.redditstatic.com/js/concat?prefix=en-US/&chunks=BMlnvMqNfR,D2n9RnZPbM,DGPisoaFEk
+OBVIEW_LOADED [16280 ms] data:text/javascript,%0A%20%20%20%20%20%20%20%20window.STICKY_CANARY%20%3D%20'false'%3B%0A%20%20%20%20%20%20%20%20window.PRE_PRODUCTION%20%3D%20'false'%3B%0A%20%20%20%20%20%20%20%20if(%60fetch%60in%20
+OBVIEW_LOADED [16280 ms] data:text/javascript,let%20navPromise%3Dnull%2ChasNativeNavigation%3Dtypeof%20window%3C%60u%60%26%26!!window.navigation%3Basync%20function%20getNavigation()%7Breturn%20navPromise%7C%7C(navPromise%3D_g
+OBVIEW_REQUEST [16500 ms] https://www.redditstatic.com/shreddit/styles-css-V1-bk7ZH.css
+OBVIEW_REQUEST [16740 ms] https://i.redd.it/cms/b306fd8870bfee4b_snoo_map.png
+OBVIEW_LOADED [16760 ms] https://www.redditstatic.com/js/concat?prefix=en-US/&chunks=BMlnvMqNfR,D2n9RnZPbM,DGPisoaFEk
+OBVIEW_LOADED [16920 ms] https://www.redditstatic.com/shreddit/styles-css-V1-bk7ZH.css
+OBVIEW_FRAME ms=17100 rects=1 area=480000
+OBVIEW_LOADED [17080 ms] https://i.redd.it/cms/b306fd8870bfee4b_snoo_map.png
+OBVIEW_FRAME ms=17500 rects=1 area=480000
+OBVIEW_REQUEST [17380 ms] https://www.redditstatic.com/js/concat?prefix=en-US/&chunks=0gN01GwB4U,1VwShM7m5G,1sKrWXSqpQ,8XphxUSoO1,A65ZlQ3-DN,AYR-5y6jga,B-LFF2JTAO,B-iBe1M1yn,B-oWtgxV6g,B0HRtT3_nD,B1PioHrsxC,B2WvG_cDQH,B2lQgvVd
+OBVIEW_REQUEST [17580 ms] https://www.redditstatic.com/js/concat?prefix=en-US/&chunks=1JYdo85DgA,BdGZ1LVvJ7,BeuGCNmvRk
+OBVIEW_LOADED [17940 ms] https://www.redditstatic.com/js/concat?prefix=en-US/&chunks=0gN01GwB4U,1VwShM7m5G,1sKrWXSqpQ,8XphxUSoO1,A65ZlQ3-DN,AYR-5y6jga,B-LFF2JTAO,B-iBe1M1yn,B-oWtgxV6g,B0HRtT3_nD,B1PioHrsxC,B2WvG_cDQH,B2lQgvVd
+OBVIEW_LOADED [17980 ms] https://www.redditstatic.com/js/concat?prefix=en-US/&chunks=1JYdo85DgA,BdGZ1LVvJ7,BeuGCNmvRk
+OBVIEW_REQUEST [18000 ms] https://preview.redd.it/h0qdhch9nnyh1.jpeg?width=320&crop=smart&auto=webp&s=c7d5795b74a2c4e641b541dcc2af3863abc2dd68
+OBVIEW_REQUEST [18020 ms] https://preview.redd.it/2bk9cng9nnyh1.jpeg?width=320&crop=smart&auto=webp&s=6c82cbea6c7bcd7dd720ed44b37824fcd8ddb73d
+OBVIEW_LOADED [18260 ms] https://preview.redd.it/h0qdhch9nnyh1.jpeg?width=320&crop=smart&auto=webp&s=c7d5795b74a2c4e641b541dcc2af3863abc2dd68
+OBVIEW_REQUEST [18280 ms] https://www.redditstatic.com/js/concat?prefix=en-US/&chunks=B2kF4ZHadY,B5WL5vRctD,BiHD2rnCe7,CUC5Ipwf3i,DkvvyTFuMD
+OBVIEW_REQUEST [18300 ms] https://preview.redd.it/i-am-a-complete-and-utter-idiot-rip-5090-v0-zjk3v1e3bgzh1.jpeg?width=640&crop=smart&auto=webp&s=d3920f3553ee4859e365c03bea86febd469e8794
+OBVIEW_REQUEST [18300 ms] https://emoji.redditmedia.com/l7sfl3z0aezz_t5_3nqvj/table_flip
+OBVIEW_LOADED [18860 ms] https://preview.redd.it/2bk9cng9nnyh1.jpeg?width=320&crop=smart&auto=webp&s=6c82cbea6c7bcd7dd720ed44b37824fcd8ddb73d
+OBVIEW_LOADED [18860 ms] https://www.redditstatic.com/js/concat?prefix=en-US/&chunks=B2kF4ZHadY,B5WL5vRctD,BiHD2rnCe7,CUC5Ipwf3i,DkvvyTFuMD
+OBVIEW_LOADED [18880 ms] https://emoji.redditmedia.com/l7sfl3z0aezz_t5_3nqvj/table_flip
+OBVIEW_REQUEST [19020 ms] https://styles.redditmedia.com/t5_817qqv/styles/profileIcon_6plxo3iulvra1.jpg?width=48&height=48&frame=1&auto=webp&crop=48%3A48%2Csmart&s=8eea39710ce97f76f7c647e2475494263e0033b0
+OBVIEW_REQUEST [19040 ms] https://external-preview.redd.it/cXhseTV4ZjlubnloMStioyn0yVoINLOhHAv51xVTj_R0b_NxrVMA4Q5JykKD.jpeg?width=640&crop=smart&format=pjpg&auto=webp&s=b1a767264f247a86faee69ce067678ab918c79f3
+OBVIEW_REQUEST [19040 ms] https://styles.redditmedia.com/t5_2sgp1/styles/communityIcon_1mit7n6qhy481.png?width=48&height=48&frame=1&auto=webp&s=df2b4b59b69e96554197c9a68feae2b8455ed709
+OBVIEW_FRAME ms=19460 rects=1 area=480000
+OBVIEW_REQUEST [19280 ms] https://www.redditstatic.com/js/concat?prefix=en-US/&chunks=B-oEWtGLbX,C8akPINQCP
+OBVIEW_LOADED [19320 ms] https://preview.redd.it/i-am-a-complete-and-utter-idiot-rip-5090-v0-zjk3v1e3bgzh1.jpeg?width=640&crop=smart&auto=webp&s=d3920f3553ee4859e365c03bea86febd469e8794
+OBVIEW_LOADED [19320 ms] https://styles.redditmedia.com/t5_817qqv/styles/profileIcon_6plxo3iulvra1.jpg?width=48&height=48&frame=1&auto=webp&crop=48%3A48%2Csmart&s=8eea39710ce97f76f7c647e2475494263e0033b0
+OBVIEW_LOADED [19320 ms] https://external-preview.redd.it/cXhseTV4ZjlubnloMStioyn0yVoINLOhHAv51xVTj_R0b_NxrVMA4Q5JykKD.jpeg?width=640&crop=smart&format=pjpg&auto=webp&s=b1a767264f247a86faee69ce067678ab918c79f3
+OBVIEW_REQUEST [20280 ms] https://www.reddit.com/svc/shreddit/events
+OBVIEW_REQUEST [20320 ms] https://www.reddit.com/svc/shreddit/update-recaptcha?k=cG9wdWxhcnxpbml0aWFsfDgxOTA2YzY4LTY0OGEtNDI0Yi1iZGE2LWYxZjNjZTg3YjFkNw
+OBVIEW_REQUEST [20780 ms] https://www.redditstatic.com/js/concat?prefix=en-US/&chunks=22fTVEnJwI,BLqR3RwSLm,BohMQg5e8b,C-igCuuXM_,CMcj9UBIBY,Cgmp5yv5aY,D2qgWGAxr_,DUFZHTVdu6,Dm7p0CH92b,DrhtLk_AU8,FTqhdVLwT0
+OBVIEW_REQUEST [20860 ms] https://www.reddit.com/svc/shreddit/data-protection-consent
+OBVIEW_REQUEST [21900 ms] https://w3-reporting.reddit.com/policy
+OBVIEW_REQUEST [22280 ms] https://www.redditstatic.com/js/concat?prefix=en-US/&chunks=DaS8IF03tp
+OBVIEW_REQUEST [23300 ms] https://accounts.google.com/gsi/client
+OBVIEW_REQUEST [23320 ms] https://www.google.com/recaptcha/enterprise.js?render=6LfirrMoAAAAAHZOipvza4kpp_VtTwLNuXVwURNQ
+OBVIEW_REQUEST [23500 ms] https://appleid.cdn-apple.com/appleauth/static/jsapi/appleid/1/en_US/appleid.auth.js
+OBVIEW_LOADED [25060 ms] https://www.google.com/recaptcha/enterprise.js?render=6LfirrMoAAAAAHZOipvza4kpp_VtTwLNuXVwURNQ
+OBVIEW_LOADED [25080 ms] https://appleid.cdn-apple.com/appleauth/static/jsapi/appleid/1/en_US/appleid.auth.js
+OBVIEW_LOADED [25280 ms] https://www.redditstatic.com/js/concat?prefix=en-US/&chunks=B-oEWtGLbX,C8akPINQCP
+OBVIEW_LOADED [25300 ms] https://styles.redditmedia.com/t5_2sgp1/styles/communityIcon_1mit7n6qhy481.png?width=48&height=48&frame=1&auto=webp&s=df2b4b59b69e96554197c9a68feae2b8455ed709
+OBVIEW_LOADED [25300 ms] https://www.reddit.com/svc/shreddit/events
+OBVIEW_LOADED [25300 ms] https://www.reddit.com/svc/shreddit/update-recaptcha?k=cG9wdWxhcnxpbml0aWFsfDgxOTA2YzY4LTY0OGEtNDI0Yi1iZGE2LWYxZjNjZTg3YjFkNw
+OBVIEW_LOADED [25320 ms] https://www.redditstatic.com/js/concat?prefix=en-US/&chunks=22fTVEnJwI,BLqR3RwSLm,BohMQg5e8b,C-igCuuXM_,CMcj9UBIBY,Cgmp5yv5aY,D2qgWGAxr_,DUFZHTVdu6,Dm7p0CH92b,DrhtLk_AU8,FTqhdVLwT0
+OBVIEW_LOADED [25340 ms] https://www.reddit.com/svc/shreddit/data-protection-consent
+OBVIEW_LOADED [25340 ms] https://w3-reporting.reddit.com/policy
+OBVIEW_LOADED [25340 ms] https://www.redditstatic.com/js/concat?prefix=en-US/&chunks=DaS8IF03tp
+OBVIEW_LOADED [25360 ms] https://accounts.google.com/gsi/client
+OBVIEW_REQUEST [25420 ms] https://w3-reporting.reddit.com/reports
+OBVIEW_REQUEST [25440 ms] https://www.reddit.com/svc/shreddit/perfMetrics
+OBVIEW_REQUEST [25680 ms] https://www.reddit.com/svc/shreddit/graphql
+OBVIEW_REQUEST [25800 ms] https://alb.reddit.com/i.gif?za=sd22eFaVD-y-EQSoF36yHMDhXbeJs7pu0W1ZLph-w-raIDKlbb8hL7Y9BNsj8gRHluyal94aQbIPzeU_8Z_563XspU1KyxeZr4us2DzgoWV1UIzIRBzyNyyErMx_2vcC7Q-CCMGc_wagVIoJdVDnTLxgQom84uuuTzcJ0vIE
+OBVIEW_REQUEST [25880 ms] https://www.reddit.com/svc/shreddit/events
+OBVIEW_FRAME ms=26440 rects=1 area=480000
+OBVIEW_REQUEST [26400 ms] https://www.gstatic.com/recaptcha/releases/bSuJ2xBC8cHT21-c68JXN31m/recaptcha__en.js
+OBVIEW_REQUEST [26700 ms] https://accounts.google.com/gsi/style
+OBVIEW_LOADED [26720 ms] https://w3-reporting.reddit.com/reports
+OBVIEW_LOADED [26760 ms] https://www.reddit.com/svc/shreddit/perfMetrics
+OBVIEW_LOADED [26780 ms] https://www.reddit.com/svc/shreddit/graphql
+OBVIEW_LOADED [26800 ms] https://alb.reddit.com/i.gif?za=sd22eFaVD-y-EQSoF36yHMDhXbeJs7pu0W1ZLph-w-raIDKlbb8hL7Y9BNsj8gRHluyal94aQbIPzeU_8Z_563XspU1KyxeZr4us2DzgoWV1UIzIRBzyNyyErMx_2vcC7Q-CCMGc_wagVIoJdVDnTLxgQom84uuuTzcJ0vIE
+OBVIEW_LOADED [26820 ms] https://www.reddit.com/svc/shreddit/events
+OBVIEW_LOADED [26960 ms] https://www.gstatic.com/recaptcha/releases/bSuJ2xBC8cHT21-c68JXN31m/recaptcha__en.js
+OBVIEW_LOADED [26960 ms] https://accounts.google.com/gsi/style
+OBVIEW_CONSOLE Unrecognized Content-Security-Policy directive 'manifest-src'.
+ (:0)
+OBVIEW_REQUEST [29000 ms] https://www.google.com/recaptcha/enterprise/anchor?ar=1&k=6LfirrMoAAAAAHZOipvza4kpp_VtTwLNuXVwURNQ&co=aHR0cHM6Ly93d3cucmVkZGl0LmNvbTo0NDM.&hl=en&v=bSuJ2xBC8cHT21-c68JXN31m&size=invisible&anchor-ms=200
+OBVIEW_REQUEST [29200 ms] https://www.redditstatic.com/js/concat?prefix=en-US/&chunks=Ca3-dx7aW0
+OBVIEW_REQUEST [29220 ms] https://www.gstatic.com/recaptcha/releases/bSuJ2xBC8cHT21-c68JXN31m/styles__ltr.css
+OBVIEW_REQUEST [29240 ms] https://www.gstatic.com/recaptcha/releases/bSuJ2xBC8cHT21-c68JXN31m/recaptcha__en.js
+OBVIEW_LOADED [29240 ms] https://www.google.com/recaptcha/enterprise/anchor?ar=1&k=6LfirrMoAAAAAHZOipvza4kpp_VtTwLNuXVwURNQ&co=aHR0cHM6Ly93d3cucmVkZGl0LmNvbTo0NDM.&hl=en&v=bSuJ2xBC8cHT21-c68JXN31m&size=invisible&anchor-ms=200
+OBVIEW_REQUEST [29260 ms] https://www.redditstatic.com/shreddit/assets/pix/ads/1.png
+OBVIEW_FRAME ms=29700 rects=1 area=480000
+OBVIEW_LOADED [29580 ms] https://www.gstatic.com/recaptcha/releases/bSuJ2xBC8cHT21-c68JXN31m/styles__ltr.css
+OBVIEW_LOADED [29640 ms] https://www.gstatic.com/recaptcha/releases/bSuJ2xBC8cHT21-c68JXN31m/recaptcha__en.js
+OBVIEW_REQUEST [29660 ms] https://www.reddit.com/svc/shreddit/events
+OBVIEW_LOADED [29660 ms] https://www.redditstatic.com/js/concat?prefix=en-US/&chunks=Ca3-dx7aW0
+OBVIEW_LOADED [29700 ms] https://www.redditstatic.com/shreddit/assets/pix/ads/1.png
+OBVIEW_REQUEST [29720 ms] https://w3-reporting.reddit.com/reports
+OBVIEW_REQUEST [30560 ms] https://www.google.com/recaptcha/enterprise/webworker.js?hl=en&v=bSuJ2xBC8cHT21-c68JXN31m
+OBVIEW_REQUEST [30880 ms] https://www.gstatic.com/recaptcha/api2/logo_48.png
+OBVIEW_REQUEST [30880 ms] data:image/png;base64,iVBORw0KGgBX2EQZQBOnoDD2UcBhW1sSiNmRQ8RLXQFNGEeygBY2c9ObVv9U1t63RNBc6wgU2VvBPuEb0HRObDgBXlGjaztkBWm8aGJkATRZZa3RzU6xhDAwBuFJvGDokk0hlRv6FSghlBGdtzcqF6RQBVwudRzWvBcGFXHkxMO6F5Dx0B
+OBVIEW_LOADED [30920 ms] https://www.google.com/recaptcha/enterprise/webworker.js?hl=en&v=bSuJ2xBC8cHT21-c68JXN31m
+OBVIEW_LOADED [30940 ms] https://www.gstatic.com/recaptcha/api2/logo_48.png
+OBVIEW_LOADED [30980 ms] data:image/png;base64,iVBORw0KGgBX2EQZQBOnoDD2UcBhW1sSiNmRQ8RLXQFNGEeygBY2c9ObVv9U1t63RNBc6wgU2VvBPuEb0HRObDgBXlGjaztkBWm8aGJkATRZZa3RzU6xhDAwBuFJvGDokk0hlRv6FSghlBGdtzcqF6RQBVwudRzWvBcGFXHkxMO6F5Dx0B FAILED: cancelled
+OBVIEW_FRAME ms=31180 rects=1 area=4200
+OBVIEW_TICK 31s loading=1 cycles=59 waits=15
+OBVIEW_LOADED [31040 ms] https://www.reddit.com/svc/shreddit/events
+OBVIEW_LOADED [31040 ms] https://w3-reporting.reddit.com/reports
+OBVIEW_REQUEST [31040 ms] https://www.gstatic.com/recaptcha/releases/bSuJ2xBC8cHT21-c68JXN31m/recaptcha__en.js
+OBVIEW_URL https://www.reddit.com/?solution=479713521cf8e55b479713521cf8e55b&js_challenge=1&jsc_token=2824be10929bdc604753c70a67a1c33133081a8218ddf0a83d884f2e57d1f78b&jsc_orig_r=
+OBVIEW_CONSOLE Navigation listeners online (https://www.redditstatic.com/js/concat?prefix=en-US/&chunks=0gN01GwB4U,1VwShM7m5G,1sKrWXSqpQ,8XphxUSoO1,A65ZlQ3-DN,AYR-5y6jga,B-LFF2JTAO,B-iBe1M1yn,B-oWtgxV6g,B0HRtT3_nD,B1PioHrsxC,B2WvG_cDQH,B2lQgvVdkd,B3-aZsiaRt,B3OJbaeG4W,B44Vo6zeVL,B6ZyO7g8P2,B6sDlOSTgI,BAhCHFF8wr,BBb7Y6mIU8,BBjRqtVR35,BCLNOQnjY7,BDJnGQ28rT,BFV2qi7wQ_,BFttCWio5w,BGWKmVmwvg,BGkO6MuA_L,BGlVL8BX6V,BH20Kpudqx,BI5_OcdPrn,BKjkdqHfmJ,BME0TLZlam,BMmKvKx-1f,BPOlxdMRy8,BQC2hg6dM-,BQ_T_z1Nhw,BQkqAb1DB3,BQob_kD3c2,BT7UYbea6L,BUHTxbWK1-,BVcqE668h8,BWhNBcTm9o,BXOXRxoVTa,BYxCODSsF_,B_TofUQh_C,BaPupJwvXi,BbKtiZ11MR,Bc8AlEEkAk,BcQ5PM4TD6,Be2Rk66sLl,Bioxur5wKJ,BitNBbYVEk,BjfmF6c2Ue,Bn8fGbBSBC,Bne3c1pHDC,BrAIvhm-wa,BrGBLGw8Rw,BrUPtl7qwX,BsUB4eu3UZ,Bsgbo3HH-t,Bu-iyCO5br,BuKYU5kXUO,Bx1TLgYWrA,BzsQ4aYeHt,C-_K84WnCZ,C2hSlv8N43,C3L6QBYTZv,C3TpIMPlzK,C3hNkaDR-Q,C4BuedN8St,C52xf5hnAx,C5lwF1qwvw,C8fvkBiAZ2,C8iXJ8NPOQ,C9dbOFkpen,CAmVtHMY9p,CAzLOswayV,CCc9ica3jg,CCcAtNZP_s,CERfTuZZbR,CEfJww3jOH,CGIpuQmtxs,CGxq9NG9Tl,CH5Tn1238o,CHUuKOkxaV,CIv4rFWGXI,CJruuAY5Ow,CK80IR168Q,CKFLrmnJDr,CKvUDR3NOa,CLNLZeps2T,CLXemd1lj6,CM1ZDqyHTL,CMnOL8beke,COBceHKKE4,COsK8OpqNl,CPHrWFUWvf,CQ8tL1VZJ9,CQP73O5PJ3,CQbOfA8aCd,CR3-G3Bqys,CTI-OYqQN1,CTIYkksQw9,CTKt4c_sv5,CUYyqGlK7y,CXa9EoeB5B,CYEHsL4bd6,CaRFlkbiXb,CdZstxtEy_,CdepavK-nb,Cdn7AMhJql,CefWu-6URk,CfO1XbA5pb,Cg77idwdIZ,CgLXw_uwDL,Ch1OJeumZ_,CiPDveQ0d0,Cj1ncPljkH,CkLZdOi7sO,ClO2BOCCDI,CnVq2ZZGrn,CogIR0GQCU,CpgkICX9F_,CqSBvoQmc6,Crp4C2k3NL,Cto6WIa7zQ,CvBtdK6gQl,CwHmbFWgqq,CwdnKDA-tz,CxXW57vIzl,CzEyh3VSvI,D0CJviXq4M,D0pVGEdQMG,D3ZKf4pvvi,D4rddIF2jK,D7DJ-AurX5,D84elS9W9Q,D9HVJWuIgc,D9eYkxEV26,DBereHkFyY,DBjHTU7Eex,DBqUpmHn3U,DCp5L-ccW8,DDHFsEPb9_,DDHsOQd7Kp,DDYZ18cB2T,DDjKjP_dYq,DECzpHil6_,DFY6NXIXde,DGzrJGjCgZ,DJjns-tZpJ,DLHwTAbJXl,DM8MhuoIOf,DOcJywIYDd,DQFKX_qJod,DR3oDrITkH,DT3nXMxO1k,DTRh2LdXFr,DToAdQqMJf,DVxbt2WRNd,DWujHIPgfA,DXogN1C3RQ,D_DOZizGxE,D_V7J99KVn,D_XCGcelQL,DaSeaXc-qB,DafesXXE16,Dao3G--fW8,Dbu2syRBXM,Dct2_fd8nQ,Ddu43gCJHC,DeLwYzYWVg,DgHQGwuErz,DgKHvwXja8,Dge6J_w4wZ,Dgo0dCMBOn,DgyXNiJSb9,DhmNSjgYye,Di9CqJ9HUz,DidAjLfu6f,DjgzUwkVKT,DkUbuURSaP,DkysEpHf5m,DlhcYUtsLa,DmKuhrcXhp,Dma1btYVXr,DnUUZVuX_f,DnXW5UQkAE,DoYsrwIxrh,DpiZde4i1M,DqBNtI5Kj2,DrtH_0KTzI,DsDAQgfCox,Dtu6_OnP0O,Du6xTihI-M,DxzoS7HLP2,Dy4uzntjTd,DyhCYbMyuB,Dzt5UB5n-Y,ECx9MQpQo5,GHEyqcd03r,HaI1n9bZOu,Hs-t3mVoW2,IgjLwv7ui9,L2dYxiQ2kJ,LUNvoUWiHr,LmS1ohjzGM,My_Z-xMgE3,NBWdHZJ7sU,NHRgDRfuXY,OhpHSD3PV2,Om2v03sIKy,R5_s64wpGy,To7gSUMIHP,UjwoZk7J2t,UyaGT62qxO,VOJ3LF_-AQ,VR3ss-0LSe,WHjsPqT71k,X45PNPAhHp,YB_qhPl80F,YMm84yWTjD,ZmXcXFxfLG,brDJwti3zr,cCjR0A247J,cVu8kg3Ajz,cs_H8D7j0i,hUTu-a3IV9,hwiC1Xb7Fw,itSgWVts1d,jhmqlJipkg,jzDcI5R9Rp,luBOM4pvZJ,nQzOBMC_a9,nS3BAPOALy,o_t1UGDwcX,or2kMKp4Cx,r8tpC5jhKj,sCCmzUT2tN,sfnvksNqEW,tFZ0XAu-6M,tL0Ty1jR47,uWaMdeEHex,udyjP30l9W,uf4hp35wus,vX7zuPi4-o,xX47-x30Zr,xqUHi3OI7_,yXW1ILJ5ag,yg4wAQH9h2:973)
+OBVIEW_LOADED [32000 ms] https://www.gstatic.com/recaptcha/releases/bSuJ2xBC8cHT21-c68JXN31m/recaptcha__en.js
+OBVIEW_REQUEST [32120 ms] https://www.redditstatic.com/shreddit/assets/ad/image/1.png
+OBVIEW_REQUEST [33140 ms] https://preview.redd.it/i-am-a-complete-and-utter-idiot-rip-5090-v0-r0vz3494bgzh1.png?width=640&crop=smart&auto=webp&s=a05b5cc91c6e78987f1d716a4175913ee133c736
+OBVIEW_REQUEST [33140 ms] https://preview.redd.it/i-am-a-complete-and-utter-idiot-rip-5090-v0-r0vz3494bgzh1.png?width=1080&crop=smart&auto=webp&s=5aeedf4aaf85ab6ca9085d75d95f1c716462a044
+OBVIEW_FRAME ms=34060 rects=1 area=480000
+OBVIEW_LOADED [34040 ms] https://www.redditstatic.com/shreddit/assets/ad/image/1.png
+OBVIEW_REQUEST [34060 ms] https://www.reddit.com/svc/shreddit/styling-overrides/?v=0
+OBVIEW_CONSOLE Unrecognized Content-Security-Policy directive 'manifest-src'.
+ (:0)
+OBVIEW_CONSOLE Unrecognized Content-Security-Policy directive 'manifest-src'.
+ (:0)
+OBVIEW_CONSOLE Unrecognized Content-Security-Policy directive 'manifest-src'.
+ (:0)
+OBVIEW_LOADED [34240 ms] https://preview.redd.it/i-am-a-complete-and-utter-idiot-rip-5090-v0-r0vz3494bgzh1.png?width=640&crop=smart&auto=webp&s=a05b5cc91c6e78987f1d716a4175913ee133c736
+OBVIEW_REQUEST [34260 ms] https://www.redditstatic.com/js/concat?prefix=en-US/&chunks=7NKp1uLb5M,8Tcrbat7Wt,B49J7D5UnL,BVhfKoxqwY,CIO-R-90pO,CuFAOtvHUz,DWcI6qFY-z,sgKghxx-U7,uxV01hlnGM
+OBVIEW_REQUEST [34260 ms] https://pi.reddit.com/v4/p
+OBVIEW_LOADED [34280 ms] https://www.reddit.com/svc/shreddit/styling-overrides/?v=0
+OBVIEW_FRAME ms=34740 rects=1 area=435200
+OBVIEW_LOADED [34800 ms] https://www.redditstatic.com/js/concat?prefix=en-US/&chunks=7NKp1uLb5M,8Tcrbat7Wt,B49J7D5UnL,BVhfKoxqwY,CIO-R-90pO,CuFAOtvHUz,DWcI6qFY-z,sgKghxx-U7,uxV01hlnGM
+OBVIEW_LOADED [34800 ms] https://preview.redd.it/i-am-a-complete-and-utter-idiot-rip-5090-v0-r0vz3494bgzh1.png?width=1080&crop=smart&auto=webp&s=5aeedf4aaf85ab6ca9085d75d95f1c716462a044
+OBVIEW_LOADED [34820 ms] https://pi.reddit.com/v4/p
+OBVIEW_FRAME ms=36140 rects=1 area=480000
+OBVIEW_FRAME ms=37320 rects=1 area=480000
+OBVIEW_CONSOLE Unrecognized Content-Security-Policy directive 'manifest-src'.
+ (:0)
+OBVIEW_CONSOLE Unrecognized Content-Security-Policy directive 'manifest-src'.
+ (:0)
+OBVIEW_CONSOLE Unrecognized Content-Security-Policy directive 'manifest-src'.
+ (:0)
+OBVIEW_REQUEST [37720 ms] https://www.redditstatic.com/js/concat?prefix=en-US/&chunks=B8PjFe7mU-,Bv9yP-_JAF,C2cIG0XWhb,CHCMoLSoi7,D60NmFWoi_,D97Uaa94lr,DR18JmMlUs,DcNRuJhnL0,DiBNCTWbDh,DmKarU-Imj,Dmkqy46IhC,DqKy8-rvIJ,DxoPTNFF
+OBVIEW_LOADED [37920 ms] https://www.redditstatic.com/js/concat?prefix=en-US/&chunks=B8PjFe7mU-,Bv9yP-_JAF,C2cIG0XWhb,CHCMoLSoi7,D60NmFWoi_,D97Uaa94lr,DR18JmMlUs,DcNRuJhnL0,DiBNCTWbDh,DmKarU-Imj,Dmkqy46IhC,DqKy8-rvIJ,DxoPTNFF
+OBVIEW_FRAME ms=39040 rects=1 area=435200
+OBVIEW_REQUEST [40240 ms] https://www.redditstatic.com/js/concat?prefix=en-US/&chunks=wY24uFfM0z
+OBVIEW_REQUEST [40320 ms] https://www.reddit.com/svc/shreddit/events
+OBVIEW_REQUEST [40500 ms] https://www.redditstatic.com/js/concat?prefix=en-US/&chunks=BcSdvVqGxe
+OBVIEW_CONSOLE TypeError: this.videoElement.pause is not a function. (In 'this.videoElement.pause()', 'this.videoElement.pause' is undefined) (https://www.redditstatic.com/js/concat?prefix=en-US/&chunks=22fTVEnJwI,BLqR3RwSLm,BohMQg5e8b,C-igCuuXM_,CMcj9UBIBY,Cgmp5yv5aY,D2qgWGAxr_,DUFZHTVdu6,Dm7p0CH92b,DrhtLk_AU8,FTqhdVLwT0:13)
+OBVIEW_FRAME ms=41500 rects=1 area=435200
+OBVIEW_LOADED [41320 ms] https://www.redditstatic.com/js/concat?prefix=en-US/&chunks=wY24uFfM0z
+OBVIEW_CONSOLE Unhandled Promise Rejection: TypeError: this.videoElement.load is not a function. (In 'this.videoElement.load()', 'this.videoElement.load' is undefined) (:0)
+OBVIEW_LOADED [41540 ms] https://www.reddit.com/svc/shreddit/events
+OBVIEW_LOADED [41600 ms] https://www.redditstatic.com/js/concat?prefix=en-US/&chunks=BcSdvVqGxe
+OBVIEW_REQUEST [41760 ms] https://www.redditstatic.com/shreddit/sentry-BnateBsO.js
+OBVIEW_LOADED [41960 ms] https://www.redditstatic.com/shreddit/sentry-BnateBsO.js
+OBGOBVIEW_REQUEST [42420 ms] https://i.redd.it/snoovatar/snoo_assets/marketing/bravo_40.png
+C_SELFPREV struOBVIEW_REQUEST [42580 ms] https://i.redd.it/snoovatar/snoo_assets/marketing/regret_40.png
+cture 0x5100d440 vm 0x48adad18
+OBVIEW_ABORT in WebCore: Worker: 337d76a 337da20 33937aa 3a65058 2e74e9a 3a65058 2e2465d 2e8624e 2e6f877 3a1d778 3a1255c 3a640d0 3a6413c 3593604 17513b4 2e7345c 175222a 31881da 175222a 14a1b95 3291cac 3299f34 179460c 3a1d778 175222a 1e0287e 1e361aa 26e7ff2 3a3a344 1de80e0 1dea560 1b7b598 1b7b5d8 1b7b65c 1b955be 1e00d6c 38fcad8 1df1fc8 1de465d 1df206e 1df2e60 1aceb1c 1acdf50 1b464d4 1b1c0c8 1ba2d1a 1e00ec2 1e00efe 1def614 1b464d4 26e68ac 26f9ede 26fe4ca 26fe5b0 26fe670 2700f90 36cb282 3715882 1acc56e 3a3a344 3715868 3a3a344 1acc438
+OBVIEW_FRAME ms=43600 rects=1 area=480000
+OBVIEW_LOADED [43420 ms] https://i.redd.it/snoovatar/snoo_assets/marketing/bravo_40.png
+OBVIEW_LOADED [50280 ms] https://i.redd.it/snoovatar/snoo_assets/marketing/regret_40.png
+OBVIEW_TICK 50s loading=1 cycles=101 waits=15
+OBVIEW_CONSOLE Unrecognized Content-Security-Policy directive 'manifest-src'.
+ (:0)
+OBVIEW_CONSOLE Unrecognized Content-Security-Policy directive 'manifest-src'.
+ (:0)
+OBVIEW_CONSOLE Unrecognized Content-Security-Policy directive 'manifest-src'.
+ (:0)
+OBVIEW_CONSOLE Unrecognized Content-Security-Policy directive 'manifest-src'.
+ (:0)
+OBVIEW_CONSOLE Unrecognized Content-Security-Policy directive 'manifest-src'.
+ (:0)
+OBVIEW_CONSOLE Unrecognized Content-Security-Policy directive 'manifest-src'.
+ (:0)
+OBVIEW_REQUEST [50640 ms] https://error-tracking.reddit.com/o418887/api/5810803/envelope/?sentry_key=9f057df6115a4bb488c08ea12a835e6e&sentry_version=7
+OBVIEW_REQUEST [52180 ms] https://www.reddit.com/svc/events/preload-head?renderId=81906c68-648a-424b-bda6-f1f3ce87b1d7&pageType=popular
+OBVIEW_LOADING 0 100%
+OBVIEW_LOADED [52220 ms] https://error-tracking.reddit.com/o418887/api/5810803/envelope/?sentry_key=9f057df6115a4bb488c08ea12a835e6e&sentry_version=7
+OBVIEW_LOADING 0 10%
+OBVIEW_LOADING 0 100%
+OBVIEW_LOADING 0 0%
+OBVIEW_LOADED [52700 ms] https://www.reddit.com/svc/events/preload-head?renderId=81906c68-648a-424b-bda6-f1f3ce87b1d7&pageType=popular
+OBVIEW_FRAME ms=53040 rects=1 area=441
+OBVIEW_REQUEST [54360 ms] https://www.reddit.com/svc/shreddit/events
+OBVIEW_REQUEST [54900 ms] https://www.google.com/recaptcha/enterprise/reload?k=6LfirrMoAAAAAHZOipvza4kpp_VtTwLNuXVwURNQ
+OBVIEW_LOADED [54920 ms] https://www.reddit.com/svc/shreddit/events
+OBVIEW_LOADED [55140 ms] https://www.google.com/recaptcha/enterprise/reload?k=6LfirrMoAAAAAHZOipvza4kpp_VtTwLNuXVwURNQ
+OBVIEW_REQUEST [55440 ms] https://www.reddit.com/svc/shreddit/graphql
+OBVIEW_CONSOLE The resource https://www.reddit.com/svc/events/preload-head?renderId=81906c68-648a-424b-bda6-f1f3ce87b1d7&pageType=popular was preloaded using link preload but not used within a few seconds from the window's load event. Please make sure it wasn't preloaded for nothing. (:0)
+OBVIEW_REQUEST [55680 ms] https://www.google.com/recaptcha/enterprise/clr?k=6LfirrMoAAAAAHZOipvza4kpp_VtTwLNuXVwURNQ
+OBVIEW_LOADED [55700 ms] https://www.reddit.com/svc/shreddit/graphql
+OBVIEW_LOADED [55740 ms] https://www.google.com/recaptcha/enterprise/clr?k=6LfirrMoAAAAAHZOipvza4kpp_VtTwLNuXVwURNQ
+OBVIEW_SETTLED network quiet 2.0 s, 0 requests open, timers still running, at 57920 ms
+OBVIEW_RAN loading=0 invalidations=516 cycles=266 waits=60 at 58s
+OBVIEW_PAINTED 800x600
+OBVIEW_PNG *>logs/g8-18.err error while writing to output stream
+OBVIEW_FRAMES_DIFF 0 of 480000 pixels differ from the last frame (at 53040 ms)
+OBVIEW_PNG *>logs/g8-18-frame.png error while writing to output stream
+OBVIEW_FRAMES first_paint_ms=3840 frames=19 area=8007841 longest_gap_ms=9440 gap_from_ms=43600 last_frame_ms=53040
+OBVIEW_REQUEST [58200 ms] https://w3-reporting.reddit.com/reports
+OBVIEW_CONSOLE TypeError: this.videoElement.pause is not a function. (In 'this.videoElement.pause()', 'this.videoElement.pause' is undefined) (https://www.redditstatic.com/js/concat?prefix=en-US/&chunks=22fTVEnJwI,BLqR3RwSLm,BohMQg5e8b,C-igCuuXM_,CMcj9UBIBY,Cgmp5yv5aY,D2qgWGAxr_,DUFZHTVdu6,Dm7p0CH92b,DrhtLk_AU8,FTqhdVLwT0:13)
+OBVIEW_REQUEST [58280 ms] https://www.reddit.com/svc/shreddit/events
+OBVIEW_LOADED [58380 ms] https://w3-reporting.reddit.com/reports FAILED: cancelled
+OBVIEW_LOADED [58400 ms] https://www.reddit.com/svc/shreddit/events FAILED: cancelled
+OBVIEW_BENCH init_ms=180 load_ms=560 commit_ms=1060 first_loaded_ms=1620 first_invalidate_ms=520 load_done_ms=52400 last_resource_ms=58580 painted_ms=58320 end_ms=58780 requests=67 loaded=64 failed=3 bytes=7649077 avail_start=455774736 avail_ready=444755768 avail_min=170436648 avail_painted=170436648 avail_end=182088776 largest_start=446957896 paint_ms=380 paint_gpu=1 paint_us=389196 gpu_draws=3437 gpu_flushes=109 cairo_calls=17 cairo_fill=8 cairo_layer=9
+OBVIEW_DONE
