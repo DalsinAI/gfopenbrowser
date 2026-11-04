@@ -85,6 +85,78 @@ UChar32 uo_u_charMirror(UChar32 c)
     return c;
 }
 
+/* ICU's bidi properties (ubidi_props), on which ICU's own bidi
+   algorithm, IDNA and properties code call */
+static const struct uo_range *joiningOf(UChar32 c)
+{
+    int lo = 0, hi = UO_JOINING_COUNT - 1;
+    while (lo <= hi) {
+        int mid = (lo + hi) >> 1;
+        if (c < uo_joining[mid].first)
+            hi = mid - 1;
+        else if (c > uo_joining[mid].last)
+            lo = mid + 1;
+        else
+            return &uo_joining[mid];
+    }
+    return NULL;
+}
+
+UJoiningType uo_ubidi_getJoiningType(UChar32 c)
+{
+    const struct uo_range *r = joiningOf(c);
+    return r ? (UJoiningType)(r->value & 15) : U_JT_NON_JOINING;
+}
+
+UJoiningGroup uo_ubidi_getJoiningGroup(UChar32 c)
+{
+    const struct uo_range *r = joiningOf(c);
+    return r ? (UJoiningGroup)(r->value >> 4) : U_JG_NO_JOINING_GROUP;
+}
+
+static const int32_t *bracketOf(UChar32 c)
+{
+    int lo = 0, hi = UO_BRACKET_COUNT - 1;
+    while (lo <= hi) {
+        int mid = (lo + hi) >> 1;
+        if (uo_brackets[mid][0] == c)
+            return uo_brackets[mid];
+        if (uo_brackets[mid][0] < c)
+            lo = mid + 1;
+        else
+            hi = mid - 1;
+    }
+    return NULL;
+}
+
+UBidiPairedBracketType uo_ubidi_getPairedBracketType(UChar32 c)
+{
+    const int32_t *b = bracketOf(c);
+    return b ? (UBidiPairedBracketType)b[2] : U_BPT_NONE;
+}
+
+UChar32 uo_u_getBidiPairedBracket(UChar32 c)
+{
+    const int32_t *b = bracketOf(c);
+    return b ? b[1] : c;
+}
+
+int32_t uo_ubidi_getMaxValue(UProperty which)
+{
+    switch (which) {
+    case UCHAR_BIDI_CLASS:
+        return UO_MAX_BC;
+    case UCHAR_JOINING_GROUP:
+        return UO_MAX_JG;
+    case UCHAR_JOINING_TYPE:
+        return UO_MAX_JT;
+    case UCHAR_BIDI_PAIRED_BRACKET_TYPE:
+        return UO_MAX_BPT;
+    default:
+        return -1;
+    }
+}
+
 UBool uo_u_isalpha(UChar32 c)
 {
     return (MASK(gcOf(c)) & GC_L) != 0;
@@ -302,6 +374,12 @@ int32_t uo_u_getIntPropertyValue(UChar32 c, UProperty which)
         return (p->ea_nt_vo >> 5) & 3;
     case UCHAR_GENERAL_CATEGORY_MASK:
         return (int32_t)MASK(p->gc);
+    case UCHAR_JOINING_TYPE:
+        return uo_ubidi_getJoiningType(c);
+    case UCHAR_JOINING_GROUP:
+        return uo_ubidi_getJoiningGroup(c);
+    case UCHAR_BIDI_PAIRED_BRACKET_TYPE:
+        return uo_ubidi_getPairedBracketType(c);
     default:
         return u_getIntPropertyValue(c, which);   /* ICU */
     }
