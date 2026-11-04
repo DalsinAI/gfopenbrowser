@@ -24,6 +24,9 @@
  *   obcore-view -settle N ...  paint once the load is over and the network
  *                         has been quiet for N seconds (2; 0 = only when no
  *                         timer is due), see run()
+ *   Set OBVIEW_KEEPALIVE 1   the page is never done early: it runs until -wait
+ *                         runs out (a test tool: an animation's later
+ *                         frames, a page's timers)
  *
  * If the run loop stops turning for 20 s (a thread waits on another that
  * never answers), a watchdog prints OBVIEW_STALL, then one OBVIEW_THREAD
@@ -235,6 +238,7 @@ static int invalidations;
 static long busyCycles, waits;  /* run loop turns with work waiting, and waits */
 static time_t startTime;        /* for the seconds in OBVIEW_CREATED and OBVIEW_RAN */
 static double settleSeconds = 2.0;  /* -settle: network quiet this long after the load counts as done */
+static int keepAlive;  /* OBVIEW_KEEPALIVE=1: run until -wait runs out */
 static long lastNetworkMs;          /* benchNow() of the last request started or ended, or of the load's end */
 static int settledSaid;
 
@@ -478,7 +482,7 @@ static long requestsOpen(void)
  * one browser test tools call "network idle". */
 static int pageDone(double next)
 {
-    if (loading != 0)
+    if (loading != 0 || keepAlive)
         return 0;
     if (next < 0 || next > 0.05)
         return 1;
@@ -632,7 +636,9 @@ static int viewMain(int argc, char **argv)
     const char *source, *png = NULL;
     unsigned char *pixels;
     char *html = NULL;
+    const char *keep = getenv("OBVIEW_KEEPALIVE");
 
+    keepAlive = keep && !strcmp(keep, "1");
     if (argc > argi + 1 && !strcmp(argv[argi], "-wait")) {
         seconds = atof(argv[argi + 1]);
         argi += 2;
