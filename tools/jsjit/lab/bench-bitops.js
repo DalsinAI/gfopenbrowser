@@ -7,7 +7,7 @@ var now = typeof preciseTime === "function" ? preciseTime : function () { return
 var text = ""; for (var i = 0; i < 4000; i++) text += String.fromCharCode(32 + (i * 7919) % 90);
 var table = []; for (var n = 0; n < 256; n++) { var c = n; for (var b = 0; b < 8; b++) c = c & 1 ? 0xedb88320 ^ (c >>> 1) : c >>> 1; table[n] = c >>> 0; }
 function int32Ops(n) { var a = 1, s = 0; for (var i = 0; i < n; i++) { a = (a << 3) ^ (a >> 5) ^ i; s = (s + (a & 0xffff)) | 0; } return s; }
-function shifts(n) { var x = 0x12345678, s = 0; for (var i = 0; i < n; i++) { var k = i & 31; s = ((s << 1) ^ (s >>> 31) ^ (x << k) ^ (x >> k) ^ (x >>> k)) | 0; } return s; }
+function shifts(n) { var x = -0x12345678, s = 0; for (var i = 0; i < n; i++) { var k = i & 31; s = (s + ((x << k) ^ (x >> k) ^ (x >>> k))) | 0; } return s; }
 function doubleToInt(n) { var h = 0, t = 0; for (var i = 0; i < n; i++) { h = h * 31 + i; t ^= h; h = h | 0; } return t; }
 function uint32(n) { var x = 2463534242, t = 0; for (var i = 0; i < n; i++) { x ^= x << 13; x ^= x >>> 17; x ^= x << 5; t = (t + (x >>> 0)) % 1000003; } return t; }
 function crc32(s, r) { var v = 0; for (var k = 0; k < r; k++) { var crc = 0xffffffff; for (var i = 0; i < s.length; i++) crc = table[(crc ^ s.charCodeAt(i)) & 0xff] ^ (crc >>> 8); v = (crc ^ 0xffffffff) >>> 0; } return v; }
