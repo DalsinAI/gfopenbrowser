@@ -1,0 +1,36 @@
+<!DOCTYPE html>
+<html><head><meta charset="utf-8"><title>cjk text</title>
+<style>body { font: 20px sans-serif; } p { margin: 4px 0; }</style></head>
+<body>
+<p lang="ja">日本語: ひらがな、カタカナ、漢字。</p>
+<p lang="zh">中文: 你好，世界。</p>
+<p lang="ko">한국어: 안녕하세요, 세계.</p>
+<p>Latin: The quick brown fox.</p>
+<script>
+// Chinese, Japanese and Korean text drawn with a face that has it, not as
+// boxes. A box is the .notdef glyph, so every missing character draws as
+// wide as U+10FFFD (private use, in none of our fonts); a drawn one is its own width. Each line
+// prints "OBCJKTEXT PASS|FAIL name width notdef"; the end prints
+// "OBCJKTEXT_DONE pass=n fail=m".
+var c = document.createElement("canvas").getContext("2d");
+c.font = "20px sans-serif";
+var pass = 0, fail = 0;
+var notdef = c.measureText("\uDBFF\uDFFD\uDBFF\uDFFD\uDBFF\uDFFD").width;
+function t(name, s) {
+  // three characters at once, so one that happens to be as wide as a box
+  // does not decide it
+  var w = c.measureText(s).width;
+  var ok = Math.abs(w - notdef) > 0.5;
+  if (ok) pass++; else fail++;
+  console.log("OBCJKTEXT " + (ok ? "PASS" : "FAIL") + " " + name + " " + w + " " + notdef);
+}
+t("hiragana", "あいう");
+t("katakana", "アカサ");
+t("kanji", "日本語");
+t("hanzi", "中文字");
+t("hangul", "안녕하");
+t("fullwidth", "ＡＢＣ");
+console.log("OBCJKTEXT_DONE pass=" + pass + " fail=" + fail);
+document.title = "cjk text pass=" + pass + " fail=" + fail;
+</script>
+</body></html>

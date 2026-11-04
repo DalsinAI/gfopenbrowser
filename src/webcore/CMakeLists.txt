@@ -12,6 +12,7 @@ set(OB_CORE_SOURCES
     AmigaBackForwardList.cpp
     AmigaChromeClient.cpp
     AmigaCookieJar.cpp
+    AmigaDownload.cpp
     AmigaEditorClient.cpp
     AmigaFrameLoaderClient.cpp
     AmigaHttpCache.cpp
@@ -22,7 +23,9 @@ set(OB_CORE_SOURCES
     AmigaSessionStorage.cpp
     AmigaWebView.cpp
     ob_httpcache.c
+    ob_scriptcache.c
     ob_tata.c
+    ob_profile.cpp
     ob_webview.cpp
     tata/tata_ads.c
 )
@@ -138,6 +141,22 @@ set_property(SOURCE "${WEBCORE_DIR}/platform/graphics/amiga/OpenGPUPaintAmiga.c"
     "${WEBCORE_DIR}/platform/graphics/amiga/OpenGPUGlyphsAmiga.c" TARGET_DIRECTORY WebCore APPEND PROPERTY
     INCLUDE_DIRECTORIES "${OB_OPENAMIGARTG_DIR}/include")
 
+# gfopenlayout.library's UI calls (DalsinAI/gfopenlayout, checked out
+# beside this repository, or GFOPENLAYOUT_DIR): the window's dialogs, find
+# bar, downloads and preferences (ob_dialogs.c), which the window opens at
+# run time (version 11). Headers only: nothing is linked.
+set(OB_GFOPENLAYOUT_DIR "$ENV{GFOPENLAYOUT_DIR}")
+if (NOT EXISTS "${OB_GFOPENLAYOUT_DIR}/include/inline/gfopenlayout.h")
+    set(OB_GFOPENLAYOUT_DIR "${CMAKE_CURRENT_SOURCE_DIR}/../../../gfopenlayout")
+endif ()
+if (NOT EXISTS "${OB_GFOPENLAYOUT_DIR}/include/inline/gfopenlayout.h" OR NOT EXISTS "${OB_GFOPENLAYOUT_DIR}/include/gfopenlayout_ui_amiga.h")
+    message(FATAL_ERROR "gfopenlayout not found at ${OB_GFOPENLAYOUT_DIR}: the window's dialogs are drawn by "
+        "gfopenlayout.library 11 (include/inline/gfopenlayout.h, include/gfopenlayout_ui_amiga.h). Check out "
+        "DalsinAI/gfopenlayout beside this repository, or set GFOPENLAYOUT_DIR.")
+endif ()
+set_property(DIRECTORY APPEND PROPERTY CMAKE_CONFIGURE_DEPENDS "${OB_GFOPENLAYOUT_DIR}/include/inline/gfopenlayout.h")
+set_property(SOURCE ob_dialogs.c APPEND PROPERTY INCLUDE_DIRECTORIES "${OB_GFOPENLAYOUT_DIR}/include")
+
 set(OB_FRAMEWORKS
     JavaScriptCore
     PAL
@@ -236,6 +255,7 @@ set(WebBrowserEngine_SOURCES
     ${CMAKE_CURRENT_SOURCE_DIR}/../webbrowser/wb_engine.c
     ob_blit.c
     ob_browser_engine.c
+    ob_dialogs.c
     ob_splash.c
 )
 set(WebBrowserEngine_FRAMEWORKS ${OB_FRAMEWORKS})
@@ -255,6 +275,7 @@ set(OpenBrowser_SOURCES
     ${OB_PROGRAM_SOURCES}
     ob_blit.c
     ob_browser.c
+    ob_dialogs.c
     ob_splash.c
 )
 set(OpenBrowser_OUTPUT_NAME GFOpenBrowser.engine)

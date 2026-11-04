@@ -23,8 +23,8 @@ on:
 
 env:
   OPENSDK_REF: e75b5ffae42b6c446ec11cb195b919151e56529c      # gfopensdk main, as lite.yml
-  TC_URL: https://github.com/DalsinAI/gfopengcc/releases/download/v16.2.0-open3/openamigagcc-16.2.0-open3-x86_64-linux.tar.xz
-  TC_SHA256: 9fcc136ab59e3bb5b91d2764d0bf290b709d72d7380be4ce0cdf005edf8eff21
+  TC_URL: https://github.com/DalsinAI/gfopengcc/releases/download/v16.2.0-open6/gfopenamigagcc-16.2.0-open6-x86_64-linux.tar.xz
+  TC_SHA256: 65f284476ec20cdf7851475d91d2c18d77fa6f2a0eb0f844b6ca23dbfa57eaa7
 
 jobs:
   amiga:
@@ -44,13 +44,13 @@ jobs:
           tar xf tc/tc.tar.xz -C tc
       - name: 68040 build (javascript.library and JS)
         run: |
-          TOOLCHAIN_DIR=tc/openamigagcc-16.2.0-open3-x86_64-linux \
+          TOOLCHAIN_DIR=tc/gfopenamigagcc-16.2.0-open6-x86_64-linux \
           NDK_INCLUDE=$PWD/gfopensdk/OpenNDK/Include_H \
           OPENSDK_SRC=$PWD/gfopensdk \
           scripts/build-javascript-library.sh build/javascript-library
       - name: The engine's AmigaOS layer compiles
         run: |
-          D=tc/openamigagcc-16.2.0-open3-x86_64-linux/bin
+          D=tc/gfopenamigagcc-16.2.0-open6-x86_64-linux/bin
           for f in jsl_os_exec jsl_engine; do
             $D/m68k-amigaos-gcc -m68040 -O2 -Wall -Wextra -Werror -Wno-unused-parameter -fno-common \
               -Isrc/jslib -Isrc/jslib/sdk/Include_H -I$PWD/gfopensdk/OpenNDK/Include_H \
@@ -58,7 +58,7 @@ jobs:
           done
       - name: Check the library
         run: |
-          D=tc/openamigagcc-16.2.0-open3-x86_64-linux/bin
+          D=tc/gfopenamigagcc-16.2.0-open6-x86_64-linux/bin
           L=build/javascript-library/javascript.library
           for f in $L build/javascript-library/JS; do
             $D/m68k-amigaos-objdump -f "$f" | grep -q 'file format amiga' || { echo "$f is not an Amiga executable"; exit 1; }
