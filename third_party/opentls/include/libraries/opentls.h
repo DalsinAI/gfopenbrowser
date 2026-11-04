@@ -35,7 +35,7 @@
 #include <exec/types.h>
 #include <utility/hooks.h>
 
-#define OPENTLSLIB_NAME     "opentls.library"
+#define OPENTLSLIB_NAME     "gfopentls.library"   /* its name since the GF rename (GFOpenTLS 1.3) */
 #define OPENTLSLIB_VERSION  1
 
 /* Protocol versions, as on the wire. */
