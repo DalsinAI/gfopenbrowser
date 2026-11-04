@@ -532,6 +532,10 @@ The patches, in order:
   turns it on, and
   `JSC_reportM68KTemplateJITStatistics=1` prints at exit what was compiled
   and how often the interpreter's property caches missed.
+- `0106-jsc-parse-time-detail.patch`: with `JSC_reportParseTimes=1` each
+  parse line also says whether it was a whole script or a function body,
+  where it starts, how long it is and the eight characters before it, for
+  the study of compiling run-once functions straight away.
 - `0120-amiga-http-authentication.patch`: HTTP log-ins. A 401 with a
   Basic or Digest challenge goes to the frame loader's client as an
   `AuthenticationChallenge` whose `authenticationClient()` is the handle
