@@ -17,6 +17,8 @@
 ;    the drawer's goes in; unreadable, it is kept, as above;
 ;  - LIBS:gfopengpu.library 0.24 or newer (the window is painted through
 ;    it; without it the engine paints with cairo): the same rules;
+;  - LIBS:gfopenlayout.library 11 or newer (the window's dialogs, find bar,
+;    downloads and preferences): the same rules, renamed .before-20261103;
 ;  - LIBS:json.library (the engine's JSON.parse needs it),
 ;    LIBS:unicode.library (its Unicode calls, when the package carries it)
 ;    and S:GFOpenTLS/ca-bundle.pem when missing;
@@ -168,6 +170,33 @@ If WARN
 EndIf
 Echo "Installed LIBS:gfopengpu.library"
 Lab gpudone
+
+Version gfopenlayout.library 11 0 >NIL:
+Set vrc $RC
+If $vrc EQ 0 VAL
+  Echo "LIBS:gfopenlayout.library is new enough, kept"
+  Skip layoutdone
+EndIf
+If $vrc GE 10 VAL
+  ; no version to read: not loaded, and the file has no $VER
+  If EXISTS LIBS:gfopenlayout.library
+    Echo "LIBS:gfopenlayout.library is there; its version cannot be read from the Shell, so it is kept (Install-GFOpenBrowser checks it)"
+    Skip layoutdone
+  EndIf
+Else
+  Rename LIBS:gfopenlayout.library LIBS:gfopenlayout.library.before-20261103
+  If WARN
+    Echo "Could not rename the old LIBS:gfopenlayout.library; nothing changed."
+    Quit 20
+  EndIf
+EndIf
+Copy Libs/gfopenlayout.library LIBS: QUIET
+If WARN
+  Echo "Could not copy gfopenlayout.library to LIBS: (is LIBS: full or write-protected?)"
+  Quit 20
+EndIf
+Echo "Installed LIBS:gfopenlayout.library"
+Lab layoutdone
 
 If NOT EXISTS LIBS:json.library
   Copy Libs/json.library LIBS: QUIET

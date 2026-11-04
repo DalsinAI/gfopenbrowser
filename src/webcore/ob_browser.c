@@ -1,6 +1,8 @@
 /*
  * GFOpenBrowser: the browser window. WebCore pages in a GadTools window:
  * Back, Forward, Reload and Stop, the address, the page, and a status line.
+ * Its dialogs, find bar, downloads and preferences are GFOpenLayout UI's
+ * (ob_dialogs.c).
  *
  *   GFOpenBrowser [URL]
  *
@@ -37,6 +39,7 @@
 #include <proto/timer.h>
 
 #include "ob_blit.h"
+#include "ob_dialogs.h"
 #include "ob_webview.h"
 #include "ob_tata.h"
 #include "ob_splash.h"
@@ -63,6 +66,8 @@ static struct Window *window;
 static struct Gadget *gadgetList, *gadgets[GID_COUNT];
 static struct TextAttr *screenFont;
 static int fontHeight, toolbarHeight, statusHeight;
+static int findBarHeight;      /* the find bar's, over the status line, while it is open */
+static int findCloseDue;       /* its Close, done once its own handler has returned */
 
 static OBWebView *view;
 static int pageLeft, pageTop, pageWidth, pageHeight;
@@ -101,7 +106,13 @@ static int benchDue;
 static int scriptsOn = 1, picturesOn = 1, webFontsOn = 0, liteOn = 0;
 static struct Menu *menuStrip;
 static char pageHost[256];     /* the page's host, for "Don't block ads on this site" (ob_tata.h) */
-enum { MENU_RELOAD = 1, MENU_QUIT, MENU_SCRIPTS, MENU_PICTURES, MENU_WEBFONTS, MENU_LITE, MENU_TATA_ALLOW };
+enum { MENU_RELOAD = 1, MENU_QUIT, MENU_SCRIPTS, MENU_PICTURES, MENU_WEBFONTS, MENU_LITE, MENU_TATA_ALLOW,
+       MENU_FIND, MENU_DOWNLOADS, MENU_PREFS };
+
+/* The preferences window's (ENV:GFOpenBrowser/Prefs): the home page, the
+ * downloads folder and the page options, which the icon's tool types
+ * change in turn (a NO or a YES there wins). */
+static obd_prefs prefs;
 
 /* --- text: WebCore speaks UTF-8, Amiga gadgets Latin-1 ----------------------- */
 
@@ -285,7 +296,7 @@ static int makeGadgets(void)
     pageLeft = window->BorderLeft;
     pageTop = window->BorderTop + toolbarHeight;
     pageWidth = inner;
-    pageHeight = window->Height - window->BorderBottom - statusHeight - pageTop;
+    pageHeight = window->Height - window->BorderBottom - statusHeight - findBarHeight - pageTop;
     if (pageHeight < 16)
         pageHeight = 16;
 
@@ -557,24 +568,165 @@ static void onFailed(void *context, const char *url, const char *description)
     setStatus(text);
 }
 
-static LONG requester(const char *title, const char *text, const char *buttons)
-{
-    struct EasyStruct es = { sizeof(struct EasyStruct), 0, (UBYTE *)title, (UBYTE *)"%s", (UBYTE *)buttons };
-    char latin1[1024];
-    utf8ToLatin1(text, latin1, sizeof latin1);
-    return EasyRequest(window, &es, NULL, (ULONG)latin1);
-}
-
+/* The page's alert, confirm and prompt, and a server's log-in: GFOpenLayout
+ * dialogs over the window (ob_dialogs.c), "example.com says". */
 static void onAlert(void *context, const char *message)
 {
     (void)context;
-    requester("The page says", message, "OK");
+    if (window)
+        obd_alert(window, pageHost, message);
 }
 
 static int onConfirm(void *context, const char *message)
 {
     (void)context;
-    return requester("The page asks", message, "OK|Cancel") == 1;
+    return window ? obd_confirm(window, pageHost, message) : 0;
+}
+
+static int onPrompt(void *context, const char *message, const char *defaultValue, char *result, int resultSize)
+{
+    (void)context;
+    return window ? obd_prompt(window, pageHost, message, defaultValue, result, resultSize) : 0;
+}
+
+static int onAuthenticate(void *context, const char *host, const char *realm, int previousFailures,
+    char *user, int userSize, char *password, int passwordSize)
+{
+    (void)context;
+    if (!window)
+        return 0;
+    if (!obd_open()) {
+        setStatus("The server asks for a log-in: that needs LIBS:gfopenlayout.library 11.");
+        return 0;
+    }
+    return obd_login(window, host, realm, previousFailures, user, userSize, password, passwordSize);
+}
+
+/* --- find, downloads and preferences ------------------------------------------ */
+
+static void relayout(void);
+
+static void onFind(void *context, int what, const char *text)
+{
+    int current = 0, count = -1;
+    (void)context;
+    if (!view)
+        return;
+    switch (what) {
+    case OBD_FIND_TYPED:
+        count = ob_webview_find(view, text, 0, &current);
+        break;
+    case OBD_FIND_NEXT:
+        count = ob_webview_find(view, text, OB_FIND_AGAIN, &current);
+        break;
+    case OBD_FIND_PREVIOUS:
+        count = ob_webview_find(view, text, OB_FIND_AGAIN | OB_FIND_BACKWARDS, &current);
+        break;
+    case OBD_FIND_CLOSED:
+        findCloseDue = 1;
+        return;
+    }
+    obd_find_result(current, text && *text ? count : -1);
+}
+
+static void openFind(void)
+{
+    if (obd_find_shown()) {
+        obd_find_show(window, statusHeight, onFind, NULL);
+        return;
+    }
+    if (!obd_open()) {
+        setStatus("Find in page needs LIBS:gfopenlayout.library 11.");
+        return;
+    }
+    findBarHeight = obd_find_height(window);
+    relayout();
+    if (!obd_find_show(window, statusHeight, onFind, NULL)) {
+        findBarHeight = 0;
+        relayout();
+    }
+}
+
+static void closeFind(void)
+{
+    findCloseDue = 0;
+    if (!obd_find_shown())
+        return;
+    obd_find_hide();
+    if (view)
+        ob_webview_find_clear(view);
+    findBarHeight = 0;
+    relayout();
+}
+
+static void onCancelDownload(void *context, int id)
+{
+    (void)context;
+    ob_download_cancel(id);
+}
+
+static void onDownload(void *context, int id, int state, const char *name, const char *path,
+    unsigned long received, unsigned long total, const char *error)
+{
+    char text[sizeof statusText], latin1[160];
+    (void)context;
+    if (!window)
+        return;
+    utf8ToLatin1(name, latin1, sizeof latin1);
+    switch (state) {
+    case OB_DOWNLOAD_STARTED:
+        snprintf(text, sizeof text, "Downloading %s to %s", latin1, path);
+        setStatus(text);
+        break;
+    case OB_DOWNLOAD_DONE:
+        snprintf(text, sizeof text, "Saved %s", path);
+        setStatus(text);
+        break;
+    case OB_DOWNLOAD_FAILED:
+        snprintf(text, sizeof text, "Could not download %s", latin1);
+        setStatus(text);
+        break;
+    }
+    if (obd_open())
+        obd_downloads_update(window, id, state, name, path, received, total, error);
+}
+
+static void setMenuChecked(int id, int on);
+
+/* Save or Use in the preferences window */
+static void onPrefs(void *context, const obd_prefs *newPrefs)
+{
+    (void)context;
+    prefs = *newPrefs;
+    ob_download_set_folder(prefs.downloadFolder);
+    scriptsOn = prefs.scripts;
+    picturesOn = prefs.pictures;
+    webFontsOn = prefs.webFonts;
+    liteOn = prefs.lite;
+    if (view) {
+        ob_webview_set_scripts(view, scriptsOn);
+        ob_webview_set_pictures(view, picturesOn);
+        ob_webview_set_web_fonts(view, webFontsOn);
+        ob_webview_set_lite(view, liteOn);
+    }
+    setMenuChecked(MENU_SCRIPTS, scriptsOn);
+    setMenuChecked(MENU_PICTURES, picturesOn);
+    setMenuChecked(MENU_WEBFONTS, webFontsOn);
+    setMenuChecked(MENU_LITE, liteOn);
+    setStatus("Preferences set; page options apply from the next page (Reload to apply).");
+}
+
+static void openPrefs(void)
+{
+    if (!obd_open()) {
+        setStatus("The preferences window needs LIBS:gfopenlayout.library 11.");
+        return;
+    }
+    prefs.scripts = scriptsOn;
+    prefs.pictures = picturesOn;
+    prefs.webFonts = webFontsOn;
+    prefs.lite = liteOn;
+    obd_prefs_show(window, &prefs, onPrefs, NULL);
 }
 
 /* --- timers and wake-ups -------------------------------------------------- */
@@ -684,6 +836,11 @@ static void handleKey(struct IntuiMessage *msg)
                 qualifiers(msg->Qualifier));
         return;
     }
+    /* Ctrl+F: find in the page, as Chrome has it */
+    if (down && rawKey == 0x23 && (msg->Qualifier & IEQUALIFIER_CONTROL)) {
+        openFind();
+        return;
+    }
     if (down) {
         memset(&ie, 0, sizeof ie);
         ie.ie_Class = IECLASS_RAWKEY;
@@ -730,6 +887,9 @@ static void makeMenus(void)
         { NM_TITLE, (STRPTR)"Project", NULL, 0, 0, NULL },
         { NM_ITEM, (STRPTR)"Reload", (STRPTR)"R", 0, 0, (APTR)MENU_RELOAD },
         { NM_ITEM, NM_BARLABEL, NULL, 0, 0, NULL },
+        { NM_ITEM, (STRPTR)"Find in page...", (STRPTR)"/", 0, 0, (APTR)MENU_FIND },
+        { NM_ITEM, (STRPTR)"Downloads...", (STRPTR)"D", 0, 0, (APTR)MENU_DOWNLOADS },
+        { NM_ITEM, NM_BARLABEL, NULL, 0, 0, NULL },
         { NM_ITEM, (STRPTR)"Quit", (STRPTR)"Q", 0, 0, (APTR)MENU_QUIT },
         { NM_TITLE, (STRPTR)"Settings", NULL, 0, 0, NULL },
         { NM_ITEM, (STRPTR)"JavaScript", (STRPTR)"J", CHECKIT | MENUTOGGLE | (scriptsOn ? CHECKED : 0), 0, (APTR)MENU_SCRIPTS },
@@ -738,12 +898,37 @@ static void makeMenus(void)
         { NM_ITEM, (STRPTR)"Lite (mobile pages)", (STRPTR)"L", CHECKIT | MENUTOGGLE | (liteOn ? CHECKED : 0), 0, (APTR)MENU_LITE },
         { NM_ITEM, NM_BARLABEL, NULL, 0, 0, NULL },
         { NM_ITEM, (STRPTR)"Don't block ads on this site", (STRPTR)"B", CHECKIT | MENUTOGGLE | NM_ITEMDISABLED, 0, (APTR)MENU_TATA_ALLOW },
+        { NM_ITEM, NM_BARLABEL, NULL, 0, 0, NULL },
+        { NM_ITEM, (STRPTR)"Preferences...", NULL, 0, 0, (APTR)MENU_PREFS },
         { NM_END, NULL, NULL, 0, 0, NULL }
     };
     menuStrip = CreateMenus(menus, TAG_DONE);
     if (menuStrip && LayoutMenus(menuStrip, visualInfo, GTMN_NewLookMenus, TRUE, TAG_DONE))
         SetMenuStrip(window, menuStrip);
     updateTataItem();
+}
+
+/* A Settings item's tick, as the preferences set it */
+static void setMenuChecked(int id, int on)
+{
+    struct Menu *menu;
+    struct MenuItem *item;
+    if (!window || !menuStrip)
+        return;
+    for (menu = menuStrip; menu; menu = menu->NextMenu)
+        for (item = menu->FirstItem; item; item = item->NextItem) {
+            if ((ULONG)GTMENUITEM_USERDATA(item) != (ULONG)id)
+                continue;
+            if (!(item->Flags & CHECKED) == !on)
+                return;
+            ClearMenuStrip(window);
+            if (on)
+                item->Flags |= CHECKED;
+            else
+                item->Flags &= ~CHECKED;
+            ResetMenuStrip(window, menuStrip);
+            return;
+        }
 }
 
 static void handleMenu(UWORD code)
@@ -758,6 +943,18 @@ static void handleMenu(UWORD code)
             break;
         case MENU_QUIT:
             quitNow = 1;
+            break;
+        case MENU_FIND:
+            openFind();
+            break;
+        case MENU_DOWNLOADS:
+            if (obd_open())
+                obd_downloads_show(window, onCancelDownload, NULL);
+            else
+                setStatus("The downloads window needs LIBS:gfopenlayout.library 11.");
+            break;
+        case MENU_PREFS:
+            openPrefs();
             break;
         case MENU_SCRIPTS:
             scriptsOn = (item->Flags & CHECKED) != 0;
@@ -837,6 +1034,12 @@ static void handleWindow(void)
     while (window && (msg = GT_GetIMsg(window->UserPort))) {
         ULONG class = msg->Class;
         struct IntuiMessage copy = *msg;
+        /* The panels' windows share this port; the find bar is a strip of
+         * this window (ob_dialogs.c). */
+        if (obd_owns(msg) && obd_event(msg)) {
+            GT_ReplyIMsg(msg);
+            continue;
+        }
         /* Of the moves waiting, only the last counts: each one is a hit
          * test of the page, and may change its hover state. Any other
          * message takes the move before it first, in order. */
@@ -868,11 +1071,13 @@ static void handleWindow(void)
             break;
         case IDCMP_NEWSIZE:
             relayout();
+            obd_find_redraw();
             break;
         case IDCMP_REFRESHWINDOW:
             GT_BeginRefresh(window);
             GT_EndRefresh(window, TRUE);
             paintPage(0, 0, pageWidth, pageHeight, 1);
+            obd_find_redraw();
             break;
         case IDCMP_ACTIVEWINDOW:
             ob_webview_focus(view, 1);
@@ -884,6 +1089,10 @@ static void handleWindow(void)
     }
     if (moved && window)
         handleMouse(&move);
+    if (findCloseDue && window)
+        closeFind();
+    if (window)
+        obd_draw();
 }
 
 static int openLibraries(void)
@@ -988,6 +1197,8 @@ static int openBrowserWindow(const char *url, int network)
     callbacks.failed = onFailed;
     callbacks.alert = onAlert;
     callbacks.confirm = onConfirm;
+    callbacks.prompt = onPrompt;
+    callbacks.authenticate = onAuthenticate;
     callbacks.resource = onResource;
     callbacks.rendered = onRendered;
     {
@@ -999,6 +1210,8 @@ static int openBrowserWindow(const char *url, int network)
     ob_webview_set_pictures(view, picturesOn);
     ob_webview_set_web_fonts(view, webFontsOn);
     ob_webview_set_lite(view, liteOn);
+    ob_download_set_folder(prefs.downloadFolder);
+    ob_download_set_callback(onDownload, NULL);
     if (!quitNow) {
         makeMenus();
         updateButtons();
@@ -1012,6 +1225,10 @@ static void closeBrowserWindow(void)
 {
     if (benchDue)
         benchReport();
+    ob_download_set_callback(NULL, NULL);
+    obd_close_panels();
+    findBarHeight = 0;
+    findCloseDue = 0;
     if (view)
         ob_webview_destroy(view);
     view = NULL;
@@ -1072,11 +1289,15 @@ int obb_open(const char *url, int scripts, int pictures, int webFonts, int lite,
             TimerBase = clockRequest.tr_node.io_Device;
         guiLibrariesOpen = 1;
     }
-    scriptsOn = scripts;
-    picturesOn = pictures;
-    webFontsOn = webFonts;
-    liteOn = lite;
-    if (!openBrowserWindow(url && *url ? url : HOME_PAGE, network)) {
+    /* The launcher's options are the icon's tool types: a NO or YES there
+     * wins over the preferences, as the preferences win over the defaults. */
+    obd_prefs_init(&prefs);
+    obd_prefs_load(&prefs);
+    scriptsOn = scripts && prefs.scripts;
+    picturesOn = pictures && prefs.pictures;
+    webFontsOn = webFonts || prefs.webFonts;
+    liteOn = lite || prefs.lite;
+    if (!openBrowserWindow(url && *url ? url : prefs.homePage, network)) {
         closeBrowserWindow();
         return 0;
     }
@@ -1106,6 +1327,7 @@ int obb_update(void)
 void obb_close(void)
 {
     closeBrowserWindow();
+    obd_close();
     if (guiLibrariesOpen) {
         CloseLibrary(KeymapBase);
         CloseLibrary(GadToolsBase);
@@ -1125,6 +1347,12 @@ static int browserMain(int argc, char **argv)
     int network;
 
     mainTask = FindTask(NULL);
+    obd_prefs_init(&prefs);
+    obd_prefs_load(&prefs);
+    scriptsOn = prefs.scripts;
+    picturesOn = prefs.pictures;
+    webFontsOn = prefs.webFonts;
+    liteOn = prefs.lite;
     readToolTypes(argc, argv);
     ob_splash("Starting WebKit and the network", 75);
     if (!openLibraries()) {
@@ -1141,7 +1369,7 @@ static int browserMain(int argc, char **argv)
         ob_webview_load_tls_sessions(TLS_SESSIONS);
     ob_webcore_set_wakeup(wakeUp, NULL);
     ob_splash("Opening the window", 90);
-    openBrowserWindow(argc > 1 ? argv[1] : HOME_PAGE, network);
+    openBrowserWindow(argc > 1 ? argv[1] : prefs.homePage, network);
 
     while (!quitNow) {
         ULONG waitMask, got;
@@ -1173,6 +1401,7 @@ static int browserMain(int argc, char **argv)
     }
 
     closeBrowserWindow();
+    obd_close();
     if (network) {
         ob_webview_save_tls_sessions(TLS_SESSIONS);
         ob_webcore_shutdown();

@@ -549,6 +549,20 @@ void ob_webview_set_lite(OBWebView* handle, int enabled)
     handle->view->setLiteMode(enabled);
 }
 
+int ob_webview_find(OBWebView* handle, const char* text, int flags, int* current)
+{
+    int selected = 0;
+    int count = handle->view->find(String::fromUTF8(text ? text : ""), flags, selected);
+    if (current)
+        *current = selected;
+    return count;
+}
+
+void ob_webview_find_clear(OBWebView* handle)
+{
+    handle->view->clearFind();
+}
+
 void ob_webview_focus(OBWebView* handle, int focused)
 {
     auto& page = handle->view->page();

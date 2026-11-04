@@ -34,6 +34,13 @@ typedef struct {
     /* After each rendering update (style and layout of the page): the page
      * is laid out, and ob_webview_dirty_rects() gives out what changed. */
     void (*rendered)(void *context);
+    /* A server asks for a log-in (HTTP Basic or Digest, a 401): host and
+     * realm say who asks, previousFailures how many log-ins it has refused
+     * for this load. Fills user and password (UTF-8, at most their sizes)
+     * and returns 1 to log in, 0 to show the server's page without. The
+     * log-in is kept for the server and realm until the program ends. */
+    int (*authenticate)(void *context, const char *host, const char *realm, int previousFailures,
+        char *user, int userSize, char *password, int passwordSize);
 } OBWebViewCallbacks;
 
 /* Mouse buttons and the qualifiers that go with events. */
@@ -135,6 +142,35 @@ void ob_webview_wheel(OBWebView *view, int x, int y, int deltaX, int deltaY, int
  * characters MapRawKey() made of it (UTF-8, may be empty). */
 void ob_webview_key(OBWebView *view, int down, int rawKey, const char *text, int qualifiers);
 void ob_webview_focus(OBWebView *view, int focused);
+
+/* Find in the page: marks every match of text (UTF-8) and selects the next
+ * one after the selection (OB_FIND_BACKWARDS: the one before), wrapping at
+ * the end, and scrolls it into view. Returns how many matches there are
+ * (counted up to 1000) and sets *current to the selected one's number from
+ * 1 (0 for none). Empty text, or ob_webview_find_clear(), takes the marks
+ * away. OB_FIND_AGAIN goes on from the match selected; without it the
+ * search starts at the selection itself, so typing more keeps the match. */
+enum { OB_FIND_BACKWARDS = 1 << 0, OB_FIND_CASE_SENSITIVE = 1 << 1, OB_FIND_AGAIN = 1 << 2 };
+int ob_webview_find(OBWebView *view, const char *text, int flags, int *current);
+void ob_webview_find_clear(OBWebView *view);
+
+/* Downloads: a link with a download attribute, a page of a type WebCore
+ * can't show or one the server sends as an attachment, and those the
+ * program starts (ob_download_url) are saved in the downloads folder (an
+ * AmigaDOS path, "RAM:" at first), each under the name the server or the
+ * link gives, made unique ("name (2).lha"). The callback hears of each one
+ * by its number: OB_DOWNLOAD_STARTED once the file is made (path is its
+ * AmigaDOS name, in Latin-1), PROGRESS at most four times a second, and
+ * one of DONE, FAILED (error says why, UTF-8) or CANCELLED (the file is
+ * removed) at the end. total is 0 when the server gave no length. */
+enum { OB_DOWNLOAD_STARTED, OB_DOWNLOAD_PROGRESS, OB_DOWNLOAD_DONE, OB_DOWNLOAD_FAILED, OB_DOWNLOAD_CANCELLED };
+typedef void (*OBDownloadCallback)(void *context, int id, int state, const char *name, const char *path,
+    unsigned long received, unsigned long total, const char *error);
+void ob_download_set_callback(OBDownloadCallback callback, void *context);
+void ob_download_set_folder(const char *folder);
+/* Returns the download's number, 0 when the address is not valid. */
+int ob_download_url(const char *url);
+void ob_download_cancel(int id);
 
 /* Page options, both on at first: scripts (JavaScript) and pictures. Off,
  * pages load much faster on a 68k. They apply from the next page loaded. */
