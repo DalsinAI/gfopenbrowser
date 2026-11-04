@@ -23,3 +23,15 @@ word: its stack and registers are not scanned. That happens whenever the heap's
 collector thread, not the mutator, conducts a stop-the-world phase (the mutator
 had released heap access). Logs up to 40 `OBGC_NOSUSPEND` lines. If one comes
 before a SELFPREV/DEADPREV in the same worker, that is the lost root.
+
+## obgc-putbase.patch (after both above; Structure.cpp and LLIntSlowPaths.cpp)
+
+G7 (20 runs): 0 NOSUSPEND, 3 SELFPREV in worker VMs, no STALE_PUT before
+them, so the base and its Structure were live when put_by_id's slow path
+began and the Structure died in a GC inside the put. This patch remembers each
+VM's current put_by_id base and, on SELFPREV, logs `OBGC_PREV_BASE`: a is the
+base (live / fl), b the base's StructureID, c the GC version (newly allocated
+version) at slow path entry, d now. Base dead too means a lost root (stack or
+frame scan); base live with its Structure dead means marking. It also drops the
+DEADPREV false positives (cells in the block being allocated from) and raises
+the cap to 60 lines.
