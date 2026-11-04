@@ -1,0 +1,226 @@
+From c1a2a175ce335ff6ae46c8651206832667350b76 Mon Sep 17 00:00:00 2001
+From: SacredTrees <121399723+SacredTrees@users.noreply.github.com>
+Date: Wed, 4 Nov 2026 06:30:22 +0000
+Subject: [PATCH] JavaScriptCore: a structure+name cache for the 68k
+ interpreter's property loads
+
+get_by_id sites that have seen more than one shape, get_by_id that finds
+nothing, and get_by_val with a string or symbol key look up VM's
+MegamorphicCache before walking the prototype chain, and fill it under the
+same rules as the JITs' megamorphic get_by_id. JSC_useM68KMegamorphicCache=0
+turns it off.
+
+Team 3
+---
+ .../JavaScriptCore/llint/LLIntSlowPaths.cpp   | 128 ++++++++++++++++++
+ .../JavaScriptCore/llint/M68KTemplateJIT.cpp  |   1 +
+ Source/JavaScriptCore/llint/M68KTemplateJIT.h |   3 +
+ Source/JavaScriptCore/runtime/OptionsList.h   |   1 +
+ 4 files changed, 133 insertions(+)
+
+diff --git a/Source/JavaScriptCore/llint/LLIntSlowPaths.cpp b/Source/JavaScriptCore/llint/LLIntSlowPaths.cpp
+index 5f3debca..452abb77 100644
+--- a/Source/JavaScriptCore/llint/LLIntSlowPaths.cpp
++++ b/Source/JavaScriptCore/llint/LLIntSlowPaths.cpp
+@@ -65,6 +65,7 @@
+ #include "LLIntPrototypeLoadAdaptiveStructureWatchpoint.h"
+ #include "LLIntThunks.h"
+ #include "MaxFrameExtentForSlowPathCall.h"
++#include "MegamorphicCache.h"
+ #include "ObjectConstructor.h"
+ #include "ObjectPropertyConditionSet.h"
+ #include "ProtoCallFrameInlines.h"
+@@ -96,6 +97,92 @@ namespace JSC { namespace LLInt {
+ #define M68K_COUNT(...) do { } while (0)
+ #endif
+ 
++#if CPU(M68K) && ENABLE(C_LOOP)
++// A structure+name cache for property loads the interpreter's own caches do
++// not hold (68k only, JSC_useM68KMegamorphicCache): get_by_id sites that have
++// already cached one structure and see another, get_by_id that finds nothing,
++// and get_by_val with a string or symbol key. It keeps its entries in VM's
++// MegamorphicCache, whose epoch the GC and every change to an object that may
++// be a prototype already move on, and fills it under the same rules as the
++// JITs' megamorphic get_by_id.
++namespace M68KStructureNameCache {
++
++using Entry = MegamorphicCache::LoadEntry;
++
++static ALWAYS_INLINE Entry* entries(MegamorphicCache& cache, ptrdiff_t offset)
++{
++    return std::bit_cast<Entry*>(std::bit_cast<uint8_t*>(&cache) + offset);
++}
++
++static ALWAYS_INLINE const Entry* lookup(VM& vm, JSObject* base, UniquedStringImpl* uid)
++{
++    MegamorphicCache* cache = vm.megamorphicCache();
++    if (!cache)
++        return nullptr;
++    StructureID structureID = base->structureID();
++    uint16_t epoch = cache->epoch();
++    const Entry& primary = entries(*cache, MegamorphicCache::offsetOfLoadCachePrimaryEntries())[MegamorphicCache::primaryHash(structureID, uid) & MegamorphicCache::loadCachePrimaryMask];
++    if (primary.m_uid.get() == uid && primary.m_structureID == structureID && primary.m_epoch == epoch)
++        return &primary;
++    const Entry& secondary = entries(*cache, MegamorphicCache::offsetOfLoadCacheSecondaryEntries())[MegamorphicCache::secondaryHash(structureID, uid) & MegamorphicCache::loadCacheSecondaryMask];
++    if (secondary.m_uid.get() == uid && secondary.m_structureID == structureID && secondary.m_epoch == epoch)
++        return &secondary;
++    return nullptr;
++}
++
++static ALWAYS_INLINE JSValue load(JSObject* base, const Entry& entry)
++{
++    M68K_COUNT(++statistics.megamorphicHits; statistics.megamorphicAbsentHits += !entry.m_holder);
++    if (!entry.m_holder)
++        return jsUndefined();
++    JSObject* holder = entry.m_holder == JSCell::seenMultipleCalleeObjects() ? base : jsCast<JSObject*>(entry.m_holder);
++    return holder->getDirect(entry.m_offset);
++}
++
++// Walks base's prototype chain as getByIdMegamorphic does and records where
++// uid is, or that it is absent, when that answer can be cached.
++static void fill(VM& vm, JSGlobalObject* globalObject, JSObject* baseObject, UniquedStringImpl* uid)
++{
++    // Names the structure does not hold for every object (array length,
++    // function name and prototype, __proto__) are left out, as the JITs do.
++    if (uid == vm.propertyNames->length || uid == vm.propertyNames->name || uid == vm.propertyNames->prototype || uid == vm.propertyNames->underscoreProto
++        || parseIndex(*uid))
++        return;
++    PropertySlot slot(baseObject, PropertySlot::InternalMethodType::Get);
++    JSObject* object = baseObject;
++    while (true) {
++        if (TypeInfo::overridesGetOwnPropertySlot(object->inlineTypeFlags()) && object->type() != ArrayType && object->type() != JSFunctionType && object->type() != DerivedStringObjectType && object != globalObject->arrayPrototype())
++            return;
++        Structure* structure = object->structure();
++        bool hasProperty = object->getOwnNonIndexPropertySlot(vm, structure, uid, slot);
++        structure = object->structure();
++        if (!structure->propertyAccessesAreCacheable())
++            return;
++        if (hasProperty) {
++            if (slot.isCacheableValue() && slot.cachedOffset() <= MegamorphicCache::maxOffset
++                && (slot.slotBase() == baseObject || !baseObject->structure()->isDictionary())) {
++                vm.ensureMegamorphicCache().initAsHit(baseObject->structureID(), uid, slot.slotBase(), slot.cachedOffset(), slot.slotBase() == baseObject);
++                M68K_COUNT(++statistics.megamorphicFills);
++            }
++            return;
++        }
++        if (!structure->propertyAccessesAreCacheableForAbsence() || !structure->hasMonoProto())
++            return;
++        JSValue prototype = object->getPrototypeDirect();
++        if (!prototype.isObject()) {
++            if (!baseObject->structure()->isDictionary()) {
++                vm.ensureMegamorphicCache().initAsMiss(baseObject->structureID(), uid);
++                M68K_COUNT(++statistics.megamorphicFills);
++            }
++            return;
++        }
++        object = asObject(prototype);
++    }
++}
++
++} // namespace M68KStructureNameCache
++#endif
++
+ #define LLINT_BEGIN_NO_SET_PC() \
+     CodeBlock* codeBlock = callFrame->codeBlock(); \
+     JSGlobalObject* globalObject = codeBlock->globalObject(); \
+@@ -881,11 +968,32 @@ static JSValue performLLIntGetByID(BytecodeIndex bytecodeIndex, CodeBlock* codeB
+ {
+     VM& vm = globalObject->vm();
+     auto throwScope = DECLARE_THROW_SCOPE(vm);
++
++#if CPU(M68K) && ENABLE(C_LOOP)
++    // The structure+name cache answers sites that already hold a structure
++    // (they have seen more than one shape) and names that are absent, which
++    // the per-site cache never holds. Other sites keep filling their own.
++    bool useStructureNameCache = Options::useM68KMegamorphicCache() && baseValue.isObject();
++    bool sawOtherShapes = false;
++    if (useStructureNameCache) {
++        sawOtherShapes = metadata.mode != GetByIdMode::Default || metadata.defaultMode.structureID;
++        if (const auto* entry = M68KStructureNameCache::lookup(vm, asObject(baseValue), ident.impl())) {
++            if (!entry->m_holder || sawOtherShapes)
++                return M68KStructureNameCache::load(asObject(baseValue), *entry);
++        }
++    }
++#endif
++
+     PropertySlot slot(baseValue, PropertySlot::PropertySlot::InternalMethodType::Get);
+ 
+     JSValue result = baseValue.get<true>(globalObject, ident, slot);
+     RETURN_IF_EXCEPTION(throwScope, { });
+ 
++#if CPU(M68K) && ENABLE(C_LOOP)
++    if (useStructureNameCache && (slot.isUnset() || (sawOtherShapes && slot.isCacheableValue())))
++        M68KStructureNameCache::fill(vm, globalObject, asObject(baseValue), ident.impl());
++#endif
++
+     M68K_COUNT(
+         using M68KTemplateJIT::MissKind;
+         MissKind kind = !baseValue.isCell() ? MissKind::NotCell
+@@ -1221,6 +1329,26 @@ static ALWAYS_INLINE JSValue getByVal(VM& vm, JSGlobalObject* globalObject, Code
+ {
+     auto scope = DECLARE_THROW_SCOPE(vm);
+ 
++#if CPU(M68K) && ENABLE(C_LOOP)
++    // Named loads: get_by_val has no per-site cache for them, so the
++    // structure+name cache answers them all.
++    if (Options::useM68KMegamorphicCache() && baseValue.isObject() && (subscript.isString() || subscript.isSymbol())) {
++        JSObject* baseObject = asObject(baseValue);
++        Identifier key = subscript.toPropertyKey(globalObject);
++        RETURN_IF_EXCEPTION(scope, JSValue());
++        if (!parseIndex(*key.impl())) {
++            if (const auto* entry = M68KStructureNameCache::lookup(vm, baseObject, key.impl()))
++                return M68KStructureNameCache::load(baseObject, *entry);
++            PropertySlot slot(baseValue, PropertySlot::InternalMethodType::Get);
++            JSValue result = baseValue.get(globalObject, key, slot);
++            RETURN_IF_EXCEPTION(scope, JSValue());
++            if (slot.isUnset() || slot.isCacheableValue())
++                M68KStructureNameCache::fill(vm, globalObject, baseObject, key.impl());
++            return result;
++        }
++    }
++#endif
++
+     if (baseValue.isCell() && subscript.isString()) [[likely]] {
+         Structure& structure = *baseValue.asCell()->structure();
+         if (JSCell::canUseFastGetOwnProperty(structure)) {
+diff --git a/Source/JavaScriptCore/llint/M68KTemplateJIT.cpp b/Source/JavaScriptCore/llint/M68KTemplateJIT.cpp
+index 014837f9..6db6d4bb 100644
+--- a/Source/JavaScriptCore/llint/M68KTemplateJIT.cpp
++++ b/Source/JavaScriptCore/llint/M68KTemplateJIT.cpp
+@@ -4297,6 +4297,7 @@ void reportStatistics()
+         s.watchedCompiles, " compiled with ", s.watchedSites, " empty caches, ", s.retires, " replaced (", s.retiredBytes, " bytes kept)");
+     dataLogLn("68k interpreter caches: get_by_id ", s.getByIdMisses, " misses (", s.getByIdMissesInCode, " in compiled CodeBlocks, ", s.getByIdRecaches, " replaced another structure), put_by_id ",
+         s.putByIdMisses, " (", s.putByIdMissesInCode, " in compiled, ", s.putByIdRecaches, " replaced), get_by_val ", s.getByValMisses, " (", s.getByValNamedMisses, " named), put_by_val ", s.putByValMisses);
++    dataLogLn("68k structure+name cache: ", s.megamorphicHits, " answered (", s.megamorphicAbsentHits, " absent), ", s.megamorphicFills, " filled");
+     dataLogLn("68k get_by_id misses by kind: own value ", missKinds[0], ", prototype value ", missKinds[1], ", getter ", missKinds[2],
+         ", custom accessor ", missKinds[3], ", unset ", missKinds[4], ", uncacheable ", missKinds[5], ", not a cell ", missKinds[6]);
+     Locker locker { stateLock };
+diff --git a/Source/JavaScriptCore/llint/M68KTemplateJIT.h b/Source/JavaScriptCore/llint/M68KTemplateJIT.h
+index cfa25f7e..42093201 100644
+--- a/Source/JavaScriptCore/llint/M68KTemplateJIT.h
++++ b/Source/JavaScriptCore/llint/M68KTemplateJIT.h
+@@ -81,6 +81,9 @@ struct Statistics {
+     uint64_t getByValMisses { 0 };
+     uint64_t getByValNamedMisses { 0 }; // ... with a string or symbol key
+     uint64_t putByValMisses { 0 };
++    uint64_t megamorphicHits { 0 }; // misses answered by the structure+name cache
++    uint64_t megamorphicAbsentHits { 0 }; // ... that the property is absent
++    uint64_t megamorphicFills { 0 };
+ };
+ extern Statistics statistics;
+ // The kind of property a get_by_id miss found, and its name, for the
+diff --git a/Source/JavaScriptCore/runtime/OptionsList.h b/Source/JavaScriptCore/runtime/OptionsList.h
+index d6f529a2..9d504cfa 100644
+--- a/Source/JavaScriptCore/runtime/OptionsList.h
++++ b/Source/JavaScriptCore/runtime/OptionsList.h
+@@ -672,6 +672,7 @@ constexpr int32_t defaultThresholdForJITAfterWarmUp = 500;
+     v(Unsigned, m68kTemplateJITMaximumBytecodeSize, 4096, Normal, "68k only: largest CodeBlock, in bytecode bytes, the template JIT compiles."_s) \
+     v(Bool, useM68KTemplateJITRecompile, false, Normal, "68k only: code compiled while some of its sites' caches were still empty is compiled once more after they fill. Off: no gain on bbc or reddit, 0.5-0.8 s slower on some."_s) \
+     v(Int32, m68kTemplateJITRecompileThreshold, 100, Normal, "68k only: how much more the interpreter runs such a CodeBlock (as thresholdForJITAfterWarmUp counts) before it is compiled again."_s) \
++    v(Bool, useM68KMegamorphicCache, true, Normal, "68k only: the interpreter remembers, by structure and name, where get_by_id sites that see many shapes and named get_by_val find a property, or that it is absent. JSC_useM68KMegamorphicCache=0 turns it off."_s) \
+     v(Bool, reportM68KTemplateJITStatistics, false, Normal, "68k only: at exit, print what the template JIT compiled and how often the interpreter's property caches missed."_s) \
+     v(Bool, useBaselineJITCodeSharing, jitEnabledByDefault(), Normal, nullptr) \
+     v(Bool, libpasScavengeContinuously, false, Normal, nullptr) \
+-- 
+2.43.0
+
