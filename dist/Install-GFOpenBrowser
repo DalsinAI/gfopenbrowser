@@ -178,6 +178,15 @@
 (if (not (exists "DEVS:DataTypes/Brotli"))
     (copyfiles (source "GFOpenBrowser/Devs/DataTypes/Brotli") (dest "DEVS:DataTypes") (nogauge)))
 
+; Animated GIFs: gfopengif.datatype 47.1 or newer gives every frame (the
+; system's gif.datatype gives the first). Its descriptor, GFOpenGIF, is
+; tried before the system's GIF one, which stays as it was.
+(if (exists "GFOpenBrowser/Classes/DataTypes/gfopengif.datatype")
+    (
+        (P_newer "SYS:Classes/DataTypes/gfopengif.datatype" "GFOpenBrowser/Classes/DataTypes/gfopengif.datatype" "SYS:Classes/DataTypes" 3080193)
+        (if (not (exists "DEVS:DataTypes/GFOpenGIF"))
+            (copyfiles (source "GFOpenBrowser/Devs/DataTypes/GFOpenGIF") (dest "DEVS:DataTypes") (nogauge)))))
+
 ; 3. The Unicode data, for every program that reads it, when LOCALE: has room
 ;    for it and 2,000,000 bytes more; the engine in the drawer carries its own
 ;    copy as well (Libs/WebBrowser/Unicode, which it reads when LOCALE:Unicode
