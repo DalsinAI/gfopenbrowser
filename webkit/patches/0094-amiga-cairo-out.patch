@@ -882,7 +882,7 @@ diff --git a/Source/WebCore/platform/graphics/amiga/GraphicsContextOpenGPU.cpp b
      if (!m_gpu)
          return;
      // Cairo::clipOut: the clip's extents and the rectangle, even-odd, not anti-aliased
-@@ -335,118 +359,142 @@ void GraphicsContextOpenGPU::clipOut(const FloatRect& rect)
+@@ -335,118 +359,151 @@ void GraphicsContextOpenGPU::clipOut(const FloatRect& rect)
          return;
      }
      obgpu_clip_path(m_gpu, OBGPU_CLIP_OUT | OBGPU_CLIP_EVENODD | OBGPU_CLIP_ALIASED);
@@ -1021,7 +1021,16 @@ diff --git a/Source/WebCore/platform/graphics/amiga/GraphicsContextOpenGPU.cpp b
 +            m_ctm = AffineTransform();
 +            syncMatrix();
 +            FloatRect rect(layer.origin, layer.image->size());
-+            imageHere(*layer.image, rect, FloatRect(FloatPoint(), layer.image->size()), layer.op, layer.opacity, -1);
++            if (!imageHere(*layer.image, rect, FloatRect(FloatPoint(), layer.image->size()), layer.op, layer.opacity, -1)
++                && layer.op == CompositeOperator::DestinationIn && layer.opacity >= 1) {
++                // a CSS mask under a clip mask: the factor worked out here (obgpu_dest_in)
++                obgpu_source source { reinterpret_cast<uintptr_t>(layer.image->data()), static_cast<long>(layer.image->stride()),
++                    layer.image->width(), layer.image->height(), layer.image->hasAlpha() ? OBGPU_ARGB : OBGPU_RGB };
++                bool drawn = obgpu_dest_in(m_gpu, layer.image->data(), &source, layer.origin.x(), layer.origin.y());
++                OBTRACE("destIn %dx%d at %d,%d -> %d\n", layer.image->width(), layer.image->height(), layer.origin.x(), layer.origin.y(), drawn);
++                if (drawn && obgpu_pending(m_gpu))
++                    m_pictures.append(layer.image.get());
++            }
 +            m_ctm = ctm;
 +            syncMatrix();
          }
@@ -1079,7 +1088,7 @@ diff --git a/Source/WebCore/platform/graphics/amiga/GraphicsContextOpenGPU.cpp b
  }
  
  // ---- what OpenGPU draws -----------------------------------------------------------------
-@@ -612,20 +660,16 @@ bool GraphicsContextOpenGPU::gradientFor(const Gradient& gradient, const AffineT
+@@ -612,20 +669,16 @@ bool GraphicsContextOpenGPU::gradientFor(const Gradient& gradient, const AffineT
  // A picture's tile as paint: the tile's pixels to the user's space, and
  // filter 0 nearest, 1 bilinear. false when OpenGPU can't take it (not
  // ARGB32 or RGB24, past the fixed point).
@@ -1107,7 +1116,7 @@ diff --git a/Source/WebCore/platform/graphics/amiga/GraphicsContextOpenGPU.cpp b
      if (!p.source.address || tile.x() < 0 || tile.y() < 0 || tile.isEmpty() || tile.maxX() > p.source.w || tile.maxY() > p.source.h)
          return false;
      p.x = tile.x();
-@@ -673,37 +717,60 @@ bool GraphicsContextOpenGPU::patternFor(const Pattern& pattern, float globalAlph
+@@ -673,37 +726,60 @@ bool GraphicsContextOpenGPU::patternFor(const Pattern& pattern, float globalAlph
      auto device = getCTM(PossiblyIncludeDeviceScale) * pattern.patternSpaceTransform();
      if (device.b() || device.c() || device.a() < 1 || device.d() < 1)
          return false;
@@ -1182,7 +1191,7 @@ diff --git a/Source/WebCore/platform/graphics/amiga/GraphicsContextOpenGPU.cpp b
      }
      return true;
  }
-@@ -922,7 +989,6 @@ void GraphicsContextOpenGPU::fillRect(const FloatRect& rect, RequiresClipToRect
+@@ -922,7 +998,6 @@ void GraphicsContextOpenGPU::fillRect(const FloatRect& rect, RequiresClipToRect
              return;
          handOn(OBGPU_PATTERN);
      }
@@ -1190,7 +1199,7 @@ diff --git a/Source/WebCore/platform/graphics/amiga/GraphicsContextOpenGPU.cpp b
  }
  
  void GraphicsContextOpenGPU::fillRect(const FloatRect& rect, const Color& color)
-@@ -932,10 +998,11 @@ void GraphicsContextOpenGPU::fillRect(const FloatRect& rect, const Color& color)
+@@ -932,10 +1007,11 @@ void GraphicsContextOpenGPU::fillRect(const FloatRect& rect, const Color& color)
      if (!color.isVisible() && compositeOperation() == CompositeOperator::SourceOver && blendMode() == BlendMode::Normal && !hasDropShadow())
          return;
      // with a shadow: ShadowBlur's rectangle shadow, of the rectangle's coverage
@@ -1204,7 +1213,7 @@ diff --git a/Source/WebCore/platform/graphics/amiga/GraphicsContextOpenGPU.cpp b
  }
  
  void GraphicsContextOpenGPU::clearRect(const FloatRect& rect)
-@@ -950,56 +1017,72 @@ void GraphicsContextOpenGPU::clearRect(const FloatRect& rect)
+@@ -950,56 +1026,72 @@ void GraphicsContextOpenGPU::clearRect(const FloatRect& rect)
              return;
      }
      handOn(OBGPU_CLEAR);
@@ -1315,7 +1324,7 @@ diff --git a/Source/WebCore/platform/graphics/amiga/GraphicsContextOpenGPU.cpp b
      GraphicsContext::drawImageBuffer(buffer, destination, source, options);
      flush();
  }
-@@ -1010,7 +1093,6 @@ void GraphicsContextOpenGPU::fillRect(const FloatRect& rect, Gradient& gradient)
+@@ -1010,7 +1102,6 @@ void GraphicsContextOpenGPU::fillRect(const FloatRect& rect, Gradient& gradient)
      if (gradientRect(rect, gradient, fillGradientSpaceTransform(), 1))
          return;
      handOn(OBGPU_GRADIENT);
@@ -1323,7 +1332,7 @@ diff --git a/Source/WebCore/platform/graphics/amiga/GraphicsContextOpenGPU.cpp b
  }
  
  void GraphicsContextOpenGPU::fillRect(const FloatRect& rect, Gradient& gradient, const AffineTransform& gradientSpaceTransform, RequiresClipToRect requiresClipToRect)
-@@ -1018,7 +1100,6 @@ void GraphicsContextOpenGPU::fillRect(const FloatRect& rect, Gradient& gradient,
+@@ -1018,7 +1109,6 @@ void GraphicsContextOpenGPU::fillRect(const FloatRect& rect, Gradient& gradient,
      if (gradientRect(rect, gradient, gradientSpaceTransform, alpha()))
          return;
      handOn(OBGPU_GRADIENT);
@@ -1331,7 +1340,7 @@ diff --git a/Source/WebCore/platform/graphics/amiga/GraphicsContextOpenGPU.cpp b
  }
  
  void GraphicsContextOpenGPU::fillRoundedRectImpl(const FloatRoundedRect& rect, const Color& color)
-@@ -1034,7 +1115,6 @@ void GraphicsContextOpenGPU::fillRoundedRectImpl(const FloatRoundedRect& rect, c
+@@ -1034,7 +1124,6 @@ void GraphicsContextOpenGPU::fillRoundedRectImpl(const FloatRoundedRect& rect, c
              return;
      }
      handOn(OBGPU_ROUNDED);
@@ -1339,7 +1348,7 @@ diff --git a/Source/WebCore/platform/graphics/amiga/GraphicsContextOpenGPU.cpp b
  }
  
  void GraphicsContextOpenGPU::fillRectWithRoundedHole(const FloatRect& rect, const FloatRoundedRect& hole, const Color& color)
-@@ -1054,7 +1134,6 @@ void GraphicsContextOpenGPU::fillRectWithRoundedHole(const FloatRect& rect, cons
+@@ -1054,7 +1143,6 @@ void GraphicsContextOpenGPU::fillRectWithRoundedHole(const FloatRect& rect, cons
              return;
      }
      handOn(OBGPU_ROUNDED);
@@ -1347,7 +1356,7 @@ diff --git a/Source/WebCore/platform/graphics/amiga/GraphicsContextOpenGPU.cpp b
  }
  
  void GraphicsContextOpenGPU::strokeRect(const FloatRect& rect, float lineWidth)
-@@ -1068,7 +1147,6 @@ void GraphicsContextOpenGPU::strokeRect(const FloatRect& rect, float lineWidth)
+@@ -1068,7 +1156,6 @@ void GraphicsContextOpenGPU::strokeRect(const FloatRect& rect, float lineWidth)
              return;
      }
      handOn(OBGPU_STROKE);
@@ -1355,7 +1364,7 @@ diff --git a/Source/WebCore/platform/graphics/amiga/GraphicsContextOpenGPU.cpp b
  }
  
  void GraphicsContextOpenGPU::fillPath(const Path& path)
-@@ -1076,11 +1154,12 @@ void GraphicsContextOpenGPU::fillPath(const Path& path)
+@@ -1076,11 +1163,12 @@ void GraphicsContextOpenGPU::fillPath(const Path& path)
      if (path.isEmpty())
          return;
      Paint paint;
@@ -1371,7 +1380,7 @@ diff --git a/Source/WebCore/platform/graphics/amiga/GraphicsContextOpenGPU.cpp b
  }
  
  void GraphicsContextOpenGPU::strokePath(const Path& path)
-@@ -1089,10 +1168,9 @@ void GraphicsContextOpenGPU::strokePath(const Path& path)
+@@ -1089,10 +1177,9 @@ void GraphicsContextOpenGPU::strokePath(const Path& path)
          return;
      Paint paint;
      if (pathsWanted(false) && paintFor(strokeBrush(), paint)
@@ -1383,7 +1392,7 @@ diff --git a/Source/WebCore/platform/graphics/amiga/GraphicsContextOpenGPU.cpp b
  }
  
  // ---- borders, lines, list bullets (0080) --------------------------------------------------
-@@ -1109,56 +1187,6 @@ void GraphicsContextOpenGPU::plainFill(const FloatRect& rect, const Color& color
+@@ -1109,56 +1196,6 @@ void GraphicsContextOpenGPU::plainFill(const FloatRect& rect, const Color& color
              return;
      }
      handOn(OBGPU_FILL);
@@ -1440,7 +1449,7 @@ diff --git a/Source/WebCore/platform/graphics/amiga/GraphicsContextOpenGPU.cpp b
  }
  
  // As Cairo::drawRect: the rectangle filled with the fill colour (as
-@@ -1167,9 +1195,9 @@ void GraphicsContextOpenGPU::cairoStroke(const Path& path, const Color& color, d
+@@ -1167,9 +1204,9 @@ void GraphicsContextOpenGPU::cairoStroke(const Path& path, const Color& color, d
  // alpha, no shadow.
  void GraphicsContextOpenGPU::drawRect(const FloatRect& rect, float borderThickness)
  {
@@ -1451,7 +1460,7 @@ diff --git a/Source/WebCore/platform/graphics/amiga/GraphicsContextOpenGPU.cpp b
          return;
      }
      plainFill(rect, fillColor());
-@@ -1185,7 +1213,6 @@ void GraphicsContextOpenGPU::drawRect(const FloatRect& rect, float borderThickne
+@@ -1185,7 +1222,6 @@ void GraphicsContextOpenGPU::drawRect(const FloatRect& rect, float borderThickne
      if (strokePathWith(path, paint, 1))
          return;
      handOn(OBGPU_STROKE);
@@ -1459,7 +1468,7 @@ diff --git a/Source/WebCore/platform/graphics/amiga/GraphicsContextOpenGPU.cpp b
  }
  
  // As Cairo::drawLine (borders): a line between the points, centred across
-@@ -1208,13 +1235,12 @@ void GraphicsContextOpenGPU::drawLine(const FloatPoint& point1, const FloatPoint
+@@ -1208,13 +1244,12 @@ void GraphicsContextOpenGPU::drawLine(const FloatPoint& point1, const FloatPoint
      if (!pathsWanted(false) || !(m_gpu->caps & OBGPU_CAN_ALIASED)
          || (!color.isVisible() && compositeOperation() == CompositeOperator::SourceOver)) {
          handOn(OBGPU_STROKE);
@@ -1474,7 +1483,7 @@ diff --git a/Source/WebCore/platform/graphics/amiga/GraphicsContextOpenGPU.cpp b
      if (dashed) {
          cornerWidth = strokeStyle() == StrokeStyle::DottedStroke ? strokeThickness
              : std::min(2.0f * strokeThickness, std::max(strokeThickness, strokeWidth / 3.0f));
-@@ -1275,7 +1301,6 @@ void GraphicsContextOpenGPU::drawLine(const FloatPoint& point1, const FloatPoint
+@@ -1275,7 +1310,6 @@ void GraphicsContextOpenGPU::drawLine(const FloatPoint& point1, const FloatPoint
      if (drawn)
          return;
      handOn(OBGPU_STROKE);
@@ -1482,7 +1491,7 @@ diff --git a/Source/WebCore/platform/graphics/amiga/GraphicsContextOpenGPU.cpp b
  }
  
  // As Cairo::drawEllipse (list bullets): the ellipse filled with the fill
-@@ -1292,7 +1317,6 @@ void GraphicsContextOpenGPU::drawEllipse(const FloatRect& rect)
+@@ -1292,7 +1326,6 @@ void GraphicsContextOpenGPU::drawEllipse(const FloatRect& rect)
      bool stroked = strokeStyle() != StrokeStyle::NoStroke;
      if (!pathsWanted(false) || (stroked && !strokeFor(strokeThickness(), stroke, dashes))) {
          handOn(OBGPU_PATH);
@@ -1490,7 +1499,7 @@ diff --git a/Source/WebCore/platform/graphics/amiga/GraphicsContextOpenGPU.cpp b
          return;
      }
      Paint paint;
-@@ -1300,7 +1324,6 @@ void GraphicsContextOpenGPU::drawEllipse(const FloatRect& rect)
+@@ -1300,7 +1333,6 @@ void GraphicsContextOpenGPU::drawEllipse(const FloatRect& rect)
          paint.argb = premultiplied(fillColor());
          if (!fillPathWith(path, paint, false, compositeOperation())) {
              handOn(OBGPU_PATH);
@@ -1498,7 +1507,7 @@ diff --git a/Source/WebCore/platform/graphics/amiga/GraphicsContextOpenGPU.cpp b
              return;
          }
      }
-@@ -1311,7 +1334,6 @@ void GraphicsContextOpenGPU::drawEllipse(const FloatRect& rect)
+@@ -1311,7 +1343,6 @@ void GraphicsContextOpenGPU::drawEllipse(const FloatRect& rect)
      if (strokePathWith(path, paint, strokeThickness()))
          return;
      handOn(OBGPU_STROKE);
@@ -1506,7 +1515,7 @@ diff --git a/Source/WebCore/platform/graphics/amiga/GraphicsContextOpenGPU.cpp b
  }
  
  // As CairoUtilities' drawPatternToCairoContext: the tile repeated under the
-@@ -1323,7 +1345,7 @@ void GraphicsContextOpenGPU::drawEllipse(const FloatRect& rect)
+@@ -1323,7 +1354,7 @@ void GraphicsContextOpenGPU::drawEllipse(const FloatRect& rect)
  // the picture is neither shrunk nor turned on the target.
  void GraphicsContextOpenGPU::drawPattern(const NativeImage& image, const FloatRect& destRect, const FloatRect& tileRect, const AffineTransform& patternTransform, const FloatPoint& phase, const FloatSize& spacing, ImagePaintingOptions options)
  {
@@ -1515,7 +1524,7 @@ diff --git a/Source/WebCore/platform/graphics/amiga/GraphicsContextOpenGPU.cpp b
      if (surface && std::isfinite(phase.x()) && std::isfinite(phase.y()) && spacing.isZero()
          && options.blendMode() == BlendMode::Normal && pathsWanted()) {
          IntRect tile = enclosingIntRect(tileRect);
-@@ -1355,12 +1377,14 @@ void GraphicsContextOpenGPU::drawPattern(const NativeImage& image, const FloatRe
+@@ -1355,12 +1386,14 @@ void GraphicsContextOpenGPU::drawPattern(const NativeImage& image, const FloatRe
          if (filter >= 0 && FloatRect(tile) == tileRect && pictureFor(surface, tile, tileToUser, filter, paint)) {
              Path path;
              path.addRect(destRect);
@@ -1532,7 +1541,7 @@ diff --git a/Source/WebCore/platform/graphics/amiga/GraphicsContextOpenGPU.cpp b
  }
  
  // Focus rings as GraphicsContextCairo draws them: with the Adwaita theme
-@@ -1374,7 +1398,15 @@ void GraphicsContextOpenGPU::drawFocusRing(const Path& path, float outlineWidth,
+@@ -1374,7 +1407,15 @@ void GraphicsContextOpenGPU::drawFocusRing(const Path& path, float outlineWidth,
      Adwaita::paintFocus(*this, path, color);
  #else
      handOn(OBGPU_FOCUS);
@@ -1549,7 +1558,7 @@ diff --git a/Source/WebCore/platform/graphics/amiga/GraphicsContextOpenGPU.cpp b
  #endif
  }
  
-@@ -1386,7 +1418,10 @@ void GraphicsContextOpenGPU::drawFocusRing(const Vector<FloatRect>& rects, float
+@@ -1386,7 +1427,10 @@ void GraphicsContextOpenGPU::drawFocusRing(const Vector<FloatRect>& rects, float
      Adwaita::paintFocus(*this, rects, color);
  #else
      handOn(OBGPU_FOCUS);
@@ -1561,7 +1570,7 @@ diff --git a/Source/WebCore/platform/graphics/amiga/GraphicsContextOpenGPU.cpp b
  #endif
  }
  
-@@ -1454,10 +1489,8 @@ bool GraphicsContextOpenGPU::glyphsHere(const FontBase& font, std::span<const Gl
+@@ -1454,10 +1498,8 @@ bool GraphicsContextOpenGPU::glyphsHere(const FontBase& font, std::span<const Gl
              x += advances[i].width();
              y += advances[i].height();
          }
@@ -1573,7 +1582,7 @@ diff --git a/Source/WebCore/platform/graphics/amiga/GraphicsContextOpenGPU.cpp b
          Color color = alpha() < 1 ? fillColor().colorWithAlphaMultipliedBy(alpha()) : fillColor();
          long drawn;
          {
-@@ -1465,8 +1498,7 @@ bool GraphicsContextOpenGPU::glyphsHere(const FontBase& font, std::span<const Gl
+@@ -1465,8 +1507,7 @@ bool GraphicsContextOpenGPU::glyphsHere(const FontBase& font, std::span<const Gl
              drawn = ob_openfont_draw_glyphs(face->face(), &where, ids.span().data(), pens.span().data(), glyphs.size(), pixelSize,
                  premultiplied(color), useMatrix ? matrix : nullptr, aliased);
          }
@@ -1583,7 +1592,7 @@ diff --git a/Source/WebCore/platform/graphics/amiga/GraphicsContextOpenGPU.cpp b
          if (drawn < 0) {
              if (pass)
                  fprintf(stderr, "OpenBrowser: gfopenfont.library could not draw a run's synthetic bold (%ld)\n", drawn);
-@@ -1487,21 +1519,70 @@ bool GraphicsContextOpenGPU::glyphsHere(const FontBase& font, std::span<const Gl
+@@ -1487,21 +1528,70 @@ bool GraphicsContextOpenGPU::glyphsHere(const FontBase& font, std::span<const Gl
  
  void GraphicsContextOpenGPU::drawGlyphs(const Font& font, std::span<const GlyphBufferGlyph> glyphs, std::span<const GlyphBufferAdvance> advances, const FloatPoint& point, FontSmoothingMode smoothing)
  {
@@ -1660,7 +1669,7 @@ diff --git a/Source/WebCore/platform/graphics/amiga/GraphicsContextOpenGPU.cpp b
  }
  
  // As Cairo::drawLinesForText (underlines, overlines, line-through): each
-@@ -1537,15 +1618,38 @@ void GraphicsContextOpenGPU::drawLinesForText(const FloatPoint& point, float thi
+@@ -1537,15 +1627,38 @@ void GraphicsContextOpenGPU::drawLinesForText(const FloatPoint& point, float thi
      }
  }
  
@@ -2336,7 +2345,7 @@ diff --git a/Source/WebCore/platform/graphics/amiga/OpenGPUPaintAmiga.c b/Source
      if (!obgpu_drawable(g) || pd < 0 || pd == OGPU_PD_CLEAR)
          return 0;
      if (s->w <= 0 || s->h <= 0 || s->w > OBGPU_MAX_SIDE || s->h > OBGPU_MAX_SIDE || s->bpr < (long)s->w * 4
-@@ -854,10 +865,14 @@ int obgpu_image(struct obgpu *g, const struct obgpu_source *s, const long *dst,
+@@ -854,13 +865,61 @@ int obgpu_image(struct obgpu *g, const struct obgpu_source *s, const long *dst,
              if (e[0] < -OBGPU_POINT_MAX * 256LL || e[1] < -OBGPU_POINT_MAX * 256LL
                  || e[2] > OBGPU_POINT_MAX * 256LL || e[3] > OBGPU_POINT_MAX * 256LL)
                  return 0;
@@ -2351,6 +2360,70 @@ diff --git a/Source/WebCore/platform/graphics/amiga/OpenGPUPaintAmiga.c b/Source
      return imageTransformed(g, s, dst, src, pd, alpha, bilinear);
  }
  
++int obgpu_dest_in(struct obgpu *g, unsigned char *pixels, const struct obgpu_source *s, int x, int y)
++{
++    struct obgpu_level *l = &g->level[g->depth];
++    const struct obgpu_mask *k;
++    int tx, ty, xx, yy, r[4], saved, done;
++    if (!obgpu_drawable(g) || !pixels || s->format != OBGPU_ARGB || s->w <= 0 || s->h <= 0
++        || s->w > OBGPU_MAX_SIDE || s->h > OBGPU_MAX_SIDE || s->bpr < (long)s->w * 4)
++        return 0;
++    /* the mask's pixels, drawn */
++    obgpu_flush(g);
++    if (g->broken)
++        return 0;
++    k = clipMask(g);
++    tx = x - g->ox;
++    ty = y - g->oy;
++    for (yy = 0; yy < s->h; yy++) {
++        unsigned char *p = pixels + (long)yy * s->bpr;
++        int py = ty + yy;
++        for (xx = 0; xx < s->w; xx++, p += 4) {
++            int px = tx + xx;
++            unsigned m = 0, f;
++            if (px >= l->cx0 && px < l->cx1 && py >= l->cy0 && py < l->cy1) {
++                if (!k)
++                    m = 255;
++                else if (px >= k->x && px < k->x + k->w && py >= k->y && py < k->y + k->h)
++                    m = k->block[(long)(py - k->y) * k->bpr + (px - k->x)];
++            }
++            f = 255 - (m * (255U - p[0]) + 127) / 255;
++            p[0] = (unsigned char)f;
++            p[1] = p[2] = p[3] = 0;
++        }
++    }
++    /* that factor's alpha, IN_REVERSE without the mask (it is in the factor) */
++    r[0] = tx;
++    r[1] = ty;
++    r[2] = tx + s->w;
++    r[3] = ty + s->h;
++    saved = l->mask;
++    l->mask = 0;
++    done = imageCopy(g, s, r, 0, 0, OGPU_PD_IN_REVERSE, 255);
++    l->mask = saved;
++    return done;
++}
++
+ /* ---- paths --------------------------------------------------------------------------- */
+ 
+ #if OBGPU_LINEAR != OGPU_GRAD_LINEAR || OBGPU_RADIAL != OGPU_GRAD_RADIAL || OBGPU_PAD != OGPU_SPREAD_PAD \
+diff --git a/Source/WebCore/platform/graphics/amiga/OpenGPUPaintAmiga.h b/Source/WebCore/platform/graphics/amiga/OpenGPUPaintAmiga.h
+--- a/Source/WebCore/platform/graphics/amiga/OpenGPUPaintAmiga.h
++++ b/Source/WebCore/platform/graphics/amiga/OpenGPUPaintAmiga.h
+@@ -208,6 +208,13 @@ int obgpu_fill(struct obgpu *g, long x, long y, long w, long h, unsigned long ar
+  * pixels must stay as they are until the batch has gone. */
+ int obgpu_image(struct obgpu *g, const struct obgpu_source *s, const long *dst, const long *src, int op,
+     unsigned alpha, int bilinear);
++/* A layer's picture put on by destination-in, pixel for pixel at device
++ * (x, y), through the clip and its mask as cairo's unbounded operator
++ * under a clip: the destination times 1 - mask * (1 - the picture's alpha).
++ * The batch is drawn first; the picture's pixels (ARGB32, s->bpr apart,
++ * at pixels for the CPU) are turned into that factor's alpha, so it is
++ * the caller's to throw away (0094: CSS masks inside clipped layers). */
++int obgpu_dest_in(struct obgpu *g, unsigned char *pixels, const struct obgpu_source *s, int x, int y);
+ 
+ /* Paths (stream v1.6's PATH_FILL and PATH_STROKE): begin, the elements
+  * (24.8 points in the user's space, through the transform), then
 diff --git a/Source/WebCore/platform/graphics/amiga/PathAmiga.cpp b/Source/WebCore/platform/graphics/amiga/PathAmiga.cpp
 new file mode 100644
 --- /dev/null
