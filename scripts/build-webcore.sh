@@ -121,7 +121,9 @@
 #                   and libraries that send each call to unicode.library).
 #                   Unset, configure-engine and the builds make it in
 #                   BUILD/unicode-library (again when src/unicodelib or
-#                   ICU's libraries change), which needs NDK_INCLUDE.
+#                   ICU's libraries change), which needs NDK_INCLUDE and
+#                   the UCD 17.0.0 (UCD_DIR, or $OAB_DEPS/ucd-17.0.0 from
+#                   scripts/fetch-ucd.sh).
 #   NDK_INCLUDE     GFOpenNDK's Include_H, for building unicode.library
 #   OB_CCACHE       the ccache program, or "none"  (default: ccache on PATH)
 #   OB_CCACHE_DIR   ccache's folder for this build
