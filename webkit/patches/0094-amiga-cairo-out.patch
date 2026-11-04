@@ -984,7 +984,7 @@ diff --git a/Source/WebCore/platform/graphics/amiga/GraphicsContextOpenGPU.cpp b
 -    groupHere();
 +    m_saved.append({ m_ctm, m_clipBounds, m_lineCap, m_lineJoin, m_miterLimit, m_dashes, m_dashOffset });
 +    if (m_gpu)
-+        beginLayer(opacity, CompositeOperator::SourceOver);
++        beginLayer(opacity, compositeOperation()); // as cairo's paint: the operator when the group was pushed (RenderBox's mask: destination-in)
  }
  
  void GraphicsContextOpenGPU::beginTransparencyLayer(CompositeOperator compositeOperator, BlendMode blendMode)
@@ -2321,6 +2321,36 @@ diff --git a/Source/WebCore/platform/graphics/amiga/OpenGPUPaintAmiga.c b/Source
      l->flags |= OBGPU_L_SURFACE;
      l->outer_target = g->target;
      l->outer_bpr = g->target_bpr;
+@@ -823,7 +828,13 @@ int obgpu_image(struct obgpu *g, const struct obgpu_source *s, const long *dst,
+     unsigned alpha, int bilinear)
+ {
+     const struct obgpu_level *l = current(g);
+-    int pd = pdOperator(op);
++    int pd = pdOperator(op), unbounded = op == OBGPU_OP_DESTINATION_IN;
++    /* destination-in (a CSS mask's layer, put on its content): the
++     * destination times the picture's alpha, and cleared where the picture
++     * is not; only pixel for pixel, opaque, without a clip mask and over the
++     * whole clip, where cairo's unbounded operator is the same */
++    if (unbounded)
++        pd = alpha == 255 && !clipMask(g) ? OGPU_PD_IN_REVERSE : -1;
+     if (!obgpu_drawable(g) || pd < 0 || pd == OGPU_PD_CLEAR)
+         return 0;
+     if (s->w <= 0 || s->h <= 0 || s->w > OBGPU_MAX_SIDE || s->h > OBGPU_MAX_SIDE || s->bpr < (long)s->w * 4
+@@ -854,10 +865,14 @@ int obgpu_image(struct obgpu *g, const struct obgpu_source *s, const long *dst,
+             if (e[0] < -OBGPU_POINT_MAX * 256LL || e[1] < -OBGPU_POINT_MAX * 256LL
+                 || e[2] > OBGPU_POINT_MAX * 256LL || e[3] > OBGPU_POINT_MAX * 256LL)
+                 return 0;
++            if (unbounded && (r[0] > l->cx0 || r[1] > l->cy0 || r[2] < l->cx1 || r[3] < l->cy1))
++                return 0;
+             if (!clipMask(g) || alpha == 255)
+                 return imageCopy(g, s, r, (int)(src[0] / 256), (int)(src[1] / 256), pd, alpha);
+         }
+     }
++    if (unbounded)
++        return 0;
+     return imageTransformed(g, s, dst, src, pd, alpha, bilinear);
+ }
+ 
 diff --git a/Source/WebCore/platform/graphics/amiga/PathAmiga.cpp b/Source/WebCore/platform/graphics/amiga/PathAmiga.cpp
 new file mode 100644
 --- /dev/null
