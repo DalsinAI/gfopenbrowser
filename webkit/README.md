@@ -511,6 +511,14 @@ The patches, in order:
   `PROGDIR:Cache/Scripts`, trims it to 32 MB at start (`ob_scriptcache.c`)
   and writes the translations 5 s after each load, through
   `JSC::amigaWriteCodeCache()` (`runtime/AmigaCodeCacheWrite.h`).
+- `0102-jsc-m68k-heap-not-mini-mode.patch`: the heap leaves mini mode when
+  the 68k template JIT is on. Mini mode is `!useJIT`, and the baseline JIT
+  is not built, so every collection was a full one, the heap grew by a fifth
+  after each, the whole heap was swept at the end of each and bytecode was
+  thrown away. `VM::isInMiniModeForHeap()` is false with
+  `useM68KTemplateJIT` on (unless `forceMiniVMMode`), and the heap's checks
+  use it: generational collections, normal heap growth, lazy sweeping, and
+  bytecode kept. `useGenerationalGC=false` still forces full collections.
 - `0104-jsc-m68k-jit-sooner.patch`: functions and loops go to the 68k
   template JIT sooner: `thresholdForJITAfterWarmUp` is 100 on the 68k
   (500 elsewhere), so a function is compiled on about its seventh call and a
