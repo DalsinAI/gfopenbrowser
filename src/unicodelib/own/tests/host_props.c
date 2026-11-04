@@ -228,6 +228,81 @@ static void strings(const char *name, casefn ours, casefn icu, int locArg)
     end();
 }
 
+/* ---- u_enumCharTypes and the property starts ----------------------------------------- */
+
+struct ranges {
+    int n;
+    int32_t r[8000][3];
+};
+
+static UBool U_CALLCONV typeRange(const void *ctx, UChar32 start, UChar32 limit, UCharCategory type)
+{
+    struct ranges *r = (struct ranges *)(uintptr_t)ctx;
+    if (r->n < 8000) {
+        r->r[r->n][0] = start;
+        r->r[r->n][1] = limit;
+        r->r[r->n][2] = type;
+    }
+    r->n++;
+    return 1;
+}
+
+static unsigned char *startBits;
+
+static void addStart(void *ctx, UChar32 c)
+{
+    (void)ctx;
+    if (c >= 0 && c <= 0x110000)
+        startBits[c >> 3] |= (unsigned char)(1 << (c & 7));
+}
+
+/* every code point where one of ICU's answers changes must be a start */
+static void startsCover(void)
+{
+    static uint32_t prev[UCHAR_BINARY_LIMIT + (UCHAR_INT_LIMIT - UCHAR_INT_START) + 8];
+    UChar32 c;
+    int p;
+
+    startBits = calloc(0x110000 / 8 + 1, 1);
+    uo_prop_starts(addStart, 0);
+    begin("property starts");
+    for (c = 0; c < 0x110000; c++) {
+        uint32_t v[sizeof prev / sizeof prev[0]];
+        int n = 0, changed = 0;
+        UVersionInfo age;
+        double d;
+        for (p = UCHAR_BINARY_START; p < UCHAR_BINARY_LIMIT; p++)
+            if (p != UCHAR_CASE_SENSITIVE)  /* ICU's case data has its own starts */
+                v[n++] = u_hasBinaryProperty(c, (UProperty)p);
+        for (p = UCHAR_INT_START; p < UCHAR_INT_LIMIT; p++)
+            v[n++] = (uint32_t)u_getIntPropertyValue(c, (UProperty)p);
+        u_charAge(c, age);
+        v[n++] = (uint32_t)(age[0] << 8 | age[1]);
+        d = u_getNumericValue(c);
+        v[n++] = (uint32_t)(int64_t)(d * 1000);
+        v[n++] = (uint32_t)u_isspace(c) << 3 | u_isWhitespace(c) << 2 | u_isIDIgnorable(c) << 1 | u_isxdigit(c);
+        v[n++] = (uint32_t)u_getIntPropertyValue(c, UCHAR_LEAD_CANONICAL_COMBINING_CLASS);
+        {
+            UScriptCode s[40];
+            UErrorCode e = U_ZERO_ERROR;
+            int32_t k, m = uscript_getScriptExtensions(c, s, 40, &e);
+            uint32_t h = (uint32_t)m;
+            for (k = 0; k < m; k++)
+                h = h * 31 + (uint32_t)s[k];
+            v[n++] = h;
+        }
+        for (p = 0; p < n; p++)
+            if (!c || v[p] != prev[p])
+                changed = 1;
+        memcpy(prev, v, sizeof(uint32_t) * (size_t)n);
+        cases++;
+        if (changed && !(startBits[c >> 3] & (1 << (c & 7))))
+            differ("U+%04X: a property changes, no start", (unsigned)c);
+    }
+    end();
+    free(startBits);
+}
+
 int main(void)
 {
     int p, sc;
@@ -259,19 +334,153 @@ int main(void)
         snprintf(name, sizeof name, "u_hasBinaryProperty %s", u_getPropertyName((UProperty)p, U_LONG_PROPERTY_NAME));
         EACH_CP(name, uo_u_hasBinaryProperty(c, (UProperty)p), u_hasBinaryProperty(c, (UProperty)p), "%ld");
     }
+    for (p = UCHAR_INT_START; p <= UCHAR_INT_LIMIT; p++) {
+        char name[80];
+        UProperty q = p == UCHAR_INT_LIMIT ? UCHAR_GENERAL_CATEGORY_MASK : (UProperty)p;
+        snprintf(name, sizeof name, "u_getIntPropertyValue %s", u_getPropertyName(q, U_LONG_PROPERTY_NAME));
+        EACH_CP(name, uo_u_getIntPropertyValue(c, q), u_getIntPropertyValue(c, q), "%ld");
+    }
     {
-        static const UProperty ints[] = { UCHAR_BIDI_CLASS, UCHAR_BLOCK, UCHAR_CANONICAL_COMBINING_CLASS,
-            UCHAR_EAST_ASIAN_WIDTH, UCHAR_GENERAL_CATEGORY, UCHAR_LINE_BREAK, UCHAR_NUMERIC_TYPE, UCHAR_SCRIPT,
-            UCHAR_VERTICAL_ORIENTATION, UCHAR_GENERAL_CATEGORY_MASK, UCHAR_UNIFIED_IDEOGRAPH, UCHAR_IDEOGRAPHIC,
-            UCHAR_EMOJI, UCHAR_POSIX_ALNUM, UCHAR_HANGUL_SYLLABLE_TYPE, UCHAR_JOINING_TYPE, UCHAR_JOINING_GROUP,
-            UCHAR_BIDI_PAIRED_BRACKET_TYPE };
+        static const int odd[] = { -2, -1, UCHAR_BINARY_LIMIT, 0xFFF, UCHAR_INT_LIMIT, UCHAR_GENERAL_CATEGORY_MASK,
+                                   UCHAR_NUMERIC_VALUE, UCHAR_AGE, UCHAR_SCRIPT_EXTENSIONS, UCHAR_IDENTIFIER_TYPE, 0x7FFF };
         unsigned i;
-        for (i = 0; i < sizeof ints / sizeof ints[0]; i++) {
-            char name[64];
-            snprintf(name, sizeof name, "u_getIntPropertyValue %s", u_getPropertyName(ints[i], U_LONG_PROPERTY_NAME));
-            EACH_CP(name, uo_u_getIntPropertyValue(c, ints[i]), u_getIntPropertyValue(c, ints[i]), "%ld");
+        begin("u_getIntPropertyMaxValue, u_getIntPropertyValue of other properties");
+        for (p = UCHAR_BINARY_START - 2; p < UCHAR_INT_LIMIT + (int)(sizeof odd / sizeof odd[0]); p++) {
+            int q = p < UCHAR_BINARY_LIMIT ? p : p < UCHAR_INT_START ? UCHAR_INT_START + (p - UCHAR_BINARY_LIMIT) : 0;
+            if (p >= UCHAR_BINARY_LIMIT && q >= UCHAR_INT_LIMIT)
+                q = odd[q - UCHAR_INT_LIMIT];
+            cases++;
+            if (uo_u_getIntPropertyMaxValue((UProperty)q) != u_getIntPropertyMaxValue((UProperty)q))
+                differ("max %d ours %ld ICU %ld", q, (long)uo_u_getIntPropertyMaxValue((UProperty)q),
+                       (long)u_getIntPropertyMaxValue((UProperty)q));
+            if (q < 0 || (q >= UCHAR_BINARY_LIMIT && q < UCHAR_INT_START) || q >= UCHAR_INT_LIMIT) {
+                cases++;
+                if (uo_u_getIntPropertyValue(0x41, (UProperty)q) != u_getIntPropertyValue(0x41, (UProperty)q))
+                    differ("value of %d ours %ld", q, (long)uo_u_getIntPropertyValue(0x41, (UProperty)q));
+            }
+        }
+        for (i = 0; i < sizeof odd / sizeof odd[0]; i++) {
+            cases++;
+            if (uo_u_getIntPropertyMaxValue((UProperty)odd[i]) != u_getIntPropertyMaxValue((UProperty)odd[i]))
+                differ("max %d ours %ld ICU %ld", odd[i], (long)uo_u_getIntPropertyMaxValue((UProperty)odd[i]),
+                       (long)u_getIntPropertyMaxValue((UProperty)odd[i]));
+        }
+        end();
+    }
+    {
+        UVersionInfo va, vb;
+        EACH_CP("u_charAge", (uo_u_charAge(c, va), va[0] << 24 | va[1] << 16 | va[2] << 8 | va[3]),
+                (u_charAge(c, vb), vb[0] << 24 | vb[1] << 16 | vb[2] << 8 | vb[3]), "%lX");
+        uo_u_getUnicodeVersion(va);
+        u_getUnicodeVersion(vb);
+        begin("u_getUnicodeVersion");
+        cases++;
+        if (memcmp(va, vb, sizeof va))
+            differ("ours %d.%d.%d.%d", va[0], va[1], va[2], va[3]);
+        end();
+    }
+    {
+        UChar32 c;
+        begin("u_getNumericValue");
+        for (c = FIRST; c <= LAST; c++) {
+            double a = uo_u_getNumericValue(c), b = u_getNumericValue(c);
+            cases++;
+            if (memcmp(&a, &b, sizeof a))
+                differ("U+%04X ours %.17g ICU %.17g", (unsigned)c, a, b);
+        }
+        end();
+    }
+    EACH_CP("u_charDigitValue", uo_u_charDigitValue(c), u_charDigitValue(c), "%ld");
+    {
+        static const int radix[] = { -1, 0, 1, 2, 8, 10, 11, 16, 35, 36, 37, 100 };
+        unsigned i;
+        int r;
+        for (i = 0; i < sizeof radix / sizeof radix[0]; i++) {
+            char name[40];
+            r = radix[i];
+            snprintf(name, sizeof name, "u_digit radix %d", r);
+            EACH_CP(name, uo_u_digit(c, (int8_t)r), u_digit(c, (int8_t)r), "%ld");
+        }
+        begin("u_forDigit");
+        for (r = -1; r <= 37; r++) {
+            int d;
+            for (d = -2; d <= 40; d++) {
+                cases++;
+                if (uo_u_forDigit(d, (int8_t)r) != u_forDigit(d, (int8_t)r))
+                    differ("%d radix %d ours %X", d, r, (unsigned)uo_u_forDigit(d, (int8_t)r));
+            }
+        }
+        end();
+    }
+    {
+        int t;
+        for (t = -1; t <= U_ID_TYPE_RECOMMENDED + 1; t++) {
+            char name[40];
+            snprintf(name, sizeof name, "u_hasIDType %d", t);
+            EACH_CP(name, uo_u_hasIDType(c, (UIdentifierType)t), u_hasIDType(c, (UIdentifierType)t), "%ld");
         }
     }
+    {
+        UChar32 c;
+        begin("u_getIDTypes");
+        for (c = FIRST; c <= LAST; c++) {
+            UIdentifierType a[16], b[16];
+            int cap;
+            for (cap = 0; cap <= 3; cap += 3) {
+                UErrorCode e1 = U_ZERO_ERROR, e2 = U_ZERO_ERROR;
+                int32_t n1 = uo_u_getIDTypes(c, a, cap, &e1), n2 = u_getIDTypes(c, b, cap, &e2);
+                cases++;
+                if (n1 != n2 || e1 != e2 || (cap && n1 > 0 && memcmp(a, b, sizeof a[0] * (n1 < cap ? n1 : cap))))
+                    differ("U+%04X cap %d ours %d (%d) ICU %d (%d)", (unsigned)c, cap, n1, e1, n2, e2);
+            }
+        }
+        end();
+        begin("uscript_getScriptExtensions");
+        for (c = FIRST; c <= LAST; c++) {
+            UScriptCode a[40], b[40];
+            int cap;
+            for (cap = 0; cap <= 40; cap += 40) {
+                UErrorCode e1 = U_ZERO_ERROR, e2 = U_ZERO_ERROR;
+                int32_t n1 = uo_uscript_getScriptExtensions(c, a, cap, &e1);
+                int32_t n2 = uscript_getScriptExtensions(c, b, cap, &e2);
+                cases++;
+                if (n1 != n2 || e1 != e2 || (cap && memcmp(a, b, sizeof a[0] * n1)))
+                    differ("U+%04X cap %d ours %d (%d) ICU %d (%d)", (unsigned)c, cap, n1, e1, n2, e2);
+            }
+        }
+        end();
+    }
+    EACH_CP("u_islower", uo_u_islower(c), u_islower(c), "%ld");
+    EACH_CP("u_isupper", uo_u_isupper(c), u_isupper(c), "%ld");
+    EACH_CP("u_istitle", uo_u_istitle(c), u_istitle(c), "%ld");
+    EACH_CP("u_isdefined", uo_u_isdefined(c), u_isdefined(c), "%ld");
+    EACH_CP("u_isxdigit", uo_u_isxdigit(c), u_isxdigit(c), "%ld");
+    EACH_CP("u_isbase", uo_u_isbase(c), u_isbase(c), "%ld");
+    EACH_CP("u_iscntrl", uo_u_iscntrl(c), u_iscntrl(c), "%ld");
+    EACH_CP("u_isISOControl", uo_u_isISOControl(c), u_isISOControl(c), "%ld");
+    EACH_CP("u_isspace", uo_u_isspace(c), u_isspace(c), "%ld");
+    EACH_CP("u_isJavaSpaceChar", uo_u_isJavaSpaceChar(c), u_isJavaSpaceChar(c), "%ld");
+    EACH_CP("u_isWhitespace", uo_u_isWhitespace(c), u_isWhitespace(c), "%ld");
+    EACH_CP("u_isblank", uo_u_isblank(c), u_isblank(c), "%ld");
+    EACH_CP("u_isgraph", uo_u_isgraph(c), u_isgraph(c), "%ld");
+    EACH_CP("u_isIDIgnorable", uo_u_isIDIgnorable(c), u_isIDIgnorable(c), "%ld");
+    EACH_CP("u_isJavaIDStart", uo_u_isJavaIDStart(c), u_isJavaIDStart(c), "%ld");
+    EACH_CP("u_isJavaIDPart", uo_u_isJavaIDPart(c), u_isJavaIDPart(c), "%ld");
+    EACH_CP("u_isUAlphabetic", uo_u_hasBinaryProperty(c, UCHAR_ALPHABETIC), u_isUAlphabetic(c), "%ld");
+    EACH_CP("u_isIDStart", uo_u_hasBinaryProperty(c, UCHAR_ID_START), u_isIDStart(c), "%ld");
+    EACH_CP("u_isIDPart", uo_u_hasBinaryProperty(c, UCHAR_ID_CONTINUE), u_isIDPart(c), "%ld");
+    {
+        struct ranges r1, r2;
+        r1.n = r2.n = 0;
+        uo_u_enumCharTypes(typeRange, &r1);
+        u_enumCharTypes(typeRange, &r2);
+        begin("u_enumCharTypes");
+        cases++;
+        if (r1.n != r2.n || memcmp(r1.r, r2.r, sizeof r1.r[0] * (size_t)r1.n))
+            differ("ours %d ranges ICU %d", r1.n, r2.n);
+        end();
+    }
+    startsCover();
     EACH_CP("u_getBidiPairedBracket", uo_u_getBidiPairedBracket(c), u_getBidiPairedBracket(c), "%lX");
     {
         static const UProperty bidiMax[] = { UCHAR_BIDI_CLASS, UCHAR_JOINING_GROUP, UCHAR_JOINING_TYPE,
