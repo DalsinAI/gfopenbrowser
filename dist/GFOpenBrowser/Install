@@ -130,9 +130,10 @@ EndIf
 Echo "Installed LIBS:gfopenfont.library"
 Lab fontdone
 
-; gfopenfont's CJK face (Droid Sans Fallback, Apache License 2.0) with its
-; NOTICE in FONTS:, for every program drawing with gfopenfont.library: one
-; already there is kept
+; gfopenfont's CJK faces with their licences in FONTS:, for every program
+; drawing with gfopenfont.library: Droid Sans Fallback (Apache License 2.0)
+; for Chinese and Japanese, NanumGothic (SIL OFL 1.1) for Korean. One
+; already there is kept.
 If EXISTS Fonts/DroidSansFallbackFull.ttf
   If NOT EXISTS FONTS:DroidSansFallbackFull.ttf
     Copy Fonts/DroidSansFallbackFull.ttf Fonts/DroidSansFallback.NOTICE FONTS: QUIET
@@ -141,6 +142,16 @@ If EXISTS Fonts/DroidSansFallbackFull.ttf
       Quit 20
     EndIf
     Echo "Installed FONTS:DroidSansFallbackFull.ttf"
+  EndIf
+EndIf
+If EXISTS Fonts/NanumGothic-Regular.ttf
+  If NOT EXISTS FONTS:NanumGothic-Regular.ttf
+    Copy Fonts/NanumGothic-Regular.ttf Fonts/NanumGothic.OFL.txt FONTS: QUIET
+    If WARN
+      Echo "Could not copy the Korean font to FONTS: (is FONTS: full or write-protected?)"
+      Quit 20
+    EndIf
+    Echo "Installed FONTS:NanumGothic-Regular.ttf"
   EndIf
 EndIf
 
