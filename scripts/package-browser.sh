@@ -55,7 +55,9 @@
 #                  (WebKit patch 0075); the Installer puts them in
 #                  SYS:Classes/DataTypes and DEVS:DataTypes. With
 #                  gfopengif.datatype and Devs/DataTypes/GFOpenGIF there too
-#                  (Datatypes/gif/build.sh), animated GIFs play (patch 0110)
+#                  (Datatypes/gif/build.sh), animated GIFs play (patch 0110);
+#                  with gfopenpng.datatype and Devs/DataTypes/GFOpenPNG
+#                  (Datatypes/png/build.sh), pages can write PNG (patch 0074)
 #   ZLIB_LIB       z.library 53.12 or newer (GFOpenZlib), which gzip.datatype
 #                  opens. Required; the Installer puts it in LIBS:
 #   OB_JSIMAGE     1 (the default when the WebCore build has one): the engine
@@ -191,6 +193,16 @@ if [ -f "$DTDIR/Classes/DataTypes/gfopengif.datatype" ] && [ -f "$DTDIR/Devs/Dat
     cp "$DTDIR/Devs/DataTypes/GFOpenGIF" "$D/Devs/DataTypes/"
 else
     echo "package-browser.sh: no gfopengif.datatype in $DTDIR: animated GIFs will show their first frame"
+fi
+# PNG out (canvas toDataURL, saving pictures): with cairo out of the engine,
+# WebKit patch 0074 writes PNG through a datatype, gfopenpng.datatype first
+# (gfopendatatypes Datatypes/png/build.sh PREFIX); the Installer puts it in
+# SYS:Classes/DataTypes and its descriptor in DEVS:DataTypes.
+if [ -f "$DTDIR/Classes/DataTypes/gfopenpng.datatype" ] && [ -f "$DTDIR/Devs/DataTypes/GFOpenPNG" ]; then
+    cp "$DTDIR/Classes/DataTypes/gfopenpng.datatype" "$D/Classes/DataTypes/"
+    cp "$DTDIR/Devs/DataTypes/GFOpenPNG" "$D/Devs/DataTypes/"
+else
+    echo "package-browser.sh: no gfopenpng.datatype in $DTDIR: PNG output needs a PNG datatype that writes"
 fi
 cp "$CA_BUNDLE/ca-bundle.pem" "$D/S/GFOpenTLS/"
 [ -f "$CA_BUNDLE/ca-bundle.LICENSE" ] && cp "$CA_BUNDLE/ca-bundle.LICENSE" "$D/S/GFOpenTLS/"
