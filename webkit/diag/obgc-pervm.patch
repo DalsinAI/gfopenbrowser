@@ -1,0 +1,76 @@
+--- a/Source/JavaScriptCore/runtime/Structure.cpp
++++ b/Source/JavaScriptCore/runtime/Structure.cpp
+@@ -381,10 +381,35 @@
+     obgcPutBases[0] = { &vm, base, version };
+ }
+ 
++// Dead for sure: not live, and not in the block being allocated from (there
++// a cell made since the last GC reads as not live).
++bool obgcCellIsDead(VM& vm, const JSCell* cell)
++{
++    return !obgcCellIsLive(vm, cell) && obgcFreeListed(vm, cell) != 1;
++}
++
++// Up to 30 lines for each VM, so the page VM cannot use up the worker's.
++struct ObgcVMReports {
++    VM* vm;
++    unsigned count;
++};
++static ObgcVMReports obgcVMReports[16];
++
+ void obgcReport(const char* what, VM& vm, const JSCell* a, const JSCell* b, const void* c, unsigned d)
+ {
+-    if (obgcReports >= 60)
++    ObgcVMReports* slot = nullptr;
++    for (auto& entry : obgcVMReports) {
++        if (entry.vm == &vm || !entry.vm) {
++            slot = &entry;
++            break;
++        }
++    }
++    if (!slot || obgcReports >= 400)
++        return;
++    slot->vm = &vm;
++    if (slot->count >= 30)
+         return;
++    slot->count++;
+     obgcReports++;
+     dataLogLn("OBGC_", what, " vm ", RawPointer(&vm), " a ", RawPointer(a), " live ", obgcCellIsLive(vm, a),
+         " fl ", obgcFreeListed(vm, a),
+@@ -435,7 +460,7 @@
+     // A cell in the block being allocated from reads as dead when it was
+     // allocated since the last GC (G7: 20 such lines in the page VM every
+     // run), so those are left out.
+-    if (previous == this || (!obgcCellIsLive(vm, previous) && obgcFreeListed(vm, previous) != 1)) {
++    if (previous == this || obgcCellIsDead(vm, previous)) {
+         obgcReport(previous == this ? "SELFPREV" : "DEADPREV", vm, this, previous, nullptr, 0);
+         // Which went: the put_by_id base itself (a lost root), or only its
+         // Structure (marking)? c is the GC version at slow path entry, d now.
+--- a/Source/JavaScriptCore/llint/LLIntSlowPaths.cpp
++++ b/Source/JavaScriptCore/llint/LLIntSlowPaths.cpp
+@@ -86,6 +86,7 @@
+ bool obgcCellIsLive(VM&, const JSCell*);
+ void obgcReport(const char*, VM&, const JSCell*, const JSCell*, const void*, unsigned);
+ void obgcNotePutBase(VM&, const JSCell*);
++bool obgcCellIsDead(VM&, const JSCell*);
+ }
+ #endif
+ 
+@@ -960,7 +961,7 @@
+         return;
+     JSCell* cell = base.asCell();
+     Structure* structure = cell->structure();
+-    if (!obgcCellIsLive(vm, cell) || !obgcCellIsLive(vm, structure))
++    if (obgcCellIsDead(vm, cell) || obgcCellIsDead(vm, structure))
+         obgcReport(what, vm, cell, structure, codeBlock, codeBlock->bytecodeOffset(pc));
+ }
+ #endif
+@@ -1139,7 +1140,7 @@
+         StructureID newID = metadata.m_newStructureID;
+         Structure* oldS = oldID.decode();
+         Structure* newS = newID ? newID.decode() : nullptr;
+-        if (!obgcCellIsLive(vm, oldS) || (newS && !obgcCellIsLive(vm, newS)))
++        if (obgcCellIsDead(vm, oldS) || (newS && obgcCellIsDead(vm, newS)))
+             obgcReport("STALE_PUTCACHE", vm, oldS, newS, codeBlock, codeBlock->bytecodeOffset(pc));
+     }
+ #endif
