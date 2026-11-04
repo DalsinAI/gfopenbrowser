@@ -75,12 +75,14 @@ static constexpr auto errorDomain = "GFOpenBrowser"_s;
 // transport also speaks HTTP/2, where the requests are streams on one
 // connection).
 static constexpr unsigned maxRequestsInFlightPerHost = 6;
-// Early fetch: a host that answered over HTTP/2 or HTTP/3 takes its
-// requests as streams on one connection, so more of them go at once (as
-// desktop browsers do), and what the preload scanner finds goes on the wire
-// when it is found instead of waiting behind six others. OB_EARLYFETCH=0
-// keeps every host at six, for comparing.
-static constexpr unsigned maxRequestsInFlightPerMultiplexedHost = 16;
+// Early fetch: up to 16 requests to a host are handed over at once, so what
+// the preload scanner finds goes on when it is found instead of waiting
+// behind six others. openweb.fetch itself keeps at most six connections to
+// a host and puts the rest as streams on an HTTP/2 connection or in its own
+// queue, and a response kept in the disk cache needs no connection at all
+// (cached responses carry no HTTP version, so a host cannot be told to be
+// HTTP/2 from them). OB_EARLYFETCH=0 keeps every host at six, for comparing.
+static constexpr unsigned maxRequestsInFlightPerHostEarly = 16;
 static constexpr unsigned maxRequestsInFlightForNonHTTPProtocols = 20;
 
 class AmigaLoaderStrategy final : public LoaderStrategy {
@@ -103,7 +105,6 @@ private:
         }
 
         const String& name() const { return m_name; }
-        void setMaxRequestsInFlight(unsigned maximum) { m_maxRequestsInFlight = maximum; }
         unsigned loadsInProgress() const { return m_requestsLoading.size(); }
 
         void schedule(ResourceLoader* loader, ResourceLoadPriority priority)
@@ -163,7 +164,7 @@ private:
         std::array<Deque<RefPtr<ResourceLoader>>, resourceLoadPriorityCount> m_requestsPending;
         HashSet<RefPtr<ResourceLoader>> m_requestsLoading;
         const String m_name;
-        unsigned m_maxRequestsInFlight;
+        const unsigned m_maxRequestsInFlight;
     };
 
     // OB_EARLYFETCH and OB_NETLOG, read once.
@@ -183,15 +184,16 @@ private:
     }
     static long msSince(MonotonicTime from) { return static_cast<long>((MonotonicTime::now() - from).milliseconds()); }
 
-    unsigned maxRequestsInFlightFor(const String& hostName) const
+    static unsigned maxRequestsInFlightFor(const String& hostName)
     {
-        return earlyFetch() && m_multiplexedHosts.contains(hostName) ? maxRequestsInFlightPerMultiplexedHost : maxRequestsInFlightPerHost;
+        UNUSED_PARAM(hostName);
+        return earlyFetch() ? maxRequestsInFlightPerHostEarly : maxRequestsInFlightPerHost;
     }
 
-    // A response over HTTP/2 or HTTP/3: the host may take more at once.
+    // A response over HTTP/2 or HTTP/3, noted for OB_NETLOG.
     void noteResponse(ResourceLoader& loader)
     {
-        if (!earlyFetch() || !loader.url().protocolIsInHTTPFamily())
+        if (!netLog() || !loader.url().protocolIsInHTTPFamily())
             return;
         auto& version = loader.response().httpVersion();
         if (!version.startsWith("HTTP/2"_s) && !version.startsWith("HTTP/3"_s))
@@ -199,10 +201,7 @@ private:
         String hostName = loader.url().host().toString();
         if (!m_multiplexedHosts.add(hostName).isNewEntry)
             return;
-        if (auto* host = hostForURL(loader.url()))
-            host->setMaxRequestsInFlight(maxRequestsInFlightPerMultiplexedHost);
-        if (netLog())
-            fprintf(stderr, "OBNET_H2 [%ld ms] %s\n", msSince(m_logStart), hostName.utf8().data());
+        fprintf(stderr, "OBNET_H2 [%ld ms] %s\n", msSince(m_logStart), hostName.utf8().data());
     }
 
     HostInformation* hostForURL(const URL& url, bool createIfNotFound = false)
