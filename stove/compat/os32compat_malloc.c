@@ -30,6 +30,17 @@
  * class, and, as with any allocator that never moves blocks, one block still
  * in use keeps its page and its arena.
  *
+ * GC blocks: JavaScriptCore takes its heap in 16 KB blocks aligned to 16 KB
+ * (MarkedBlock, aligned_alloc(16384, 16384)). Through the large path each
+ * cost libnix 32 KB and a walk of its chunk list, both ways. They come
+ * instead from block arenas: 16 blocks (256 KB) in one libnix allocation of
+ * 272 KB, aligned inside it, so a block costs 17 KB and libnix sees one
+ * call for sixteen. A block has no header (the 16 KB before it is another
+ * block's data): free() knows one by its alignment and finds its arena in a
+ * table sorted by address, under the lock. One empty arena is kept for the
+ * next collection's growth; any other goes back to libnix. With the table
+ * full (512 MB of blocks), blocks take the large path as before.
+ *
  * Large blocks keep libnix's malloc with the old 12-byte header:
  *   [ ... padding ... ][ size ][ raw pointer ][ OS32_LARGE ][ user data ... ]
  * Once the small blocks have gone, libnix's chunk list is short, and its
@@ -70,6 +81,9 @@ void __real_free(void*);
 #define OS32_PAGES 8u
 #define OS32_SLOT_MAX 4096u
 #define OS32_CLASSES 31u
+#define OS32_BLOCK 16384u    /* a GC block: its size and its alignment */
+#define OS32_BLOCKS 16u      /* blocks in a block arena */
+#define OS32_BARENAS 2048u   /* the table's room: 512 MB of blocks */
 #define OS32_IN_CLASS 1
 #define OS32_IN_POOL 2
 
@@ -106,6 +120,15 @@ struct os32_arena {
     struct os32_page page[OS32_PAGES];
 };
 
+/* at the start of what libnix's malloc() returned; the blocks follow, from
+ * the first 16 KB boundary after it */
+struct os32_barena {
+    char* base;                    /* the first block */
+    struct os32_barena *next, *prev; /* the arenas with a free block */
+    uint16_t freeMask;             /* bit i: block i is free */
+    uint8_t listed;
+};
+
 struct os32_waiter {
     struct os32_waiter* next;
     struct Task* task;
@@ -120,6 +143,10 @@ static struct {
     struct os32_page* cls[OS32_CLASSES]; /* pages with a slot to give */
     struct os32_page* empty;       /* the pool */
     unsigned nempty;
+    struct os32_barena* broom;     /* block arenas with a free block */
+    unsigned nbarenas;             /* in the table */
+    unsigned bempty;               /* block arenas with every block free */
+    struct os32_barena* barena[OS32_BARENAS]; /* by address */
 } os32;
 
 /* The lock. On the host (the tests) the same code runs on real threads, so
@@ -400,6 +427,157 @@ static void* os32_small(size_t alignment, size_t size)
     return user;
 }
 
+/* GC blocks. The table and the lists are under the lock. */
+#define OS32_ALL_FREE ((uint16_t)((1u << OS32_BLOCKS) - 1))
+
+/* the arena holding block p, or NULL; p is 16 KB aligned */
+static struct os32_barena* os32_barena_of(const void* p)
+{
+    unsigned lo = 0, hi = os32.nbarenas;
+    while (lo < hi) {
+        unsigned mid = (lo + hi) >> 1;
+        struct os32_barena* a = os32.barena[mid];
+        if ((const char*)p < a->base)
+            hi = mid;
+        else if ((uintptr_t)((const char*)p - a->base) >= OS32_BLOCKS * OS32_BLOCK)
+            lo = mid + 1;
+        else
+            return a;
+    }
+    return NULL;
+}
+
+static void os32_blist(struct os32_barena* a)
+{
+    a->prev = NULL;
+    a->next = os32.broom;
+    if (os32.broom)
+        os32.broom->prev = a;
+    os32.broom = a;
+    a->listed = 1;
+}
+
+static void os32_bunlist(struct os32_barena* a)
+{
+    if (a->prev)
+        a->prev->next = a->next;
+    else
+        os32.broom = a->next;
+    if (a->next)
+        a->next->prev = a->prev;
+    a->listed = 0;
+}
+
+/* a new arena into the table and the list; 0 when the table is full */
+static int os32_badd(struct os32_barena* a)
+{
+    unsigned i = os32.nbarenas;
+    if (i == OS32_BARENAS)
+        return 0;
+    while (i && os32.barena[i - 1]->base > a->base) {
+        os32.barena[i] = os32.barena[i - 1];
+        i--;
+    }
+    os32.barena[i] = a;
+    os32.nbarenas++;
+    os32.bempty++;
+    os32_blist(a);
+    return 1;
+}
+
+static void os32_bremove(struct os32_barena* a)
+{
+    unsigned i = 0;
+    while (os32.barena[i] != a)
+        i++;
+    os32.nbarenas--;
+    for (; i < os32.nbarenas; i++)
+        os32.barena[i] = os32.barena[i + 1];
+    if (a->listed)
+        os32_bunlist(a);
+    os32.bempty--;
+}
+
+static void* os32_block(void)
+{
+    struct os32_barena* a;
+    unsigned i;
+    os32_lock();
+    a = os32.broom;
+    if (!a) {
+        struct os32_barena* n;
+        os32_unlock();
+        n = (struct os32_barena*)__real_malloc(sizeof *n + (OS32_BLOCKS + 1) * OS32_BLOCK);
+        if (!n)
+            return NULL;
+        n->base = (char*)(((uintptr_t)(n + 1) + OS32_BLOCK - 1) & ~(uintptr_t)(OS32_BLOCK - 1));
+        n->freeMask = OS32_ALL_FREE;
+        os32_lock();
+        /* another task may have added one while libnix ran: use either */
+        if (!os32_badd(n)) {
+            os32_unlock();
+            __real_free(n);
+            return NULL; /* the caller takes the large path */
+        }
+        a = os32.broom;
+    }
+    if (a->freeMask == OS32_ALL_FREE)
+        os32.bempty--;
+    i = (unsigned)__builtin_ctz(a->freeMask);
+    a->freeMask &= (uint16_t)~(1u << i);
+    if (!a->freeMask)
+        os32_bunlist(a);
+    os32_unlock();
+    return a->base + i * OS32_BLOCK;
+}
+
+/* frees p when it is a GC block: 1 if it was */
+static int os32_block_free(void* p)
+{
+    struct os32_barena *a, *gone = NULL;
+    unsigned i;
+    os32_lock();
+    a = os32.nbarenas ? os32_barena_of(p) : NULL;
+    if (!a) {
+        os32_unlock();
+        return 0;
+    }
+    i = (unsigned)(((char*)p - a->base) / OS32_BLOCK);
+#ifdef OS32_MALLOC_DEBUG
+    if (a->freeMask & (1u << i))
+        abort(); /* freed twice */
+    memset(p, 0xDB, OS32_BLOCK);
+#endif
+    if (!a->freeMask)
+        os32_blist(a);
+    a->freeMask |= (uint16_t)(1u << i);
+    if (a->freeMask == OS32_ALL_FREE && ++os32.bempty > 1) {
+        os32_bremove(a); /* one empty arena is enough to wait for growth */
+        gone = a;
+    }
+    os32_unlock();
+    if (gone)
+        __real_free(gone);
+    return 1;
+}
+
+static inline int os32_maybe_block(const void* p)
+{
+    return !((uintptr_t)p & (OS32_BLOCK - 1)) && os32.nbarenas;
+}
+
+/* a GC block's arena, when p is one (for realloc and the size) */
+static struct os32_barena* os32_block_arena(const void* p)
+{
+    struct os32_barena* a;
+    if (!os32_maybe_block(p))
+        return NULL;
+    os32_lock();
+    a = os32_barena_of(p);
+    os32_unlock();
+    return a;
+}
+
 static void* os32_large(size_t alignment, size_t size)
 {
     uintptr_t raw, user;
@@ -424,6 +602,11 @@ static void* os32_alloc(size_t alignment, size_t size)
         alignment = 8;
     if (alignment & (alignment - 1))
         return NULL;
+    if (alignment == OS32_BLOCK && size <= OS32_BLOCK) {
+        void* b = os32_block();
+        if (b)
+            return b;
+    }
     if (alignment <= 2048 && size <= OS32_SLOT_MAX - OS32_HDR - OS32_EXTRA - (alignment - 8))
         return os32_small(alignment, size);
     return os32_large(alignment, size);
@@ -452,6 +635,9 @@ void __wrap_free(void* p)
     char* slot;
     unsigned c;
     if (!p)
+        return;
+    /* first: a GC block's word before it is another block's data */
+    if (os32_maybe_block(p) && os32_block_free(p))
         return;
     if (((uintptr_t*)p)[-1] == OS32_LARGE) {
 #ifdef OS32_MALLOC_DEBUG
@@ -520,7 +706,11 @@ void* __wrap_realloc(void* old, size_t size)
         __wrap_free(old);
         return NULL;
     }
-    if (((uintptr_t*)old)[-1] == OS32_LARGE) {
+    if (os32_block_arena(old)) {
+        if (size <= OS32_BLOCK)
+            return old;
+        oldSize = OS32_BLOCK;
+    } else if (((uintptr_t*)old)[-1] == OS32_LARGE) {
 #ifdef OS32_MALLOC_DEBUG
         oldSize = os32_asked(old, NULL);
         if (size <= oldSize && size >= oldSize / 2) {
@@ -579,6 +769,8 @@ size_t os32_malloc_usable_size(void* p)
     char* slot;
     if (!p)
         return 0;
+    if (os32_block_arena(p))
+        return OS32_BLOCK;
     if (((uintptr_t*)p)[-1] == OS32_LARGE)
         return ((size_t*)p)[-3];
     pg = os32_page_of(p, &slot);
