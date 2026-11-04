@@ -511,6 +511,20 @@ The patches, in order:
   `PROGDIR:Cache/Scripts`, trims it to 32 MB at start (`ob_scriptcache.c`)
   and writes the translations 5 s after each load, through
   `JSC::amigaWriteCodeCache()` (`runtime/AmigaCodeCacheWrite.h`).
+- `0101-jsc-m68k-jit-bit-operations.patch`: the template JIT's `&`, `|`,
+  `^`, `~`, `<<`, `>>` and `>>>` (and `op_unsigned` after `>>>`) on numbers.
+  `&`, `|` and `^` had int32 code only and the rest only the interpreter's
+  handlers, so any double operand (an int32 sum or product that overflowed,
+  a uint32 from `x >>> 0`, a fraction) called the C slow path. Now int32s
+  are done in a data register and every double (NaN and infinities give 0)
+  is truncated from its IEEE bits with integer shifts, as V8's
+  DoubleToInt32 does, by a routine each compiled function writes once; no
+  FPU and no FPCR switch. Only non-numbers still go to the template. Constant operands
+  become their ToInt32 when compiled, a negative int32 into `op_unsigned`
+  makes its double inline, and loops' register copies take the shifts,
+  `~` and `op_unsigned`. `JSC_useM68KBitFastPaths=0` (a `Set` variable)
+  turns it off. Tested by `tools/jsjit/test/bitops/run.sh` (the JIT's own
+  code under qemu-m68k, 47,760 cases) and `tools/jsjit/lab/correct23.js`.
 - `0102-jsc-m68k-heap-not-mini-mode.patch`: the heap leaves mini mode when
   the 68k template JIT is on. Mini mode is `!useJIT`, and the baseline JIT
   is not built, so every collection was a full one, the heap grew by a fifth
