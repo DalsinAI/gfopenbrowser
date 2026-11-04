@@ -20,12 +20,16 @@ before the one shown can be dropped and read again.
 Without such a datatype (the system's gif.datatype answers no OIA_Frames),
 and for every other picture, nothing changes: one frame, decoded as before.
 
+Frames after the first are decoded one task priority below the caller, so
+on a single 68k they take only the time the page's loading leaves (at the
+same priority they pushed the load's end back by about one frame's decode).
+
 ---
 diff --git a/Source/WebCore/platform/image-decoders/amiga/DatatypesDecode.c b/Source/WebCore/platform/image-decoders/amiga/DatatypesDecode.c
-index 38a1f89..89cd33a 100644
+index 38a1f89..ba32669 100644
 --- a/Source/WebCore/platform/image-decoders/amiga/DatatypesDecode.c
 +++ b/Source/WebCore/platform/image-decoders/amiga/DatatypesDecode.c
-@@ -396,6 +396,161 @@ static int obdt_decode_datatypes(const void* data, unsigned long size, OBDTImage
+@@ -396,6 +396,174 @@ static int obdt_decode_datatypes(const void* data, unsigned long size, OBDTImage
      return 1;
  }
  
@@ -147,6 +151,8 @@ index 38a1f89..89cd33a 100644
 +{
 +    OBDTAnimationObject* object = (OBDTAnimationObject*)animation->handle;
 +    struct oiReadFrame message;
++    struct Task* me;
++    BYTE priority;
 +    ULONG ok;
 +
 +    if (!object || index >= animation->frames || !pixels)
@@ -159,7 +165,18 @@ index 38a1f89..89cd33a 100644
 +    message.oirf_Flags = OIRF_PREMULTIPLIED;
 +    message.oirf_Delay = 0;
 +    message.oirf_HasAlpha = TRUE;
++    /* Frames after the first are decoded while the page goes on loading:
++     * one priority below the browser, so they only take the time it leaves
++     * (on one 68k they ran at its priority and pushed the load's end back
++     * by a frame's decode). Frame 0 is the picture as first painted, so it
++     * keeps the caller's priority. */
++    me = FindTask(NULL);
++    priority = me->tc_Node.ln_Pri;
++    if (index)
++        SetTaskPri(me, priority - 1);
 +    ok = DoMethodA(object->object, (Msg)&message);
++    if (index)
++        SetTaskPri(me, priority);
 +    resetFPCR();
 +    if (obdt_anim_trace())
 +        fprintf(stderr, "OBANIM frame %u ok=%lu delay=%lu alpha=%lu ioerr=%ld task=%08lx\n", index, (unsigned long)ok,
