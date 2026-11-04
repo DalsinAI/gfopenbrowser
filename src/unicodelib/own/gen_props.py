@@ -13,13 +13,13 @@
 #              enums (UProperty, UBlockCode, UScriptCode, ...) are ours too
 # OUT_DIR      uo_data.c (the tables) and uo_data.h (what uo_*.c use)
 #
-# Per code point two tries (each block stored once): the property record
+# Per code point four tries (each block stored once): the property record
 # (general category, bidi class, combining class, script, East Asian width,
-# line break, vertical orientation, numeric type, the set of binary
-# properties, and the index of the record of the rest: decomposition type,
-# grapheme, word and sentence break, Indic categories, quick checks,
-# normalization-inert and segment-starter flags, identifier types), and the
-# case record (simple mappings as deltas, case-folding delta, flags). Age,
+# line break, vertical orientation, numeric type), the set of binary
+# properties, the record of the rest (decomposition type, grapheme, word
+# and sentence break, Indic categories, quick checks, normalization-inert,
+# segment-starter and case-sensitive flags, identifier types), and the case
+# record (simple mappings as deltas, case-folding delta, flags). Age,
 # numeric values and lead/trail combining classes are runs and lists.
 # Besides UCD.zip's files: Unicode's emoji/emoji-sequences.txt and
 # security/IdentifierType.txt of the same version (scripts/fetch-ucd.sh).
@@ -847,6 +847,7 @@ def main():
     moreIndex, moreRecs = {}, []
     recIndex, recs = {}, []
     props = [0] * MAXCP
+    morev = [0] * MAXCP
     for c in range(MAXCP):
         t = mp["idTypes"][c]
         if t not in idtIndex:
@@ -859,12 +860,13 @@ def main():
         if m not in moreIndex:
             moreIndex[m] = len(moreRecs)
             moreRecs.append(m)
-        r = (gc[c], bc[c], ccc[c], sc[c], ea[c] | nt[c] << 3 | vo[c] << 5, lb[c], binv[c], moreIndex[m])
+        morev[c] = moreIndex[m]
+        r = (gc[c], bc[c], ccc[c], sc[c], ea[c] | nt[c] << 3 | vo[c] << 5, lb[c])
         if r not in recIndex:
             recIndex[r] = len(recs)
             recs.append(r)
         props[c] = recIndex[r]
-    if len(binSets) > 256 or len(moreRecs) > 0xFFFF or max(max(m) for m in moreRecs) > 255:
+    if len(moreRecs) > 0xFFFF or max(max(m) for m in moreRecs) > 255:
         die("a property record field does not fit")
     # Hangul_Syllable_Type: ICU's rule from the grapheme cluster break, checked
     gcbEnum, _ = parse_enum(uchar, "UGraphemeClusterBreak")
@@ -928,7 +930,7 @@ def main():
         f.write("#include <stdint.h>\n\n")
         f.write(f'#define UO_UNICODE_VERSION "{ucdver}"\n')
         f.write("enum { UO_UNICODE_MAJOR = %s, UO_UNICODE_MINOR = %s, UO_UNICODE_MICRO = %s };\n" % tuple(ucdver.split(".")))
-        f.write("struct uo_prop { uint8_t gc, bc, ccc, sc, ea_nt_vo, lb, bin; uint16_t more; };\n")
+        f.write("struct uo_prop { uint8_t gc, bc, ccc, sc, ea_nt_vo, lb; };\n")
         f.write("struct uo_more { uint8_t dt, gcb, sb, wb, inpc, insc, incb, qc, flags, idt; };\n")
         f.write("/* qc: NFD | NFKD << 1 | NFC << 2 | NFKC << 4; flags: */\n")
         f.write("enum { UO_NFD_INERT = 1, UO_NFKD_INERT = 2, UO_NFC_INERT = 4, UO_NFKC_INERT = 8,\n"
@@ -940,7 +942,7 @@ def main():
         f.write("enum { UO_CASED = 1, UO_IGNORABLE = 2, UO_SOFT_DOTTED = 4, UO_ABOVE = 8, UO_OTHER_ACCENT = 16,\n"
                 "       UO_FULL = 32, UO_LOWER = 64, UO_UPPER_OR_TITLE = 128 };\n")
         f.write("enum { UO_FULL_LOWER, UO_FULL_TITLE, UO_FULL_UPPER, UO_FULL_FOLD };\n")
-        for name, vals in (("props", props), ("case", casev)):
+        for name, vals in (("props", props), ("bin", binv), ("more", morev), ("case", casev)):
             tries[name] = build_trie(vals, name)
             b1, b2, _, _, _, ltype, _ = tries[name]
             f.write(f"#define UO_{name.upper()}_B1 {b1}\n#define UO_{name.upper()}_B2 {b2}\n")
@@ -976,7 +978,7 @@ def main():
     with open(os.path.join(out, "uo_data.c"), "w") as f:
         f.write("/* made by gen_props.py from the UCD " + ucdver + ": unicode.library's own tables.\n")
         f.write(" * " + ", ".join(ucd.used) + " */\n#include \"uo_data.h\"\n\n")
-        for name in ("props", "case"):
+        for name in ("props", "bin", "more", "case"):
             b1, b2, t1, t2, leaf, ltype, size = tries[name]
             c_array(f, "uint16_t", f"uo_{name}_t1", t1)
             c_array(f, "uint16_t", f"uo_{name}_t2", t2)
@@ -984,10 +986,9 @@ def main():
             sizes[name] = size
         f.write(f"const struct uo_prop uo_props[{len(recs)}] = {{\n")
         for r in recs:
-            f.write("    {%d, %d, %d, %d, %d, %d, %d, %d},\n" % r)
+            f.write("    {%d, %d, %d, %d, %d, %d},\n" % r)
         f.write("};\n\n")
-        sizes["props"] += 10 * len(recs)
-        sizes["bin"] = 0
+        sizes["props"] += 6 * len(recs)
         f.write(f"const struct uo_more uo_more[{len(moreRecs)}] = {{\n")
         for r in moreRecs:
             f.write("    {%d, %d, %d, %d, %d, %d, %d, %d, %d, %d},\n" % r)
@@ -1005,7 +1006,7 @@ def main():
         c_array(f, "uint32_t", "uo_fcd_lead", [c << 8 | l for c, l, _ in fcd], per=8)
         c_array(f, "uint8_t", "uo_fcd_trail", [t for _, _, t in fcd], per=16)
         c_array(f, "int32_t", "uo_hard_starts", hardStarts, per=8)
-        sizes["more"] = 10 * len(moreRecs) + 2 * len(idTypesOut) + 4 * len(ageRuns) + 8 * len(numRuns) \
+        sizes["more"] += 10 * len(moreRecs) + 2 * len(idTypesOut) + 4 * len(ageRuns) + 8 * len(numRuns) \
             + 8 * len(numVals) + 5 * len(fcd) + 4 * len(hardStarts)
         f.write(f"const uint32_t uo_bin_sets[{len(binSets)}][3] = {{\n")
         for b in binSets:

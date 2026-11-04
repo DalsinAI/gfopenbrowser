@@ -65,7 +65,7 @@ pinned by sha256; `own/ucd.sha256` checks every file read).
 | File | What it is |
 | --- | --- |
 | `own.txt` | The calls that are ours. |
-| `own/gen_props.py` | Makes `uo_data.c` from the UCD (with Unicode's `emoji-sequences.txt` and `IdentifierType.txt` of the same version): two tries, each the smallest of a few shapes: the property record (with the set of binary properties and the index of the record of the rest: decomposition type, break classes, Indic categories, quick checks, normalization-inert, segment-starter and case-sensitive flags, identifier types) and the case record; then age, numeric values and lead/trail combining classes as runs and lists, blocks, script extensions, mirroring, full case mappings, script names and error names. Inert and segment starter are worked out as ICU's normalization data builder does, from the decompositions and compositions. ICU's enum numbers come from its own headers, since the programs use ICU's interface. It stops the build when SpecialCasing's conditional mappings or CaseFolding's Turkic ones change, as `uo_case.c` writes them out. |
+| `own/gen_props.py` | Makes `uo_data.c` from the UCD (with Unicode's `emoji-sequences.txt` and `IdentifierType.txt` of the same version): four tries, each the smallest of a few shapes: the property record, the set of binary properties, the record of the rest (decomposition type, break classes, Indic categories, quick checks, normalization-inert, segment-starter and case-sensitive flags, identifier types) and the case record; then age, numeric values and lead/trail combining classes as runs and lists, blocks, script extensions, mirroring, full case mappings, script names and error names. Inert and segment starter are worked out as ICU's normalization data builder does, from the decompositions and compositions. ICU's enum numbers come from its own headers, since the programs use ICU's interface. It stops the build when SpecialCasing's conditional mappings or CaseFolding's Turkic ones change, as `uo_case.c` writes them out. |
 | `own/uo_props.c` | Every property ICU 78 has: general category, bidi class, combining class, mirroring, all the `u_is*` and digit calls, all 76 binary properties and all 27 integer ones, age, numeric values, identifier status and types, blocks, scripts and script extensions, script names, error names, and the starts of every property's runs (for ICU's property sets). |
 | `own/uo_case.c` | Simple and full case mapping and folding, with SpecialCasing's conditions (final sigma; Lithuanian, Turkish and Azerbaijani i and dot above), and `u_strToTitle` on our word breaking (with Dutch IJ). |
 | `own/gen_brk.py` | Makes `uo_brk_data.c` from the UCD: per code point one record of its line-break class (with UAX #14's LB1 done), grapheme-cluster, word and sentence break classes, Indic conjunct class, title-case class and flags (East Asian width, Extended_Pictographic, Hiragana, Han, kana and kanji, Ideographic). 185 records, 26,637 bytes. |
@@ -100,7 +100,9 @@ parsing) asks our tables. The host check covers all 76 binary and 27
 integer properties, age, numeric values, identifier types, script
 extensions and every `u_is*` call on every code point, and that our
 property starts cover every change of every property. The tables are
-161,140 bytes.
+207,784 bytes; the property and binary tries are those of piece 1, so the
+properties WebKit asks for cost what they did, and the rest have a trie
+of their own.
 
 ## Building
 
