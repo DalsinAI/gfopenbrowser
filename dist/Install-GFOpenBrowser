@@ -108,13 +108,18 @@
                 (abort "Could not rename the old LIBS:gfopenfont.library.")))
         (copyfiles (source "GFOpenBrowser/Libs/gfopenfont.library") (dest "LIBS:") (nogauge))))
 
-; gfopenfont's CJK face (Droid Sans Fallback, Apache License 2.0) with its
-; NOTICE in FONTS:, where every program drawing with gfopenfont.library finds
-; it: Chinese, Japanese and Korean text, not boxes. One already there is kept.
+; gfopenfont's CJK faces with their licences in FONTS:, where every program
+; drawing with gfopenfont.library finds them: Droid Sans Fallback (Apache
+; License 2.0) for Chinese and Japanese, NanumGothic (SIL OFL 1.1) for
+; Korean, not boxes. One already there is kept.
 (if (and (exists "GFOpenBrowser/Fonts/DroidSansFallbackFull.ttf")
          (not (exists "FONTS:DroidSansFallbackFull.ttf")))
     (copyfiles (source "GFOpenBrowser/Fonts") (dest "FONTS:")
         (choices "DroidSansFallbackFull.ttf" "DroidSansFallback.NOTICE") (nogauge)))
+(if (and (exists "GFOpenBrowser/Fonts/NanumGothic-Regular.ttf")
+         (not (exists "FONTS:NanumGothic-Regular.ttf")))
+    (copyfiles (source "GFOpenBrowser/Fonts") (dest "FONTS:")
+        (choices "NanumGothic-Regular.ttf" "NanumGothic.OFL.txt") (nogauge)))
 
 ; gfopengpu.library 0.24 or newer: the window is painted through it (without
 ; it, the engine paints with cairo, more slowly). An older one is renamed
