@@ -22,11 +22,11 @@ and for every other picture, nothing changes: one frame, decoded as before.
 
 ---
 diff --git a/Source/WebCore/platform/image-decoders/amiga/DatatypesDecode.c b/Source/WebCore/platform/image-decoders/amiga/DatatypesDecode.c
-index 38a1f89..2c04403 100644
+index 38a1f89..5c92171 100644
 --- a/Source/WebCore/platform/image-decoders/amiga/DatatypesDecode.c
 +++ b/Source/WebCore/platform/image-decoders/amiga/DatatypesDecode.c
-@@ -402,6 +402,145 @@ void obdt_free(OBDTImage* image)
-     image->pixels = NULL;
+@@ -396,6 +396,145 @@ static int obdt_decode_datatypes(const void* data, unsigned long size, OBDTImage
+     return 1;
  }
  
 +/* Animated GIFs through a datatype that gives every frame:
@@ -168,9 +168,9 @@ index 38a1f89..2c04403 100644
 +    animation->handle = NULL;
 +}
 +
- /* The PNG datatypes tried for writing, ours first; any that writes PNG for
-  * DTM_WRITE with DTWM_RAW will do. */
- static const char* const s_pngDataTypes[] = { "openpng", "png" };
+ void obdt_free(OBDTImage* image)
+ {
+     free(image->pixels);
 diff --git a/Source/WebCore/platform/image-decoders/amiga/DatatypesDecode.h b/Source/WebCore/platform/image-decoders/amiga/DatatypesDecode.h
 index 3fb2fbf..63a365b 100644
 --- a/Source/WebCore/platform/image-decoders/amiga/DatatypesDecode.h
