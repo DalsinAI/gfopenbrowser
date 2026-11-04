@@ -17,6 +17,9 @@
 #include <WebCore/DateTimeChooser.h>
 #include <WebCore/FileChooser.h>
 #include <WebCore/FloatRect.h>
+#include <WebCore/ElementAncestorIteratorInlines.h>
+#include <WebCore/HTMLFormControlElement.h>
+#include <WebCore/HTMLFormElement.h>
 #include <WebCore/HitTestResult.h>
 #include <WebCore/Icon.h>
 #include <WebCore/LocalFrame.h>
@@ -76,7 +79,13 @@ private:
     void unfocus() final { }
     bool canTakeFocus(FocusDirection) const final { return true; }
     void takeFocus(FocusDirection) final { }
-    void focusedElementChanged(Element*, LocalFrame*, FocusOptions, BroadcastFocusedElement) final { }
+    // Someone started on a form: the loads Tata's defer rules held (a
+    // CAPTCHA's script, which the form needs before it is sent) go now.
+    void focusedElementChanged(Element* element, LocalFrame*, FocusOptions, BroadcastFocusedElement) final
+    {
+        if (element && (is<HTMLFormControlElement>(*element) || element->isTextField() || ancestorsOfType<HTMLFormElement>(*element).first()))
+            m_view.releaseDeferredLoads();
+    }
     void focusedFrameChanged(Frame*) final { }
 
     // One window: links that would open another load in this one.

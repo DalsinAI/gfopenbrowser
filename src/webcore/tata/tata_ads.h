@@ -1,4 +1,4 @@
-/* A copy of DalsinAI/gfopentata's src/tata_ads.h (Tata 0.6.0, aeba9f0): change it there first. */
+/* A copy of DalsinAI/gfopentata's src/tata_ads.h (Tata 0.6.1, 51e1fc9): change it there first. */
 /* Tata's ad and tracker rules (0.6.0): which requests a web browser
  * leaves out. Plain C with no Amiga calls, so GFOpenBrowser builds the same
  * file (a copy in its src/webcore/tata/) and a rule means the same in both.
@@ -9,14 +9,19 @@
  *
  *   block host        requests to host, and to any name under it
  *   block host/path   only those whose path starts with /path
- *   pass host         never block requests to host (or under it): a line
- *                     of the list the user doesn't want
+ *   defer host        hold requests to host (and names under it) until the
+ *   defer host/path   page has painted and gone idle, or someone starts on
+ *                     a form (0.6.1): reCAPTCHA and the like, which forms
+ *                     need but a first paint doesn't
+ *   pass host         never block or defer requests to host (or under it):
+ *                     a line of the list the user doesn't want
  *   allow site        block nothing on the pages of site (or under it):
  *                     the browser's "Don't block on this site"
  *   # a comment
  *
  * Names are matched without case; "www." is not special. A pass line
- * beats any block line, so the user's file can take a host off the list.
+ * beats any block or defer line, so the user's file can take a host off
+ * the list.
  *
  * MIT, Copyright (c) 2026 AmiCradle Team. */
 #ifndef TATA_ADS_H
@@ -46,6 +51,13 @@ void tata_ads_counts(const tata_ads *ads, unsigned long *block, unsigned long *p
 /* Whether a request to host, for path (from its "/", 0 for "/"), made by
  * a page of site (the page's host, 0 when unknown), is to be left out. */
 int tata_ads_blocked(const tata_ads *ads, const char *host, const char *path, const char *site);
+
+/* Whether a request to host (path as above) for a page of site is to be
+ * held back (a defer rule; neither allowed nor passed). The browser asks
+ * tata_ads_blocked() first. */
+int tata_ads_deferred(const tata_ads *ads, const char *host, const char *path, const char *site);
+/* How many defer rules the set has. */
+unsigned long tata_ads_defers(const tata_ads *ads);
 
 /* Whether an allow line covers site (the site or a name it is under):
  * nothing is blocked on its pages. */

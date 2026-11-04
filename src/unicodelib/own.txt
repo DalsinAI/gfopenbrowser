@@ -1,0 +1,60 @@
+# The calls of calls.txt that our own code answers (src/unicodelib/own/),
+# in place of ICU's: gen_calls.py points their table entries at uo_<call>.
+# The rest are still ICU's (PLAN.md step 7, one piece at a time).
+#
+# Piece 1, properties and case (1 November 2026). Still ICU's from this
+# group: the uset_* calls,
+# u_strFromUTF8, u_strToUTF8 and uscript_getCode; inside ours, Greek
+# uppercasing (locale "el") still goes to ICU's own function. Since piece
+# 3 every property is ours (own/uo_icu.c answers ICU's own code too).
+u_charDirection
+u_charMirror
+u_charType
+u_countChar32
+u_errorName
+u_foldCase
+u_getCombiningClass
+u_getIntPropertyValue
+u_getPropertyValueEnum
+u_getVersion
+u_hasBinaryProperty
+u_isalnum
+u_isalpha
+u_isdigit
+u_isprint
+u_ispunct
+u_isUWhiteSpace
+u_strFoldCase
+u_strToLower
+u_strToUpper
+u_tolower
+u_totitle
+u_toupper
+ublock_getCode
+uscript_getScript
+uscript_getShortName
+uscript_hasScript
+uscript_isRightToLeft
+u_strToTitle
+#
+# Piece 2, text breaking (3 November 2026): grapheme clusters, words,
+# sentences, lines (strict, normal and loose) and title-case segments
+# (own/uo_brk.c), and the UText setup WebKit's text providers use. Still
+# ICU's from this group: ubrk_countAvailable and ubrk_getAvailable (ICU's
+# list of locales).
+ubrk_clone
+ubrk_close
+ubrk_current
+ubrk_first
+ubrk_following
+ubrk_isBoundary
+ubrk_last
+ubrk_next
+ubrk_open
+ubrk_preceding
+ubrk_previous
+ubrk_getRuleStatus
+ubrk_setText
+ubrk_setUText
+utext_close
+utext_setup

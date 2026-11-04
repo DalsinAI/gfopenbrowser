@@ -30,6 +30,10 @@
 #                  build/amiga/gfopenfont.library); the Installer puts it in
 #                  LIBS:. Required: the engine draws and shapes all its text
 #                  with it (WebKit patch 0090)
+#   OPENFONT_SRC   gfopenfont's checkout (default: the one OPENFONT_LIB was
+#                  built in, build/amiga/../..); its fonts/cjk/fetch-cjk-font.sh fetches
+#                  gfopenfont's CJK face, which the package carries in Fonts/
+#                  and the Installer puts in FONTS: for every program
 #   OPENGPU_LIB    gfopengpu.library 0.24 or newer (gfopenrtg's
 #                  library/opengpu build); the Installer puts it in LIBS:.
 #                  Required: the window is painted through it (WebKit
@@ -133,6 +137,14 @@ cp "$JSONLIB" "$D/Libs/"
 OPENFONTLIB=${OPENFONT_LIB:?set OPENFONT_LIB to gfopenfont.library 1.4 (gfopenfont); the engine draws its text with it}
 [ -f "$OPENFONTLIB" ] || { echo "package-browser.sh: no $OPENFONTLIB" >&2; exit 2; }
 cp "$OPENFONTLIB" "$D/Libs/gfopenfont.library"
+# gfopenfont's CJK face (Chinese, Japanese and Korean; gfopenfont's
+# fonts/cjk), fetched at build time with its NOTICE: the Installer puts both
+# in FONTS:, where every program drawing with gfopenfont.library finds them
+OPENFONTSRC=${OPENFONT_SRC:-$(CDPATH= cd -- "$(dirname -- "$OPENFONTLIB")/../.." && pwd)}
+[ -x "$OPENFONTSRC/fonts/cjk/fetch-cjk-font.sh" ] || { echo "package-browser.sh: no fonts/cjk/fetch-cjk-font.sh in $OPENFONTSRC (set OPENFONT_SRC to gfopenfont's checkout)" >&2; exit 2; }
+CJK_FONT=$("$OPENFONTSRC/fonts/cjk/fetch-cjk-font.sh")
+mkdir -p "$D/Fonts"
+cp "$CJK_FONT" "$(dirname "$CJK_FONT")/DroidSansFallback.NOTICE" "$D/Fonts/"
 OPENGPULIB=${OPENGPU_LIB:?set OPENGPU_LIB to gfopengpu.library 0.24 or newer (gfopenrtg); the window is painted through it}
 [ -f "$OPENGPULIB" ] || { echo "package-browser.sh: no $OPENGPULIB" >&2; exit 2; }
 cp "$OPENGPULIB" "$D/Libs/gfopengpu.library"
