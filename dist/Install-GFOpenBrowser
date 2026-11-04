@@ -1,13 +1,13 @@
-; $VER: Install-GFOpenBrowser 0.8.4 (1.11.2026)
+; $VER: Install-GFOpenBrowser 0.9.0 (4.11.2026)
 ; GFOpenBrowser's Installer script (SYS:System/Installer). Run it from its icon
 ; beside the GFOpenBrowser drawer; from a Shell, "Execute Install" in the drawer
 ; does the same without questions. Nothing is deleted: a file it would
 ; replace is renamed, and the closing message says how to undo.
 ; MIT, Copyright (c) 2026 AmiCradle Team.
 
-(set #version "0.8.4 test (1.11.2026)")
+(set #version "0.9.0 RC1 (4.11.2026)")
 (set @app-name "GFOpenBrowser")
-(set #stamp "20261101")
+(set #stamp "20261104")
 (set #backup (cat "LIBS:WebBrowser/WebBrowserEngine.before-" #stamp))
 ; the drawer as unpacked is about 87 MB: the one engine (WebBrowserEngine,
 ; which webbrowser.library runs), its fonts and the Unicode data
@@ -80,18 +80,18 @@
     (copyfiles (source "GFOpenBrowser.info") (dest #where) (nogauge)))
 
 ; 2. https: GFOpenTLS 1.2 or newer and GFOpenCrypto 2.1 or newer, and the
-;    certificates. An older library is renamed .before-20261101 (kept), then
+;    certificates. An older library is renamed .before-20261104 (kept), then
 ;    the one in the drawer goes in; a newer one is left as it is.
 (if (< (getversion "LIBS:gfopentls.library") 65538)
     (
         (if (exists "LIBS:gfopentls.library")
-            (if (= 0 (rename "LIBS:gfopentls.library" "LIBS:gfopentls.library.before-20261101"))
+            (if (= 0 (rename "LIBS:gfopentls.library" "LIBS:gfopentls.library.before-20261104"))
                 (abort "Could not rename the old LIBS:gfopentls.library. Nothing else was changed in LIBS:.")))
         (copyfiles (source "GFOpenBrowser/Libs/gfopentls.library") (dest "LIBS:") (nogauge))))
 (if (< (getversion "LIBS:gfopencrypto.library") 131073)
     (
         (if (exists "LIBS:gfopencrypto.library")
-            (if (= 0 (rename "LIBS:gfopencrypto.library" "LIBS:gfopencrypto.library.before-20261101"))
+            (if (= 0 (rename "LIBS:gfopencrypto.library" "LIBS:gfopencrypto.library.before-20261104"))
                 (abort "Could not rename the old LIBS:gfopencrypto.library.")))
         (copyfiles (source "GFOpenBrowser/Libs/gfopencrypto.library") (dest "LIBS:") (nogauge))))
 (if (not (exists "S:GFOpenTLS/ca-bundle.pem"))
@@ -100,11 +100,11 @@
         (copyfiles (source "GFOpenBrowser/S/GFOpenTLS") (dest "S:GFOpenTLS") (all) (nogauge))))
 
 ; gfopenfont.library 1.4 or newer: the engine draws and shapes all its text
-; with it. An older one is renamed .before-20261101 (kept).
+; with it. An older one is renamed .before-20261104 (kept).
 (if (< (getversion "LIBS:gfopenfont.library") 65540)
     (
         (if (exists "LIBS:gfopenfont.library")
-            (if (= 0 (rename "LIBS:gfopenfont.library" "LIBS:gfopenfont.library.before-20261101"))
+            (if (= 0 (rename "LIBS:gfopenfont.library" "LIBS:gfopenfont.library.before-20261104"))
                 (abort "Could not rename the old LIBS:gfopenfont.library.")))
         (copyfiles (source "GFOpenBrowser/Libs/gfopenfont.library") (dest "LIBS:") (nogauge))))
 
@@ -123,11 +123,11 @@
 
 ; gfopengpu.library 0.24 or newer: the window is painted through it (without
 ; it, the engine paints with cairo, more slowly). An older one is renamed
-; .before-20261101 (kept).
+; .before-20261104 (kept).
 (if (< (getversion "LIBS:gfopengpu.library") 24)
     (
         (if (exists "LIBS:gfopengpu.library")
-            (if (= 0 (rename "LIBS:gfopengpu.library" "LIBS:gfopengpu.library.before-20261101"))
+            (if (= 0 (rename "LIBS:gfopengpu.library" "LIBS:gfopengpu.library.before-20261104"))
                 (abort "Could not rename the old LIBS:gfopengpu.library.")))
         (copyfiles (source "GFOpenBrowser/Libs/gfopengpu.library") (dest "LIBS:") (nogauge))))
 
@@ -158,7 +158,7 @@
 ; through the datatypes stream class: z.library 53.12 (gzip.datatype opens
 ; it), stream.datatype, gzip.datatype and brotli.datatype 47.1 or newer in
 ; SYS:Classes/DataTypes, and their descriptors in DEVS:DataTypes. An older
-; one is renamed .before-20261101 (kept), then the drawer's goes in; a
+; one is renamed .before-20261104 (kept), then the drawer's goes in; a
 ; descriptor goes in when missing. Without them pages still load,
 ; uncompressed.
 (procedure P_newer #file #src #destdir #want
