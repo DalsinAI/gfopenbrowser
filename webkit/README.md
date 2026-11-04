@@ -502,6 +502,23 @@ The patches, in order:
   and redirect, with the page's site; a blocked one fails as cancelled from
   the run loop. GFOpenBrowser answers from Tata's ad and tracker rules
   (`src/webcore/ob_tata.c`).
+- `0099-amiga-script-bytecode-cache.patch`: page and worker scripts are
+  translated once. WebCore's two script source providers keep what
+  JavaScriptCore makes from a script (its bytecode, and each function's when
+  first called) in a file in the folder the browser names
+  (`setAmigaScriptBytecodeFolder`), named by a hash and the length of the
+  text, and load it the next time the same text runs. GFOpenBrowser uses
+  `PROGDIR:Cache/Scripts`, trims it to 32 MB at start (`ob_scriptcache.c`)
+  and writes the translations 5 s after each load, through
+  `JSC::amigaWriteCodeCache()` (`runtime/AmigaCodeCacheWrite.h`).
+- `0102-jsc-m68k-heap-not-mini-mode.patch`: the heap leaves mini mode when
+  the 68k template JIT is on. Mini mode is `!useJIT`, and the baseline JIT
+  is not built, so every collection was a full one, the heap grew by a fifth
+  after each, the whole heap was swept at the end of each and bytecode was
+  thrown away. `VM::isInMiniModeForHeap()` is false with
+  `useM68KTemplateJIT` on (unless `forceMiniVMMode`), and the heap's checks
+  use it: generational collections, normal heap growth, lazy sweeping, and
+  bytecode kept. `useGenerationalGC=false` still forces full collections.
 - `0104-jsc-m68k-jit-sooner.patch`: functions and loops go to the 68k
   template JIT sooner: `thresholdForJITAfterWarmUp` is 100 on the 68k
   (500 elsewhere), so a function is compiled on about its seventh call and a
@@ -510,7 +527,9 @@ The patches, in order:
   filled (checked at the end of each collection) the code is compiled once
   more, after `m68kTemplateJITRecompileThreshold` (100) more counts in the
   interpreter. The replaced code is kept until its CodeBlock dies.
-  `JSC_useM68KTemplateJITRecompile=0` turns the second compile off, and
+  The second compile is off by default (no gain on bbc or reddit on i32
+  and i14, 0.5-0.8 s slower on some runs); `JSC_useM68KTemplateJITRecompile=1`
+  turns it on, and
   `JSC_reportM68KTemplateJITStatistics=1` prints at exit what was compiled
   and how often the interpreter's property caches missed.
 - `0110-amiga-animated-gif-frames-from-datatype.patch`: animated GIFs play.
@@ -521,6 +540,14 @@ The patches, in order:
   frame's delay and the repetition count, and reads each frame straight
   into its pixels. Without that datatype GIFs show their first frame, as
   before; other pictures don't change.
+- `0120-amiga-http-authentication.patch`: HTTP log-ins. A 401 with a
+  Basic or Digest challenge goes to the frame loader's client as an
+  `AuthenticationChallenge` whose `authenticationClient()` is the handle
+  (it was null), so GFOpenBrowser's log-in dialog can answer it. The
+  answer starts the request again with the user and password, which
+  openweb.fetch answers the server's challenge with. Credentials are kept
+  for the session by server and realm and tried once without asking;
+  three refusals show the 401 page. Synchronous loads go on without.
 
 `0001-amiga-m68k-jsconly.patch` is one combined patch. It holds:
 

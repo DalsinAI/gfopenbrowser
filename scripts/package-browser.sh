@@ -38,6 +38,11 @@
 #                  library/opengpu build); the Installer puts it in LIBS:.
 #                  Required: the window is painted through it (WebKit
 #                  patches 0076-0082b); without it the engine paints with cairo
+#   OPENLAYOUT_LIB gfopenlayout.library 11 or newer (gfopenlayout's
+#                  build-library.sh build); the Installer puts it in LIBS:.
+#                  Required: the window's dialogs, find bar, downloads and
+#                  preferences are drawn by it (without it, alerts are
+#                  EasyRequests and the rest say they need it)
 #   UNICODE_LIB    unicode.library (default WEBKIT_BUILD/unicode-library/,
 #                  where build-webcore.sh makes it); the Installer puts it
 #                  in LIBS:. Required when the engine was built on it
@@ -65,7 +70,7 @@
 # OUT_DIR/GFOpenBrowser/            the drawer: GFOpenBrowser (the launcher),
 #                                 Libs/ (webbrowser.library, GFOpenTLS,
 #                                 json.library, gfopenfont.library,
-#                                 gfopengpu.library,
+#                                 gfopengpu.library, gfopenlayout.library,
 #                                 unicode.library, z.library and WebBrowser/: the engine with Fonts/,
 #                                 Tata.ads, Unicode/ and Network/, and
 #                                 with a jsimage engine JavaScript/
@@ -139,17 +144,21 @@ cp "$JSONLIB" "$D/Libs/"
 OPENFONTLIB=${OPENFONT_LIB:?set OPENFONT_LIB to gfopenfont.library 1.4 (gfopenfont); the engine draws its text with it}
 [ -f "$OPENFONTLIB" ] || { echo "package-browser.sh: no $OPENFONTLIB" >&2; exit 2; }
 cp "$OPENFONTLIB" "$D/Libs/gfopenfont.library"
-# gfopenfont's CJK face (Chinese, Japanese and Korean; gfopenfont's
-# fonts/cjk), fetched at build time with its NOTICE: the Installer puts both
-# in FONTS:, where every program drawing with gfopenfont.library finds them
+# gfopenfont's CJK faces (Droid Sans Fallback for Chinese and Japanese,
+# NanumGothic for Korean; gfopenfont's fonts/cjk), fetched at build time
+# with their licences: the Installer puts them in FONTS:, where every
+# program drawing with gfopenfont.library finds them
 OPENFONTSRC=${OPENFONT_SRC:-$(CDPATH= cd -- "$(dirname -- "$OPENFONTLIB")/../.." && pwd)}
 [ -x "$OPENFONTSRC/fonts/cjk/fetch-cjk-font.sh" ] || { echo "package-browser.sh: no fonts/cjk/fetch-cjk-font.sh in $OPENFONTSRC (set OPENFONT_SRC to gfopenfont's checkout)" >&2; exit 2; }
-CJK_FONT=$("$OPENFONTSRC/fonts/cjk/fetch-cjk-font.sh")
 mkdir -p "$D/Fonts"
-cp "$CJK_FONT" "$(dirname "$CJK_FONT")/DroidSansFallback.NOTICE" "$D/Fonts/"
+CJK_FILES=$("$OPENFONTSRC/fonts/cjk/fetch-cjk-font.sh")
+printf '%s\n' "$CJK_FILES" | while IFS= read -r f; do cp "$f" "$D/Fonts/"; done
 OPENGPULIB=${OPENGPU_LIB:?set OPENGPU_LIB to gfopengpu.library 0.24 or newer (gfopenrtg); the window is painted through it}
 [ -f "$OPENGPULIB" ] || { echo "package-browser.sh: no $OPENGPULIB" >&2; exit 2; }
 cp "$OPENGPULIB" "$D/Libs/gfopengpu.library"
+OPENLAYOUTLIB=${OPENLAYOUT_LIB:?set OPENLAYOUT_LIB to gfopenlayout.library 11 or newer (gfopenlayout); the window dialogs are drawn by it}
+[ -f "$OPENLAYOUTLIB" ] || { echo "package-browser.sh: no $OPENLAYOUTLIB" >&2; exit 2; }
+cp "$OPENLAYOUTLIB" "$D/Libs/gfopenlayout.library"
 # unicode.library, when the engine was built on it (OB_ICU_DATA=library):
 # ICU's code, shared; the Installer puts it in LIBS:, and the engine also
 # finds the drawer's Libs/ copy

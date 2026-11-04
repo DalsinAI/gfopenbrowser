@@ -1,4 +1,4 @@
-From 1c02cc999c7a6c106b5f167bd65ad4414aaa16ff Mon Sep 17 00:00:00 2001
+From dd76c712651fa29909e141dcfb28a9493923f09e Mon Sep 17 00:00:00 2001
 From: SacredTrees <121399723+SacredTrees@users.noreply.github.com>
 Date: Tue, 3 Nov 2026 21:25:44 +0000
 Subject: [PATCH] JavaScriptCore: the 68k template JIT sooner, and once more
@@ -22,23 +22,28 @@ compiles it again after m68kTemplateJITRecompileThreshold (100) more.
 Replaced code stays allocated, with its structure tables still cleared of
 dead structures, until the CodeBlock dies, since a frame or a caller can
 still be running it; it leaves through redispatch to the current code.
-JSC_useM68KTemplateJITRecompile=0 turns the second compile off.
+The second compile is off by default (JSC_useM68KTemplateJITRecompile=1
+turns it on): timed on i32 and i14, it gave no gain on bbc or reddit
+and was 0.5-0.8 s slower on some runs.
 
 JSC_reportM68KTemplateJITStatistics=1 prints at exit what was compiled
 (compiles, second compiles, bytes) and how often the interpreter's
 get_by_id, put_by_id, get_by_val and put_by_val missed, for the
-interpreter cache work that follows.
+interpreter cache work that follows: get_by_id misses by the kind of
+property found (own or prototype value, getter, custom accessor, unset,
+uncacheable) and the 30 names that miss most, for get_by_id and for
+get_by_val with a string or symbol key.
 
 Team 3
 ---
- .../JavaScriptCore/llint/LLIntSlowPaths.cpp   |  22 +++
- .../JavaScriptCore/llint/M68KTemplateJIT.cpp  | 184 +++++++++++++++++-
- Source/JavaScriptCore/llint/M68KTemplateJIT.h |  27 +++
+ .../JavaScriptCore/llint/LLIntSlowPaths.cpp   |  38 +++
+ .../JavaScriptCore/llint/M68KTemplateJIT.cpp  | 228 +++++++++++++++++-
+ Source/JavaScriptCore/llint/M68KTemplateJIT.h |  33 +++
  Source/JavaScriptCore/runtime/OptionsList.h   |  14 +-
- 4 files changed, 237 insertions(+), 10 deletions(-)
+ 4 files changed, 303 insertions(+), 10 deletions(-)
 
 diff --git a/Source/JavaScriptCore/llint/LLIntSlowPaths.cpp b/Source/JavaScriptCore/llint/LLIntSlowPaths.cpp
-index 9333b282..525c17de 100644
+index 9333b282..5f3debca 100644
 --- a/Source/JavaScriptCore/llint/LLIntSlowPaths.cpp
 +++ b/Source/JavaScriptCore/llint/LLIntSlowPaths.cpp
 @@ -83,6 +83,19 @@ WTF_ALLOW_UNSAFE_BUFFER_USAGE_BEGIN
@@ -50,7 +55,7 @@ index 9333b282..525c17de 100644
 +#if CPU(M68K) && ENABLE(C_LOOP)
 +#define M68K_COUNT(...) do { \
 +        if (Options::reportM68KTemplateJITStatistics() && M68KTemplateJIT::countStatistics()) { \
-+            auto& statistics = M68KTemplateJIT::statistics; \
++            [[maybe_unused]] auto& statistics = M68KTemplateJIT::statistics; \
 +            __VA_ARGS__; \
 +        } \
 +    } while (0)
@@ -61,7 +66,24 @@ index 9333b282..525c17de 100644
  #define LLINT_BEGIN_NO_SET_PC() \
      CodeBlock* codeBlock = callFrame->codeBlock(); \
      JSGlobalObject* globalObject = codeBlock->globalObject(); \
-@@ -938,7 +951,9 @@ LLINT_SLOW_PATH_DECL(slow_path_get_by_id)
+@@ -873,6 +886,16 @@ static JSValue performLLIntGetByID(BytecodeIndex bytecodeIndex, CodeBlock* codeB
+     JSValue result = baseValue.get<true>(globalObject, ident, slot);
+     RETURN_IF_EXCEPTION(throwScope, { });
+ 
++    M68K_COUNT(
++        using M68KTemplateJIT::MissKind;
++        MissKind kind = !baseValue.isCell() ? MissKind::NotCell
++            : slot.isUnset() ? MissKind::Unset
++            : !slot.isCacheable() ? MissKind::Uncacheable
++            : slot.isAccessor() ? MissKind::Getter
++            : slot.isCustom() ? MissKind::Custom
++            : slot.slotBase() == baseValue ? MissKind::OwnValue : MissKind::PrototypeValue;
++        M68KTemplateJIT::noteGetByIdMiss(ident.impl(), kind));
++
+     if (Options::useLLIntICs()
+         && baseValue.isCell()
+         && slot.isCacheable()
+@@ -938,7 +961,9 @@ LLINT_SLOW_PATH_DECL(slow_path_get_by_id)
      const Identifier& ident = codeBlock->identifier(bytecode.m_property);
      JSValue baseValue = getOperand(callFrame, bytecode.m_base);
  
@@ -71,7 +93,7 @@ index 9333b282..525c17de 100644
      LLINT_RETURN_PROFILED(result);
  }
  
-@@ -952,7 +967,9 @@ LLINT_SLOW_PATH_DECL(slow_path_get_length)
+@@ -952,7 +977,9 @@ LLINT_SLOW_PATH_DECL(slow_path_get_length)
  
      if (baseValue.isCell())
          metadata.m_arrayProfile.observeStructure(baseValue.asCell()->structure());
@@ -81,7 +103,7 @@ index 9333b282..525c17de 100644
      LLINT_RETURN_PROFILED(result);
  }
  
-@@ -1090,6 +1107,8 @@ LLINT_SLOW_PATH_DECL(slow_path_put_by_id)
+@@ -1090,6 +1117,8 @@ LLINT_SLOW_PATH_DECL(slow_path_put_by_id)
      
      JSValue baseValue = getOperand(callFrame, bytecode.m_base);
      PutPropertySlot slot(baseValue, bytecode.m_flags.ecmaMode().isStrict(), codeBlock->putByIdContext());
@@ -90,7 +112,7 @@ index 9333b282..525c17de 100644
  
      Structure* oldStructure = baseValue.isCell() ? baseValue.asCell()->structure() : nullptr;
      if (bytecode.m_flags.isDirect())
-@@ -1171,6 +1190,7 @@ LLINT_SLOW_PATH_DECL(slow_path_put_by_id)
+@@ -1171,6 +1200,7 @@ LLINT_SLOW_PATH_DECL(slow_path_put_by_id)
          }
      }
      
@@ -98,15 +120,21 @@ index 9333b282..525c17de 100644
      LLINT_END();
  }
  
-@@ -1258,6 +1278,7 @@ LLINT_SLOW_PATH_DECL(slow_path_get_by_val)
+@@ -1258,6 +1288,13 @@ LLINT_SLOW_PATH_DECL(slow_path_get_by_val)
      auto bytecode = pc->as<OpGetByVal>();
      JSValue baseValue = getOperand(callFrame, bytecode.m_base);
      JSValue subscript = getOperand(callFrame, bytecode.m_property);
 +    M68K_COUNT(++statistics.getByValMisses; statistics.getByValNamedMisses += subscript.isString() || subscript.isSymbol());
++    M68K_COUNT(
++        if (subscript.isString() || subscript.isSymbol()) {
++            Identifier key = subscript.toPropertyKey(globalObject);
++            if (!throwScope.exception())
++                M68KTemplateJIT::noteGetByValNamedMiss(key.impl());
++        });
      LLINT_RETURN_PROFILED(getByVal(vm, globalObject, codeBlock, baseValue, subscript, bytecode));
  }
  
-@@ -1328,6 +1349,7 @@ LLINT_SLOW_PATH_DECL(slow_path_put_by_val)
+@@ -1328,6 +1365,7 @@ LLINT_SLOW_PATH_DECL(slow_path_put_by_val)
      JSValue subscript = getOperand(callFrame, bytecode.m_property);
      JSValue value = getOperand(callFrame, bytecode.m_value);
      bool isStrictMode = bytecode.m_ecmaMode.isStrict();
@@ -115,21 +143,22 @@ index 9333b282..525c17de 100644
      
      if (std::optional<uint32_t> index = subscript.tryGetAsUint32Index()) {
 diff --git a/Source/JavaScriptCore/llint/M68KTemplateJIT.cpp b/Source/JavaScriptCore/llint/M68KTemplateJIT.cpp
-index 7a2dec8c..993c3280 100644
+index 7a2dec8c..014837f9 100644
 --- a/Source/JavaScriptCore/llint/M68KTemplateJIT.cpp
 +++ b/Source/JavaScriptCore/llint/M68KTemplateJIT.cpp
-@@ -61,6 +61,10 @@
+@@ -61,6 +61,11 @@
  #include "PureNaN.h"
  #include <wtf/DataLog.h>
  #include <wtf/FastMalloc.h>
 +#include <wtf/HashMap.h>
 +#include <wtf/Lock.h>
 +#include <wtf/NeverDestroyed.h>
++#include <algorithm>
 +#include <cstdlib>
  
  #if OS(AMIGA)
  #include <proto/exec.h>
-@@ -1063,6 +1067,14 @@ public:
+@@ -1063,6 +1068,14 @@ public:
          m_hot.word(0x4fef); m_hot.word(16); // lea 16(sp),sp
      }
      unsigned getByIdTableCount() const { return m_tableCount; }
@@ -144,7 +173,7 @@ index 7a2dec8c..993c3280 100644
      const Vector<std::pair<size_t, CodeBlock*>>& inlineGuards() const { return m_inlineGuards; }
      // Points the table addresses in the code at the tables, which start at
      // the buffer position tables (a GetByIdTables).
-@@ -1086,8 +1098,12 @@ private:
+@@ -1086,8 +1099,12 @@ private:
          // The mode is read as the code runs; the structure ID is the first
          // word in all three.
          auto& modeMetadata = metadata.m_modeMetadata;
@@ -158,7 +187,7 @@ index 7a2dec8c..993c3280 100644
          static_assert(!OBJECT_OFFSETOF(GetByIdModeMetadataDefault, structureID) && !OBJECT_OFFSETOF(GetByIdModeMetadataProtoLoad, structureID) && !OBJECT_OFFSETOF(GetByIdModeMetadataUnset, structureID));
          loadCell(base);
          m_hot.moveaImm(static_cast<uint32_t>(reinterpret_cast<uintptr_t>(&modeMetadata)), 1);
-@@ -1732,8 +1748,10 @@ private:
+@@ -1732,8 +1749,10 @@ private:
          auto& metadata = bytecode.metadata(m_codeBlock);
          // Only sites whose cache has settled: on a replace, or on a
          // transition that needs no new storage (the only kind it caches).
@@ -170,7 +199,7 @@ index 7a2dec8c..993c3280 100644
          loadCell(base);
          m_hot.moveaImm(static_cast<uint32_t>(reinterpret_cast<uintptr_t>(&metadata)), 1);
          m_hot.loadDisp(0, JSCell::structureIDOffset(), 1);
-@@ -1941,6 +1959,10 @@ private:
+@@ -1941,6 +1960,10 @@ private:
  
          Vector<size_t, 2> returnPoints;
          Vector<size_t> inlineDone;
@@ -181,7 +210,7 @@ index 7a2dec8c..993c3280 100644
          if constexpr (!std::is_same_v<Op, OpConstruct>)
              inlineCall(linkInfo, bytecode.m_argc, frame, dst, offset, returnPoints, inlineDone);
  
-@@ -2904,8 +2926,10 @@ private:
+@@ -2904,8 +2927,10 @@ private:
      template<typename Metadata>
      bool checkGlobalProperty(Metadata& metadata)
      {
@@ -193,7 +222,7 @@ index 7a2dec8c..993c3280 100644
          m_hot.loadDisp(0, JSCell::structureIDOffset(), 1);
          m_hot.cmpLongAbs(&metadata.m_structureID, 1);
          slowUnless(Builder::NotEqual);
-@@ -2927,14 +2951,20 @@ private:
+@@ -2927,14 +2952,20 @@ private:
          switch (type) {
          case GlobalProperty: case GlobalVar: case GlobalLexicalVar: case ModuleVar:
          case GlobalPropertyWithVarInjectionChecks: case GlobalVarWithVarInjectionChecks: case GlobalLexicalVarWithVarInjectionChecks:
@@ -215,7 +244,7 @@ index 7a2dec8c..993c3280 100644
          default:
              return false;
          }
-@@ -2981,6 +3011,9 @@ private:
+@@ -2981,6 +3012,9 @@ private:
          case GlobalLexicalVar: case GlobalLexicalVarWithVarInjectionChecks:
          case ClosureVar: case ClosureVarWithVarInjectionChecks:
              break;
@@ -225,7 +254,7 @@ index 7a2dec8c..993c3280 100644
          default:
              return false;
          }
-@@ -3047,6 +3080,9 @@ private:
+@@ -3047,6 +3081,9 @@ private:
          case GlobalLexicalVar: case GlobalLexicalVarWithVarInjectionChecks:
          case ClosureVar: case ClosureVarWithVarInjectionChecks: case ResolvedClosureVar:
              break;
@@ -235,7 +264,7 @@ index 7a2dec8c..993c3280 100644
          default:
              return false;
          }
-@@ -3304,6 +3340,15 @@ private:
+@@ -3304,6 +3341,15 @@ private:
      // The inlined callees' guard words (inlineCall): the fixups of the
      // code addresses that read them, and the CodeBlocks they hold.
      Vector<std::pair<size_t, CodeBlock*>> m_inlineGuards;
@@ -251,7 +280,7 @@ index 7a2dec8c..993c3280 100644
  };
  
  // Register caching (stage J6). A loop's body gets a second copy that keeps
-@@ -4195,6 +4240,39 @@ private:
+@@ -4195,6 +4241,69 @@ private:
      size_t m_loop { 0 };
  };
  
@@ -278,6 +307,31 @@ index 7a2dec8c..993c3280 100644
 +    return map.get();
 +}
 +
++// Statistics mode only: misses by kind, and by property name.
++uint64_t missKinds[static_cast<unsigned>(MissKind::Count)];
++HashMap<RefPtr<UniquedStringImpl>, uint64_t>& getByIdMissNames() WTF_REQUIRES_LOCK(stateLock)
++{
++    static NeverDestroyed<HashMap<RefPtr<UniquedStringImpl>, uint64_t>> map;
++    return map.get();
++}
++HashMap<RefPtr<UniquedStringImpl>, uint64_t>& getByValMissNames() WTF_REQUIRES_LOCK(stateLock)
++{
++    static NeverDestroyed<HashMap<RefPtr<UniquedStringImpl>, uint64_t>> map;
++    return map.get();
++}
++
++void reportTopNames(const char* what, const HashMap<RefPtr<UniquedStringImpl>, uint64_t>& names)
++{
++    Vector<std::pair<uint64_t, UniquedStringImpl*>> sorted;
++    for (auto& entry : names)
++        sorted.append({ entry.value, entry.key.get() });
++    std::sort(sorted.begin(), sorted.end(), [](const auto& a, const auto& b) { return a.first > b.first; });
++    dataLog("68k ", what, " misses by name:");
++    for (size_t i = 0; i < sorted.size() && i < 30; ++i)
++        dataLog(" ", String(sorted[i].second), "=", sorted[i].first);
++    dataLogLn("");
++}
++
 +void reportStatistics()
 +{
 +    const Statistics& s = statistics;
@@ -286,12 +340,17 @@ index 7a2dec8c..993c3280 100644
 +        s.watchedCompiles, " compiled with ", s.watchedSites, " empty caches, ", s.retires, " replaced (", s.retiredBytes, " bytes kept)");
 +    dataLogLn("68k interpreter caches: get_by_id ", s.getByIdMisses, " misses (", s.getByIdMissesInCode, " in compiled CodeBlocks, ", s.getByIdRecaches, " replaced another structure), put_by_id ",
 +        s.putByIdMisses, " (", s.putByIdMissesInCode, " in compiled, ", s.putByIdRecaches, " replaced), get_by_val ", s.getByValMisses, " (", s.getByValNamedMisses, " named), put_by_val ", s.putByValMisses);
++    dataLogLn("68k get_by_id misses by kind: own value ", missKinds[0], ", prototype value ", missKinds[1], ", getter ", missKinds[2],
++        ", custom accessor ", missKinds[3], ", unset ", missKinds[4], ", uncacheable ", missKinds[5], ", not a cell ", missKinds[6]);
++    Locker locker { stateLock };
++    reportTopNames("get_by_id", getByIdMissNames());
++    reportTopNames("get_by_val (named)", getByValMissNames());
 +}
 +
  bool compile(CodeBlock* codeBlock)
  {
      const auto& instructions = codeBlock->instructions();
-@@ -4363,6 +4441,27 @@ bool compile(CodeBlock* codeBlock)
+@@ -4363,6 +4472,27 @@ bool compile(CodeBlock* codeBlock)
      codeBlock->m_m68kTemplateMap = map;
      codeBlock->m_m68kTemplateEntry = map[0];
      codeBlock->m_m68kTemplateMapSize = bytecodeSize;
@@ -319,7 +378,7 @@ index 7a2dec8c..993c3280 100644
      dataLogLnIf(Options::verboseOSR(), *codeBlock, ": 68k template JIT, ", bytecodeSize, " bytecode bytes -> ", codeSize, " code bytes (", hotSize, " hot)");
      return true;
  }
-@@ -4373,8 +4472,11 @@ void compileIfNeeded(CodeBlock* codeBlock)
+@@ -4373,8 +4503,11 @@ void compileIfNeeded(CodeBlock* codeBlock)
  {
      if (!Options::useM68KTemplateJIT() || codeBlock->m_m68kTemplateMap || codeBlock->m_m68kTemplateFailed)
          return;
@@ -332,7 +391,7 @@ index 7a2dec8c..993c3280 100644
  }
  
  void* entryFor(CodeBlock* codeBlock, const JSInstruction* pc)
-@@ -4386,11 +4488,8 @@ void* entryFor(CodeBlock* codeBlock, const JSInstruction* pc)
+@@ -4386,11 +4519,8 @@ void* entryFor(CodeBlock* codeBlock, const JSInstruction* pc)
      return codeBlock->m_m68kTemplateMap[bytecodeOffset];
  }
  
@@ -345,7 +404,7 @@ index 7a2dec8c..993c3280 100644
      for (unsigned i = 0; i < tables->count; ++i) {
          for (auto& entry : tables->tables[i].entries) {
              if (!entry.structureID)
-@@ -4410,8 +4509,61 @@ void reconcileCaches(CodeBlock* codeBlock, VM& vm)
+@@ -4410,8 +4540,61 @@ void reconcileCaches(CodeBlock* codeBlock, VM& vm)
      }
  }
  
@@ -407,11 +466,24 @@ index 7a2dec8c..993c3280 100644
      fastFree(codeBlock->m_m68kTemplateCode);
      fastFree(codeBlock->m_m68kTemplateMap);
      codeBlock->m_m68kTemplateCode = nullptr;
-@@ -4420,6 +4572,20 @@ void release(CodeBlock* codeBlock)
+@@ -4420,6 +4603,33 @@ void release(CodeBlock* codeBlock)
      codeBlock->m_m68kTemplateMapSize = 0;
  }
  
 +Statistics statistics;
++
++void noteGetByIdMiss(UniquedStringImpl* name, MissKind kind)
++{
++    ++missKinds[static_cast<unsigned>(kind)];
++    Locker locker { stateLock };
++    getByIdMissNames().add(name, 0).iterator->value++;
++}
++
++void noteGetByValNamedMiss(UniquedStringImpl* name)
++{
++    Locker locker { stateLock };
++    getByValMissNames().add(name, 0).iterator->value++;
++}
 +
 +bool countStatistics()
 +{
@@ -429,10 +501,18 @@ index 7a2dec8c..993c3280 100644
  } // namespace JSC
  
 diff --git a/Source/JavaScriptCore/llint/M68KTemplateJIT.h b/Source/JavaScriptCore/llint/M68KTemplateJIT.h
-index 24e44b75..f984bea3 100644
+index 24e44b75..cfa25f7e 100644
 --- a/Source/JavaScriptCore/llint/M68KTemplateJIT.h
 +++ b/Source/JavaScriptCore/llint/M68KTemplateJIT.h
-@@ -59,6 +59,33 @@ void reconcileCaches(CodeBlock*, VM&);
+@@ -35,6 +35,7 @@
+ #if CPU(M68K) && ENABLE(C_LOOP)
+ 
+ #include "Instruction.h"
++#include <wtf/text/UniquedStringImpl.h>
+ 
+ namespace JSC {
+ 
+@@ -59,6 +60,38 @@ void reconcileCaches(CodeBlock*, VM&);
  // Frees a CodeBlock's code and map (from ~CodeBlock).
  void release(CodeBlock*);
  
@@ -459,6 +539,11 @@ index 24e44b75..f984bea3 100644
 +    uint64_t putByValMisses { 0 };
 +};
 +extern Statistics statistics;
++// The kind of property a get_by_id miss found, and its name, for the
++// report's breakdown (statistics mode only).
++enum class MissKind : unsigned { OwnValue, PrototypeValue, Getter, Custom, Unset, Uncacheable, NotCell, Count };
++void noteGetByIdMiss(UniquedStringImpl*, MissKind);
++void noteGetByValNamedMiss(UniquedStringImpl*);
 +// True when JSC_reportM68KTemplateJITStatistics is set; the first call
 +// registers the report for exit.
 +bool countStatistics();
@@ -467,7 +552,7 @@ index 24e44b75..f984bea3 100644
  } // namespace JSC
  
 diff --git a/Source/JavaScriptCore/runtime/OptionsList.h b/Source/JavaScriptCore/runtime/OptionsList.h
-index caaf2f3c..841ad7db 100644
+index caaf2f3c..d6f529a2 100644
 --- a/Source/JavaScriptCore/runtime/OptionsList.h
 +++ b/Source/JavaScriptCore/runtime/OptionsList.h
 @@ -43,6 +43,15 @@ JS_EXPORT_PRIVATE bool canUseJITCage();
@@ -499,7 +584,7 @@ index caaf2f3c..841ad7db 100644
      v(Bool, useM68KInlining, true, Normal, "68k only: the template JIT writes small functions into their callers' code at call sites that always call them."_s) \
      v(Unsigned, m68kTemplateJITMaximumInlineSize, 64, Normal, "68k only: largest function, in bytecode bytes, the template JIT inlines."_s) \
      v(Unsigned, m68kTemplateJITMaximumBytecodeSize, 4096, Normal, "68k only: largest CodeBlock, in bytecode bytes, the template JIT compiles."_s) \
-+    v(Bool, useM68KTemplateJITRecompile, true, Normal, "68k only: code compiled while some of its sites' caches were still empty is compiled once more after they fill."_s) \
++    v(Bool, useM68KTemplateJITRecompile, false, Normal, "68k only: code compiled while some of its sites' caches were still empty is compiled once more after they fill. Off: no gain on bbc or reddit, 0.5-0.8 s slower on some."_s) \
 +    v(Int32, m68kTemplateJITRecompileThreshold, 100, Normal, "68k only: how much more the interpreter runs such a CodeBlock (as thresholdForJITAfterWarmUp counts) before it is compiled again."_s) \
 +    v(Bool, reportM68KTemplateJITStatistics, false, Normal, "68k only: at exit, print what the template JIT compiled and how often the interpreter's property caches missed."_s) \
      v(Bool, useBaselineJITCodeSharing, jitEnabledByDefault(), Normal, nullptr) \

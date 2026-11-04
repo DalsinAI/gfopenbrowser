@@ -85,6 +85,12 @@ public:
     void runAlert(const String&);
     bool runConfirm(const String&);
     bool runPrompt(const String& message, const String& defaultValue, String& result);
+    // A server's log-in panel (the window's authenticate callback): true
+    // with user and password filled to log in.
+    bool runAuthentication(const String& host, const String& realm, unsigned previousFailures, String& user, String& password);
+    // Find in the page (ob_webview_find).
+    int find(const String&, int flags, int& current);
+    void clearFind();
     void consoleMessage(const String& message, unsigned line, const String& source);
     void resourceStarted(const String& url);
     // A request of the page opened or closed (once each, redirects or not):
@@ -99,6 +105,8 @@ public:
 private:
     void renderingUpdateTimerFired();
     void deferTimerFired();
+    void writeScriptCache();
+    void scriptCacheTimerFired();
     void addDirtyRect(const WebCore::IntRect&);
     void callString(void (*callback)(void*, const char*), const String&);
 
@@ -114,6 +122,8 @@ private:
     int m_openRequests { 0 };
     bool m_deferReleased { false };
     WebCore::Timer m_renderingUpdateTimer;
+    WebCore::Timer m_scriptCacheTimer; // writes the translated scripts a while after a load, one file each idle tick
+    bool m_scriptCacheHandedOver { false }; // this load's scripts went to the writer (writeScriptCache())
     MonotonicTime m_nextRenderingUpdate; // while a page loads, none before this
     unsigned m_renderingUpdates { 0 };
     unsigned m_paintedRenderingUpdate { 0 }; // the last one takeDirtyRects() gave out
