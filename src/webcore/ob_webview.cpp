@@ -13,6 +13,7 @@
 #include "AmigaPlatformStrategies.h"
 #include "AmigaWebView.h"
 #include "ob_network.h"
+#include "ob_scriptcache.h"
 #include "ob_tata.h"
 #if OB_ICU_DATA_FILE
 #include "ob_icudata.h"
@@ -24,6 +25,7 @@
 #include <WebCore/DocumentView.h>
 #include <WebCore/FrameDestructionObserverInlines.h>
 #include <WebCore/NodeDocument.h>
+#include <WebCore/AmigaScriptBytecode.h>
 #include <WebCore/CommonAtomStrings.h>
 #include <WebCore/EventHandler.h>
 #include <WebCore/HTMLElement.h>
@@ -42,6 +44,8 @@
 #include <WebCore/WindowsKeyboardCodes.h>
 #include <limits>
 #include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
 #include <time.h>
 #include <wtf/DataLog.h>
 #include <wtf/MainThread.h>
@@ -173,6 +177,15 @@ int ob_webcore_init_with_network(const char* cookieDatabase)
     // Pages seen before load their files from the disk (ob_httpcache.h:
     // ENV:OB_HTTP_CACHE=0 turns this off).
     GFOpenBrowser::initializeHttpCache("PROGDIR:Cache");
+
+    // Scripts translated once (WebKit patch 0099, ob_scriptcache.h):
+    // OB_SCRIPT_CACHE=0 turns it off (Set in the shell that starts it: on
+    // the lab copy of Instance-32, SetEnv was not seen).
+    const char* scriptCache = getenv("OB_SCRIPT_CACHE");
+    if (!scriptCache || strcmp(scriptCache, "0")) {
+        ob_scriptcache_trim(OB_SCRIPTCACHE_DIR, OB_SCRIPTCACHE_MAX);
+        setAmigaScriptBytecodeFolder(String::fromLatin1(OB_SCRIPTCACHE_DIR));
+    }
     return 1;
 }
 
@@ -534,6 +547,20 @@ void ob_webview_set_web_fonts(OBWebView* handle, int enabled)
 void ob_webview_set_lite(OBWebView* handle, int enabled)
 {
     handle->view->setLiteMode(enabled);
+}
+
+int ob_webview_find(OBWebView* handle, const char* text, int flags, int* current)
+{
+    int selected = 0;
+    int count = handle->view->find(String::fromUTF8(text ? text : ""), flags, selected);
+    if (current)
+        *current = selected;
+    return count;
+}
+
+void ob_webview_find_clear(OBWebView* handle)
+{
+    handle->view->clearFind();
 }
 
 void ob_webview_focus(OBWebView* handle, int focused)

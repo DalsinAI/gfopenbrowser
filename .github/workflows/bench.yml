@@ -29,8 +29,8 @@ on:
 
 env:
   OPENSDK_REF: e75b5ffae42b6c446ec11cb195b919151e56529c      # gfopensdk main, as gfopencurl
-  TC_URL: https://github.com/DalsinAI/gfopengcc/releases/download/v16.2.0-open3/openamigagcc-16.2.0-open3-x86_64-linux.tar.xz
-  TC_SHA256: 9fcc136ab59e3bb5b91d2764d0bf290b709d72d7380be4ce0cdf005edf8eff21
+  TC_URL: https://github.com/DalsinAI/gfopengcc/releases/download/v16.2.0-open6/gfopenamigagcc-16.2.0-open6-x86_64-linux.tar.xz
+  TC_SHA256: 65f284476ec20cdf7851475d91d2c18d77fa6f2a0eb0f844b6ca23dbfa57eaa7
 
 jobs:
   host:
@@ -78,7 +78,7 @@ jobs:
           tar xf tc/tc.tar.xz -C tc
       - name: obstamp
         run: |
-          D=tc/openamigagcc-16.2.0-open3-x86_64-linux/bin
+          D=tc/gfopenamigagcc-16.2.0-open6-x86_64-linux/bin
           mkdir -p build
           $D/m68k-amigaos-gcc -m68040 -m68881 -mcrt=nix20 -std=gnu99 -O2 -Wall -Wextra -Werror \
             -I gfopensdk/OpenNDK/Include_H tools/bench/obstamp.c -o build/obstamp
@@ -86,7 +86,7 @@ jobs:
           strings build/obstamp | grep '\$VER: obstamp '
       - name: obcore-view source compiles (syntax; cairo declared by a stand-in header)
         run: |
-          D=tc/openamigagcc-16.2.0-open3-x86_64-linux/bin
+          D=tc/gfopenamigagcc-16.2.0-open6-x86_64-linux/bin
           mkdir -p build/stub
           cat > build/stub/cairo.h <<'H'
           typedef struct _cairo_surface cairo_surface_t;

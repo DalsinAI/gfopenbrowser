@@ -9,7 +9,7 @@
 #
 #   build-openbrowser.sh [OUT_DIR]          (default build/os3)
 #
-#   TOOLCHAIN_DIR   an unpacked GFOpenAmigaGCC release (openamigagcc-16.2.0-open3-
+#   TOOLCHAIN_DIR   an unpacked GFOpenAmigaGCC release (gfopenamigagcc-16.2.0-open6-
 #                   x86_64-linux), or
 #   STOVE           a stove root holding prefix/bin/m68k-amigaos-gcc
 #                   (default ~/AmiCradle/stoves/os32-gcc16)
