@@ -11,7 +11,9 @@
  * MIT, Copyright (c) 2026 AmiCradle Team.
  */
 #include <exec/types.h>
+#include <dos/var.h>
 #include <proto/exec.h>
+#include <proto/dos.h>
 #ifdef OB_OPENSERVICE
 #include "ob_media.h"
 #endif
@@ -53,4 +55,12 @@ void ob_network_thread_started(void)
      * spends most of its time waiting on the network. */
     SetTaskPri(FindTask(NULL), mainPriority + 1);
     resetFPCR();
+}
+
+int ob_network_switch(const char *name, int dflt)
+{
+    char value[8];
+    if (GetVar((CONST_STRPTR)name, (STRPTR)value, sizeof value, 0) <= 0)
+        return dflt;
+    return value[0] != '0';
 }

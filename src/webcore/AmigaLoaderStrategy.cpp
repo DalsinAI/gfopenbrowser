@@ -33,6 +33,7 @@
 #include "config.h"
 #include "AmigaLoaderStrategy.h"
 #include "ob_tata.h"
+#include "ob_network.h"
 
 #include <WebCore/ArchiveResource.h>
 #include <WebCore/CachedResource.h>
@@ -54,6 +55,8 @@
 #include <WebCore/SubresourceLoader.h>
 #include <WebCore/Timer.h>
 #include <array>
+#include <stdio.h>
+#include <wtf/MonotonicTime.h>
 #include <wtf/Deque.h>
 #include <wtf/HashMap.h>
 #include <wtf/HashSet.h>
@@ -72,6 +75,14 @@ static constexpr auto errorDomain = "GFOpenBrowser"_s;
 // transport also speaks HTTP/2, where the requests are streams on one
 // connection).
 static constexpr unsigned maxRequestsInFlightPerHost = 6;
+// Early fetch: up to 16 requests to a host are handed over at once, so what
+// the preload scanner finds goes on when it is found instead of waiting
+// behind six others. openweb.fetch itself keeps at most six connections to
+// a host and puts the rest as streams on an HTTP/2 connection or in its own
+// queue, and a response kept in the disk cache needs no connection at all
+// (cached responses carry no HTTP version, so a host cannot be told to be
+// HTTP/2 from them). OB_EARLYFETCH=0 keeps every host at six, for comparing.
+static constexpr unsigned maxRequestsInFlightPerHostEarly = 16;
 static constexpr unsigned maxRequestsInFlightForNonHTTPProtocols = 20;
 
 class AmigaLoaderStrategy final : public LoaderStrategy {
@@ -94,6 +105,7 @@ private:
         }
 
         const String& name() const { return m_name; }
+        unsigned loadsInProgress() const { return m_requestsLoading.size(); }
 
         void schedule(ResourceLoader* loader, ResourceLoadPriority priority)
         {
@@ -155,6 +167,43 @@ private:
         const unsigned m_maxRequestsInFlight;
     };
 
+    // OB_EARLYFETCH and OB_NETLOG, read once.
+    static bool earlyFetch()
+    {
+        static int on = -1;
+        if (on < 0)
+            on = ob_network_switch("OB_EARLYFETCH", 1);
+        return on;
+    }
+    static bool netLog()
+    {
+        static int on = -1;
+        if (on < 0)
+            on = ob_network_switch("OB_NETLOG", 0);
+        return on;
+    }
+    static long msSince(MonotonicTime from) { return static_cast<long>((MonotonicTime::now() - from).milliseconds()); }
+
+    static unsigned maxRequestsInFlightFor(const String& hostName)
+    {
+        UNUSED_PARAM(hostName);
+        return earlyFetch() ? maxRequestsInFlightPerHostEarly : maxRequestsInFlightPerHost;
+    }
+
+    // A response over HTTP/2 or HTTP/3, noted for OB_NETLOG.
+    void noteResponse(ResourceLoader& loader)
+    {
+        if (!netLog() || !loader.url().protocolIsInHTTPFamily())
+            return;
+        auto& version = loader.response().httpVersion();
+        if (!version.startsWith("HTTP/2"_s) && !version.startsWith("HTTP/3"_s))
+            return;
+        String hostName = loader.url().host().toString();
+        if (!m_multiplexedHosts.add(hostName).isNewEntry)
+            return;
+        fprintf(stderr, "OBNET_H2 [%ld ms] %s\n", msSince(m_logStart), hostName.utf8().data());
+    }
+
     HostInformation* hostForURL(const URL& url, bool createIfNotFound = false)
     {
         if (!url.protocolIsInHTTPFamily())
@@ -165,7 +214,7 @@ private:
             return it->value.get();
         if (!createIfNotFound)
             return nullptr;
-        auto host = makeUnique<HostInformation>(hostName, maxRequestsInFlightPerHost);
+        auto host = makeUnique<HostInformation>(hostName, maxRequestsInFlightFor(hostName));
         auto* result = host.get();
         m_hosts.add(hostName, WTF::move(host));
         return result;
@@ -258,6 +307,8 @@ private:
         }
         auto* host = hostForURL(loader->url(), true);
         auto priority = loader->request().priority();
+        if (netLog())
+            m_queuedAt.set(loader, MonotonicTime::now());
         bool hadRequests = host->hasRequests();
         host->schedule(loader, priority);
         if (priority > ResourceLoadPriority::Low || !loader->url().protocolIsInHTTPFamily() || (priority == ResourceLoadPriority::Low && !hadRequests)) {
@@ -273,6 +324,12 @@ private:
     void remove(ResourceLoader* loader) final
     {
         m_held.removeFirstMatching([&](auto& entry) { return entry.loader == loader; });
+        noteResponse(*loader);
+        if (netLog()) {
+            m_queuedAt.remove(loader);
+            fprintf(stderr, "OBNET_END [%ld ms] %s %s\n", msSince(m_logStart), loader->response().httpVersion().utf8().data(),
+                loader->url().string().left(160).utf8().data());
+        }
         if (auto* host = hostForURL(loader->url()))
             host->remove(loader);
         scheduleServePendingRequests();
@@ -328,6 +385,12 @@ private:
                     return;
                 requestsPending.removeFirst();
                 host.addLoadInProgress(loader.get());
+                if (netLog()) {
+                    auto queued = m_queuedAt.get(loader.get());
+                    fprintf(stderr, "OBNET_START [%ld ms] waited=%ld pri=%d inflight=%u %s\n", msSince(m_logStart),
+                        queued ? static_cast<long>((MonotonicTime::now() - queued).milliseconds()) : -1L,
+                        static_cast<int>(priority), host.loadsInProgress(), loader->url().string().left(160).utf8().data());
+                }
                 loader->start();
             }
             if (priority == minimumPriority)
@@ -393,6 +456,9 @@ private:
     }
 
     HashMap<String, std::unique_ptr<HostInformation>> m_hosts;
+    HashSet<String> m_multiplexedHosts;
+    HashMap<ResourceLoader*, MonotonicTime> m_queuedAt;
+    MonotonicTime m_logStart { MonotonicTime::now() };
     std::unique_ptr<HostInformation> m_nonHTTPProtocolHost;
     Timer m_requestTimer;
     unsigned m_suspendPendingRequestsCount { 0 };

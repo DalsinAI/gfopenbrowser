@@ -1,4 +1,4 @@
-; Install: GFOpenBrowser 0.8.4 test (1.11.2026), the Shell route.
+; Install: GFOpenBrowser 0.9.0 RC1 (4.11.2026), the Shell route.
 ; MIT, Copyright (c) 2026 AmiCradle Team.
 ; The Installer (Install-GFOpenBrowser, beside this drawer) does the same with
 ; questions. Run this from the drawer, where it stays:
@@ -9,24 +9,26 @@
 ; What it does; every step is checked, and it stops at the first failure:
 ;  - LIBS:gfopentls.library 1.2 or newer and LIBS:gfopencrypto.library 2.1 or
 ;    newer: a missing one goes in; one Version shows to be older is renamed
-;    .before-20261101 and the drawer's goes in; one whose version cannot be
+;    .before-20261104 and the drawer's goes in; one whose version cannot be
 ;    read (not loaded, no $VER in the file) is kept: the Installer reads
 ;    the RomTag and checks it;
 ;  - LIBS:gfopenfont.library 1.4 or newer (the engine draws its text with
-;    it): missing, it goes in; older, it is renamed .before-20261101 and
+;    it): missing, it goes in; older, it is renamed .before-20261104 and
 ;    the drawer's goes in; unreadable, it is kept, as above;
 ;  - LIBS:gfopengpu.library 0.24 or newer (the window is painted through
 ;    it; without it the engine paints with cairo): the same rules;
+;  - LIBS:gfopenlayout.library 11 or newer (the window's dialogs, find bar,
+;    downloads and preferences): the same rules, renamed .before-20261103;
 ;  - LIBS:json.library (the engine's JSON.parse needs it),
 ;    LIBS:unicode.library (its Unicode calls, when the package carries it)
 ;    and S:GFOpenTLS/ca-bundle.pem when missing;
 ;  - for compressed pages, LIBS:z.library 53.12 and
 ;    SYS:Classes/DataTypes/stream.datatype, gzip.datatype and
 ;    brotli.datatype 47.1 or newer, with the same rules as GFOpenTLS
-;    (renamed .before-20261101 when older), and DEVS:DataTypes/GZip and
+;    (renamed .before-20261104 when older), and DEVS:DataTypes/GZip and
 ;    Brotli when missing;
 ;  - LOCALE:Unicode/icudt78b.dat, as the Installer does: when missing, or
-;    one of another size, which is renamed icudt78b.dat.before-20261101,
+;    one of another size, which is renamed icudt78b.dat.before-20261104,
 ;    when LOCALE: has room for it and 2,000,000 bytes more; when Info gives
 ;    no free space for LOCALE: (0, or nothing it can read) the copy is
 ;    tried, and a failure is reported;
@@ -36,9 +38,9 @@
 ;    drawer's Libs) runs LIBS:WebBrowser/WebBrowserEngine when there is
 ;    one, otherwise this drawer's: an older LIBS:WebBrowser/WebBrowserEngine
 ;    (the engine, or the two-line script 0.8.0 and 0.8.1 test wrote there)
-;    is renamed WebBrowserEngine.before-20261101;
+;    is renamed WebBrowserEngine.before-20261104;
 ;  - a GFOpenBrowser.engine left in this drawer by an older version (unpacked
-;    over it) is renamed GFOpenBrowser.engine.before-20261101: the launcher
+;    over it) is renamed GFOpenBrowser.engine.before-20261104: the launcher
 ;    no longer runs it.
 ; Nothing is deleted.
 FailAt 21
@@ -60,7 +62,7 @@ If $vrc GE 10 VAL
     Skip tlsdone
   EndIf
 Else
-  Rename LIBS:gfopentls.library LIBS:gfopentls.library.before-20261101
+  Rename LIBS:gfopentls.library LIBS:gfopentls.library.before-20261104
   If WARN
     Echo "Could not rename the old LIBS:gfopentls.library; nothing changed."
     Quit 20
@@ -87,7 +89,7 @@ If $vrc GE 10 VAL
     Skip cryptodone
   EndIf
 Else
-  Rename LIBS:gfopencrypto.library LIBS:gfopencrypto.library.before-20261101
+  Rename LIBS:gfopencrypto.library LIBS:gfopencrypto.library.before-20261104
   If WARN
     Echo "Could not rename the old LIBS:gfopencrypto.library; nothing changed."
     Quit 20
@@ -114,7 +116,7 @@ If $vrc GE 10 VAL
     Skip fontdone
   EndIf
 Else
-  Rename LIBS:gfopenfont.library LIBS:gfopenfont.library.before-20261101
+  Rename LIBS:gfopenfont.library LIBS:gfopenfont.library.before-20261104
   If WARN
     Echo "Could not rename the old LIBS:gfopenfont.library; nothing changed."
     Quit 20
@@ -128,9 +130,10 @@ EndIf
 Echo "Installed LIBS:gfopenfont.library"
 Lab fontdone
 
-; gfopenfont's CJK face (Droid Sans Fallback, Apache License 2.0) with its
-; NOTICE in FONTS:, for every program drawing with gfopenfont.library: one
-; already there is kept
+; gfopenfont's CJK faces with their licences in FONTS:, for every program
+; drawing with gfopenfont.library: Droid Sans Fallback (Apache License 2.0)
+; for Chinese and Japanese, NanumGothic (SIL OFL 1.1) for Korean. One
+; already there is kept.
 If EXISTS Fonts/DroidSansFallbackFull.ttf
   If NOT EXISTS FONTS:DroidSansFallbackFull.ttf
     Copy Fonts/DroidSansFallbackFull.ttf Fonts/DroidSansFallback.NOTICE FONTS: QUIET
@@ -139,6 +142,16 @@ If EXISTS Fonts/DroidSansFallbackFull.ttf
       Quit 20
     EndIf
     Echo "Installed FONTS:DroidSansFallbackFull.ttf"
+  EndIf
+EndIf
+If EXISTS Fonts/NanumGothic-Regular.ttf
+  If NOT EXISTS FONTS:NanumGothic-Regular.ttf
+    Copy Fonts/NanumGothic-Regular.ttf Fonts/NanumGothic.OFL.txt FONTS: QUIET
+    If WARN
+      Echo "Could not copy the Korean font to FONTS: (is FONTS: full or write-protected?)"
+      Quit 20
+    EndIf
+    Echo "Installed FONTS:NanumGothic-Regular.ttf"
   EndIf
 EndIf
 
@@ -155,7 +168,7 @@ If $vrc GE 10 VAL
     Skip gpudone
   EndIf
 Else
-  Rename LIBS:gfopengpu.library LIBS:gfopengpu.library.before-20261101
+  Rename LIBS:gfopengpu.library LIBS:gfopengpu.library.before-20261104
   If WARN
     Echo "Could not rename the old LIBS:gfopengpu.library; nothing changed."
     Quit 20
@@ -168,6 +181,33 @@ If WARN
 EndIf
 Echo "Installed LIBS:gfopengpu.library"
 Lab gpudone
+
+Version gfopenlayout.library 11 0 >NIL:
+Set vrc $RC
+If $vrc EQ 0 VAL
+  Echo "LIBS:gfopenlayout.library is new enough, kept"
+  Skip layoutdone
+EndIf
+If $vrc GE 10 VAL
+  ; no version to read: not loaded, and the file has no $VER
+  If EXISTS LIBS:gfopenlayout.library
+    Echo "LIBS:gfopenlayout.library is there; its version cannot be read from the Shell, so it is kept (Install-GFOpenBrowser checks it)"
+    Skip layoutdone
+  EndIf
+Else
+  Rename LIBS:gfopenlayout.library LIBS:gfopenlayout.library.before-20261103
+  If WARN
+    Echo "Could not rename the old LIBS:gfopenlayout.library; nothing changed."
+    Quit 20
+  EndIf
+EndIf
+Copy Libs/gfopenlayout.library LIBS: QUIET
+If WARN
+  Echo "Could not copy gfopenlayout.library to LIBS: (is LIBS: full or write-protected?)"
+  Quit 20
+EndIf
+Echo "Installed LIBS:gfopenlayout.library"
+Lab layoutdone
 
 If NOT EXISTS LIBS:json.library
   Copy Libs/json.library LIBS: QUIET
@@ -194,7 +234,7 @@ EndIf
 ; through the datatypes stream class. LIBS:z.library 53.12 (gzip.datatype
 ; opens it) and SYS:Classes/DataTypes/stream.datatype, gzip.datatype and
 ; brotli.datatype 47.1 or newer: a missing one goes in; an older one is
-; renamed .before-20261101 and the drawer's goes in; one whose version
+; renamed .before-20261104 and the drawer's goes in; one whose version
 ; cannot be read is kept. DEVS:DataTypes/GZip and Brotli go in when missing.
 ; Without them pages still load, uncompressed.
 If NOT EXISTS SYS:Classes/DataTypes
@@ -213,12 +253,12 @@ If $vrc GE 10 VAL
     Skip zlibdone
   EndIf
 Else
-  Rename LIBS:z.library LIBS:z.library.before-20261101
+  Rename LIBS:z.library LIBS:z.library.before-20261104
   If WARN
     Echo "Could not rename the old LIBS:z.library"
     Quit 20
   EndIf
-  Echo "Kept the old LIBS:z.library as z.library.before-20261101"
+  Echo "Kept the old LIBS:z.library as z.library.before-20261104"
 EndIf
 Copy Libs/z.library LIBS: QUIET
 If WARN
@@ -240,12 +280,12 @@ If $vrc GE 10 VAL
     Skip streamdone
   EndIf
 Else
-  Rename SYS:Classes/DataTypes/stream.datatype SYS:Classes/DataTypes/stream.datatype.before-20261101
+  Rename SYS:Classes/DataTypes/stream.datatype SYS:Classes/DataTypes/stream.datatype.before-20261104
   If WARN
     Echo "Could not rename the old SYS:Classes/DataTypes/stream.datatype"
     Quit 20
   EndIf
-  Echo "Kept the old SYS:Classes/DataTypes/stream.datatype as stream.datatype.before-20261101"
+  Echo "Kept the old SYS:Classes/DataTypes/stream.datatype as stream.datatype.before-20261104"
 EndIf
 Copy Classes/DataTypes/stream.datatype SYS:Classes/DataTypes/ QUIET
 If WARN
@@ -267,12 +307,12 @@ If $vrc GE 10 VAL
     Skip gzipdone
   EndIf
 Else
-  Rename SYS:Classes/DataTypes/gzip.datatype SYS:Classes/DataTypes/gzip.datatype.before-20261101
+  Rename SYS:Classes/DataTypes/gzip.datatype SYS:Classes/DataTypes/gzip.datatype.before-20261104
   If WARN
     Echo "Could not rename the old SYS:Classes/DataTypes/gzip.datatype"
     Quit 20
   EndIf
-  Echo "Kept the old SYS:Classes/DataTypes/gzip.datatype as gzip.datatype.before-20261101"
+  Echo "Kept the old SYS:Classes/DataTypes/gzip.datatype as gzip.datatype.before-20261104"
 EndIf
 Copy Classes/DataTypes/gzip.datatype SYS:Classes/DataTypes/ QUIET
 If WARN
@@ -294,12 +334,12 @@ If $vrc GE 10 VAL
     Skip brotlidone
   EndIf
 Else
-  Rename SYS:Classes/DataTypes/brotli.datatype SYS:Classes/DataTypes/brotli.datatype.before-20261101
+  Rename SYS:Classes/DataTypes/brotli.datatype SYS:Classes/DataTypes/brotli.datatype.before-20261104
   If WARN
     Echo "Could not rename the old SYS:Classes/DataTypes/brotli.datatype"
     Quit 20
   EndIf
-  Echo "Kept the old SYS:Classes/DataTypes/brotli.datatype as brotli.datatype.before-20261101"
+  Echo "Kept the old SYS:Classes/DataTypes/brotli.datatype as brotli.datatype.before-20261104"
 EndIf
 Copy Classes/DataTypes/brotli.datatype SYS:Classes/DataTypes/ QUIET
 If WARN
@@ -340,7 +380,7 @@ EndIf
 ; the Unicode data in LOCALE:Unicode/, for every program that reads it (the
 ; engine reads it there first, then from Libs/WebBrowser/Unicode/), when
 ; LOCALE: has room for the file and 2,000,000 bytes more, as the Installer
-; asks; one of another size is kept as icudt78b.dat.before-20261101.
+; asks; one of another size is kept as icudt78b.dat.before-20261104.
 ; Without the room nothing in LOCALE: is touched. Info gives 0 free (a folder
 ; drive past its stated size does) or nothing readable: the room is not
 ; known, so the copy is tried and a failure is reported.
@@ -406,16 +446,16 @@ Else
   Echo "Info gives no free space for LOCALE: ($icudir: $icufree blocks), so the room is not known; trying the copy"
 EndIf
 If EXISTS LOCALE:Unicode/icudt78b.dat
-  If EXISTS LOCALE:Unicode/icudt78b.dat.before-20261101
-    Echo "LOCALE:Unicode has both icudt78b.dat and icudt78b.dat.before-20261101: move one of them away and run Install again."
+  If EXISTS LOCALE:Unicode/icudt78b.dat.before-20261104
+    Echo "LOCALE:Unicode has both icudt78b.dat and icudt78b.dat.before-20261104: move one of them away and run Install again."
     Quit 20
   EndIf
-  Rename LOCALE:Unicode/icudt78b.dat LOCALE:Unicode/icudt78b.dat.before-20261101
+  Rename LOCALE:Unicode/icudt78b.dat LOCALE:Unicode/icudt78b.dat.before-20261104
   If WARN
     Echo "Could not rename LOCALE:Unicode/icudt78b.dat"
     Quit 20
   EndIf
-  Echo "Kept the other LOCALE:Unicode/icudt78b.dat ($icuold bytes) as icudt78b.dat.before-20261101"
+  Echo "Kept the other LOCALE:Unicode/icudt78b.dat ($icuold bytes) as icudt78b.dat.before-20261104"
   Set icumoved 1
 EndIf
 If NOT EXISTS LOCALE:Unicode
@@ -427,11 +467,11 @@ If WARN
   ; a part-written file would break every program that reads it: it is
   ; renamed out of the way (not deleted), and the file renamed above goes back
   If EXISTS LOCALE:Unicode/icudt78b.dat
-    Rename LOCALE:Unicode/icudt78b.dat LOCALE:Unicode/icudt78b.dat.incomplete-20261101 >NIL:
-    Echo "The part-written copy is LOCALE:Unicode/icudt78b.dat.incomplete-20261101"
+    Rename LOCALE:Unicode/icudt78b.dat LOCALE:Unicode/icudt78b.dat.incomplete-20261104 >NIL:
+    Echo "The part-written copy is LOCALE:Unicode/icudt78b.dat.incomplete-20261104"
   EndIf
   If $icumoved EQ 1
-    Rename LOCALE:Unicode/icudt78b.dat.before-20261101 LOCALE:Unicode/icudt78b.dat >NIL:
+    Rename LOCALE:Unicode/icudt78b.dat.before-20261104 LOCALE:Unicode/icudt78b.dat >NIL:
     Echo "LOCALE:Unicode/icudt78b.dat is the one it had before"
   EndIf
 Else
@@ -446,27 +486,27 @@ UnSet icumoved
 UnSet icudir
 
 If EXISTS LIBS:WebBrowser/WebBrowserEngine
-  If EXISTS LIBS:WebBrowser/WebBrowserEngine.before-20261101
-    Echo "LIBS:WebBrowser has both WebBrowserEngine and WebBrowserEngine.before-20261101: move one of them away and run Install again."
+  If EXISTS LIBS:WebBrowser/WebBrowserEngine.before-20261104
+    Echo "LIBS:WebBrowser has both WebBrowserEngine and WebBrowserEngine.before-20261104: move one of them away and run Install again."
     Quit 20
   EndIf
-  Rename LIBS:WebBrowser/WebBrowserEngine LIBS:WebBrowser/WebBrowserEngine.before-20261101
+  Rename LIBS:WebBrowser/WebBrowserEngine LIBS:WebBrowser/WebBrowserEngine.before-20261104
   If WARN
     Echo "Could not rename LIBS:WebBrowser/WebBrowserEngine; nothing changed in LIBS:WebBrowser."
     Quit 20
   EndIf
-  Echo "Kept the old LIBS:WebBrowser/WebBrowserEngine as WebBrowserEngine.before-20261101"
+  Echo "Kept the old LIBS:WebBrowser/WebBrowserEngine as WebBrowserEngine.before-20261104"
 EndIf
 Echo "webbrowser.library runs the engine in this drawer"
 
 If EXISTS GFOpenBrowser.engine
-  If NOT EXISTS GFOpenBrowser.engine.before-20261101
-    Rename GFOpenBrowser.engine GFOpenBrowser.engine.before-20261101
+  If NOT EXISTS GFOpenBrowser.engine.before-20261104
+    Rename GFOpenBrowser.engine GFOpenBrowser.engine.before-20261104
     If WARN
       Echo "Could not rename the old GFOpenBrowser.engine in this drawer"
       Quit 20
     EndIf
-    Echo "Kept an older version's GFOpenBrowser.engine as GFOpenBrowser.engine.before-20261101 (no longer used)"
+    Echo "Kept an older version's GFOpenBrowser.engine as GFOpenBrowser.engine.before-20261104 (no longer used)"
   EndIf
 EndIf
 
