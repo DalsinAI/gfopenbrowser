@@ -178,11 +178,12 @@ int ob_webcore_init_with_network(const char* cookieDatabase)
     // ENV:OB_HTTP_CACHE=0 turns this off).
     GFOpenBrowser::initializeHttpCache("PROGDIR:Cache");
 
-    // Scripts translated once (WebKit patch 0099, ob_scriptcache.h):
-    // OB_SCRIPT_CACHE=0 turns it off (Set in the shell that starts it: on
-    // the lab copy of Instance-32, SetEnv was not seen).
+    // Scripts translated once (WebKit patch 0099, ob_scriptcache.h): off
+    // unless OB_SCRIPT_CACHE=1 (Set in the shell that starts it: on the lab
+    // copy of Instance-32, SetEnv was not seen). Pages read back from the
+    // folder could stop loading (reddit.com, 4 November 2026).
     const char* scriptCache = getenv("OB_SCRIPT_CACHE");
-    if (!scriptCache || strcmp(scriptCache, "0")) {
+    if (scriptCache && !strcmp(scriptCache, "1")) {
         ob_scriptcache_trim(OB_SCRIPTCACHE_DIR, OB_SCRIPTCACHE_MAX);
         setAmigaScriptBytecodeFolder(String::fromLatin1(OB_SCRIPTCACHE_DIR));
     }
