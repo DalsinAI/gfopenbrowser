@@ -376,6 +376,33 @@ int main(void)
         obgpu_restore(&G);
         cairo_new_path(cr);
     }
+    {   /* a CSS mask's layer put on its content by destination-in (cairo
+         * out, 0094): the content times the mask's alpha, cleared where
+         * the mask is empty, over the whole clip */
+        int x, y;
+        struct obgpu_source m;
+        long d[4] = { 0, 0, W * 256L, H * 256L }, s4[4] = { 0, 0, W * 256L, H * 256L };
+        long small[4] = { 0, 0, 20 * 256L, 20 * 256L };
+        cairo_surface_t *ms;
+        begin(OBGPU_CAN_PD | OBGPU_CAN_PATH | OBGPU_CAN_ALIASED);
+        for (y = 0; y < H; y++)
+            for (x = 0; x < W; x++) {
+                unsigned a = x > 20 && x < 70 && y > 10 && y < 50 ? (unsigned)((x * 9 + y * 5) % 256) : 0;
+                unsigned char *q = arena + GROUP + y * BPR + x * 4;
+                q[0] = (unsigned char)a; q[1] = q[2] = q[3] = (unsigned char)(a / 3);
+            }
+        m.address = GROUP; m.bpr = BPR; m.w = W; m.h = H; m.format = OBGPU_ARGB;
+        check(!obgpu_image(&G, &m, small, small, OBGPU_OP_DESTINATION_IN, 255, -1), "destination-in short of the clip stays undrawn");
+        check(!obgpu_image(&G, &m, d, s4, OBGPU_OP_DESTINATION_IN, 128, -1), "destination-in with a global alpha stays undrawn");
+        check(obgpu_image(&G, &m, d, s4, OBGPU_OP_DESTINATION_IN, 255, -1), "destination-in over the whole clip is drawn here");
+        ms = fromArena(GROUP, BPR, W, H);
+        cairo_set_source_surface(cr, ms, 0, 0);
+        cairo_set_operator(cr, CAIRO_OPERATOR_DEST_IN);
+        cairo_paint(cr);
+        cairo_set_operator(cr, CAIRO_OPERATOR_OVER);
+        cairo_surface_destroy(ms);
+        compare("destination-in: a mask layer on its content", 0, 1);
+    }
     {   /* nested */
         begin(OBGPU_CAN_PD | OBGPU_CAN_PATH | OBGPU_CAN_ALIASED);
         obgpu_save(&G);
