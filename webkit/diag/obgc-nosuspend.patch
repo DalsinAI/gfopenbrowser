@@ -1,0 +1,34 @@
+diff --git a/Source/JavaScriptCore/heap/MachineStackMarker.cpp b/Source/JavaScriptCore/heap/MachineStackMarker.cpp
+index aaa7979..d582a3f 100644
+--- a/Source/JavaScriptCore/heap/MachineStackMarker.cpp
++++ b/Source/JavaScriptCore/heap/MachineStackMarker.cpp
+@@ -28,6 +28,10 @@
+ #include <wtf/PageBlock.h>
+ #include <wtf/StdLibExtras.h>
+ #include <wtf/TZoneMallocInlines.h>
++#if OS(AMIGAOS3)
++#include <wtf/DataLog.h>
++#include <wtf/RawPointer.h>
++#endif
+ 
+ WTF_ALLOW_UNSAFE_BUFFER_USAGE_BEGIN
+ 
+@@ -166,6 +170,18 @@ bool MachineThreads::tryCopyOtherThreadStacks(const AbstractLocker& locker, void
+                     if (result)
+                         isSuspended.set(index);
+                     else {
++#if OS(AMIGAOS3)
++                        // Diagnostic (gfopenbrowser, not for main): AmigaOS 3
++                        // cannot suspend a thread, so this thread's stack and
++                        // registers are not scanned in this collection.
++                        static unsigned obgcNoSuspendReports;
++                        if (obgcNoSuspendReports < 40) {
++                            obgcNoSuspendReports++;
++                            dataLogLn("OBGC_NOSUSPEND group ", RawPointer(this), " thread ", RawPointer(thread.ptr()),
++                                " current ", RawPointer(&currentThread), " conductor ", RawPointer(&conductorThread),
++                                " threads ", threads.size());
++                        }
++#endif
+ #if OS(DARWIN)
+                         // These threads will be removed from the ThreadGroup. Thus, we do not do anything here except for reporting.
+                         ASSERT(result.error() != KERN_SUCCESS);

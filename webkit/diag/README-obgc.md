@@ -14,3 +14,12 @@ Logs up to 40 `OBGC_*` lines through dataLog (OBJSCLOG file):
 
 `fl 1` means the cell sits in the block being allocated from; there a fresh
 cell reads as not live, so treat that line as a lead only.
+
+## obgc-nosuspend.patch (apply after the one above, MachineStackMarker.cpp only)
+
+AmigaOS 3 cannot suspend a thread (0001 makes Thread::suspend fail), and
+MachineThreads::tryCopyOtherThreadStacks then skips that thread without a
+word: its stack and registers are not scanned. That happens whenever the heap's
+collector thread, not the mutator, conducts a stop-the-world phase (the mutator
+had released heap access). Logs up to 40 `OBGC_NOSUSPEND` lines. If one comes
+before a SELFPREV/DEADPREV in the same worker, that is the lost root.
