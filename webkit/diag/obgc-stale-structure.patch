@@ -1,0 +1,140 @@
+diff --git a/Source/JavaScriptCore/llint/LLIntSlowPaths.cpp b/Source/JavaScriptCore/llint/LLIntSlowPaths.cpp
+index 525c17d..b5fc31a 100644
+--- a/Source/JavaScriptCore/llint/LLIntSlowPaths.cpp
++++ b/Source/JavaScriptCore/llint/LLIntSlowPaths.cpp
+@@ -81,6 +81,13 @@
+ 
+ WTF_ALLOW_UNSAFE_BUFFER_USAGE_BEGIN
+ 
++#if CPU(M68K)
++namespace JSC {
++bool obgcCellIsLive(VM&, const JSCell*);
++void obgcReport(const char*, VM&, const JSCell*, const JSCell*, const void*, unsigned);
++}
++#endif
++
+ namespace JSC { namespace LLInt {
+ 
+ // JSC_reportM68KTemplateJITStatistics: counts of the interpreter's cache
+@@ -943,6 +950,20 @@ static JSValue performLLIntGetByID(BytecodeIndex bytecodeIndex, CodeBlock* codeB
+     return result;
+ }
+ 
++
++#if CPU(M68K)
++// Diagnostic for the reddit worker's lost Structure (Structure.cpp).
++static ALWAYS_INLINE void obgcCheckBase(const char* what, VM& vm, JSValue base, CodeBlock* codeBlock, const JSInstruction* pc)
++{
++    if (!base.isCell())
++        return;
++    JSCell* cell = base.asCell();
++    Structure* structure = cell->structure();
++    if (!obgcCellIsLive(vm, cell) || !obgcCellIsLive(vm, structure))
++        obgcReport(what, vm, cell, structure, codeBlock, codeBlock->bytecodeOffset(pc));
++}
++#endif
++
+ LLINT_SLOW_PATH_DECL(slow_path_get_by_id)
+ {
+     LLINT_BEGIN();
+@@ -950,6 +971,9 @@ LLINT_SLOW_PATH_DECL(slow_path_get_by_id)
+     auto& metadata = bytecode.metadata(codeBlock);
+     const Identifier& ident = codeBlock->identifier(bytecode.m_property);
+     JSValue baseValue = getOperand(callFrame, bytecode.m_base);
++#if CPU(M68K)
++    obgcCheckBase("STALE_GET", vm, baseValue, codeBlock, pc);
++#endif
+ 
+     [[maybe_unused]] StructureID previous = metadata.m_modeMetadata.defaultMode.structureID;
+     JSValue result = performLLIntGetByID(codeBlock->bytecodeIndex(pc), codeBlock, globalObject, baseValue, ident, metadata.m_modeMetadata);
+@@ -1107,6 +1131,16 @@ LLINT_SLOW_PATH_DECL(slow_path_put_by_id)
+     
+     JSValue baseValue = getOperand(callFrame, bytecode.m_base);
+     PutPropertySlot slot(baseValue, bytecode.m_flags.ecmaMode().isStrict(), codeBlock->putByIdContext());
++#if CPU(M68K)
++    obgcCheckBase("STALE_PUT", vm, baseValue, codeBlock, pc);
++    if (StructureID oldID = metadata.m_oldStructureID) {
++        StructureID newID = metadata.m_newStructureID;
++        Structure* oldS = oldID.decode();
++        Structure* newS = newID ? newID.decode() : nullptr;
++        if (!obgcCellIsLive(vm, oldS) || (newS && !obgcCellIsLive(vm, newS)))
++            obgcReport("STALE_PUTCACHE", vm, oldS, newS, codeBlock, codeBlock->bytecodeOffset(pc));
++    }
++#endif
+     [[maybe_unused]] StructureID previous = metadata.m_oldStructureID;
+     M68K_COUNT(++statistics.putByIdMisses; statistics.putByIdMissesInCode += !!codeBlock->m_m68kTemplateMap);
+ 
+diff --git a/Source/JavaScriptCore/runtime/Structure.cpp b/Source/JavaScriptCore/runtime/Structure.cpp
+index 721085c..f13c926 100644
+--- a/Source/JavaScriptCore/runtime/Structure.cpp
++++ b/Source/JavaScriptCore/runtime/Structure.cpp
+@@ -31,6 +31,7 @@
+ #include "BuiltinNames.h"
+ #include "DumpContext.h"
+ #include "JSCInlines.h"
++#include "MarkedBlockInlines.h"
+ #include "PropertyNameArray.h"
+ #include "PropertyTable.h"
+ #include "WebAssemblyGCStructure.h"
+@@ -327,6 +328,50 @@ Structure::Structure(VM& vm, CreatingEarlyCellTag)
+     ASSERT(WTF::roundUpToMultipleOf<Structure::atomSize>(this) == this);
+ }
+ 
++
++#if CPU(M68K)
++// Diagnostic for the reddit worker's lost Structure (gfopenbrowser, not for
++// main): is cell a live cell of its heap? A cell whose block has gone back
++// to the allocator counts as dead.
++bool obgcCellIsLive(VM& vm, const JSCell* cell)
++{
++    if (!cell)
++        return true;
++    if (cell->isPreciseAllocation())
++        return true;
++    MarkedBlock* block = &cell->markedBlock();
++    if (!vm.heap.objectSpace().blocks().set().contains(block))
++        return false;
++    return block->handle().isLive(cell);
++}
++
++static unsigned obgcReports;
++
++// 1 when the cell's block is the one its allocator is handing cells out of:
++// there a cell allocated since the last collection reads as not live, so a
++// report is only a lead.
++static int obgcFreeListed(VM& vm, const JSCell* cell)
++{
++    if (!cell || cell->isPreciseAllocation())
++        return 0;
++    MarkedBlock* block = &cell->markedBlock();
++    if (!vm.heap.objectSpace().blocks().set().contains(block))
++        return -1;
++    return block->handle().isFreeListed();
++}
++
++void obgcReport(const char* what, VM& vm, const JSCell* a, const JSCell* b, const void* c, unsigned d)
++{
++    if (obgcReports >= 40)
++        return;
++    obgcReports++;
++    dataLogLn("OBGC_", what, " vm ", RawPointer(&vm), " a ", RawPointer(a), " live ", obgcCellIsLive(vm, a),
++        " fl ", obgcFreeListed(vm, a),
++        " b ", RawPointer(b), " live ", obgcCellIsLive(vm, b), " fl ", obgcFreeListed(vm, b), " c ", RawPointer(c), " d ", d,
++        " gc ", vm.heap.objectSpace().markingVersion());
++}
++#endif
++
+ Structure::Structure(VM& vm, StructureVariant variant, Structure* previous)
+     : JSCell(vm, vm.structureStructure.get())
+     , m_inlineCapacity(previous->m_inlineCapacity)
+@@ -365,6 +410,10 @@ Structure::Structure(VM& vm, StructureVariant variant, Structure* previous)
+     m_outOfLineTypeFlags = typeInfo.outOfLineTypeFlags();
+ 
+     ASSERT(!previous->typeInfo().structureIsImmortal());
++#if CPU(M68K)
++    if (previous == this || !obgcCellIsLive(vm, previous))
++        obgcReport(previous == this ? "SELFPREV" : "DEADPREV", vm, this, previous, nullptr, 0);
++#endif
+     setPreviousID(vm, previous);
+ 
+     // Do not fire watchpoint inside Structure constructor since watchpoint can involve further heap allocations.
