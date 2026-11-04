@@ -46,7 +46,7 @@ NM="$BIN/m68k-amigaos-nm"
 STRIP="$BIN/m68k-amigaos-strip"
 ICU="${OAB_DEPS:?set OAB_DEPS to the folder with icu78-m68k-amigaos}/icu78-m68k-amigaos"
 LIB="$HERE/src/unicodelib"
-: "${NDK_INCLUDE:?set NDK_INCLUDE to GFOpenNDK's Include_H}"
+: "${NDK_INCLUDE:?set NDK_INCLUDE to the Include_H folder of GFOpenNDK}"
 [ -x "$CC" ] || { echo "build-unicode-library.sh: no compiler at $CC (set TOOLCHAIN_DIR or STOVE)" >&2; exit 2; }
 for f in lib/libicuuc.a lib/libicui18n.a include/unicode/utypes.h share/icudt78b.dat; do
     [ -f "$ICU/$f" ] || { echo "build-unicode-library.sh: no $ICU/$f (scripts/build-icu.sh)" >&2; exit 2; }

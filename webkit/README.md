@@ -525,6 +525,14 @@ The patches, in order:
   `~` and `op_unsigned`. `JSC_useM68KBitFastPaths=0` (a `Set` variable)
   turns it off. Tested by `tools/jsjit/test/bitops/run.sh` (the JIT's own
   code under qemu-m68k, 47,760 cases) and `tools/jsjit/lab/correct23.js`.
+- `0102-jsc-m68k-heap-not-mini-mode.patch`: the heap leaves mini mode when
+  the 68k template JIT is on. Mini mode is `!useJIT`, and the baseline JIT
+  is not built, so every collection was a full one, the heap grew by a fifth
+  after each, the whole heap was swept at the end of each and bytecode was
+  thrown away. `VM::isInMiniModeForHeap()` is false with
+  `useM68KTemplateJIT` on (unless `forceMiniVMMode`), and the heap's checks
+  use it: generational collections, normal heap growth, lazy sweeping, and
+  bytecode kept. `useGenerationalGC=false` still forces full collections.
 - `0104-jsc-m68k-jit-sooner.patch`: functions and loops go to the 68k
   template JIT sooner: `thresholdForJITAfterWarmUp` is 100 on the 68k
   (500 elsewhere), so a function is compiled on about its seventh call and a
@@ -533,9 +541,31 @@ The patches, in order:
   filled (checked at the end of each collection) the code is compiled once
   more, after `m68kTemplateJITRecompileThreshold` (100) more counts in the
   interpreter. The replaced code is kept until its CodeBlock dies.
-  `JSC_useM68KTemplateJITRecompile=0` turns the second compile off, and
+  The second compile is off by default (no gain on bbc or reddit on i32
+  and i14, 0.5-0.8 s slower on some runs); `JSC_useM68KTemplateJITRecompile=1`
+  turns it on, and
   `JSC_reportM68KTemplateJITStatistics=1` prints at exit what was compiled
   and how often the interpreter's property caches missed.
+- `0106-jsc-parse-time-detail.patch`: with `JSC_reportParseTimes=1` each
+  parse line also says whether it was a whole script or a function body,
+  where it starts, how long it is and the eight characters before it, for
+  the study of compiling run-once functions straight away.
+- `0110-amiga-animated-gif-frames-from-datatype.patch`: animated GIFs play.
+  A GIF of two images or more goes, once all of it is in, to a datatype
+  that gives every frame (gfopengif.datatype 47.1, gfopendatatypes:
+  `OIA_Frames`, `OIA_LoopCount` and `OIM_READFRAME` in
+  `datatypes/gfopenimage.h`); the decoder reports the frame count, each
+  frame's delay and the repetition count, and reads each frame straight
+  into its pixels. Without that datatype GIFs show their first frame, as
+  before; other pictures don't change.
+- `0120-amiga-http-authentication.patch`: HTTP log-ins. A 401 with a
+  Basic or Digest challenge goes to the frame loader's client as an
+  `AuthenticationChallenge` whose `authenticationClient()` is the handle
+  (it was null), so GFOpenBrowser's log-in dialog can answer it. The
+  answer starts the request again with the user and password, which
+  openweb.fetch answers the server's challenge with. Credentials are kept
+  for the session by server and realm and tried once without asking;
+  three refusals show the 401 page. Synchronous loads go on without.
 
 `0001-amiga-m68k-jsconly.patch` is one combined patch. It holds:
 

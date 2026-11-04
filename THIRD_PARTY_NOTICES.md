@@ -53,11 +53,12 @@ text), built from their own repositories.
 
 The package carries fonts that are not in this repository: in
 `Libs/WebBrowser/Fonts/` the Liberation and DejaVu faces from the build
-machine's `OB_FONTS`, and, for Chinese, Japanese and Korean text, Droid Sans Fallback
-Full from the Android Open Source Project (Apache License 2.0), which is
-gfopenfont's CJK face: gfopenfont's `fonts/cjk/fetch-cjk-font.sh` fetches it at
-build time at a pinned sha256, and the package carries it with its
-`DroidSansFallback.NOTICE` in `Fonts/` for the Installer to put in `FONTS:`.
+machine's `OB_FONTS`; and in `Fonts/`, for the Installer to put in `FONTS:`,
+gfopenfont's CJK faces with their licences: Droid Sans Fallback Full from the
+Android Open Source Project (Apache License 2.0, `DroidSansFallback.NOTICE`)
+for Chinese and Japanese, and NanumGothic by NHN Corporation (SIL Open Font
+License 1.1, `NanumGothic.OFL.txt`) for Korean. gfopenfont's
+`fonts/cjk/fetch-cjk-font.sh` fetches them at build time at pinned sha256s.
 
 Built programs also link, at build time on your machine (none of it is in this
 repository):

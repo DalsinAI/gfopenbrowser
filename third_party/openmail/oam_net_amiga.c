@@ -47,7 +47,7 @@ static int open_opentls(void)
     struct OTContextConfig config;
     LONG error = 0;
     if (ot_ctx) return 1;
-    STEP("opening opentls.library");
+    STEP("opening gfopentls.library");
     OpenTLSBase = OpenLibrary((CONST_STRPTR)OPENTLSLIB_NAME, OPENTLSLIB_VERSION);
     if (!OpenTLSBase) return 0;
     memset(&config, 0, sizeof config);
@@ -72,7 +72,7 @@ int oam_net_init(char *err, size_t errlen)
     }
     SocketBaseTags(SBTM_SETVAL(SBTC_ERRNOPTR(sizeof errno)), (ULONG)&errno, TAG_DONE);
     if (!open_opentls()) {
-        set_err(err, errlen, "OpenTLS (opentls.library) is not installed: OpenUp's OpenTLS part puts it in LIBS:.");
+        set_err(err, errlen, "GFOpenTLS (gfopentls.library) is not installed: GFOpenUp's GFOpenTLS part puts it in LIBS:.");
         oam_net_cleanup();
         return 0;
     }
