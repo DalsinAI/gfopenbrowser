@@ -31,8 +31,8 @@ on:
 
 env:
   OPENSDK_REF: 5bfeaea0d004e86afb990fddb591bf0039f09233      # gfopensdk main, as jsonlib.yml
-  TC_URL: https://github.com/DalsinAI/gfopengcc/releases/download/v16.2.0-open4/openamigagcc-16.2.0-open4-x86_64-linux.tar.xz
-  TC_SHA256: 495319a2ffd803278f8827cad70074029c7aa9ecbe05d037e8646ba43ab94ab2
+  TC_URL: https://github.com/DalsinAI/gfopengcc/releases/download/v16.2.0-open6/gfopenamigagcc-16.2.0-open6-x86_64-linux.tar.xz
+  TC_SHA256: 65f284476ec20cdf7851475d91d2c18d77fa6f2a0eb0f844b6ca23dbfa57eaa7
   ICU_URL: https://github.com/unicode-org/icu/releases/download/release-78.3/icu4c-78.3-sources.tgz
   ICU_SHA256: 3a2e7a47604ba702f345878308e6fefeca612ee895cf4a5f222e7955fabfe0c0
 
@@ -97,7 +97,7 @@ jobs:
           tar xf tc/tc.tar.xz -C tc
           # build-icu.sh's stove layout: prefix/ and an (unused) compat library
           mkdir -p stove/compat
-          ln -s "$PWD/tc/openamigagcc-16.2.0-open4-x86_64-linux" stove/prefix
+          ln -s "$PWD/tc/gfopenamigagcc-16.2.0-open6-x86_64-linux" stove/prefix
           stove/prefix/bin/m68k-amigaos-ar rcs stove/compat/libos32compat.a
           command -v gmake || sudo ln -s "$(command -v make)" /usr/local/bin/gmake
       - name: SDK headers against the SFD
@@ -120,7 +120,7 @@ jobs:
             JOBS=$(nproc) sh scripts/build-icu.sh
       - name: unicode.library, its stubs and UnicodeTest
         run: |
-          TOOLCHAIN_DIR=$PWD/tc/openamigagcc-16.2.0-open4-x86_64-linux OAB_DEPS=$PWD/deps \
+          TOOLCHAIN_DIR=$PWD/tc/gfopenamigagcc-16.2.0-open6-x86_64-linux OAB_DEPS=$PWD/deps \
           NDK_INCLUDE=$PWD/gfopensdk/OpenNDK/Include_H \
             sh scripts/build-unicode-library.sh build/unicode-library
       - name: UnicodeTest in vamos (68040)
