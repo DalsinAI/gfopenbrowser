@@ -76,6 +76,9 @@ public:
     void didCommitLoad(const String& url);
     void didStartLoad();
     void didFinishLoad();
+    // The loads Tata's defer rules held for this page go now (ob_tata.h): the
+    // page has painted and gone idle, or someone started on a form.
+    void releaseDeferredLoads();
     void didFailLoad(const WebCore::ResourceError&);
     void setProgress(double);
     void contentsSizeChanged(const WebCore::IntSize&);
@@ -90,6 +93,10 @@ public:
     void clearFind();
     void consoleMessage(const String& message, unsigned line, const String& source);
     void resourceStarted(const String& url);
+    // A request of the page opened or closed (once each, redirects or not):
+    // the network's idleness, for Tata's defer rules.
+    void requestOpened();
+    void requestClosed();
     void resourceEnded(const String& url, const String& error);
     // Bytes the page's requests have received so far (ob_webview_bytes_received).
     void addBytesReceived(int bytes) { if (bytes > 0) m_bytesReceived += static_cast<unsigned>(bytes); }
@@ -97,6 +104,7 @@ public:
 
 private:
     void renderingUpdateTimerFired();
+    void deferTimerFired();
     void addDirtyRect(const WebCore::IntRect&);
     void callString(void (*callback)(void*, const char*), const String&);
 
@@ -106,6 +114,11 @@ private:
     RefPtr<AmigaBackForwardList> m_backForwardList;
     static constexpr unsigned maxDirtyRects = 8;
     Vector<WebCore::IntRect, maxDirtyRects> m_dirtyRects; // apart from each other
+    WebCore::Timer m_deferTimer; // releases the loads Tata's defer rules held (releaseDeferredLoads())
+    MonotonicTime m_firstPaintAt; // the page's first rendering update, for the defer rules
+    MonotonicTime m_lastRequestChange; // a request started or ended, for the defer rules
+    int m_openRequests { 0 };
+    bool m_deferReleased { false };
     WebCore::Timer m_renderingUpdateTimer;
     MonotonicTime m_nextRenderingUpdate; // while a page loads, none before this
     unsigned m_renderingUpdates { 0 };

@@ -32,6 +32,7 @@
  */
 #include "config.h"
 #include "AmigaLoaderStrategy.h"
+#include "ob_tata.h"
 
 #include <WebCore/ArchiveResource.h>
 #include <WebCore/CachedResource.h>
@@ -190,8 +191,67 @@ private:
     void pageLoadCompleted(Page&) final { }
     void browsingContextRemoved(LocalFrame&) final { }
 
+    // Tata's defer rules (ob_tata.h): a load they name waits, with its page,
+    // until the view releases that page's loads (releaseDeferredLoads():
+    // the page has painted and gone idle, or a form is used), then goes as
+    // any other. Kept by the page's top document.
+    static std::optional<ScriptExecutionContextIdentifier> topDocumentOf(ResourceLoader& loader)
+    {
+        RefPtr frame = loader.frame();
+        if (!frame)
+            return std::nullopt;
+        RefPtr main = dynamicDowncast<LocalFrame>(frame->mainFrame());
+        RefPtr document = main ? main->document() : nullptr;
+        if (!document)
+            return std::nullopt;
+        return document->identifier();
+    }
+
+    bool holdIfDeferred(ResourceLoader* loader)
+    {
+        const URL& url = loader->url();
+        if (!url.protocolIsInHTTPFamily())
+            return false;
+        auto top = topDocumentOf(*loader);
+        if (!top || m_released.contains(*top))
+            return false;
+        auto host = url.host().toString().convertToASCIILowercase().utf8();
+        auto path = url.path().toString().utf8();
+        auto site = loader->request().firstPartyForCookies().host().toString().convertToASCIILowercase().utf8();
+        if (!ob_tata_deferred(reinterpret_cast<const char*>(host.data()), reinterpret_cast<const char*>(path.data()),
+                reinterpret_cast<const char*>(site.data())))
+            return false;
+        m_held.append({ *top, loader });
+        m_heldCount++;
+        return true;
+    }
+
+public:
+    void releaseDeferred(ScriptExecutionContextIdentifier top)
+    {
+        if (!m_released.add(top).isNewEntry)
+            return;
+        auto held = std::exchange(m_held, { });
+        for (auto& entry : held) {
+            if (entry.top == top) {
+                m_releasedCount++;
+                scheduleLoad(entry.loader.get());
+            } else
+                m_held.append(WTF::move(entry));
+        }
+    }
+
+    void deferredCounts(unsigned& held, unsigned& released) const
+    {
+        held = m_heldCount;
+        released = m_releasedCount;
+    }
+
+private:
     void scheduleLoad(ResourceLoader* loader)
     {
+        if (holdIfDeferred(loader))
+            return;
         if (RefPtr documentLoader = loader->documentLoader(); documentLoader && documentLoader->archiveResourceForURL(loader->request().url())) {
             loader->start();
             return;
@@ -212,6 +272,7 @@ private:
 
     void remove(ResourceLoader* loader) final
     {
+        m_held.removeFirstMatching([&](auto& entry) { return entry.loader == loader; });
         if (auto* host = hostForURL(loader->url()))
             host->remove(loader);
         scheduleServePendingRequests();
@@ -335,14 +396,38 @@ private:
     std::unique_ptr<HostInformation> m_nonHTTPProtocolHost;
     Timer m_requestTimer;
     unsigned m_suspendPendingRequestsCount { 0 };
+
+    struct HeldLoad {
+        ScriptExecutionContextIdentifier top;
+        RefPtr<ResourceLoader> loader;
+    };
+    Vector<HeldLoad> m_held;
+    HashSet<ScriptExecutionContextIdentifier> m_released;
+    unsigned m_heldCount { 0 };
+    unsigned m_releasedCount { 0 };
 };
 
 WTF_MAKE_TZONE_ALLOCATED_IMPL(AmigaLoaderStrategy::HostInformation);
 
-LoaderStrategy* networkLoaderStrategy()
+static AmigaLoaderStrategy& strategy()
 {
     static NeverDestroyed<AmigaLoaderStrategy> strategy;
-    return &strategy.get();
+    return strategy.get();
+}
+
+LoaderStrategy* networkLoaderStrategy()
+{
+    return &strategy();
+}
+
+void releaseDeferredLoads(Document& topDocument)
+{
+    strategy().releaseDeferred(topDocument.identifier());
+}
+
+void deferredLoadCounts(unsigned& held, unsigned& released)
+{
+    strategy().deferredCounts(held, released);
 }
 
 } // namespace GFOpenBrowser

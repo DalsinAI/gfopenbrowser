@@ -1,0 +1,510 @@
+From 1c02cc999c7a6c106b5f167bd65ad4414aaa16ff Mon Sep 17 00:00:00 2001
+From: SacredTrees <121399723+SacredTrees@users.noreply.github.com>
+Date: Tue, 3 Nov 2026 21:25:44 +0000
+Subject: [PATCH] JavaScriptCore: the 68k template JIT sooner, and once more
+ when its caches fill
+
+Functions and loops go to the template JIT after about a fifth of the
+interpreter's run they needed before: thresholdForJITAfterWarmUp is 100 on
+the 68k (500 elsewhere), so a function is compiled on about its seventh
+call (op_enter counts 5, op_ret 10) and a loop at its 100th iteration. The
+template JIT copies the interpreter's handlers, so its compile is cheap
+next to the interpreting it saves (V8's Sparkplug makes the same trade).
+
+Compiling sooner means more sites whose inline caches are still empty
+when the code is written, and those get the plain template instead of
+fast code: get_by_id and put_by_id with no structure yet, global
+variables and scopes not yet resolved, calls that have not called
+anything (no inlining, no built-in in line). The compile now notes those
+cache words. At the end of each collection, if one has filled, the code
+is replaced once: the CodeBlock goes back to the interpreter, which
+compiles it again after m68kTemplateJITRecompileThreshold (100) more.
+Replaced code stays allocated, with its structure tables still cleared of
+dead structures, until the CodeBlock dies, since a frame or a caller can
+still be running it; it leaves through redispatch to the current code.
+JSC_useM68KTemplateJITRecompile=0 turns the second compile off.
+
+JSC_reportM68KTemplateJITStatistics=1 prints at exit what was compiled
+(compiles, second compiles, bytes) and how often the interpreter's
+get_by_id, put_by_id, get_by_val and put_by_val missed, for the
+interpreter cache work that follows.
+
+Team 3
+---
+ .../JavaScriptCore/llint/LLIntSlowPaths.cpp   |  22 +++
+ .../JavaScriptCore/llint/M68KTemplateJIT.cpp  | 184 +++++++++++++++++-
+ Source/JavaScriptCore/llint/M68KTemplateJIT.h |  27 +++
+ Source/JavaScriptCore/runtime/OptionsList.h   |  14 +-
+ 4 files changed, 237 insertions(+), 10 deletions(-)
+
+diff --git a/Source/JavaScriptCore/llint/LLIntSlowPaths.cpp b/Source/JavaScriptCore/llint/LLIntSlowPaths.cpp
+index 9333b282..525c17de 100644
+--- a/Source/JavaScriptCore/llint/LLIntSlowPaths.cpp
++++ b/Source/JavaScriptCore/llint/LLIntSlowPaths.cpp
+@@ -83,6 +83,19 @@ WTF_ALLOW_UNSAFE_BUFFER_USAGE_BEGIN
+ 
+ namespace JSC { namespace LLInt {
+ 
++// JSC_reportM68KTemplateJITStatistics: counts of the interpreter's cache
++// misses (68k only).
++#if CPU(M68K) && ENABLE(C_LOOP)
++#define M68K_COUNT(...) do { \
++        if (Options::reportM68KTemplateJITStatistics() && M68KTemplateJIT::countStatistics()) { \
++            auto& statistics = M68KTemplateJIT::statistics; \
++            __VA_ARGS__; \
++        } \
++    } while (0)
++#else
++#define M68K_COUNT(...) do { } while (0)
++#endif
++
+ #define LLINT_BEGIN_NO_SET_PC() \
+     CodeBlock* codeBlock = callFrame->codeBlock(); \
+     JSGlobalObject* globalObject = codeBlock->globalObject(); \
+@@ -938,7 +951,9 @@ LLINT_SLOW_PATH_DECL(slow_path_get_by_id)
+     const Identifier& ident = codeBlock->identifier(bytecode.m_property);
+     JSValue baseValue = getOperand(callFrame, bytecode.m_base);
+ 
++    [[maybe_unused]] StructureID previous = metadata.m_modeMetadata.defaultMode.structureID;
+     JSValue result = performLLIntGetByID(codeBlock->bytecodeIndex(pc), codeBlock, globalObject, baseValue, ident, metadata.m_modeMetadata);
++    M68K_COUNT(++statistics.getByIdMisses; statistics.getByIdMissesInCode += !!codeBlock->m_m68kTemplateMap; statistics.getByIdRecaches += previous && metadata.m_modeMetadata.defaultMode.structureID != previous);
+     LLINT_RETURN_PROFILED(result);
+ }
+ 
+@@ -952,7 +967,9 @@ LLINT_SLOW_PATH_DECL(slow_path_get_length)
+ 
+     if (baseValue.isCell())
+         metadata.m_arrayProfile.observeStructure(baseValue.asCell()->structure());
++    [[maybe_unused]] StructureID previous = metadata.m_modeMetadata.defaultMode.structureID;
+     JSValue result = performLLIntGetByID(codeBlock->bytecodeIndex(pc), codeBlock, globalObject, baseValue, ident, metadata.m_modeMetadata);
++    M68K_COUNT(++statistics.getByIdMisses; statistics.getByIdMissesInCode += !!codeBlock->m_m68kTemplateMap; statistics.getByIdRecaches += previous && metadata.m_modeMetadata.defaultMode.structureID != previous);
+     LLINT_RETURN_PROFILED(result);
+ }
+ 
+@@ -1090,6 +1107,8 @@ LLINT_SLOW_PATH_DECL(slow_path_put_by_id)
+     
+     JSValue baseValue = getOperand(callFrame, bytecode.m_base);
+     PutPropertySlot slot(baseValue, bytecode.m_flags.ecmaMode().isStrict(), codeBlock->putByIdContext());
++    [[maybe_unused]] StructureID previous = metadata.m_oldStructureID;
++    M68K_COUNT(++statistics.putByIdMisses; statistics.putByIdMissesInCode += !!codeBlock->m_m68kTemplateMap);
+ 
+     Structure* oldStructure = baseValue.isCell() ? baseValue.asCell()->structure() : nullptr;
+     if (bytecode.m_flags.isDirect())
+@@ -1171,6 +1190,7 @@ LLINT_SLOW_PATH_DECL(slow_path_put_by_id)
+         }
+     }
+     
++    M68K_COUNT(statistics.putByIdRecaches += previous && metadata.m_oldStructureID != previous);
+     LLINT_END();
+ }
+ 
+@@ -1258,6 +1278,7 @@ LLINT_SLOW_PATH_DECL(slow_path_get_by_val)
+     auto bytecode = pc->as<OpGetByVal>();
+     JSValue baseValue = getOperand(callFrame, bytecode.m_base);
+     JSValue subscript = getOperand(callFrame, bytecode.m_property);
++    M68K_COUNT(++statistics.getByValMisses; statistics.getByValNamedMisses += subscript.isString() || subscript.isSymbol());
+     LLINT_RETURN_PROFILED(getByVal(vm, globalObject, codeBlock, baseValue, subscript, bytecode));
+ }
+ 
+@@ -1328,6 +1349,7 @@ LLINT_SLOW_PATH_DECL(slow_path_put_by_val)
+     JSValue subscript = getOperand(callFrame, bytecode.m_property);
+     JSValue value = getOperand(callFrame, bytecode.m_value);
+     bool isStrictMode = bytecode.m_ecmaMode.isStrict();
++    M68K_COUNT(++statistics.putByValMisses);
+     auto& metadata = bytecode.metadata(codeBlock);
+     
+     if (std::optional<uint32_t> index = subscript.tryGetAsUint32Index()) {
+diff --git a/Source/JavaScriptCore/llint/M68KTemplateJIT.cpp b/Source/JavaScriptCore/llint/M68KTemplateJIT.cpp
+index 7a2dec8c..993c3280 100644
+--- a/Source/JavaScriptCore/llint/M68KTemplateJIT.cpp
++++ b/Source/JavaScriptCore/llint/M68KTemplateJIT.cpp
+@@ -61,6 +61,10 @@
+ #include "PureNaN.h"
+ #include <wtf/DataLog.h>
+ #include <wtf/FastMalloc.h>
++#include <wtf/HashMap.h>
++#include <wtf/Lock.h>
++#include <wtf/NeverDestroyed.h>
++#include <cstdlib>
+ 
+ #if OS(AMIGA)
+ #include <proto/exec.h>
+@@ -1063,6 +1067,14 @@ public:
+         m_hot.word(0x4fef); m_hot.word(16); // lea 16(sp),sp
+     }
+     unsigned getByIdTableCount() const { return m_tableCount; }
++    // The cache words of sites written as their template because the cache
++    // was still empty, with their values now: when one changes, the site
++    // has run and a second compile can give it its fast code.
++    struct Watch {
++        const uint32_t* word;
++        uint32_t value;
++    };
++    const Vector<Watch>& watches() const { return m_watches; }
+     const Vector<std::pair<size_t, CodeBlock*>>& inlineGuards() const { return m_inlineGuards; }
+     // Points the table addresses in the code at the tables, which start at
+     // the buffer position tables (a GetByIdTables).
+@@ -1086,8 +1098,12 @@ private:
+         // The mode is read as the code runs; the structure ID is the first
+         // word in all three.
+         auto& modeMetadata = metadata.m_modeMetadata;
+-        if (modeMetadata.mode == GetByIdMode::ArrayLength || (modeMetadata.mode != GetByIdMode::Default && !modeMetadata.defaultMode.structureID))
++        if (modeMetadata.mode == GetByIdMode::ArrayLength)
++            return false;
++        if (modeMetadata.mode != GetByIdMode::Default && !modeMetadata.defaultMode.structureID) {
++            watch(&modeMetadata.defaultMode.structureID);
+             return false;
++        }
+         static_assert(!OBJECT_OFFSETOF(GetByIdModeMetadataDefault, structureID) && !OBJECT_OFFSETOF(GetByIdModeMetadataProtoLoad, structureID) && !OBJECT_OFFSETOF(GetByIdModeMetadataUnset, structureID));
+         loadCell(base);
+         m_hot.moveaImm(static_cast<uint32_t>(reinterpret_cast<uintptr_t>(&modeMetadata)), 1);
+@@ -1732,8 +1748,10 @@ private:
+         auto& metadata = bytecode.metadata(m_codeBlock);
+         // Only sites whose cache has settled: on a replace, or on a
+         // transition that needs no new storage (the only kind it caches).
+-        if (!metadata.m_oldStructureID)
++        if (!metadata.m_oldStructureID) {
++            watch(&metadata.m_oldStructureID);
+             return false;
++        }
+         loadCell(base);
+         m_hot.moveaImm(static_cast<uint32_t>(reinterpret_cast<uintptr_t>(&metadata)), 1);
+         m_hot.loadDisp(0, JSCell::structureIDOffset(), 1);
+@@ -1941,6 +1959,10 @@ private:
+ 
+         Vector<size_t, 2> returnPoints;
+         Vector<size_t> inlineDone;
++        // A site that has not called anything yet gets no inlined callee
++        // and no built-in in line: worth a second compile once it has.
++        if (!*reinterpret_cast<const uint32_t*>(linkBase + CallLinkInfo::offsetOfCallee()))
++            watch(reinterpret_cast<const uint32_t*>(linkBase + CallLinkInfo::offsetOfCallee()));
+         if constexpr (!std::is_same_v<Op, OpConstruct>)
+             inlineCall(linkInfo, bytecode.m_argc, frame, dst, offset, returnPoints, inlineDone);
+ 
+@@ -2904,8 +2926,10 @@ private:
+     template<typename Metadata>
+     bool checkGlobalProperty(Metadata& metadata)
+     {
+-        if (!metadata.m_structureID)
++        if (!metadata.m_structureID) {
++            watch(&metadata.m_structureID);
+             return false;
++        }
+         m_hot.loadDisp(0, JSCell::structureIDOffset(), 1);
+         m_hot.cmpLongAbs(&metadata.m_structureID, 1);
+         slowUnless(Builder::NotEqual);
+@@ -2927,14 +2951,20 @@ private:
+         switch (type) {
+         case GlobalProperty: case GlobalVar: case GlobalLexicalVar: case ModuleVar:
+         case GlobalPropertyWithVarInjectionChecks: case GlobalVarWithVarInjectionChecks: case GlobalLexicalVarWithVarInjectionChecks:
+-            if (!metadata.m_constantScope)
++            if (!metadata.m_constantScope) {
++                watch(reinterpret_cast<const uint32_t*>(&metadata.m_constantScope));
+                 return false;
++            }
+             break;
+         case ClosureVar: case ClosureVarWithVarInjectionChecks:
+             depth = metadata.m_localScopeDepth;
+             if (depth > 16)
+                 return false;
+             break;
++        case UnresolvedProperty: case UnresolvedPropertyWithVarInjectionChecks:
++            // Not run yet: the first run resolves it.
++            watch(reinterpret_cast<const uint32_t*>(&metadata.m_resolveType));
++            return false;
+         default:
+             return false;
+         }
+@@ -2981,6 +3011,9 @@ private:
+         case GlobalLexicalVar: case GlobalLexicalVarWithVarInjectionChecks:
+         case ClosureVar: case ClosureVarWithVarInjectionChecks:
+             break;
++        case UnresolvedProperty: case UnresolvedPropertyWithVarInjectionChecks:
++            watch(reinterpret_cast<const uint32_t*>(&metadata.m_getPutInfo));
++            return false;
+         default:
+             return false;
+         }
+@@ -3047,6 +3080,9 @@ private:
+         case GlobalLexicalVar: case GlobalLexicalVarWithVarInjectionChecks:
+         case ClosureVar: case ClosureVarWithVarInjectionChecks: case ResolvedClosureVar:
+             break;
++        case UnresolvedProperty: case UnresolvedPropertyWithVarInjectionChecks:
++            watch(reinterpret_cast<const uint32_t*>(&metadata.m_getPutInfo));
++            return false;
+         default:
+             return false;
+         }
+@@ -3304,6 +3340,15 @@ private:
+     // The inlined callees' guard words (inlineCall): the fixups of the
+     // code addresses that read them, and the CodeBlocks they hold.
+     Vector<std::pair<size_t, CodeBlock*>> m_inlineGuards;
++    Vector<Watch> m_watches;
++    template<typename T>
++    void watch(const T* word)
++    {
++        static_assert(sizeof(T) == sizeof(uint32_t));
++        // Not an inlined callee's: its metadata goes when it dies.
++        if (!m_inline && m_watches.size() < 64)
++            m_watches.append({ reinterpret_cast<const uint32_t*>(word), *reinterpret_cast<const uint32_t*>(word) });
++    }
+ };
+ 
+ // Register caching (stage J6). A loop's body gets a second copy that keeps
+@@ -4195,6 +4240,39 @@ private:
+     size_t m_loop { 0 };
+ };
+ 
++// What a CodeBlock's code needs beyond its CodeBlock's fields (item 6): the
++// cache words to watch for a second compile, and the code it replaced. Code
++// that has been replaced is kept, with its structure tables kept up to date,
++// until the CodeBlock dies, because a frame or a caller's call can still be
++// in it; it leaves through jsc_m68k_tjit_redispatch to the CodeBlock's
++// current code like any compiled code.
++struct Retired {
++    void* code;
++    GetByIdTables* tables;
++};
++struct State {
++    Vector<FastPaths::Watch> watches;
++    Vector<Retired> retired;
++    bool recompiled { false };
++};
++
++Lock stateLock;
++HashMap<CodeBlock*, std::unique_ptr<State>>& states() WTF_REQUIRES_LOCK(stateLock)
++{
++    static NeverDestroyed<HashMap<CodeBlock*, std::unique_ptr<State>>> map;
++    return map.get();
++}
++
++void reportStatistics()
++{
++    const Statistics& s = statistics;
++    dataLogLn("68k template JIT: ", s.compiles, " compiles (", s.recompiles, " second compiles, ", s.failures, " not compiled), ",
++        s.bytecodeBytes, " bytecode bytes -> ", s.codeBytes, " code bytes; ",
++        s.watchedCompiles, " compiled with ", s.watchedSites, " empty caches, ", s.retires, " replaced (", s.retiredBytes, " bytes kept)");
++    dataLogLn("68k interpreter caches: get_by_id ", s.getByIdMisses, " misses (", s.getByIdMissesInCode, " in compiled CodeBlocks, ", s.getByIdRecaches, " replaced another structure), put_by_id ",
++        s.putByIdMisses, " (", s.putByIdMissesInCode, " in compiled, ", s.putByIdRecaches, " replaced), get_by_val ", s.getByValMisses, " (", s.getByValNamedMisses, " named), put_by_val ", s.putByValMisses);
++}
++
+ bool compile(CodeBlock* codeBlock)
+ {
+     const auto& instructions = codeBlock->instructions();
+@@ -4363,6 +4441,27 @@ bool compile(CodeBlock* codeBlock)
+     codeBlock->m_m68kTemplateMap = map;
+     codeBlock->m_m68kTemplateEntry = map[0];
+     codeBlock->m_m68kTemplateMapSize = bytecodeSize;
++    {
++        Locker locker { stateLock };
++        auto it = states().find(codeBlock);
++        State* state = it == states().end() ? nullptr : it->value.get();
++        bool recompile = state && state->recompiled;
++        if (countStatistics()) {
++            ++statistics.compiles;
++            statistics.recompiles += recompile;
++            statistics.codeBytes += codeSize;
++            statistics.bytecodeBytes += bytecodeSize;
++        }
++        if (!recompile && Options::useM68KTemplateJITRecompile() && !fastPaths.watches().isEmpty()) {
++            if (!state)
++                state = states().add(codeBlock, std::make_unique<State>()).iterator->value.get();
++            state->watches = fastPaths.watches();
++            if (countStatistics()) {
++                ++statistics.watchedCompiles;
++                statistics.watchedSites += fastPaths.watches().size();
++            }
++        }
++    }
+     dataLogLnIf(Options::verboseOSR(), *codeBlock, ": 68k template JIT, ", bytecodeSize, " bytecode bytes -> ", codeSize, " code bytes (", hotSize, " hot)");
+     return true;
+ }
+@@ -4373,8 +4472,11 @@ void compileIfNeeded(CodeBlock* codeBlock)
+ {
+     if (!Options::useM68KTemplateJIT() || codeBlock->m_m68kTemplateMap || codeBlock->m_m68kTemplateFailed)
+         return;
+-    if (!compile(codeBlock))
++    if (!compile(codeBlock)) {
+         codeBlock->m_m68kTemplateFailed = true;
++        if (countStatistics())
++            ++statistics.failures;
++    }
+ }
+ 
+ void* entryFor(CodeBlock* codeBlock, const JSInstruction* pc)
+@@ -4386,11 +4488,8 @@ void* entryFor(CodeBlock* codeBlock, const JSInstruction* pc)
+     return codeBlock->m_m68kTemplateMap[bytecodeOffset];
+ }
+ 
+-void reconcileCaches(CodeBlock* codeBlock, VM& vm)
++static void reconcileTables(GetByIdTables* tables, VM& vm)
+ {
+-    if (!codeBlock->m_m68kTemplateMap)
+-        return;
+-    auto* tables = static_cast<GetByIdTables*>(codeBlock->m_m68kTemplateMap[codeBlock->m_m68kTemplateMapSize]);
+     for (unsigned i = 0; i < tables->count; ++i) {
+         for (auto& entry : tables->tables[i].entries) {
+             if (!entry.structureID)
+@@ -4410,8 +4509,61 @@ void reconcileCaches(CodeBlock* codeBlock, VM& vm)
+     }
+ }
+ 
++void reconcileCaches(CodeBlock* codeBlock, VM& vm)
++{
++    if (codeBlock->m_m68kTemplateMap)
++        reconcileTables(static_cast<GetByIdTables*>(codeBlock->m_m68kTemplateMap[codeBlock->m_m68kTemplateMapSize]), vm);
++
++    Locker locker { stateLock };
++    auto it = states().find(codeBlock);
++    if (it == states().end())
++        return;
++    State& state = *it->value;
++    for (auto& retired : state.retired)
++        reconcileTables(retired.tables, vm);
++    // Item 6: code compiled while some sites' caches were empty is replaced
++    // once, after one of them has filled (run by the code's template copy).
++    // This runs before the interpreter's caches drop dead structures, so a
++    // word that filled since the compile reads non-zero here. The CodeBlock
++    // goes back to the interpreter, which compiles it again after it has
++    // run a while longer (m68kTemplateJITRecompileThreshold).
++    if (state.recompiled || state.watches.isEmpty() || !codeBlock->m_m68kTemplateMap)
++        return;
++    bool changed = false;
++    for (auto& watch : state.watches) {
++        if (*watch.word != watch.value) {
++            changed = true;
++            break;
++        }
++    }
++    if (!changed)
++        return;
++    state.retired.append({ codeBlock->m_m68kTemplateCode, static_cast<GetByIdTables*>(codeBlock->m_m68kTemplateMap[codeBlock->m_m68kTemplateMapSize]) });
++    if (countStatistics()) {
++        ++statistics.retires;
++        statistics.retiredBytes += static_cast<uint8_t*>(codeBlock->m_m68kTemplateMap[codeBlock->m_m68kTemplateMapSize]) - static_cast<uint8_t*>(codeBlock->m_m68kTemplateCode);
++    }
++    fastFree(codeBlock->m_m68kTemplateMap);
++    codeBlock->m_m68kTemplateCode = nullptr;
++    codeBlock->m_m68kTemplateMap = nullptr;
++    codeBlock->m_m68kTemplateEntry = nullptr;
++    codeBlock->m_m68kTemplateMapSize = 0;
++    state.watches.clear();
++    state.recompiled = true;
++    codeBlock->unlinkedCodeBlock()->llintExecuteCounter().setNewThreshold(Options::m68kTemplateJITRecompileThreshold(), codeBlock);
++}
++
+ void release(CodeBlock* codeBlock)
+ {
++    {
++        Locker locker { stateLock };
++        auto it = states().find(codeBlock);
++        if (it != states().end()) {
++            for (auto& retired : it->value->retired)
++                fastFree(retired.code);
++            states().remove(it);
++        }
++    }
+     fastFree(codeBlock->m_m68kTemplateCode);
+     fastFree(codeBlock->m_m68kTemplateMap);
+     codeBlock->m_m68kTemplateCode = nullptr;
+@@ -4420,6 +4572,20 @@ void release(CodeBlock* codeBlock)
+     codeBlock->m_m68kTemplateMapSize = 0;
+ }
+ 
++Statistics statistics;
++
++bool countStatistics()
++{
++    if (!Options::reportM68KTemplateJITStatistics())
++        return false;
++    static bool registered = false;
++    if (!registered) {
++        registered = true;
++        std::atexit(reportStatistics);
++    }
++    return true;
++}
++
+ } // namespace M68KTemplateJIT
+ } // namespace JSC
+ 
+diff --git a/Source/JavaScriptCore/llint/M68KTemplateJIT.h b/Source/JavaScriptCore/llint/M68KTemplateJIT.h
+index 24e44b75..f984bea3 100644
+--- a/Source/JavaScriptCore/llint/M68KTemplateJIT.h
++++ b/Source/JavaScriptCore/llint/M68KTemplateJIT.h
+@@ -59,6 +59,33 @@ void reconcileCaches(CodeBlock*, VM&);
+ // Frees a CodeBlock's code and map (from ~CodeBlock).
+ void release(CodeBlock*);
+ 
++// Counts for JSC_reportM68KTemplateJITStatistics, printed at exit: what the
++// JIT compiled, and how often the interpreter's property caches missed.
++struct Statistics {
++    unsigned compiles { 0 };
++    unsigned recompiles { 0 };
++    unsigned failures { 0 };
++    unsigned watchedCompiles { 0 }; // compiled with sites whose caches were empty
++    unsigned watchedSites { 0 };
++    unsigned retires { 0 };
++    uint64_t codeBytes { 0 };
++    uint64_t retiredBytes { 0 };
++    uint64_t bytecodeBytes { 0 };
++    uint64_t getByIdMisses { 0 }; // llint_slow_path_get_by_id and get_length
++    uint64_t getByIdRecaches { 0 }; // ... that replaced another structure
++    uint64_t getByIdMissesInCode { 0 }; // ... in a CodeBlock that has code
++    uint64_t putByIdMisses { 0 };
++    uint64_t putByIdMissesInCode { 0 };
++    uint64_t putByIdRecaches { 0 };
++    uint64_t getByValMisses { 0 };
++    uint64_t getByValNamedMisses { 0 }; // ... with a string or symbol key
++    uint64_t putByValMisses { 0 };
++};
++extern Statistics statistics;
++// True when JSC_reportM68KTemplateJITStatistics is set; the first call
++// registers the report for exit.
++bool countStatistics();
++
+ } // namespace M68KTemplateJIT
+ } // namespace JSC
+ 
+diff --git a/Source/JavaScriptCore/runtime/OptionsList.h b/Source/JavaScriptCore/runtime/OptionsList.h
+index caaf2f3c..841ad7db 100644
+--- a/Source/JavaScriptCore/runtime/OptionsList.h
++++ b/Source/JavaScriptCore/runtime/OptionsList.h
+@@ -43,6 +43,15 @@ JS_EXPORT_PRIVATE bool canUseJITCage();
+ bool canUseWasm();
+ bool hasCapacityToUseLargeGigacage();
+ 
++// The 68k template JIT copies the interpreter's handlers, so compiling is
++// cheap next to interpreting: functions and loops go to it sooner than to
++// the baseline JIT elsewhere (about 7 calls, or 100 loop iterations).
++#if CPU(M68K) && ENABLE(C_LOOP)
++constexpr int32_t defaultThresholdForJITAfterWarmUp = 100;
++#else
++constexpr int32_t defaultThresholdForJITAfterWarmUp = 500;
++#endif
++
+ // How do JSC VM options work?
+ // ===========================
+ // The FOR_EACH_JSC_OPTION() macro below defines a list of all JSC options in use,
+@@ -366,7 +375,7 @@ bool hasCapacityToUseLargeGigacage();
+     v(Double, dfgThresholdScaleForFewPerformanceCores, 2.0, Normal, "On Apple silicon Macs with few Super and Performance cores, scale the DFG tier-up thresholds (thresholdForOptimize*) by this factor."_s) \
+     v(Double, ftlThresholdScaleForFewPerformanceCores, 1.5, Normal, "On Apple silicon Macs with few Super and Performance cores, scale the FTL tier-up thresholds (thresholdForFTLOptimize*) by this factor."_s) \
+     v(Bool, forceEagerCompilation, false, Normal, nullptr) \
+-    v(Int32, thresholdForJITAfterWarmUp, 500, Normal, nullptr) \
++    v(Int32, thresholdForJITAfterWarmUp, defaultThresholdForJITAfterWarmUp, Normal, nullptr) \
+     v(Int32, thresholdForJITSoon, 100, Normal, nullptr) \
+     \
+     v(Int32, thresholdForOptimizeAfterWarmUp, 1000, Normal, nullptr) \
+@@ -661,6 +670,9 @@ bool hasCapacityToUseLargeGigacage();
+     v(Bool, useM68KInlining, true, Normal, "68k only: the template JIT writes small functions into their callers' code at call sites that always call them."_s) \
+     v(Unsigned, m68kTemplateJITMaximumInlineSize, 64, Normal, "68k only: largest function, in bytecode bytes, the template JIT inlines."_s) \
+     v(Unsigned, m68kTemplateJITMaximumBytecodeSize, 4096, Normal, "68k only: largest CodeBlock, in bytecode bytes, the template JIT compiles."_s) \
++    v(Bool, useM68KTemplateJITRecompile, true, Normal, "68k only: code compiled while some of its sites' caches were still empty is compiled once more after they fill."_s) \
++    v(Int32, m68kTemplateJITRecompileThreshold, 100, Normal, "68k only: how much more the interpreter runs such a CodeBlock (as thresholdForJITAfterWarmUp counts) before it is compiled again."_s) \
++    v(Bool, reportM68KTemplateJITStatistics, false, Normal, "68k only: at exit, print what the template JIT compiled and how often the interpreter's property caches missed."_s) \
+     v(Bool, useBaselineJITCodeSharing, jitEnabledByDefault(), Normal, nullptr) \
+     v(Bool, libpasScavengeContinuously, false, Normal, nullptr) \
+     v(Unsigned, libpasForcePGMWithRate, 0, Normal, "Forces on probablistic guard malloc and guards allocations with a rate 1/N (0 is disabled)"_s) \
+-- 
+2.43.0
+

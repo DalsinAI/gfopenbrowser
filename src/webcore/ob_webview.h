@@ -105,6 +105,9 @@ int ob_webview_text(OBWebView *view, char *buffer, int size);
 unsigned long ob_webview_bytes_received(OBWebView *view);
 
 void ob_webview_paint(OBWebView *view, unsigned char *argb, int stride, int x, int y, int width, int height);
+/* How many loads Tata's defer rules held since the start, and how many of
+ * them have gone since (ob_tata.h). */
+void ob_webview_deferred_loads(unsigned *held, unsigned *released);
 /* The display-list experiment: paints the area directly into `direct` and,
  * through WebKit's display list (recorded, then replayed with cairo), into
  * `replayed`, and prints OBVIEW_DL lines: what the commands are, roughly

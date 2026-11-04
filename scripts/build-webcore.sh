@@ -126,7 +126,9 @@
 #                   and libraries that send each call to unicode.library).
 #                   Unset, configure-engine and the builds make it in
 #                   BUILD/unicode-library (again when src/unicodelib or
-#                   ICU's libraries change), which needs NDK_INCLUDE.
+#                   ICU's libraries change), which needs NDK_INCLUDE and
+#                   the UCD 17.0.0 (UCD_DIR, or $OAB_DEPS/ucd-17.0.0 from
+#                   scripts/fetch-ucd.sh).
 #   NDK_INCLUDE     GFOpenNDK's Include_H, for building unicode.library
 #   OB_CCACHE       the ccache program, or "none"  (default: ccache on PATH)
 #   OB_CCACHE_DIR   ccache's folder for this build
@@ -145,6 +147,9 @@
 #                   them to Fonts/, which the engine adds to gfopenfont.library's
 #                   folders as PROGDIR:Fonts.
 #                   The engine stops at its first page without them.
+#   OPENFONT_SRC    gfopenfont's checkout (test-browser): its
+#                   fonts/cjk/fetch-cjk-font.sh fetches the CJK face, copied
+#                   to Fonts/ with the others.
 #
 # usage: build-webcore.sh [COMMAND]
 #   configure-engine     make the build folder; for an existing folder, only
@@ -894,6 +899,10 @@ test_browser() {
     strip="$GCC16/prefix/bin/m68k-amigaos-strip"
     mkdir -p "$OB_TEST_DIR/pages" "$OB_TEST_DIR/Fonts"
     cp "$@" "$OB_TEST_DIR/Fonts/"
+    # gfopenfont's CJK face (its fonts/cjk), fetched at build time
+    : "${OPENFONT_SRC:?set OPENFONT_SRC to gfopenfont's checkout (its CJK face)}"
+    cjk_font=$("$OPENFONT_SRC/fonts/cjk/fetch-cjk-font.sh")
+    cp "$cjk_font" "$(dirname "$cjk_font")/DroidSansFallback.NOTICE" "$OB_TEST_DIR/Fonts/"
     for program in obcore-view obcore-dump; do
         "$strip" -o "$OB_TEST_DIR/$program" "$BUILD/bin/$program"
     done
