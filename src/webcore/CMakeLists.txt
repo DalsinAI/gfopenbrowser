@@ -23,6 +23,7 @@ set(OB_CORE_SOURCES
     AmigaWebView.cpp
     ob_httpcache.c
     ob_tata.c
+    ob_profile.cpp
     ob_webview.cpp
     tata/tata_ads.c
 )

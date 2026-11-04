@@ -1,4 +1,4 @@
-From d618f5d3d15878bcb9919d8bdb72f6027a61cf20 Mon Sep 17 00:00:00 2001
+From a28e910f6027fb51922e8b4d4791c77039d2bbb0 Mon Sep 17 00:00:00 2001
 From: SacredTrees <121399723+SacredTrees@users.noreply.github.com>
 Date: Tue, 3 Nov 2026 21:28:04 +0000
 Subject: [PATCH] JavaScriptCore: 68k template JIT bit operations on numbers
@@ -24,7 +24,7 @@ Team 3
  2 files changed, 374 insertions(+), 2 deletions(-)
 
 diff --git a/Source/JavaScriptCore/llint/M68KTemplateJIT.cpp b/Source/JavaScriptCore/llint/M68KTemplateJIT.cpp
-index 7a2dec8cb67..33b42d9c181 100644
+index 993c32803a5..a54f76ea921 100644
 --- a/Source/JavaScriptCore/llint/M68KTemplateJIT.cpp
 +++ b/Source/JavaScriptCore/llint/M68KTemplateJIT.cpp
 @@ -53,6 +53,7 @@
@@ -35,7 +35,7 @@ index 7a2dec8cb67..33b42d9c181 100644
  #include "PolymorphicCallStubRoutine.h"
  #include "Watchpoint.h"
  #include "VMTraps.h"
-@@ -355,7 +356,33 @@ public:
+@@ -359,7 +360,33 @@ public:
      void fop(FPOperation op, unsigned src, unsigned dst) { word(0xf200); word((src << 10) | (dst << 7) | op); }
      void fopLong(FPOperation op, unsigned dn, unsigned fpn) { word(0xf200 | dn); word(0x4000 | (fpn << 7) | op); } // f<op>.l dn,fpn
  
@@ -70,7 +70,7 @@ index 7a2dec8cb67..33b42d9c181 100644
      // b<cc>.b within a fast path: branchShort, then bindShort at the target.
      size_t branchShort(Condition cc)
      {
-@@ -394,6 +421,17 @@ public:
+@@ -398,6 +425,17 @@ public:
          fixups.append({ at, from, true, 0, offset, true });
      }
  
@@ -88,7 +88,7 @@ index 7a2dec8cb67..33b42d9c181 100644
      // fb<cc>.l to a buffer position.
      void fbranchToBuffer(FPCondition cc, size_t target)
      {
-@@ -428,6 +466,15 @@ public:
+@@ -432,6 +470,15 @@ public:
          fixups[i].toBytecode = true;
          fixups[i].targetBytecode = offset;
      }
@@ -104,7 +104,7 @@ index 7a2dec8cb67..33b42d9c181 100644
      // jmp (abs).l, for leaving a slow path for the next instruction's fast code.
      void jumpToBytecode(unsigned offset)
      {
-@@ -624,6 +671,8 @@ public:
+@@ -628,6 +675,8 @@ public:
          bool ok = emitImpl(instruction, offset);
          floatPath.site = offset;
          if (!ok) {
@@ -113,7 +113,7 @@ index 7a2dec8cb67..33b42d9c181 100644
              m_hot.bytes.shrink(start);
              m_hot.fixups.shrink(fixups);
              while (!m_inlineGuards.isEmpty() && m_inlineGuards.last().first >= fixups)
-@@ -647,6 +696,8 @@ public:
+@@ -651,6 +700,8 @@ public:
              getByIdOtherModes(floatPath);
          else if (isCompare(floatPath.opcode))
              floatCompare(floatPath.opcode, floatPath.lhs, floatPath.rhs, floatPath.target);
@@ -122,7 +122,7 @@ index 7a2dec8cb67..33b42d9c181 100644
          else
              floatArith(floatPath.opcode, floatPath.dst, floatPath.lhs, floatPath.rhs);
          m_hot.jumpToBytecode(nextOffset);
-@@ -769,6 +820,250 @@ private:
+@@ -773,6 +824,250 @@ private:
          m_hot.fbranchToBytecode(floatCondition(opcode), target);
      }
  
@@ -373,7 +373,7 @@ index 7a2dec8cb67..33b42d9c181 100644
      template<typename Op>
      bool binary(const JSInstruction* instruction, void (Builder::*withFrame)(int, unsigned), void (Builder::*withImm)(uint32_t, unsigned), bool checkOverflow, bool hasFloatPath)
      {
-@@ -2071,6 +2366,7 @@ private:
+@@ -2093,6 +2388,7 @@ private:
          switch (opcode) {
          case op_enter: case op_ret: case op_mov: case op_inc: case op_dec:
          case op_add: case op_sub: case op_mul: case op_bitand: case op_bitor: case op_bitxor:
@@ -381,7 +381,7 @@ index 7a2dec8cb67..33b42d9c181 100644
          case op_jmp: case op_jless: case op_jlesseq: case op_jgreater: case op_jgreatereq:
          case op_jnless: case op_jnlesseq: case op_jngreater: case op_jngreatereq:
          case op_stricteq: case op_nstricteq: case op_jstricteq: case op_jnstricteq:
-@@ -3183,10 +3479,26 @@ private:
+@@ -3219,10 +3515,26 @@ private:
          case op_sub:
              return binary<OpSub>(instruction, &Builder::subFrame, &Builder::subImm, true, true);
          case op_bitand:
@@ -408,7 +408,7 @@ index 7a2dec8cb67..33b42d9c181 100644
              auto bytecode = instruction->as<OpBitxor>();
              Operand dst = operandFor(m_codeBlock, bytecode.m_dst);
              Operand lhs = operandFor(m_codeBlock, bytecode.m_lhs);
-@@ -3301,6 +3613,7 @@ private:
+@@ -3337,6 +3649,7 @@ private:
      unsigned m_tableCount { 0 };
      Vector<std::tuple<size_t, unsigned, size_t>> m_tableFixups;
      bool m_inline { false }; // this CodeBlock's code inlined into a caller's (inlineCall)
@@ -416,7 +416,7 @@ index 7a2dec8cb67..33b42d9c181 100644
      // The inlined callees' guard words (inlineCall): the fixups of the
      // code addresses that read them, and the CodeBlocks they hold.
      Vector<std::pair<size_t, CodeBlock*>> m_inlineGuards;
-@@ -3547,6 +3860,16 @@ private:
+@@ -3592,6 +3905,16 @@ private:
          M68K_BINARY(op_bitor, OpBitor)
          M68K_BINARY(op_bitxor, OpBitxor)
  #undef M68K_BINARY
@@ -433,7 +433,7 @@ index 7a2dec8cb67..33b42d9c181 100644
  #define M68K_COMPARE(name, Op) case name: { auto bytecode = instruction->as<Op>(); addNumber(bytecode.m_lhs); addNumber(bytecode.m_rhs); return result(true); }
          M68K_COMPARE(op_jless, OpJless)
          M68K_COMPARE(op_jlesseq, OpJlesseq)
-@@ -3659,6 +3982,7 @@ private:
+@@ -3704,6 +4027,7 @@ private:
              OpcodeID opcode = instruction->opcodeID();
              bool writesFirst = opcode == op_mov || opcode == op_add || opcode == op_sub || opcode == op_mul
                  || opcode == op_bitand || opcode == op_bitor || opcode == op_bitxor || opcode == op_get_by_id
@@ -441,7 +441,7 @@ index 7a2dec8cb67..33b42d9c181 100644
                  || opcode == op_get_by_val || opcode == op_get_length || opcode == op_call;
              for (unsigned pass = 0; pass < 2; ++pass) {
                  for (unsigned i = 0; i < regs.size(); ++i) {
-@@ -3913,7 +4237,7 @@ private:
+@@ -3958,7 +4282,7 @@ private:
          return Next;
      }
  
@@ -450,7 +450,7 @@ index 7a2dec8cb67..33b42d9c181 100644
      template<typename Op>
      Result binary(const JSInstruction* instruction, Arith arith)
      {
-@@ -3944,6 +4268,48 @@ private:
+@@ -3989,6 +4313,48 @@ private:
          case Arith::And: m_code.andReg(src, 0); break;
          case Arith::Or: m_code.orReg(src, 0); break;
          case Arith::Xor: m_code.eorReg(src, 0); break;
@@ -499,7 +499,7 @@ index 7a2dec8cb67..33b42d9c181 100644
          }
          store(0, dst);
          return Next;
-@@ -4168,6 +4534,11 @@ private:
+@@ -4213,6 +4579,11 @@ private:
          case op_bitand: return binary<OpBitand>(instruction, Arith::And);
          case op_bitor: return binary<OpBitor>(instruction, Arith::Or);
          case op_bitxor: return binary<OpBitxor>(instruction, Arith::Xor);
@@ -512,17 +512,17 @@ index 7a2dec8cb67..33b42d9c181 100644
          case op_jlesseq: return compare<OpJlesseq>(instruction, offset, Builder::LessEqual);
          case op_jgreater: return compare<OpJgreater>(instruction, offset, Builder::Greater);
 diff --git a/Source/JavaScriptCore/runtime/OptionsList.h b/Source/JavaScriptCore/runtime/OptionsList.h
-index caaf2f3cbfb..18e3b716cb3 100644
+index 841ad7dbaa5..08829681027 100644
 --- a/Source/JavaScriptCore/runtime/OptionsList.h
 +++ b/Source/JavaScriptCore/runtime/OptionsList.h
-@@ -659,6 +659,7 @@ bool hasCapacityToUseLargeGigacage();
+@@ -668,6 +668,7 @@ constexpr int32_t defaultThresholdForJITAfterWarmUp = 500;
      v(Bool, useM68KPropertyFastPaths, true, Normal, "68k only: the template JIT writes its own code for property reads and writes its inline cache has settled (J4)."_s) \
      v(Bool, useM68KRegisterCache, true, Normal, "68k only: the template JIT keeps loops' int32 variables in data registers (J6)."_s) \
      v(Bool, useM68KInlining, true, Normal, "68k only: the template JIT writes small functions into their callers' code at call sites that always call them."_s) \
 +    v(Bool, useM68KBitFastPaths, true, Normal, "68k only: the template JIT writes its own code for &, |, ^, ~, <<, >> and >>>, doubles truncated on the FPU (patch 0101)."_s) \
      v(Unsigned, m68kTemplateJITMaximumInlineSize, 64, Normal, "68k only: largest function, in bytecode bytes, the template JIT inlines."_s) \
      v(Unsigned, m68kTemplateJITMaximumBytecodeSize, 4096, Normal, "68k only: largest CodeBlock, in bytecode bytes, the template JIT compiles."_s) \
-     v(Bool, useBaselineJITCodeSharing, jitEnabledByDefault(), Normal, nullptr) \
+     v(Bool, useM68KTemplateJITRecompile, true, Normal, "68k only: code compiled while some of its sites' caches were still empty is compiled once more after they fill."_s) \
 -- 
 2.43.0
 

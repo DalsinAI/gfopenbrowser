@@ -356,6 +356,13 @@ The patches, in order:
   chunks, as the PNG of its default image. A GIF whose first frame does not
   cover the screen goes as that frame alone and is put back in a
   screen-sized picture, transparent around it.
+- `0064-amiga-cjk-tables-without-icu.patch`: the CJK decoders
+  (TextCodecCJK) use the Encoding Standard's own indexes for JIS X 0208,
+  JIS X 0212, Big5, EUC-KR and gb18030 (319,956 bytes of constant data)
+  in place of indexes built at first use from ICU's converters, which the
+  engine's trimmed ICU data does not have: the first Shift_JIS, EUC-JP or
+  ISO-2022-JP text aborted the engine, and Big5, EUC-KR and GBK came out
+  as rubbish. `tests/pages/cjk-decoders.html` checks 46 inputs.
 - `0070-amiga-public-suffixes-without-libpsl.patch`: public suffixes
   (cookies, sites, `document.domain`) from our own reader of Mozilla's
   Public Suffix List (`PublicSuffixAmiga.c`) in place of libpsl, which is
@@ -482,6 +489,13 @@ The patches, in order:
   Adding them is tried again on the next lookup when it was first asked
   from a plain task or the library refused. What isn't found is printed
   on stderr.
+- `0095-amiga-profile-scopes.patch`: `JSC::OBProfileScope` calls the
+  program's hooks (`JSC::obProfileHooks`) at the begin and end of compiling
+  a script's or a function's code, a script's top-level run, a module's
+  evaluation, a call into JavaScript (with the called function's script),
+  a style update and a layout. With no hooks set each scope costs a test.
+  `obcore-view -profile` sets them (`src/webcore/ob_profile.cpp`) and
+  prints where a page's time went.
 - `0098-amiga-request-blocked-hook.patch`: `setAmigaRequestBlockedHook()`
   (`AmigaNetwork.h`) lets the browser say whether a request goes out at
   all. `ResourceHandle::amigaStartRequest()` asks it for every http request
@@ -502,6 +516,17 @@ The patches, in order:
   `~` and `op_unsigned`. `JSC_useM68KBitFastPaths=0` (a `Set` variable)
   turns it off. Tested by `tools/jsjit/test/bitops/run.sh` (the JIT's own
   code under qemu-m68k, 20,216 cases) and `tools/jsjit/lab/correct23.js`.
+- `0104-jsc-m68k-jit-sooner.patch`: functions and loops go to the 68k
+  template JIT sooner: `thresholdForJITAfterWarmUp` is 100 on the 68k
+  (500 elsewhere), so a function is compiled on about its seventh call and a
+  loop at its 100th iteration. Code compiled while some of its sites'
+  inline caches were still empty notes those cache words; once one has
+  filled (checked at the end of each collection) the code is compiled once
+  more, after `m68kTemplateJITRecompileThreshold` (100) more counts in the
+  interpreter. The replaced code is kept until its CodeBlock dies.
+  `JSC_useM68KTemplateJITRecompile=0` turns the second compile off, and
+  `JSC_reportM68KTemplateJITStatistics=1` prints at exit what was compiled
+  and how often the interpreter's property caches missed.
 
 `0001-amiga-m68k-jsconly.patch` is one combined patch. It holds:
 

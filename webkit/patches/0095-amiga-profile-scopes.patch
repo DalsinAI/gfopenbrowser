@@ -1,0 +1,200 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: SacredTrees <121399723+SacredTrees@users.noreply.github.com>
+Date: Tue, 3 Nov 2026 16:50:00 +0000
+Subject: [PATCH] JavaScriptCore, WebCore: profile scopes for where a page's time goes
+
+JSC::OBProfileScope calls the program's hooks (JSC::obProfileHooks) at
+the begin and end of: compiling a script's or a function's code (parse and
+bytecode: generateUnlinkedCodeBlockImpl, generateUnlinkedFunctionCodeBlock),
+a script run from the top (JSExecState::profiledEvaluate), a call into
+JavaScript (profiledCall: events, timers; with the called function's
+script), a module's evaluation (linkAndEvaluateModule), a style update
+(Document::resolveStyle) and a layout (LocalFrameViewLayoutContext::layout).
+With no hooks set each scope costs a test. GFOpenBrowser's obcore-view
+-profile sets them (src/webcore/ob_profile.cpp).
+
+diff --git a/Source/JavaScriptCore/bytecode/UnlinkedFunctionExecutable.cpp b/Source/JavaScriptCore/bytecode/UnlinkedFunctionExecutable.cpp
+--- a/Source/JavaScriptCore/bytecode/UnlinkedFunctionExecutable.cpp
++++ b/Source/JavaScriptCore/bytecode/UnlinkedFunctionExecutable.cpp
+@@ -25,6 +25,7 @@
+ 
+ #include "config.h"
+ #include "UnlinkedFunctionExecutable.h"
++#include "Completion.h"
+ 
+ #include "BuiltinExecutables.h"
+ #include "BytecodeGenerator.h"
+@@ -55,6 +56,7 @@
+     CodeSpecializationKind kind, OptionSet<CodeGenerationMode> codeGenerationMode,
+     UnlinkedFunctionKind functionKind, ParserError& error, SourceParseMode parseMode)
+ {
++    OBProfileScope obProfile(OBProfileCompile, source.provider());
+     JSParserBuiltinMode builtinMode = executable->isBuiltinFunction() ? JSParserBuiltinMode::Builtin : JSParserBuiltinMode::NotBuiltin;
+     JSParserScriptMode scriptMode = executable->scriptMode();
+     ASSERT(isFunctionParseMode(executable->parseMode()));
+diff --git a/Source/JavaScriptCore/runtime/CodeCache.cpp b/Source/JavaScriptCore/runtime/CodeCache.cpp
+--- a/Source/JavaScriptCore/runtime/CodeCache.cpp
++++ b/Source/JavaScriptCore/runtime/CodeCache.cpp
+@@ -25,6 +25,7 @@
+ 
+ #include "config.h"
+ #include "CodeCache.h"
++#include "Completion.h"
+ 
+ #include "BytecodeGenerator.h"
+ #include "DirectEvalExecutable.h"
+@@ -78,6 +79,7 @@
+ template <class UnlinkedCodeBlockType, class ExecutableType = ScriptExecutable>
+ UnlinkedCodeBlockType* generateUnlinkedCodeBlockImpl(VM& vm, const SourceCode& source, LexicallyScopedFeatures lexicallyScopedFeatures, JSParserScriptMode scriptMode, OptionSet<CodeGenerationMode> codeGenerationMode, ParserError& error, EvalContextType evalContextType, DerivedContextType derivedContextType, bool isArrowFunctionContext, const TDZEnvironment* variablesUnderTDZ = nullptr, const PrivateNameEnvironment* privateNameEnvironment = nullptr, ExecutableType* executable = nullptr)
+ {
++    OBProfileScope obProfile(OBProfileCompile, source.provider());
+     typedef typename CacheTypes<UnlinkedCodeBlockType>::RootNode RootNode;
+     bool isInsideOrdinaryFunction = executable && executable->isInsideOrdinaryFunction();
+ 
+diff --git a/Source/JavaScriptCore/runtime/Completion.cpp b/Source/JavaScriptCore/runtime/Completion.cpp
+--- a/Source/JavaScriptCore/runtime/Completion.cpp
++++ b/Source/JavaScriptCore/runtime/Completion.cpp
+@@ -43,6 +43,8 @@
+ 
+ namespace JSC {
+ 
++OBProfileHooks obProfileHooks;
++
+ static inline bool checkSyntaxInternal(VM& vm, const SourceCode& source, ParserError& error)
+ {
+     return !!parseRootNode<ProgramNode>(
+diff --git a/Source/JavaScriptCore/runtime/Completion.h b/Source/JavaScriptCore/runtime/Completion.h
+--- a/Source/JavaScriptCore/runtime/Completion.h
++++ b/Source/JavaScriptCore/runtime/Completion.h
+@@ -83,4 +83,37 @@
+ JS_EXPORT_PRIVATE UncheckedKeyHashMap<RefPtr<UniquedStringImpl>, String> retrieveImportAttributesFromDynamicImportOptions(JSGlobalObject*, JSValue, const Vector<RefPtr<UniquedStringImpl>>& supportedAssertions);
+ JS_EXPORT_PRIVATE std::optional<ScriptFetchParameters::Type> retrieveTypeImportAttribute(JSGlobalObject*, const UncheckedKeyHashMap<RefPtr<UniquedStringImpl>, String>&);
+ 
++// Where a page's time goes (GFOpenBrowser's profile, obcore-view -profile):
++// begin and end of compiling a script's or a function's code (parse and
++// bytecode), of a script run from the top, of a call into JavaScript (an
++// event, a timer), of a style update and of a layout. The program sets the
++// hooks; unset, each scope costs a test.
++class SourceProvider;
++enum OBProfileKind { OBProfileCompile, OBProfileEvaluate, OBProfileCall, OBProfileStyle, OBProfileLayout };
++struct OBProfileHooks {
++    void (*begin)(int kind, const SourceProvider*);
++    void (*end)(int kind, const SourceProvider*);
++};
++JS_EXPORT_PRIVATE extern OBProfileHooks obProfileHooks;
++
++class OBProfileScope {
++    WTF_MAKE_NONCOPYABLE(OBProfileScope);
++public:
++    explicit OBProfileScope(int kind, const SourceProvider* provider = nullptr)
++        : m_kind(kind)
++        , m_provider(provider)
++    {
++        if (obProfileHooks.begin)
++            obProfileHooks.begin(kind, provider);
++    }
++    ~OBProfileScope()
++    {
++        if (obProfileHooks.end)
++            obProfileHooks.end(m_kind, m_provider);
++    }
++private:
++    int m_kind;
++    const SourceProvider* m_provider;
++};
++
+ } // namespace JSC
+diff --git a/Source/WebCore/bindings/js/JSExecState.h b/Source/WebCore/bindings/js/JSExecState.h
+--- a/Source/WebCore/bindings/js/JSExecState.h
++++ b/Source/WebCore/bindings/js/JSExecState.h
+@@ -27,6 +27,9 @@
+ #pragma once
+ 
+ #include <JavaScriptCore/Completion.h>
++#include <JavaScriptCore/FunctionExecutable.h>
++#include <JavaScriptCore/JSCast.h>
++#include <JavaScriptCore/JSFunction.h>
+ #include <JavaScriptCore/JSMicrotask.h>
+ #include <JavaScriptCore/JSPromise.h>
+ #include <JavaScriptCore/JSSourceCode.h>
+@@ -84,12 +87,25 @@
+         return evaluate(lexicalGlobalObject, source, thisValue, unused);
+     }
+ 
++    // The script a call goes into, for the profile (OBProfileScope): a
++    // JavaScript function's, none for a native one.
++    static const JSC::SourceProvider* profiledSource(JSC::JSValue functionObject)
++    {
++        if (!JSC::obProfileHooks.begin)
++            return nullptr;
++        auto* function = dynamicDowncast<JSC::JSFunction>(functionObject);
++        if (!function || function->isHostOrBuiltinFunction())
++            return nullptr;
++        return function->jsExecutable()->source().provider();
++    }
++
+     static JSC::JSValue profiledCall(JSC::JSGlobalObject* lexicalGlobalObject, JSC::ProfilingReason reason, JSC::JSValue functionObject, const JSC::CallData& callData, JSC::JSValue thisValue, const JSC::ArgList& args, NakedPtr<JSC::Exception>& returnedException)
+     {
+         JSC::VM& vm = JSC::getVM(lexicalGlobalObject);
+         auto scope = DECLARE_TOP_EXCEPTION_SCOPE(vm);
+         JSC::JSValue returnValue;
+         {
++            JSC::OBProfileScope obProfile(JSC::OBProfileCall, profiledSource(functionObject));
+             JSExecState currentState(lexicalGlobalObject);
+             returnValue = JSC::profiledCall(lexicalGlobalObject, reason, functionObject, callData, thisValue, args, returnedException);
+         }
+@@ -103,6 +119,7 @@
+         auto scope = DECLARE_TOP_EXCEPTION_SCOPE(vm);
+         JSC::JSValue returnValue;
+         {
++            JSC::OBProfileScope obProfile(JSC::OBProfileEvaluate, source.provider());
+             JSExecState currentState(lexicalGlobalObject);
+             returnValue = JSC::profiledEvaluate(lexicalGlobalObject, reason, source, thisValue, returnedException);
+         }
+@@ -135,6 +152,7 @@
+         JSC::JSPromise* returnValue;
+         {
+             JSExecState currentState(&lexicalGlobalObject);
++            JSC::OBProfileScope obProfile(JSC::OBProfileEvaluate);
+             returnValue = JSC::linkAndEvaluateModule(&lexicalGlobalObject, moduleKey, WTF::move(scriptFetcher));
+             if (scope.exception()) [[unlikely]] {
+                 returnedException = scope.exception();
+diff --git a/Source/WebCore/dom/Document.cpp b/Source/WebCore/dom/Document.cpp
+--- a/Source/WebCore/dom/Document.cpp
++++ b/Source/WebCore/dom/Document.cpp
+@@ -385,6 +385,7 @@
+ #include "XPathExpression.h"
+ #include "XPathNSResolver.h"
+ #include "XPathResult.h"
++#include <JavaScriptCore/Completion.h>
+ #include <JavaScriptCore/ConsoleMessage.h>
+ #include <JavaScriptCore/JSGlobalObject.h>
+ #include <JavaScriptCore/RegularExpression.h>
+@@ -2816,6 +2817,7 @@
+ 
+ void Document::resolveStyle(ResolveStyleType type)
+ {
++    JSC::OBProfileScope obProfile(JSC::OBProfileStyle);
+     ScriptDisallowedScope::InMainThread scriptDisallowedScope;
+ 
+     ASSERT(!view() || !view()->isPainting());
+diff --git a/Source/WebCore/page/LocalFrameViewLayoutContext.cpp b/Source/WebCore/page/LocalFrameViewLayoutContext.cpp
+--- a/Source/WebCore/page/LocalFrameViewLayoutContext.cpp
++++ b/Source/WebCore/page/LocalFrameViewLayoutContext.cpp
+@@ -26,6 +26,8 @@
+ #include "config.h"
+ #include "LocalFrameViewLayoutContext.h"
+ 
++#include <JavaScriptCore/Completion.h>
++
+ #include "DebugPageOverlays.h"
+ #include "Document.h"
+ #include "DocumentEnums.h"
+@@ -169,6 +171,7 @@
+ 
+ void LocalFrameViewLayoutContext::layout(bool canDeferUpdateLayerPositions)
+ {
++    JSC::OBProfileScope obProfile(JSC::OBProfileLayout);
+     LOG_WITH_STREAM(Layout, stream << "LocalFrameView " << &view() << " LocalFrameViewLayoutContext::layout() with size " << view().layoutSize());
+ 
+     Ref protectedView(view());

@@ -1,0 +1,74 @@
+<!DOCTYPE html>
+<html><head><meta charset="utf-8"><title>cjk decoders</title></head>
+<body><pre id="out"></pre>
+<script>
+// The CJK decoders (WebCore's TextCodecCJK) on known inputs, expected
+// outputs from the Encoding Standard's indexes (encoding.spec.whatwg.org).
+// Each case prints "OBCJK PASS|FAIL name got"; the end prints
+// "OBCJK_DONE pass=n fail=m".
+var out = [], pass = 0, fail = 0;
+function hex(s) { var r = []; for (var i = 0; i < s.length; i++) r.push(s.charCodeAt(i).toString(16).toUpperCase().padStart(4, "0")); return r.join(" "); }
+function t(enc, bytes, want, name) {
+  var got;
+  try { got = hex(new TextDecoder(enc).decode(new Uint8Array(bytes))); } catch (e) { got = "ERROR " + e; }
+  var ok = got === want;
+  if (ok) pass++; else fail++;
+  var line = "OBCJK " + (ok ? "PASS" : "FAIL") + " " + enc + " " + (name || "") + " got [" + got + "]" + (ok ? "" : " want [" + want + "]");
+  console.log(line); out.push(line);
+}
+// shift_jis: the input that aborted the engine, then edge cases
+t("shift_jis", [0x82, 0xA0], "3042", "hiragana-a");
+t("shift_jis", [0x88, 0x9F], "4E9C", "first-kanji");
+t("shift_jis", [0x81, 0x5C], "2015", "horizontal-bar");
+t("shift_jis", [0x5C, 0x7E, 0x80], "005C 007E 0080", "ascii-and-80");
+t("shift_jis", [0xA1, 0xDF], "FF61 FF9F", "halfwidth-katakana");
+t("shift_jis", [0xF0, 0x40], "E000", "eudc-first");
+t("shift_jis", [0xF9, 0xFC], "E757", "eudc-last");
+t("shift_jis", [0xFA, 0x40], "2170", "ibm-extension");
+t("shift_jis", [0x82, 0x20], "FFFD 0020", "bad-trail-ascii-kept");
+t("shift_jis", [0xFF], "FFFD", "bad-lead");
+t("shift_jis", [0x82], "FFFD", "lead-at-end");
+t("shift_jis", [0x85, 0x40], "FFFD 0040", "unmapped-pointer");
+// euc-jp
+t("euc-jp", [0xA4, 0xA2], "3042", "hiragana-a");
+t("euc-jp", [0xA1, 0xA1], "3000", "ideographic-space");
+t("euc-jp", [0x8E, 0xB1], "FF71", "halfwidth-katakana");
+t("euc-jp", [0x8F, 0xB0, 0xA1], "4E02", "jis0212");
+t("euc-jp", [0x8F, 0xA2, 0xAF], "02D8", "jis0212-first");
+t("euc-jp", [0xA4], "FFFD", "lead-at-end");
+t("euc-jp", [0xA4, 0x41], "FFFD 0041", "bad-trail");
+// iso-2022-jp
+t("iso-2022-jp", [0x1B, 0x24, 0x42, 0x24, 0x22, 0x1B, 0x28, 0x42], "3042", "jis0208");
+t("iso-2022-jp", [0x1B, 0x28, 0x49, 0x31, 0x1B, 0x28, 0x42], "FF71", "katakana");
+t("iso-2022-jp", [0x1B, 0x28, 0x4A, 0x5C, 0x7E, 0x1B, 0x28, 0x42], "00A5 203E", "roman");
+t("iso-2022-jp", [0x1B, 0x24, 0x42, 0x24], "FFFD", "lead-at-end");
+// gbk and gb18030
+t("gbk", [0xC4, 0xE3, 0xBA, 0xC3], "4F60 597D", "nihao");
+t("gbk", [0x80], "20AC", "euro");
+t("gbk", [0xA1, 0xA1], "3000", "ideographic-space");
+t("gb18030", [0x81, 0x30, 0x81, 0x30], "0080", "four-byte-first");
+t("gb18030", [0x84, 0x31, 0xA4, 0x39], "FFFF", "four-byte-bmp-last");
+t("gb18030", [0x90, 0x30, 0x81, 0x30], "D800 DC00", "four-byte-u10000");
+t("gb18030", [0x95, 0x32, 0x82, 0x36], "D840 DC00", "four-byte-u20000");
+t("gb18030", [0xA6, 0xD9], "FE10", "gb18030-2022");
+t("gb18030", [0x84, 0x32, 0x81, 0x30], "FFFD", "four-byte-gap");
+t("gb18030", [0xFE, 0xFE], "E4C5", "two-byte-last");
+t("gb18030", [0xFF], "FFFD", "bad-lead");
+// big5
+t("big5", [0xA4, 0xA4], "4E2D", "zhong");
+t("big5", [0xA1, 0x40], "3000", "ideographic-space");
+t("big5", [0x87, 0x40], "43F0", "hkscs-first");
+t("big5", [0x88, 0x62], "00CA 0304", "two-code-points");
+t("big5", [0x88, 0x66], "00CA", "ca-alone");
+t("big5", [0xA4], "FFFD", "lead-at-end");
+t("big5", [0x80], "FFFD", "bad-lead");
+// euc-kr
+t("euc-kr", [0xB0, 0xA1], "AC00", "ga");
+t("euc-kr", [0x81, 0x41], "AC02", "uhc-first");
+t("euc-kr", [0xA1, 0xA1], "3000", "ideographic-space");
+t("euc-kr", [0xFE, 0xFE], "FFFD", "unmapped");
+t("euc-kr", [0xB0], "FFFD", "lead-at-end");
+console.log("OBCJK_DONE pass=" + pass + " fail=" + fail);
+document.getElementById("out").textContent = out.join("\n");
+document.title = "OBCJK_DONE " + fail;
+</script></body></html>
