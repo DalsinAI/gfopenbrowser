@@ -142,6 +142,9 @@
 #                   them to Fonts/, which the engine adds to gfopenfont.library's
 #                   folders as PROGDIR:Fonts.
 #                   The engine stops at its first page without them.
+#   OPENFONT_SRC    gfopenfont's checkout (test-browser): its
+#                   fonts/cjk/fetch-cjk-font.sh fetches the CJK face, copied
+#                   to Fonts/ with the others.
 #
 # usage: build-webcore.sh [COMMAND]
 #   configure-engine     make the build folder; for an existing folder, only
@@ -880,6 +883,10 @@ test_browser() {
     strip="$GCC16/prefix/bin/m68k-amigaos-strip"
     mkdir -p "$OB_TEST_DIR/pages" "$OB_TEST_DIR/Fonts"
     cp "$@" "$OB_TEST_DIR/Fonts/"
+    # gfopenfont's CJK face (its fonts/cjk), fetched at build time
+    : "${OPENFONT_SRC:?set OPENFONT_SRC to gfopenfont's checkout (its CJK face)}"
+    cjk_font=$("$OPENFONT_SRC/fonts/cjk/fetch-cjk-font.sh")
+    cp "$cjk_font" "$(dirname "$cjk_font")/DroidSansFallback.NOTICE" "$OB_TEST_DIR/Fonts/"
     for program in obcore-view obcore-dump; do
         "$strip" -o "$OB_TEST_DIR/$program" "$BUILD/bin/$program"
     done
