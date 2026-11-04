@@ -126,6 +126,16 @@
                 (abort "Could not rename the old LIBS:gfopengpu.library.")))
         (copyfiles (source "GFOpenBrowser/Libs/gfopengpu.library") (dest "LIBS:") (nogauge))))
 
+; gfopenlayout.library 11 or newer: the window's dialogs, find bar,
+; downloads and preferences are drawn by it. An older one is renamed
+; .before-20261103 (kept).
+(if (< (getversion "LIBS:gfopenlayout.library") 720896)
+    (
+        (if (exists "LIBS:gfopenlayout.library")
+            (if (= 0 (rename "LIBS:gfopenlayout.library" "LIBS:gfopenlayout.library.before-20261103"))
+                (abort "Could not rename the old LIBS:gfopenlayout.library.")))
+        (copyfiles (source "GFOpenBrowser/Libs/gfopenlayout.library") (dest "LIBS:") (nogauge))))
+
 ; json.library: JSON for the browser and any other program (23 KB); the
 ; engine's JSON.parse parses through it
 (copylib (source "GFOpenBrowser/Libs/json.library") (dest "LIBS:") (nogauge)

@@ -522,6 +522,14 @@ The patches, in order:
   `JSC_useM68KTemplateJITRecompile=0` turns the second compile off, and
   `JSC_reportM68KTemplateJITStatistics=1` prints at exit what was compiled
   and how often the interpreter's property caches missed.
+- `0120-amiga-http-authentication.patch`: HTTP log-ins. A 401 with a
+  Basic or Digest challenge goes to the frame loader's client as an
+  `AuthenticationChallenge` whose `authenticationClient()` is the handle
+  (it was null), so GFOpenBrowser's log-in dialog can answer it. The
+  answer starts the request again with the user and password, which
+  openweb.fetch answers the server's challenge with. Credentials are kept
+  for the session by server and realm and tried once without asking;
+  three refusals show the 401 page. Synchronous loads go on without.
 
 `0001-amiga-m68k-jsconly.patch` is one combined patch. It holds:
 
