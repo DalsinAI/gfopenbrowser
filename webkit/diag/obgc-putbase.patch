@@ -1,0 +1,75 @@
+--- a/Source/JavaScriptCore/runtime/Structure.cpp
++++ b/Source/JavaScriptCore/runtime/Structure.cpp
+@@ -360,9 +360,30 @@
+     return block->handle().isFreeListed();
+ }
+ 
++// The base cell of the put_by_id slow path each VM is in (LLIntSlowPaths.cpp),
++// and the heap's newlyAllocatedVersion when it entered.
++struct ObgcPutBase {
++    VM* vm;
++    const JSCell* base;
++    unsigned version;
++};
++static ObgcPutBase obgcPutBases[8];
++
++void obgcNotePutBase(VM& vm, const JSCell* base)
++{
++    unsigned version = vm.heap.objectSpace().newlyAllocatedVersion();
++    for (auto& entry : obgcPutBases) {
++        if (entry.vm == &vm || !entry.vm) {
++            entry = { &vm, base, version };
++            return;
++        }
++    }
++    obgcPutBases[0] = { &vm, base, version };
++}
++
+ void obgcReport(const char* what, VM& vm, const JSCell* a, const JSCell* b, const void* c, unsigned d)
+ {
+-    if (obgcReports >= 40)
++    if (obgcReports >= 60)
+         return;
+     obgcReports++;
+     dataLogLn("OBGC_", what, " vm ", RawPointer(&vm), " a ", RawPointer(a), " live ", obgcCellIsLive(vm, a),
+@@ -411,8 +432,21 @@
+ 
+     ASSERT(!previous->typeInfo().structureIsImmortal());
+ #if CPU(M68K)
+-    if (previous == this || !obgcCellIsLive(vm, previous))
++    // A cell in the block being allocated from reads as dead when it was
++    // allocated since the last GC (G7: 20 such lines in the page VM every
++    // run), so those are left out.
++    if (previous == this || (!obgcCellIsLive(vm, previous) && obgcFreeListed(vm, previous) != 1)) {
+         obgcReport(previous == this ? "SELFPREV" : "DEADPREV", vm, this, previous, nullptr, 0);
++        // Which went: the put_by_id base itself (a lost root), or only its
++        // Structure (marking)? c is the GC version at slow path entry, d now.
++        for (auto& entry : obgcPutBases) {
++            if (previous == this && entry.vm == &vm && entry.base) {
++                const void* baseStructure = reinterpret_cast<const void*>(static_cast<uintptr_t>(entry.base->structureID().bits()));
++                obgcReport("PREV_BASE", vm, entry.base, reinterpret_cast<const JSCell*>(baseStructure),
++                    reinterpret_cast<const void*>(static_cast<uintptr_t>(entry.version)), vm.heap.objectSpace().newlyAllocatedVersion());
++            }
++        }
++    }
+ #endif
+     setPreviousID(vm, previous);
+ 
+--- a/Source/JavaScriptCore/llint/LLIntSlowPaths.cpp
++++ b/Source/JavaScriptCore/llint/LLIntSlowPaths.cpp
+@@ -85,6 +85,7 @@
+ namespace JSC {
+ bool obgcCellIsLive(VM&, const JSCell*);
+ void obgcReport(const char*, VM&, const JSCell*, const JSCell*, const void*, unsigned);
++void obgcNotePutBase(VM&, const JSCell*);
+ }
+ #endif
+ 
+@@ -1133,6 +1134,7 @@
+     PutPropertySlot slot(baseValue, bytecode.m_flags.ecmaMode().isStrict(), codeBlock->putByIdContext());
+ #if CPU(M68K)
+     obgcCheckBase("STALE_PUT", vm, baseValue, codeBlock, pc);
++    obgcNotePutBase(vm, baseValue.isCell() ? baseValue.asCell() : nullptr);
+     if (StructureID oldID = metadata.m_oldStructureID) {
+         StructureID newID = metadata.m_newStructureID;
+         Structure* oldS = oldID.decode();
