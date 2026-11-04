@@ -40,7 +40,7 @@ const struct uo_prop *uo_prop_of(UChar32 c)
 
 static const struct uo_more *moreOf(UChar32 c)
 {
-    return &uo_more[uo_prop_of(c)->more];
+    return &uo_more[IN_RANGE(c) ? UO_MORE(c) : UO_MORE(0x10FFFF)];
 }
 
 static unsigned gcOf(UChar32 c)
@@ -54,7 +54,7 @@ int uo_has_binary(UChar32 c, int bit)
 
     if (!IN_RANGE(c) || bit < 0)
         return 0;
-    set = uo_bin_sets[uo_prop_of(c)->bin];
+    set = uo_bin_sets[UO_BIN(c)];
     return (set[bit >> 5] >> (bit & 31)) & 1;
 }
 
@@ -412,12 +412,10 @@ static int hstOf(UChar32 c)
 int32_t uo_u_getIntPropertyValue(UChar32 c, UProperty which)
 {
     const struct uo_prop *p;
-    const struct uo_more *m;
 
     if ((unsigned)which < UCHAR_BINARY_LIMIT)
         return uo_u_hasBinaryProperty(c, which);
     p = uo_prop_of(c);
-    m = &uo_more[p->more];
     switch (which) {
     case UCHAR_BIDI_CLASS:
         return uo_u_charDirection(c);
@@ -426,7 +424,7 @@ int32_t uo_u_getIntPropertyValue(UChar32 c, UProperty which)
     case UCHAR_CANONICAL_COMBINING_CLASS:
         return p->ccc;
     case UCHAR_DECOMPOSITION_TYPE:
-        return m->dt;
+        return moreOf(c)->dt;
     case UCHAR_EAST_ASIAN_WIDTH:
         return p->ea_nt_vo & 7;
     case UCHAR_GENERAL_CATEGORY:
@@ -444,36 +442,36 @@ int32_t uo_u_getIntPropertyValue(UChar32 c, UProperty which)
     case UCHAR_HANGUL_SYLLABLE_TYPE:
         return hstOf(c);
     case UCHAR_NFD_QUICK_CHECK:
-        return m->qc & 1;
+        return moreOf(c)->qc & 1;
     case UCHAR_NFKD_QUICK_CHECK:
-        return (m->qc >> 1) & 1;
+        return (moreOf(c)->qc >> 1) & 1;
     case UCHAR_NFC_QUICK_CHECK:
-        return (m->qc >> 2) & 3;
+        return (moreOf(c)->qc >> 2) & 3;
     case UCHAR_NFKC_QUICK_CHECK:
-        return (m->qc >> 4) & 3;
+        return (moreOf(c)->qc >> 4) & 3;
     case UCHAR_LEAD_CANONICAL_COMBINING_CLASS:
         return fcdOf(c, 0);
     case UCHAR_TRAIL_CANONICAL_COMBINING_CLASS:
         return fcdOf(c, 1);
     case UCHAR_GRAPHEME_CLUSTER_BREAK:
-        return m->gcb;
+        return moreOf(c)->gcb;
     case UCHAR_SENTENCE_BREAK:
-        return m->sb;
+        return moreOf(c)->sb;
     case UCHAR_WORD_BREAK:
-        return m->wb;
+        return moreOf(c)->wb;
     case UCHAR_BIDI_PAIRED_BRACKET_TYPE:
         return uo_ubidi_getPairedBracketType(c);
     case UCHAR_INDIC_POSITIONAL_CATEGORY:
-        return m->inpc;
+        return moreOf(c)->inpc;
     case UCHAR_INDIC_SYLLABIC_CATEGORY:
-        return m->insc;
+        return moreOf(c)->insc;
     case UCHAR_VERTICAL_ORIENTATION:
         return (p->ea_nt_vo >> 5) & 3;
     case UCHAR_IDENTIFIER_STATUS:
-        return (uo_idtypes[m->idt] & (1u << U_ID_TYPE_INCLUSION | 1u << U_ID_TYPE_RECOMMENDED)) ?
+        return (uo_idtypes[moreOf(c)->idt] & (1u << U_ID_TYPE_INCLUSION | 1u << U_ID_TYPE_RECOMMENDED)) ?
                U_ID_STATUS_ALLOWED : U_ID_STATUS_RESTRICTED;
     case UCHAR_INDIC_CONJUNCT_BREAK:
-        return m->incb;
+        return moreOf(c)->incb;
     case UCHAR_GENERAL_CATEGORY_MASK:
         return (int32_t)MASK(p->gc);
     default:
@@ -589,7 +587,7 @@ UBool uo_u_hasIDType(UChar32 c, UIdentifierType type)
 {
     if ((unsigned)type > U_ID_TYPE_RECOMMENDED)
         return 0;
-    return (uo_idtypes[uo_more[uo_prop_of(c)->more].idt] >> type) & 1;
+    return (uo_idtypes[moreOf(c)->idt] >> type) & 1;
 }
 
 int32_t uo_u_getIDTypes(UChar32 c, UIdentifierType *types, int32_t capacity, UErrorCode *err)
@@ -604,7 +602,7 @@ int32_t uo_u_getIDTypes(UChar32 c, UIdentifierType *types, int32_t capacity, UEr
         *err = U_ILLEGAL_ARGUMENT_ERROR;
         return 0;
     }
-    bits = uo_idtypes[uo_more[uo_prop_of(c)->more].idt];
+    bits = uo_idtypes[moreOf(c)->idt];
     for (t = 0; t <= U_ID_TYPE_RECOMMENDED; t++)
         if ((bits >> t) & 1) {
             if (n < capacity)
@@ -653,43 +651,59 @@ int32_t uo_uscript_getScriptExtensions(UChar32 c, UScriptCode *scripts, int32_t 
  * (ICU's *_addPropertyStarts: the sets of characterproperties.cpp are
  * built on them). The record trie is walked a block at a time, and a block
  * shared by many (the unassigned planes) costs one look. */
+/* The starts of one trie's runs; a block shared by many (the unassigned
+   planes) costs one look. */
+#define WALK_TRIE(NAME, T1, T2, LEAF)                                                     \
+    static void NAME(void (*add)(void *ctx, UChar32 c), void *ctx)                        \
+    {                                                                                     \
+        enum { N1 = 1 << T1##_B1, N2 = 1 << T1##_B2, SPAN = N1 * N2 };                    \
+        int prev = -1, k, m, lastUniform = -2;                                            \
+        unsigned lastMid = 0xFFFFFFFFu;                                                   \
+        UChar32 c;                                                                        \
+        for (c = 0; c < 0x110000; c += SPAN) {                                            \
+            unsigned midOff = T2##_t1[c / SPAN];                                          \
+            const uint16_t *mid = &T2##_t2[midOff];                                       \
+            if (midOff != lastMid) {                                                      \
+                lastMid = midOff;                                                         \
+                lastUniform = LEAF[mid[0]];                                               \
+                for (m = 0; m < N1 && lastUniform >= 0; m++)                              \
+                    for (k = 0; k < N2; k++)                                              \
+                        if (LEAF[mid[m] + k] != lastUniform) {                            \
+                            lastUniform = -2;                                             \
+                            break;                                                        \
+                        }                                                                 \
+            }                                                                             \
+            if (lastUniform >= 0) {                                                       \
+                if (lastUniform != prev) {                                                \
+                    add(ctx, c);                                                          \
+                    prev = lastUniform;                                                   \
+                }                                                                         \
+                continue;                                                                 \
+            }                                                                             \
+            for (m = 0; m < N1; m++)                                                      \
+                for (k = 0; k < N2; k++) {                                                \
+                    int v = LEAF[mid[m] + k];                                             \
+                    if (v != prev) {                                                      \
+                        add(ctx, c + m * N2 + k);                                         \
+                        prev = v;                                                         \
+                    }                                                                     \
+                }                                                                         \
+        }                                                                                 \
+    }
+WALK_TRIE(walkProps, UO_PROPS, uo_props, uo_props_leaf)
+WALK_TRIE(walkBin, UO_BIN, uo_bin, uo_bin_leaf)
+WALK_TRIE(walkMore, UO_MORE, uo_more, uo_more_leaf)
+
+/* Every code point where one of our properties changes, once each or more
+ * (ICU's *_addPropertyStarts: the sets of characterproperties.cpp are
+ * built on them). */
 void uo_prop_starts(void (*add)(void *ctx, UChar32 c), void *ctx)
 {
-    enum { N1 = 1 << UO_PROPS_B1, N2 = 1 << UO_PROPS_B2, SPAN = N1 * N2 };
-    int prev = -1, i, k, m;
-    unsigned lastMid = 0xFFFFFFFFu;
-    int lastUniform = -2;
-    UChar32 c;
+    int i, k;
 
-    for (c = 0; c < 0x110000; c += SPAN) {
-        unsigned midOff = uo_props_t1[c / SPAN];
-        const uint16_t *mid = &uo_props_t2[midOff];
-        if (midOff != lastMid) {          /* is the whole block one value? */
-            lastMid = midOff;
-            lastUniform = uo_props_leaf[mid[0]];
-            for (m = 0; m < N1 && lastUniform >= 0; m++)
-                for (k = 0; k < N2; k++)
-                    if (uo_props_leaf[mid[m] + k] != lastUniform) {
-                        lastUniform = -2;
-                        break;
-                    }
-        }
-        if (lastUniform >= 0) {
-            if (lastUniform != prev) {
-                add(ctx, c);
-                prev = lastUniform;
-            }
-            continue;
-        }
-        for (m = 0; m < N1; m++)
-            for (k = 0; k < N2; k++) {
-                int v = uo_props_leaf[mid[m] + k];
-                if (v != prev) {
-                    add(ctx, c + m * N2 + k);
-                    prev = v;
-                }
-            }
-    }
+    walkProps(add, ctx);
+    walkBin(add, ctx);
+    walkMore(add, ctx);
     for (i = 0; i < UO_AGE_RUNS; i++)
         add(ctx, (UChar32)(uo_age_runs[i] >> 8));
     for (i = 0; i < UO_NUM_RUNS; i++) {
