@@ -84,6 +84,9 @@ python3 "$HERE/tools/patch-files.py" "$HERE/webkit/patches/0082-amiga-opengpu-gl
     "$OUT/opengpu" OpenGPUPaintAmiga.c OpenGPUPaintAmiga.h
 python3 "$HERE/tools/patch-files.py" "$HERE/webkit/patches/0082b-amiga-opengpu-shadows.patch" \
     "$OUT/opengpu" OpenGPUPaintAmiga.c OpenGPUPaintAmiga.h
+# 0094's layers under an outer level's clip mask (drawn here, put on through it)
+python3 "$HERE/tools/patch-files.py" "$HERE/webkit/patches/0094-amiga-cairo-out.patch" \
+    "$OUT/opengpu" OpenGPUPaintAmiga.c OpenGPUPaintAmiga.h
 "$CC" $FLAGS -I"$OUT/opengpu" -I"$RTG/include" -I"$RTG/library/opengpu" "$OUT/opengpu/OpenGPUPaintAmiga.c" \
     "$RTG/library/opengpu/ogpu_core.c" "$HERE/tests/test_opengpu_paint.c" -lm -o "$OUT/test_opengpu_paint"
 # 0078's clips, masks, aliased shapes, copy and clear, against cairo drawing
