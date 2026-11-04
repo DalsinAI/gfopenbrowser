@@ -346,7 +346,9 @@ int main(void)
     layerCase("scaled 1.25 and moved", 6, 4, 80, 56, 0.5, scaled, 0);
     layerCase("turned 15 degrees", 6, 4, 80, 56, 0.75, turned, 0);
     layerCase("a clip path inside the layer", 10, 8, 70, 50, 0.6, 0, 1);
-    {   /* a clip mask from outside the layer leaves it to cairo */
+    {   /* a clip mask from outside the layer: the group is drawn here
+         * without it (the mask is in the window's pixels), and the group
+         * goes on the window through it (cairo out, 0094) */
         begin(OBGPU_CAN_PD | OBGPU_CAN_PATH | OBGPU_CAN_ALIASED);
         obgpu_save(&G);
         check(obgpu_path_begin(&G), "an outer clip path");
@@ -357,15 +359,20 @@ int main(void)
             check(obgpu_glyphs_here(&G, &wh) && wh.mask && wh.mask_w > 0 && wh.mask_x >= 19 && wh.mask_x <= 20,
                 "glyphs: the clip's A8 mask goes with the run");
         }
-        obgpu_save(&G);
-        check(!obgpu_group_surface(&G, GROUP, 4 * 50, 50, 40, 10, 10), "a group under an outer mask stays cairo's");
-        check(!obgpu_drawable(&G), "nothing is drawn here in it");
         {
-            struct obgpu_glyphs wh;
-            check(!obgpu_glyphs_here(&G, &wh), "glyphs: none here either");
+            int outerMask = G.level[G.depth].mask;
+            obgpu_save(&G);
+            check(obgpu_group_surface(&G, GROUP, 4 * 50, 50, 40, 10, 10), "a group under an outer mask is drawn here");
+            check(obgpu_drawable(&G) && !G.level[G.depth].mask, "drawn in it, without the outer mask");
+            {
+                struct obgpu_glyphs wh;
+                check(obgpu_glyphs_here(&G, &wh) && wh.target == GROUP && !wh.mask, "glyphs: on the group, no mask");
+            }
+            obgpu_restore(&G);
+            check(obgpu_drawable(&G) && G.target == TARGET && G.level[G.depth].mask == outerMask && G.mask[outerMask].block,
+                "back on the window, through the outer mask");
         }
-        obgpu_restore(&G);
-        check(obgpu_drawable(&G), "drawn here again after it");
+        check(!obgpu_group_surface(&G, GROUP, 4 * 50, 50, 40, 10, 10), "a group on the mask's own level stays a group");
         obgpu_restore(&G);
         cairo_new_path(cr);
     }
