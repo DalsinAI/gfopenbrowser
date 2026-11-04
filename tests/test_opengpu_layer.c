@@ -346,7 +346,9 @@ int main(void)
     layerCase("scaled 1.25 and moved", 6, 4, 80, 56, 0.5, scaled, 0);
     layerCase("turned 15 degrees", 6, 4, 80, 56, 0.75, turned, 0);
     layerCase("a clip path inside the layer", 10, 8, 70, 50, 0.6, 0, 1);
-    {   /* a clip mask from outside the layer leaves it to cairo */
+    {   /* a clip mask from outside the layer: the group is drawn here
+         * without it (the mask is in the window's pixels), and the group
+         * goes on the window through it (cairo out, 0094) */
         begin(OBGPU_CAN_PD | OBGPU_CAN_PATH | OBGPU_CAN_ALIASED);
         obgpu_save(&G);
         check(obgpu_path_begin(&G), "an outer clip path");
@@ -357,17 +359,102 @@ int main(void)
             check(obgpu_glyphs_here(&G, &wh) && wh.mask && wh.mask_w > 0 && wh.mask_x >= 19 && wh.mask_x <= 20,
                 "glyphs: the clip's A8 mask goes with the run");
         }
-        obgpu_save(&G);
-        check(!obgpu_group_surface(&G, GROUP, 4 * 50, 50, 40, 10, 10), "a group under an outer mask stays cairo's");
-        check(!obgpu_drawable(&G), "nothing is drawn here in it");
         {
-            struct obgpu_glyphs wh;
-            check(!obgpu_glyphs_here(&G, &wh), "glyphs: none here either");
+            int outerMask = G.level[G.depth].mask;
+            obgpu_save(&G);
+            check(obgpu_group_surface(&G, GROUP, 4 * 50, 50, 40, 10, 10), "a group under an outer mask is drawn here");
+            check(obgpu_drawable(&G) && !G.level[G.depth].mask, "drawn in it, without the outer mask");
+            {
+                struct obgpu_glyphs wh;
+                check(obgpu_glyphs_here(&G, &wh) && wh.target == GROUP && !wh.mask, "glyphs: on the group, no mask");
+            }
+            obgpu_restore(&G);
+            check(obgpu_drawable(&G) && G.target == TARGET && G.level[G.depth].mask == outerMask && G.mask[outerMask].block,
+                "back on the window, through the outer mask");
         }
-        obgpu_restore(&G);
-        check(obgpu_drawable(&G), "drawn here again after it");
+        check(!obgpu_group_surface(&G, GROUP, 4 * 50, 50, 40, 10, 10), "a group on the mask's own level stays a group");
         obgpu_restore(&G);
         cairo_new_path(cr);
+    }
+    {   /* a CSS mask's layer put on its content by destination-in (cairo
+         * out, 0094): the content times the mask's alpha, cleared where
+         * the mask is empty, over the whole clip */
+        int x, y;
+        struct obgpu_source m;
+        long d[4] = { 0, 0, W * 256L, H * 256L }, s4[4] = { 0, 0, W * 256L, H * 256L };
+        long small[4] = { 0, 0, 20 * 256L, 20 * 256L };
+        cairo_surface_t *ms;
+        begin(OBGPU_CAN_PD | OBGPU_CAN_PATH | OBGPU_CAN_ALIASED);
+        for (y = 0; y < H; y++)
+            for (x = 0; x < W; x++) {
+                unsigned a = x > 20 && x < 70 && y > 10 && y < 50 ? (unsigned)((x * 9 + y * 5) % 256) : 0;
+                unsigned char *q = arena + GROUP + y * BPR + x * 4;
+                q[0] = (unsigned char)a; q[1] = q[2] = q[3] = (unsigned char)(a / 3);
+            }
+        m.address = GROUP; m.bpr = BPR; m.w = W; m.h = H; m.format = OBGPU_ARGB;
+        check(!obgpu_image(&G, &m, small, small, OBGPU_OP_DESTINATION_IN, 255, -1), "destination-in short of the clip stays undrawn");
+        check(!obgpu_image(&G, &m, d, s4, OBGPU_OP_DESTINATION_IN, 128, -1), "destination-in with a global alpha stays undrawn");
+        check(obgpu_image(&G, &m, d, s4, OBGPU_OP_DESTINATION_IN, 255, -1), "destination-in over the whole clip is drawn here");
+        ms = fromArena(GROUP, BPR, W, H);
+        cairo_set_source_surface(cr, ms, 0, 0);
+        cairo_set_operator(cr, CAIRO_OPERATOR_DEST_IN);
+        cairo_paint(cr);
+        cairo_set_operator(cr, CAIRO_OPERATOR_OVER);
+        cairo_surface_destroy(ms);
+        compare("destination-in: a mask layer on its content", 0, 1);
+    }
+    {   /* the same under a clip path's mask: worked out on the CPU
+         * (obgpu_dest_in) as the destination times 1 - mask * (1 - the
+         * picture's alpha). The reference is that sum over cairo's
+         * coverage of the clip path: cairo 1.18's own destination-in under
+         * a clip path clears part of the clip where the picture is opaque. */
+        int x, y;
+        struct obgpu_source m;
+        long d[4] = { 10 * 256L, 6 * 256L, 60 * 256L, 50 * 256L }, s4[4] = { 0, 0, 60 * 256L, 50 * 256L };
+        unsigned char copy[60 * 50 * 4];
+        cairo_surface_t *cov;
+        cairo_t *cc;
+        unsigned int *c;
+        const unsigned char *cm;
+        begin(OBGPU_CAN_PD | OBGPU_CAN_PATH | OBGPU_CAN_ALIASED);
+        for (y = 0; y < 50; y++)
+            for (x = 0; x < 60; x++) {
+                unsigned a = x > 8 && x < 50 && y > 5 && y < 40 ? (unsigned)((x * 9 + y * 5) % 256) : 0;
+                unsigned char *q = arena + GROUP + y * 240 + x * 4;
+                q[0] = (unsigned char)a; q[1] = q[2] = q[3] = (unsigned char)(a / 3);
+            }
+        memcpy(copy, arena + GROUP, sizeof copy);
+        m.address = GROUP; m.bpr = 240; m.w = 60; m.h = 50; m.format = OBGPU_ARGB;
+        obgpu_save(&G);
+        check(obgpu_path_begin(&G), "a clip path for destination-in");
+        writePath(1, 40, 30, 20);
+        check(obgpu_clip_path(&G, 0), "the clip is a mask");
+        check(!obgpu_image(&G, &m, d, s4, OBGPU_OP_DESTINATION_IN, 255, -1), "destination-in under a mask is not the GPU's alone");
+        check(obgpu_dest_in(&G, arena + GROUP, &m, 10, 6), "destination-in under a mask, worked out here");
+        obgpu_restore(&G);
+        obgpu_flush(&G);
+        cairo_new_path(cr);
+        cov = cairo_image_surface_create(CAIRO_FORMAT_A8, W, H);
+        cc = cairo_create(cov);
+        { cairo_t *keep = cr; cr = cc; writePathCairoOnly(40, 30, 20); cr = keep; }
+        cairo_fill(cc);
+        cairo_destroy(cc);
+        cairo_surface_flush(cov);
+        cairo_surface_flush(cs);
+        c = (unsigned int *)cairo_image_surface_get_data(cs);
+        cm = cairo_image_surface_get_data(cov);
+        for (y = 6; y < 56; y++)
+            for (x = 10; x < 70; x++) {
+                unsigned mm = cm[y * cairo_image_surface_get_stride(cov) + x], a = copy[(y - 6) * 240 + (x - 10) * 4];
+                unsigned f = 255 - (mm * (255 - a) + 127) / 255, v = c[y * (cairo_image_surface_get_stride(cs) / 4) + x], o = 0;
+                int sh;
+                for (sh = 0; sh < 32; sh += 8)
+                    o |= (((v >> sh) & 255) * f + 127) / 255 << sh;
+                c[y * (cairo_image_surface_get_stride(cs) / 4) + x] = o;
+            }
+        cairo_surface_mark_dirty(cs);
+        cairo_surface_destroy(cov);
+        compare("destination-in under a clip path's mask", 0, 24);
     }
     {   /* nested */
         begin(OBGPU_CAN_PD | OBGPU_CAN_PATH | OBGPU_CAN_ALIASED);
