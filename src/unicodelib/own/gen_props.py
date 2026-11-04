@@ -197,6 +197,9 @@ def main():
     voEnum, _ = parse_enum(uchar, "UVerticalOrientation")
     scEnum, scTags = parse_enum(uscript, "UScriptCode")
     errEnum, _ = parse_enum(utypes, "UErrorCode")
+    jtEnum, jtTags = parse_enum(uchar, "UJoiningType")
+    jgEnum, _ = parse_enum(uchar, "UJoiningGroup")
+    bptEnum, _ = parse_enum(uchar, "UBidiPairedBracketType")
 
     # property value aliases: short and long names per property
     pva = {}
@@ -326,6 +329,9 @@ def main():
         key = aliases.get(norm(n[6:]), norm(n[6:]))
         if key in sets:
             binProps.append((v, n, sets[key]))
+    for need in ("UCHAR_BIDI_MIRRORED", "UCHAR_BIDI_CONTROL", "UCHAR_JOIN_CONTROL"):
+        if prop[need] not in [v for v, _, _ in binProps]:
+            die(f"{need} must be ours: uo_icu.c answers ICU's ubidi_props with it")
     if len(binProps) > 96:
         die("more than 96 binary properties")
     binIndex, binSets = {}, []
@@ -453,6 +459,53 @@ def main():
     for first, _, f in ucd.fields("BidiMirroring.txt"):
         mirror.append((first, int(f[0], 16)))
     mirror.sort()
+    # joining (ubidi's): type and group per code point, as ranges
+    jtMap = value_map("jt", jtEnum, [(n, t) for n, t in jtTags.items() if t.isalpha()])
+    jgMap = {}
+    for n, v in jgEnum.items():
+        if n != "U_JG_COUNT":
+            jgMap[norm(n[5:])] = v
+    for row in pva["jg"]:
+        for n in row:
+            if norm(n) in jgMap:
+                for m in row:
+                    jgMap[norm(m)] = jgMap[norm(n)]
+                break
+        else:
+            die(f"jg={row[0]} has no UJoiningGroup")
+    jt = ranges_to_array(ucd, "extracted/DerivedJoiningType.txt", jtEnum["U_JT_NON_JOINING"], via(jtMap, "jt"))
+    jg = ranges_to_array(ucd, "extracted/DerivedJoiningGroup.txt", jgEnum["U_JG_NO_JOINING_GROUP"], via(jgMap, "jg"))
+    if max(jt) > 15 or max(jg) > 0xFFF:
+        die("joining type or group out of range")
+    joining = []
+    for c in range(MAXCP):
+        v = jt[c] | jg[c] << 4
+        if joining and joining[-1][1] == c - 1 and joining[-1][2] == v:
+            joining[-1][1] = c
+        elif v:
+            joining.append([c, c, v])
+    # paired brackets: the pair and o/c
+    bptOf = {"o": bptEnum["U_BPT_OPEN"], "c": bptEnum["U_BPT_CLOSE"]}
+    brackets = []
+    for first, _, f in ucd.fields("BidiBrackets.txt"):
+        brackets.append((first, int(f[0], 16), bptOf[f[1].strip()]))
+    brackets.sort()
+    bidiMax = (max(bc), max(jg), max(jt), max(b[2] for b in brackets))
+    # where any bidi property changes: ICU's ubidi_addPropertyStarts
+    # (characterproperties.cpp builds its property sets on these)
+    bidiBin = [sets.get(aliases.get(norm(n), norm(n)), set()) for n in ("Bidi_M", "Bidi_C", "Join_C")]
+    bpt = [0] * MAXCP
+    for c, _, t in brackets:
+        bpt[c] = t
+    bidiStarts, prevKey = [], None
+    for c in range(MAXCP):
+        key = (bc[c], jt[c], jg[c], bpt[c], c in bidiBin[0], c in bidiBin[1], c in bidiBin[2])
+        if key != prevKey:
+            bidiStarts.append(c)
+            prevKey = key
+    for c, _ in mirror:
+        bidiStarts += [c, c + 1]
+    bidiStarts = sorted(set(bidiStarts))
     # scripts written right to left: most of their letters are R or AL
     rtl = set()
     count = {}
@@ -517,6 +570,10 @@ def main():
         f.write(f"#define UO_SCX_COUNT {len(scx)}\nextern const struct uo_range uo_scx[];   /* value: index into uo_scx_sets */\n")
         f.write("extern const uint8_t uo_scx_sets[];   /* count, then the scripts */\n")
         f.write(f"#define UO_MIRROR_COUNT {len(mirror)}\nextern const int32_t uo_mirror[][2];\n")
+        f.write(f"#define UO_JOINING_COUNT {len(joining)}\nextern const struct uo_range uo_joining[];   /* type | group << 4 */\n")
+        f.write(f"#define UO_BRACKET_COUNT {len(brackets)}\nextern const int32_t uo_brackets[][3];   /* c, pair, type */\n")
+        f.write("enum { UO_MAX_BC = %d, UO_MAX_JG = %d, UO_MAX_JT = %d, UO_MAX_BPT = %d };\n" % bidiMax)
+        f.write(f"#define UO_BIDI_STARTS {len(bidiStarts)}\nextern const int32_t uo_bidi_starts[];\n")
         f.write(f"#define UO_SCRIPT_COUNT {scCount}\nextern const char *const uo_script_short[];\n")
         f.write("extern const uint8_t uo_script_rtl[];\n")
         f.write("struct uo_scname { const char *name; uint8_t sc; };   /* sorted by the loose name */\n")
@@ -580,6 +637,17 @@ def main():
         for a, b in mirror:
             f.write("    {0x%X, 0x%X},\n" % (a, b))
         f.write("};\n\n")
+        f.write(f"const struct uo_range uo_joining[{len(joining)}] = {{\n")
+        for r in joining:
+            f.write("    {0x%X, 0x%X, %d},\n" % tuple(r))
+        f.write("};\n\n")
+        f.write(f"const int32_t uo_brackets[{len(brackets)}][3] = {{\n")
+        for r in brackets:
+            f.write("    {0x%X, 0x%X, %d},\n" % r)
+        f.write("};\n\n")
+        sizes["props"] += 12 * (len(joining) + len(brackets))
+        c_array(f, "int32_t", "uo_bidi_starts", bidiStarts, per=8)
+        sizes["props"] += 4 * len(bidiStarts)
         f.write(f"const char *const uo_script_short[{scCount}] = {{\n")
         for s in range(scCount):
             f.write("    %s,\n" % (f'"{shortName[s]}"' if s in shortName else "0"))
