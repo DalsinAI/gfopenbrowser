@@ -516,15 +516,15 @@ The patches, in order:
   `&`, `|` and `^` had int32 code only and the rest only the interpreter's
   handlers, so any double operand (an int32 sum or product that overflowed,
   a uint32 from `x >>> 0`, a fraction) called the C slow path. Now int32s
-  are done in a data register and doubles from -2^31 to 2^32 are truncated
-  on the FPU (round-to-zero FPCR for one `fmove.l`, put back after) by a
-  routine each compiled function writes once; larger doubles, NaN,
-  infinities and non-numbers still go to the template. Constant operands
+  are done in a data register and every double (NaN and infinities give 0)
+  is truncated from its IEEE bits with integer shifts, as V8's
+  DoubleToInt32 does, by a routine each compiled function writes once; no
+  FPU and no FPCR switch. Only non-numbers still go to the template. Constant operands
   become their ToInt32 when compiled, a negative int32 into `op_unsigned`
   makes its double inline, and loops' register copies take the shifts,
   `~` and `op_unsigned`. `JSC_useM68KBitFastPaths=0` (a `Set` variable)
   turns it off. Tested by `tools/jsjit/test/bitops/run.sh` (the JIT's own
-  code under qemu-m68k, 20,216 cases) and `tools/jsjit/lab/correct23.js`.
+  code under qemu-m68k, 47,760 cases) and `tools/jsjit/lab/correct23.js`.
 - `0104-jsc-m68k-jit-sooner.patch`: functions and loops go to the 68k
   template JIT sooner: `thresholdForJITAfterWarmUp` is 100 on the 68k
   (500 elsewhere), so a function is compiled on about its seventh call and a

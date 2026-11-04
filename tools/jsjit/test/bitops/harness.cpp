@@ -89,11 +89,11 @@ static uint8_t* compile(OpcodeID op, Shape shape, int32_t rhsConst){
     endWith(b,2);
     return place(b);
 }
-static bool expectSlow(const Val& v){ if(!v.isNumber) return true; if(v.bits>>32==int32Tag) return false; double d=v.num; return !(d>=-2147483648.0 && d<4294967296.0); }
+static bool expectSlow(const Val& v){ if(!v.isNumber) return true; if(v.bits>>32==int32Tag) return false; double d=v.num; (void)d; return false; }
 int main(){
     std::vector<Val> vals={I(0),I(1),I(-1),I(5),I(31),I(32),I(33),I(-33),I(0x7fffffff),I((int32_t)0x80000000),I(123456789),I(-987654321),
         D(0.0),D(-0.0),D(1.5),D(-1.5),D(2.9),D(-2.9),D(31.99),D(2147483647.0),D(2147483647.9),D(2147483648.0),D(2147483648.5),D(3000000000.7),
-        D(4294967295.0),D(4294967295.99),D(4294967296.0),D(-2147483648.0),D(-2147483647.5),D(-2147483648.5),D(-3e9),D(1e300),D(NAN),D(INFINITY),D(-INFINITY),D(5e-324),D(65536.25),Cell()};
+        D(4294967295.0),D(4294967295.99),D(4294967296.0),D(-2147483648.0),D(-2147483647.5),D(-2147483648.5),D(-3e9),D(1e300),D(NAN),D(INFINITY),D(-INFINITY),D(5e-324),D(65536.25),D(66000000000.5),D(-1e10),D(9007199254740991.0),D(9007199254740992.0),D(-9007199254740993.0),D(4611686018427387904.0),D(-9223372036854775808.0),D(1.8446744073709552e19),D(3.0e25),D(-2.4178516392292583e24),D(1e19+12345.0),D(0.999),D(-0.5),D(2.2250738585072014e-308),D(1048577.75),D(2097151.5),D(-1048575.5),D(4503599627370497.0),D(std::ldexp((double)((1ull<<52)|1),31)),D(-std::ldexp((double)((1ull<<52)|3),30)),D(std::ldexp((double)((1ull<<52)|1),32)),D(std::ldexp(1.0,84)),Cell()};
     const char* names[]={"&","|","^","<<",">>",">>>","~","unsigned"};
     int bad=0, cases=0, fast=0, flt=0, slw=0;
     uint32_t initial = getenv("FPCR") ? strtoul(getenv("FPCR"), nullptr, 0) : 0x80;

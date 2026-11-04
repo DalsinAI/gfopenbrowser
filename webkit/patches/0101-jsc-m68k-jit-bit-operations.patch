@@ -1,17 +1,17 @@
-From 82dc713c3e32b2ee71609d6761a501d04ea618f2 Mon Sep 17 00:00:00 2001
+From 139cf0849dfa799ced80df71b13d9e1d4ef34f69 Mon Sep 17 00:00:00 2001
 From: SacredTrees <121399723+SacredTrees@users.noreply.github.com>
-Date: Tue, 3 Nov 2026 21:28:04 +0000
+Date: Wed, 4 Nov 2026 07:10:55 +0000
 Subject: [PATCH] JavaScriptCore: 68k template JIT bit operations on numbers
 
 &, |, ^ keep their int32 code and gain a float path; <<, >>, >>>, ~ and
 op_unsigned (after >>>) get fast code of their own, where they had only
 the interpreter's handler. An operand that is a double goes to the float
-path, which truncates it to int32 on the FPU (fmove.l under a
-round-to-zero FPCR, saved and put back; 2^31 to 2^32, a uint32 from
-x >>> 0, less 2^32 rounding down) instead of calling the C slow path.
+path, which truncates it to int32 from its IEEE bits with integer
+shifts (as V8's DoubleToInt32: the significand shifted by the exponent,
+low 32 bits kept, negated if negative; NaN and infinities give 0)
+instead of calling the C slow path. No FPU work and no FPCR switch.
 The truncation is one routine per compiled function, which each operand
-calls. Larger doubles, NaN, infinities and non-numbers still take the
-template. A numeric constant operand is its ToInt32 at compile time
+calls. Only non-numbers still take the template. A numeric constant operand is its ToInt32 at compile time
 (x & 0xffffffff). op_unsigned of a negative int32 makes its double
 inline. Loops' register copies take the shifts, ~ and op_unsigned on
 int32s; inlined functions may use them. JSC_useM68KBitFastPaths=0 turns
@@ -19,12 +19,14 @@ it all off.
 
 Team 3
 ---
- .../JavaScriptCore/llint/M68KTemplateJIT.cpp  | 375 +++++++++++++++++-
+ .../JavaScriptCore/llint/M68KTemplateJIT.cpp  | 378 +++++++++++++++++-
+ .../runtime/AmigaCodeCacheWrite.h             |  39 ++
  Source/JavaScriptCore/runtime/OptionsList.h   |   1 +
- 2 files changed, 374 insertions(+), 2 deletions(-)
+ 3 files changed, 416 insertions(+), 2 deletions(-)
+ create mode 100644 Source/JavaScriptCore/runtime/AmigaCodeCacheWrite.h
 
 diff --git a/Source/JavaScriptCore/llint/M68KTemplateJIT.cpp b/Source/JavaScriptCore/llint/M68KTemplateJIT.cpp
-index 7a2dec8cb67..33b42d9c181 100644
+index 7a2dec8cb67..f419db993c9 100644
 --- a/Source/JavaScriptCore/llint/M68KTemplateJIT.cpp
 +++ b/Source/JavaScriptCore/llint/M68KTemplateJIT.cpp
 @@ -53,6 +53,7 @@
@@ -35,20 +37,13 @@ index 7a2dec8cb67..33b42d9c181 100644
  #include "PolymorphicCallStubRoutine.h"
  #include "Watchpoint.h"
  #include "VMTraps.h"
-@@ -355,7 +356,33 @@ public:
+@@ -355,7 +356,26 @@ public:
      void fop(FPOperation op, unsigned src, unsigned dst) { word(0xf200); word((src << 10) | (dst << 7) | op); }
      void fopLong(FPOperation op, unsigned dn, unsigned fpn) { word(0xf200 | dn); word(0x4000 | (fpn << 7) | op); } // f<op>.l dn,fpn
  
 -    enum Condition { Always = 0, Higher = 2, LowerSame = 3, CarryClear = 4, CarrySet = 5, NotEqual = 6, Equal = 7, OverflowSet = 9, GreaterEqual = 12, Less = 13, Greater = 14, LessEqual = 15 };
 +    // Bit operations (patch 0101).
 +    void fopDoubleImm(FPOperation op, uint64_t bits, unsigned fpn) { word(0xf23c); word(0x5400 | (fpn << 7) | op); longWord(bits >> 32); longWord(static_cast<uint32_t>(bits)); } // f<op>.d #imm,fpn
-+    void fmoveToLong(unsigned fpn, unsigned dn) { word(0xf200 | dn); word(0x6000 | (fpn << 7)); } // fmove.l fpn,dn: rounded as FPCR says
-+    // FPCR saved on the stack and put back: subq.l #4,sp; fmove.l fpcr,(sp)
-+    // and fmove.l (sp),fpcr; addq.l #4,sp (qemu-m68k 8.2 gets the -(sp)
-+    // and (sp)+ forms of fmove.l fpcr wrong, and tests run there).
-+    void pushFPCR() { word(0x598f); word(0xf217); word(0xb000); }
-+    void popFPCR() { word(0xf217); word(0x9000); word(0x588f); }
-+    void setFPCR(uint32_t imm) { word(0xf23c); word(0x9000); longWord(imm); } // fmove.l #imm,fpcr
 +    enum Shift { ShiftLeft, ShiftRightArithmetic, ShiftRightLogical };
 +    static uint16_t shiftOpcode(Shift shift)
 +    {
@@ -66,29 +61,11 @@ index 7a2dec8cb67..33b42d9c181 100644
 +    void shiftReg(Shift shift, unsigned count, unsigned dn) { word(shiftOpcode(shift) | 0x0020 | (count << 9) | dn); }
 +    void notReg(unsigned dn) { word(0x4680 | dn); } // not.l dn
 +
-+    enum Condition { Always = 0, Higher = 2, LowerSame = 3, CarryClear = 4, CarrySet = 5, NotEqual = 6, Equal = 7, OverflowSet = 9, Minus = 11, GreaterEqual = 12, Less = 13, Greater = 14, LessEqual = 15 };
++    enum Condition { Always = 0, Higher = 2, LowerSame = 3, CarryClear = 4, CarrySet = 5, NotEqual = 6, Equal = 7, OverflowSet = 9, Plus = 10, Minus = 11, GreaterEqual = 12, Less = 13, Greater = 14, LessEqual = 15 };
      // b<cc>.b within a fast path: branchShort, then bindShort at the target.
      size_t branchShort(Condition cc)
      {
-@@ -394,6 +421,17 @@ public:
-         fixups.append({ at, from, true, 0, offset, true });
-     }
- 
-+    // fb<cc>.l, bound later like branch's.
-+    size_t fbranch(FPCondition cc)
-+    {
-+        size_t from = size() + 2;
-+        word(0xf2c0 | cc);
-+        size_t at = size();
-+        longWord(0);
-+        fixups.append({ at, from, true, 0, 0, false });
-+        return fixups.size() - 1;
-+    }
-+
-     // fb<cc>.l to a buffer position.
-     void fbranchToBuffer(FPCondition cc, size_t target)
-     {
-@@ -428,6 +466,15 @@ public:
+@@ -428,6 +448,15 @@ public:
          fixups[i].toBytecode = true;
          fixups[i].targetBytecode = offset;
      }
@@ -104,7 +81,7 @@ index 7a2dec8cb67..33b42d9c181 100644
      // jmp (abs).l, for leaving a slow path for the next instruction's fast code.
      void jumpToBytecode(unsigned offset)
      {
-@@ -624,6 +671,8 @@ public:
+@@ -624,6 +653,8 @@ public:
          bool ok = emitImpl(instruction, offset);
          floatPath.site = offset;
          if (!ok) {
@@ -113,7 +90,7 @@ index 7a2dec8cb67..33b42d9c181 100644
              m_hot.bytes.shrink(start);
              m_hot.fixups.shrink(fixups);
              while (!m_inlineGuards.isEmpty() && m_inlineGuards.last().first >= fixups)
-@@ -647,6 +696,8 @@ public:
+@@ -647,6 +678,8 @@ public:
              getByIdOtherModes(floatPath);
          else if (isCompare(floatPath.opcode))
              floatCompare(floatPath.opcode, floatPath.lhs, floatPath.rhs, floatPath.target);
@@ -122,7 +99,7 @@ index 7a2dec8cb67..33b42d9c181 100644
          else
              floatArith(floatPath.opcode, floatPath.dst, floatPath.lhs, floatPath.rhs);
          m_hot.jumpToBytecode(nextOffset);
-@@ -769,6 +820,250 @@ private:
+@@ -769,6 +802,271 @@ private:
          m_hot.fbranchToBytecode(floatCondition(opcode), target);
      }
  
@@ -160,27 +137,21 @@ index 7a2dec8cb67..33b42d9c181 100644
 +        return operandFor(m_codeBlock, reg);
 +    }
 +    // ToInt32 of a number in the frame into dn: an int32 as it is, a double
-+    // truncated on the FPU. A double from -2^31 to 2^31 truncates towards
-+    // zero (FPCR's round-to-zero, for the one fmove.l); one from 2^31 to 2^32
-+    // (a uint32, from >>> 0) less 2^32, rounding down. Anything else (a
-+    // larger double, infinity, NaN, a non-number) takes the slow path. The
-+    // work is a routine written once per compiled function, the first time a
-+    // float path needs it, which each operand calls: lea, bsr, bne. It
-+    // takes a0, the value's address, and gives d0 with Z set, or Z clear for
-+    // the slow path; it uses d0, a0 and fp0, and FPCR is saved on the stack
-+    // and put back. Like the rest of the JIT's float code it reads doubles
-+    // under the task's FPCR precision (extended or double, never single).
-+    static constexpr uint64_t doubleTwo31 = 0x41e0000000000000ull;
-+    static constexpr uint64_t doubleMinusTwo31 = 0xc1e0000000000000ull;
++    // from its IEEE bits with integer shifts, as V8's DoubleToInt32 does:
++    // the 53 bit significand shifted by the exponent, the low 32 bits kept,
++    // negated for a negative number. Every double takes this way, NaN and
++    // infinity giving 0; only a non-number takes the slow path. No FPU, so
++    // no FPCR switch and no rounding mode matter. The work is a routine
++    // written once per compiled function, the first time a float path needs
++    // it, which each operand calls: lea, bsr, bne. It takes a0, the value's
++    // address, and gives d0 with Z set, or Z clear for the slow path; it
++    // uses d0 and a0, and saves d2 and d3 on the stack.
 +    static constexpr uint64_t doubleTwo32 = 0x41f0000000000000ull;
-+    static constexpr uint32_t fpcrRoundToZero = 0x10;
-+    static constexpr uint32_t fpcrRoundDown = 0x20;
 +    void truncateRoutine()
 +    {
 +        m_hot.word(0x0c90); m_hot.longWord(int32Tag); // cmpi.l #int32Tag,(a0)
 +        size_t notInt32 = m_hot.branchShort(Builder::NotEqual);
 +        m_hot.loadDisp(0, 4, 0); // move.l 4(a0),d0
-+        size_t done = m_hot.size();
 +        m_hot.word(0x003c); m_hot.word(0x0004); // ori #4,ccr: Z, done
 +        m_hot.word(0x4e75); // rts
 +        size_t fail = m_hot.size();
@@ -190,29 +161,56 @@ index 7a2dec8cb67..33b42d9c181 100644
 +        m_hot.word(0x2010); // move.l (a0),d0
 +        m_hot.cmpImm(doubleEncodeOffsetHigh, 0);
 +        m_hot.branchToBuffer(Builder::CarrySet, fail); // below every encoded double: a cell or other
-+        m_hot.subImm(doubleEncodeOffsetHigh, 0);
-+        m_hot.word(0x2f28); m_hot.word(4); // move.l 4(a0),-(sp)
-+        m_hot.push(0);
-+        m_hot.fmoveDoublePop(0);
-+        m_hot.fopDoubleImm(Builder::FPCompare, doubleTwo31, 0); // fp0 - 2^31
-+        size_t big = m_hot.fbranchShort(Builder::FPOrderedGreaterEqual);
-+        m_hot.fopDoubleImm(Builder::FPCompare, doubleMinusTwo31, 0);
-+        size_t inRange = m_hot.fbranchShort(Builder::FPOrderedGreaterEqual);
-+        m_hot.branchToBuffer(Builder::Always, fail); // below -2^31, or NaN
-+        m_hot.bindFShort(big);
-+        m_hot.fopDoubleImm(Builder::FPCompare, doubleTwo32, 0);
-+        m_hot.fbranchToBuffer(Builder::FPOrderedGreaterEqual, fail); // 2^32 or more
-+        m_hot.fopDoubleImm(Builder::FPSub, doubleTwo32, 0); // exact, at double precision whatever FPCR says
-+        m_hot.pushFPCR();
-+        m_hot.setFPCR(fpcrRoundDown);
-+        size_t convert = m_hot.branchShort(Builder::Always);
-+        m_hot.bindFShort(inRange);
-+        m_hot.pushFPCR();
-+        m_hot.setFPCR(fpcrRoundToZero);
-+        m_hot.bindShort(convert);
-+        m_hot.fmoveToLong(0, 0);
-+        m_hot.popFPCR();
-+        m_hot.branchToBuffer(Builder::Always, done);
++        m_hot.word(0x48e7); m_hot.word(0x3000); // movem.l d2-d3,-(sp)
++        m_hot.subImm(doubleEncodeOffsetHigh, 0); // d0: the double's high long
++        m_hot.word(0x2400); // move.l d0,d2
++        m_hot.word(0x4842); // swap d2
++        m_hot.word(0xe84a); // lsr.w #4,d2
++        m_hot.word(0x0242); m_hot.word(0x07ff); // andi.w #0x7ff,d2
++        m_hot.word(0x0442); m_hot.word(1023); // subi.w #1023,d2: e, the unbiased exponent
++        size_t fraction = m_hot.branchShort(Builder::Minus); // |d| < 1, zero or denormal: 0
++        m_hot.word(0x2628); m_hot.word(4); // move.l 4(a0),d3: the significand's low 32 bits
++        m_hot.word(0x0280); m_hot.longWord(0x000fffff); // andi.l: its high 20 bits
++        m_hot.word(0x0080); m_hot.longWord(0x00100000); // ori.l: and the hidden 1
++        m_hot.word(0x0c42); m_hot.word(52); // cmpi.w #52,d2
++        size_t big = m_hot.branchShort(Builder::GreaterEqual);
++        m_hot.word(0x0c42); m_hot.word(20); // cmpi.w #20,d2
++        size_t mid = m_hot.branchShort(Builder::Greater);
++        // 0 <= e <= 20: the high part shifted right by 20 - e.
++        m_hot.word(0x4442); // neg.w d2
++        m_hot.word(0x0642); m_hot.word(20); // addi.w #20,d2
++        m_hot.word(0xe4a8); // lsr.l d2,d0
++        size_t signLow = m_hot.branchShort(Builder::Always);
++        // 20 < e < 52: high << (e - 20) | low >> (52 - e).
++        m_hot.bindShort(mid);
++        m_hot.word(0x0442); m_hot.word(20); // subi.w #20,d2
++        m_hot.word(0xe5a8); // lsl.l d2,d0
++        m_hot.word(0x4442); // neg.w d2
++        m_hot.word(0x0642); m_hot.word(32); // addi.w #32,d2
++        m_hot.word(0xe4ab); // lsr.l d2,d3
++        m_hot.word(0x8083); // or.l d3,d0
++        size_t signMid = m_hot.branchShort(Builder::Always);
++        // e >= 52: low << (e - 52), 0 from e = 84 (with infinity and NaN).
++        m_hot.bindShort(big);
++        m_hot.word(0x0442); m_hot.word(52); // subi.w #52,d2
++        m_hot.word(0x0c42); m_hot.word(31); // cmpi.w #31,d2
++        size_t huge = m_hot.branchShort(Builder::Greater);
++        m_hot.word(0xe5ab); // lsl.l d2,d3
++        m_hot.word(0x2003); // move.l d3,d0
++        m_hot.bindShort(signLow);
++        m_hot.bindShort(signMid);
++        m_hot.word(0x4a10); // tst.b (a0): the sign, which the encoding offset leaves alone
++        size_t positive = m_hot.branchShort(Builder::Plus);
++        m_hot.neg(0);
++        m_hot.bindShort(positive);
++        size_t restore = m_hot.size();
++        m_hot.word(0x4cdf); m_hot.word(0x000c); // movem.l (sp)+,d2-d3
++        m_hot.word(0x003c); m_hot.word(0x0004); // ori #4,ccr: Z, done
++        m_hot.word(0x4e75); // rts
++        m_hot.bindShort(fraction);
++        m_hot.bindShort(huge);
++        m_hot.word(0x7000); // moveq #0,d0
++        m_hot.branchToBuffer(Builder::Always, restore);
 +    }
 +    void truncateToInt32(const Operand& op, unsigned dn)
 +    {
@@ -373,7 +371,7 @@ index 7a2dec8cb67..33b42d9c181 100644
      template<typename Op>
      bool binary(const JSInstruction* instruction, void (Builder::*withFrame)(int, unsigned), void (Builder::*withImm)(uint32_t, unsigned), bool checkOverflow, bool hasFloatPath)
      {
-@@ -2071,6 +2366,7 @@ private:
+@@ -2071,6 +2369,7 @@ private:
          switch (opcode) {
          case op_enter: case op_ret: case op_mov: case op_inc: case op_dec:
          case op_add: case op_sub: case op_mul: case op_bitand: case op_bitor: case op_bitxor:
@@ -381,7 +379,7 @@ index 7a2dec8cb67..33b42d9c181 100644
          case op_jmp: case op_jless: case op_jlesseq: case op_jgreater: case op_jgreatereq:
          case op_jnless: case op_jnlesseq: case op_jngreater: case op_jngreatereq:
          case op_stricteq: case op_nstricteq: case op_jstricteq: case op_jnstricteq:
-@@ -3183,10 +3479,26 @@ private:
+@@ -3183,10 +3482,26 @@ private:
          case op_sub:
              return binary<OpSub>(instruction, &Builder::subFrame, &Builder::subImm, true, true);
          case op_bitand:
@@ -408,7 +406,7 @@ index 7a2dec8cb67..33b42d9c181 100644
              auto bytecode = instruction->as<OpBitxor>();
              Operand dst = operandFor(m_codeBlock, bytecode.m_dst);
              Operand lhs = operandFor(m_codeBlock, bytecode.m_lhs);
-@@ -3301,6 +3613,7 @@ private:
+@@ -3301,6 +3616,7 @@ private:
      unsigned m_tableCount { 0 };
      Vector<std::tuple<size_t, unsigned, size_t>> m_tableFixups;
      bool m_inline { false }; // this CodeBlock's code inlined into a caller's (inlineCall)
@@ -416,7 +414,7 @@ index 7a2dec8cb67..33b42d9c181 100644
      // The inlined callees' guard words (inlineCall): the fixups of the
      // code addresses that read them, and the CodeBlocks they hold.
      Vector<std::pair<size_t, CodeBlock*>> m_inlineGuards;
-@@ -3547,6 +3860,16 @@ private:
+@@ -3547,6 +3863,16 @@ private:
          M68K_BINARY(op_bitor, OpBitor)
          M68K_BINARY(op_bitxor, OpBitxor)
  #undef M68K_BINARY
@@ -433,7 +431,7 @@ index 7a2dec8cb67..33b42d9c181 100644
  #define M68K_COMPARE(name, Op) case name: { auto bytecode = instruction->as<Op>(); addNumber(bytecode.m_lhs); addNumber(bytecode.m_rhs); return result(true); }
          M68K_COMPARE(op_jless, OpJless)
          M68K_COMPARE(op_jlesseq, OpJlesseq)
-@@ -3659,6 +3982,7 @@ private:
+@@ -3659,6 +3985,7 @@ private:
              OpcodeID opcode = instruction->opcodeID();
              bool writesFirst = opcode == op_mov || opcode == op_add || opcode == op_sub || opcode == op_mul
                  || opcode == op_bitand || opcode == op_bitor || opcode == op_bitxor || opcode == op_get_by_id
@@ -441,7 +439,7 @@ index 7a2dec8cb67..33b42d9c181 100644
                  || opcode == op_get_by_val || opcode == op_get_length || opcode == op_call;
              for (unsigned pass = 0; pass < 2; ++pass) {
                  for (unsigned i = 0; i < regs.size(); ++i) {
-@@ -3913,7 +4237,7 @@ private:
+@@ -3913,7 +4240,7 @@ private:
          return Next;
      }
  
@@ -450,7 +448,7 @@ index 7a2dec8cb67..33b42d9c181 100644
      template<typename Op>
      Result binary(const JSInstruction* instruction, Arith arith)
      {
-@@ -3944,6 +4268,48 @@ private:
+@@ -3944,6 +4271,48 @@ private:
          case Arith::And: m_code.andReg(src, 0); break;
          case Arith::Or: m_code.orReg(src, 0); break;
          case Arith::Xor: m_code.eorReg(src, 0); break;
@@ -499,7 +497,7 @@ index 7a2dec8cb67..33b42d9c181 100644
          }
          store(0, dst);
          return Next;
-@@ -4168,6 +4534,11 @@ private:
+@@ -4168,6 +4537,11 @@ private:
          case op_bitand: return binary<OpBitand>(instruction, Arith::And);
          case op_bitor: return binary<OpBitor>(instruction, Arith::Or);
          case op_bitxor: return binary<OpBitxor>(instruction, Arith::Xor);
@@ -511,15 +509,60 @@ index 7a2dec8cb67..33b42d9c181 100644
          case op_jless: return compare<OpJless>(instruction, offset, Builder::Less);
          case op_jlesseq: return compare<OpJlesseq>(instruction, offset, Builder::LessEqual);
          case op_jgreater: return compare<OpJgreater>(instruction, offset, Builder::Greater);
+diff --git a/Source/JavaScriptCore/runtime/AmigaCodeCacheWrite.h b/Source/JavaScriptCore/runtime/AmigaCodeCacheWrite.h
+new file mode 100644
+index 00000000000..663ec6b1ba4
+--- /dev/null
++++ b/Source/JavaScriptCore/runtime/AmigaCodeCacheWrite.h
+@@ -0,0 +1,39 @@
++/*
++ * Copyright (C) 2026 AmiCradle Team.
++ *
++ * Redistribution and use in source and binary forms, with or without
++ * modification, are permitted provided that the following conditions
++ * are met:
++ * 1. Redistributions of source code must retain the above copyright
++ *    notice, this list of conditions and the following disclaimer.
++ * 2. Redistributions in binary form must reproduce the above copyright
++ *    notice, this list of conditions and the following disclaimer in the
++ *    documentation and/or other materials provided with the distribution.
++ *
++ * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS ``AS IS''
++ * AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO,
++ * THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR
++ * PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDERS OR
++ * CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL,
++ * EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO,
++ * PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS;
++ * OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY,
++ * WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR
++ * OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF
++ * ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
++ */
++
++#pragma once
++
++#include "JSExportMacros.h"
++
++namespace JSC {
++
++class VM;
++
++// Writes what the code cache holds of each script to the script's
++// SourceProvider (CodeCache::write()), for a program that cannot include
++// CodeCache.h. Hold the VM's lock.
++JS_EXPORT_PRIVATE void amigaWriteCodeCache(VM&);
++
++} // namespace JSC
 diff --git a/Source/JavaScriptCore/runtime/OptionsList.h b/Source/JavaScriptCore/runtime/OptionsList.h
-index caaf2f3cbfb..d166f3afbef 100644
+index caaf2f3cbfb..f9921d96d9d 100644
 --- a/Source/JavaScriptCore/runtime/OptionsList.h
 +++ b/Source/JavaScriptCore/runtime/OptionsList.h
 @@ -657,6 +657,7 @@ bool hasCapacityToUseLargeGigacage();
      v(Bool, useM68KTemplateJIT, true, Normal, "68k only: compile hot functions and loops by stitching the interpreter's handlers (J2). JSC_useM68KTemplateJIT=0 turns it off."_s) \
      v(Bool, useM68KFastPaths, true, Normal, "68k only: the template JIT writes its own 32-bit code for common integer operations (J3)."_s) \
      v(Bool, useM68KPropertyFastPaths, true, Normal, "68k only: the template JIT writes its own code for property reads and writes its inline cache has settled (J4)."_s) \
-+    v(Bool, useM68KBitFastPaths, true, Normal, "68k only: the template JIT writes its own code for &, |, ^, ~, <<, >> and >>>, doubles truncated on the FPU (patch 0101)."_s) \
++    v(Bool, useM68KBitFastPaths, true, Normal, "68k only: the template JIT writes its own code for &, |, ^, ~, <<, >> and >>>, doubles truncated from their bits (patch 0101)."_s) \
      v(Bool, useM68KRegisterCache, true, Normal, "68k only: the template JIT keeps loops' int32 variables in data registers (J6)."_s) \
      v(Bool, useM68KInlining, true, Normal, "68k only: the template JIT writes small functions into their callers' code at call sites that always call them."_s) \
      v(Unsigned, m68kTemplateJITMaximumInlineSize, 64, Normal, "68k only: largest function, in bytecode bytes, the template JIT inlines."_s) \

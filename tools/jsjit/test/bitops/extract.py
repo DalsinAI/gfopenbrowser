@@ -23,8 +23,8 @@ while L[e] != '};': e += 1
 fp = find(r'^class FastPaths')
 pats = [r'void slowUnless', r'void bailUnless', r'void useFloatPath', r'void checkInt32', r'void load\(const Operand', r'void storeInt32',
         r'static bool same', r'static bool isConstant\(const Operand', r'static constexpr uint32_t doubleEncodeOffsetHigh', r'void boxDouble',
-        r'static constexpr uint64_t doubleTwo31', r'static constexpr uint64_t doubleMinusTwo31', r'static constexpr uint64_t doubleTwo32',
-        r'static constexpr uint32_t fpcrRoundToZero', r'static constexpr uint32_t fpcrRoundDown', r'void truncateRoutine', r'void truncateToInt32', r'void bitOperation', r'void floatBitOperation']
+        r'static constexpr uint64_t doubleTwo32',
+        r'void truncateRoutine', r'void truncateToInt32', r'void bitOperation', r'void floatBitOperation']
 parts = [block(p, fp) for p in pats]
 open(sys.argv[2], 'w').write('\n'.join(L[b:e + 1]) + '\n' + block(r'^struct Operand') + '\n'
     + 'struct FloatPath { bool needed{false}; OpcodeID opcode{op_bitand}; Operand dst, lhs, rhs; unsigned target{0}; Vector<size_t> branches; };\n'
