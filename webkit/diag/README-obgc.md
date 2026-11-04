@@ -35,3 +35,11 @@ version) at slow path entry, d now. Base dead too means a lost root (stack or
 frame scan); base live with its Structure dead means marking. It also drops the
 DEADPREV false positives (cells in the block being allocated from) and raises
 the cap to 60 lines.
+
+## obgc-pervm.patch (after all three above)
+
+G8 printed no worker line because the one global cap was used up: the page VM
+printed 51 STALE_PUT + 9 STALE_GET false positives (cells in the block being
+allocated from) before any worker reached a report. This gives each VM its
+own cap of 30 lines and drops not-live cells in a free-listed block from every
+check (STALE_GET, STALE_PUT, STALE_PUTCACHE, DEADPREV).
