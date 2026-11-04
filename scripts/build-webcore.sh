@@ -899,10 +899,11 @@ test_browser() {
     strip="$GCC16/prefix/bin/m68k-amigaos-strip"
     mkdir -p "$OB_TEST_DIR/pages" "$OB_TEST_DIR/Fonts"
     cp "$@" "$OB_TEST_DIR/Fonts/"
-    # gfopenfont's CJK face (its fonts/cjk), fetched at build time
-    : "${OPENFONT_SRC:?set OPENFONT_SRC to gfopenfont's checkout (its CJK face)}"
-    cjk_font=$("$OPENFONT_SRC/fonts/cjk/fetch-cjk-font.sh")
-    cp "$cjk_font" "$(dirname "$cjk_font")/DroidSansFallback.NOTICE" "$OB_TEST_DIR/Fonts/"
+    # gfopenfont's CJK faces and their licences (its fonts/cjk), fetched at
+    # build time
+    : "${OPENFONT_SRC:?set OPENFONT_SRC to the gfopenfont checkout (its CJK faces)}"
+    cjk_files=$("$OPENFONT_SRC/fonts/cjk/fetch-cjk-font.sh")
+    printf '%s\n' "$cjk_files" | while IFS= read -r f; do cp "$f" "$OB_TEST_DIR/Fonts/"; done
     for program in obcore-view obcore-dump; do
         "$strip" -o "$OB_TEST_DIR/$program" "$BUILD/bin/$program"
     done
