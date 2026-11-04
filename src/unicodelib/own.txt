@@ -5,8 +5,8 @@
 # Piece 1, properties and case (1 November 2026). Still ICU's from this
 # group: the uset_* calls,
 # u_strFromUTF8, u_strToUTF8 and uscript_getCode; inside ours, Greek
-# uppercasing (locale "el") and the properties WebKit never asks for
-# (see own/uo_props.c) still go to ICU's own function.
+# uppercasing (locale "el") still goes to ICU's own function. Since piece
+# 3 every property is ours (own/uo_icu.c answers ICU's own code too).
 u_charDirection
 u_charMirror
 u_charType

@@ -19,4 +19,9 @@ mkdir -p "$DIR"
 curl -fsSL -o "$DIR/UCD.zip" "$URL"
 echo "$SHA256  $DIR/UCD.zip" | sha256sum -c -
 (cd "$DIR" && unzip -qo UCD.zip && rm UCD.zip)
+# Unicode's emoji sequences and identifier types of the same version (not
+# in UCD.zip): gen_props.py checks them against ucd.sha256
+mkdir -p "$DIR/emoji" "$DIR/security"
+curl -fsSL -o "$DIR/emoji/emoji-sequences.txt" https://www.unicode.org/Public/17.0.0/emoji/emoji-sequences.txt
+curl -fsSL -o "$DIR/security/IdentifierType.txt" https://www.unicode.org/Public/17.0.0/security/IdentifierType.txt
 echo "fetch-ucd.sh: Unicode 17.0.0 in $DIR"

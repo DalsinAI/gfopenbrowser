@@ -41,6 +41,37 @@ void uo_u_getVersion(UVersionInfo info);
 const char *uo_u_errorName(UErrorCode code);
 int32_t uo_u_countChar32(const UChar *s, int32_t length);
 
+/* the rest of ICU's uchar.cpp and uprops.cpp (uo_icu.c answers ICU's own
+   code with them under ICU's names) */
+int32_t uo_u_getIntPropertyMaxValue(UProperty which);
+void uo_u_charAge(UChar32 c, UVersionInfo info);
+double uo_u_getNumericValue(UChar32 c);
+int32_t uo_u_charDigitValue(UChar32 c);
+UBool uo_u_hasIDType(UChar32 c, UIdentifierType type);
+int32_t uo_u_getIDTypes(UChar32 c, UIdentifierType *types, int32_t capacity, UErrorCode *err);
+int32_t uo_uscript_getScriptExtensions(UChar32 c, UScriptCode *scripts, int32_t capacity, UErrorCode *err);
+void uo_prop_starts(void (*add)(void *ctx, UChar32 c), void *ctx);
+UBool uo_u_islower(UChar32 c);
+UBool uo_u_isupper(UChar32 c);
+UBool uo_u_istitle(UChar32 c);
+UBool uo_u_isdefined(UChar32 c);
+UBool uo_u_isxdigit(UChar32 c);
+UBool uo_u_isbase(UChar32 c);
+UBool uo_u_iscntrl(UChar32 c);
+UBool uo_u_isISOControl(UChar32 c);
+UBool uo_u_isspace(UChar32 c);
+UBool uo_u_isJavaSpaceChar(UChar32 c);
+UBool uo_u_isWhitespace(UChar32 c);
+UBool uo_u_isblank(UChar32 c);
+UBool uo_u_isgraph(UChar32 c);
+UBool uo_u_isIDIgnorable(UChar32 c);
+UBool uo_u_isJavaIDStart(UChar32 c);
+UBool uo_u_isJavaIDPart(UChar32 c);
+int32_t uo_u_digit(UChar32 ch, int8_t radix);
+UChar32 uo_u_forDigit(int32_t digit, int8_t radix);
+void uo_u_getUnicodeVersion(UVersionInfo info);
+void uo_u_enumCharTypes(UCharEnumTypeRange *enumRange, const void *context);
+
 /* uo_case.c */
 UChar32 uo_u_tolower(UChar32 c);
 UChar32 uo_u_toupper(UChar32 c);

@@ -13,11 +13,16 @@
 #              enums (UProperty, UBlockCode, UScriptCode, ...) are ours too
 # OUT_DIR      uo_data.c (the tables) and uo_data.h (what uo_*.c use)
 #
-# Per code point three tries (cp >> 10, then 32 entries, then 32 entries,
-# each block stored once): the property record (general category, bidi
-# class, combining class, script, East Asian width, line break, vertical
-# orientation, numeric type), the set of binary properties we answer, and
-# the case record (simple mappings as deltas, case-folding delta, flags).
+# Per code point four tries (each block stored once): the property record
+# (general category, bidi class, combining class, script, East Asian width,
+# line break, vertical orientation, numeric type), the set of binary
+# properties, the record of the rest (decomposition type, grapheme, word
+# and sentence break, Indic categories, quick checks, normalization-inert,
+# segment-starter and case-sensitive flags, identifier types), and the case
+# record (simple mappings as deltas, case-folding delta, flags). Age,
+# numeric values and lead/trail combining classes are runs and lists.
+# Besides UCD.zip's files: Unicode's emoji/emoji-sequences.txt and
+# security/IdentifierType.txt of the same version (scripts/fetch-ucd.sh).
 import hashlib
 import os
 import re
@@ -166,6 +171,307 @@ def c_array(f, ctype, name, values, per=16):
     f.write("};\n\n")
 
 
+# ---- the properties ICU's uchar.cpp and uprops.cpp give besides those above ----
+
+def enum_values(ucd, pva, uchar, typename, prefix, prop):
+    """UCD value name of property prop (any alias) -> the number of ICU's
+    enum typename, matched by the enum names (prefix stripped) and their
+    [tag] comments against PropertyValueAliases.txt"""
+    names, tags = parse_enum(uchar, typename)
+    m = {}
+    for n, v in names.items():
+        if not n.startswith(prefix) or n.endswith("_COUNT") or n.endswith("_LIMIT"):
+            continue
+        keys = {norm(n[len(prefix):])}
+        if n in tags:
+            keys.add(norm(tags[n]))
+        for row in pva[prop]:
+            if keys & {norm(x) for x in row}:
+                for x in row:
+                    m.setdefault(norm(x), v)
+                break
+        else:
+            die(f"{typename}: {n} is not a value of {prop} in PropertyValueAliases.txt")
+    for row in pva[prop]:
+        if not any(norm(x) in m for x in row):
+            die(f"{prop}={row[0]} has no {typename}")
+    return m
+
+
+def prop_array(ucd, name, prop, default):
+    """A property of a file with "cp; Property; Value" lines (and @missing)."""
+    a = [default] * MAXCP
+    for first, last, f in ucd.fields(name, missing=True):
+        if len(f) >= 2 and norm(f[0]) == norm(prop):
+            for c in range(first, last + 1):
+                a[c] = f[1]
+    return a
+
+
+def more_props(ucd, pva, uchar, unorm2, gc, gcEnum, ccc, sets, aliases):
+    out = {}
+
+    def via_map(m, what):
+        def conv(v):
+            if norm(v) not in m:
+                die(f"{what} value {v!r} has no ICU number")
+            return m[norm(v)]
+        return conv
+
+    def arr(name, typename, prefix, prop, default):
+        m = enum_values(ucd, pva, uchar, typename, prefix, prop)
+        return ranges_to_array(ucd, name, m[norm(default)], via_map(m, prop))
+
+    dt = arr("extracted/DerivedDecompositionType.txt", "UDecompositionType", "U_DT_", "dt", "None")
+    hst = arr("HangulSyllableType.txt", "UHangulSyllableType", "U_HST_", "hst", "NA")
+    gcb = arr("auxiliary/GraphemeBreakProperty.txt", "UGraphemeClusterBreak", "U_GCB_", "GCB", "XX")
+    sb = arr("auxiliary/SentenceBreakProperty.txt", "USentenceBreak", "U_SB_", "SB", "XX")
+    wb = arr("auxiliary/WordBreakProperty.txt", "UWordBreakValues", "U_WB_", "WB", "XX")
+    inpc = arr("IndicPositionalCategory.txt", "UIndicPositionalCategory", "U_INPC_", "InPC", "NA")
+    insc = arr("IndicSyllabicCategory.txt", "UIndicSyllabicCategory", "U_INSC_", "InSC", "Other")
+    incbMap = enum_values(ucd, pva, uchar, "UIndicConjunctBreak", "U_INCB_", "InCB")
+    incb = [incbMap[norm(v)] for v in prop_array(ucd, "DerivedCoreProperties.txt", "InCB", "None")]
+    # quick checks: UNORM_NO, UNORM_YES, UNORM_MAYBE (unorm2.h)
+    qcEnum, _ = parse_enum(unorm2, "UNormalizationCheckResult")
+    qcOf = {"n": qcEnum["UNORM_NO"], "y": qcEnum["UNORM_YES"], "m": qcEnum["UNORM_MAYBE"],
+            "no": qcEnum["UNORM_NO"], "yes": qcEnum["UNORM_YES"], "maybe": qcEnum["UNORM_MAYBE"]}
+    qc = {}
+    for p in ("NFD_QC", "NFKD_QC", "NFC_QC", "NFKC_QC"):
+        qc[p] = [qcOf[norm(v)] for v in prop_array(ucd, "DerivedNormalizationProps.txt", p, "Y")]
+    Y, M = qcEnum["UNORM_YES"], qcEnum["UNORM_MAYBE"]
+
+    # decompositions (UnicodeData.txt), full and in canonical order
+    raw, rawCompat = {}, {}
+    for first, last, f in ucd.fields("UnicodeData.txt"):
+        if f[4]:
+            parts = f[4].split()
+            if parts[0].startswith("<"):
+                rawCompat[first] = [int(x, 16) for x in parts[1:]]
+            else:
+                raw[first] = [int(x, 16) for x in parts]
+    SBASE, LBASE, VBASE, TBASE, NCOUNT, TCOUNT = 0xAC00, 0x1100, 0x1161, 0x11A7, 588, 28
+
+    def hangul(c):
+        s = c - SBASE
+        if 0 <= s < 11172:
+            d = [LBASE + s // NCOUNT, VBASE + (s % NCOUNT) // TCOUNT]
+            if s % TCOUNT:
+                d.append(TBASE + s % TCOUNT)
+            return d
+        return None
+
+    def full(c, compat):
+        h = hangul(c)
+        if h:
+            return h
+        m = raw.get(c) or (compat and rawCompat.get(c))
+        if not m:
+            return [c]
+        r = []
+        for x in m:
+            r += full(x, compat)
+        return r
+
+    def reorder(s):
+        s = list(s)
+        for i in range(1, len(s)):
+            j = i
+            while j > 0 and ccc[s[j]] and ccc[s[j - 1]] > ccc[s[j]]:
+                s[j - 1], s[j] = s[j], s[j - 1]
+                j -= 1
+        return s
+
+    nfd, nfkd = {}, {}
+    for c in set(raw) | set(rawCompat) | set(range(SBASE, SBASE + 11172)):
+        if c in raw or hangul(c):
+            nfd[c] = reorder(full(c, False))
+        nfkd[c] = reorder(full(c, True))
+    # lead and trail combining classes (ICU's FCD values)
+    lccc, tccc = list(ccc), list(ccc)
+    for c, d in nfd.items():
+        lccc[c], tccc[c] = ccc[d[0]], ccc[d[-1]]
+
+    # canonical compositions: the pairs of two-character mappings that are
+    # not excluded; Hangul composes by its own rules
+    excl = sets[aliases.get("compex", "fullcompositionexclusion")]
+    pairs = {}                          # lead -> {trail: composite}
+    back = set()
+    for c, m in raw.items():
+        if len(m) == 2 and c not in excl:
+            pairs.setdefault(m[0], {})[m[1]] = c
+            back.add(m[1])
+
+    def fwd(c):
+        return c in pairs
+
+    def jamoL(c):
+        return 0x1100 <= c <= 0x1112
+
+    def jamoV(c):
+        return 0x1161 <= c <= 0x1175
+
+    def jamo(c):
+        return 0x1100 <= c <= 0x11FF
+
+    def combines_with_cc_between(lead, low, high):
+        if high - low >= 2:
+            for t in pairs.get(lead, {}):
+                if low < ccc[t] < high:
+                    return True
+        return False
+
+    def boundary_after(buf):
+        """ICU's gennorm2 mappingHasCompBoundaryAfter() for a round-trip mapping"""
+        last = max((i for i, x in enumerate(buf) if ccc[x] == 0), default=-1)
+        if last < 0:
+            return False
+        starter = buf[last]
+        if last == 0 and starter in back:
+            return False
+        if jamoL(starter) or (jamoV(starter) and last > 0 and jamoL(buf[last - 1])):
+            return last != len(buf) - 1
+        i = last
+        while i > 0 and ccc[buf[i - 1]] == 0 and not jamo(buf[i - 1]):
+            starter = buf[i - 1]
+            i -= 1
+        if i == last and not fwd(starter):
+            return True
+        lead = starter                  # its composition pairs (may be none)
+        prevCC = 0
+        i += 1
+        while i < len(buf):
+            cc = ccc[buf[i]]
+            if i > last and combines_with_cc_between(lead, prevCC, cc):
+                return False
+            x = buf[i]
+            comp = pairs.get(lead, {}).get(x) if (prevCC < cc or prevCC == 0) and x in back else None
+            if comp is not None:
+                lead = comp
+                if i >= last and not fwd(lead):
+                    return True
+            elif cc == 0:
+                lead = x
+                if i == last and not fwd(lead):
+                    return True
+                prevCC = 0
+            else:
+                prevCC = cc
+            i += 1
+        if prevCC == 0:
+            return False
+        return not combines_with_cc_between(lead, prevCC, 256)
+
+    def comp_inert(c, q, decomp):
+        if q[c] != Y or ccc[c] != 0:
+            return False
+        s = c - SBASE
+        if 0 <= s < 11172:
+            return s % TCOUNT != 0      # LVT yes, LV combines with a T
+        if fwd(c) or jamoL(c):
+            return False
+        m = decomp.get(c)
+        if m is None or m == [c]:
+            return c not in back
+        return c not in back and boundary_after(m)
+
+    # segment starters (ICU's canonical iterator data)
+    notStarter = set()
+    for c in range(MAXCP):
+        if ccc[c] != 0 or (qc["NFC_QC"][c] == M and c not in raw):
+            notStarter.add(c)
+    for c, d in nfd.items():
+        if qc["NFC_QC"][c] == qcEnum["UNORM_NO"]:
+            notStarter.update(d[1:])
+
+    # identifier status and types (UTS #39 data)
+    idtNames, _ = parse_enum(uchar, "UIdentifierType")
+    idtMap = enum_values(ucd, pva, uchar, "UIdentifierType", "U_ID_TYPE_", "Identifier_Type") \
+        if "Identifier_Type" in pva else {norm(n[10:]): v for n, v in idtNames.items() if n.startswith("U_ID_TYPE_")}
+    idTypes = [1 << idtMap["notcharacter"]] * MAXCP
+    for first, last, f in ucd.fields("security/IdentifierType.txt"):
+        bits = 0
+        for t in f[0].split():
+            bits |= 1 << idtMap[norm(t)]
+        for c in range(first, last + 1):
+            idTypes[c] = bits
+
+    # Basic_Emoji (and so RGI_Emoji) of single code points
+    basicEmoji = set()
+    for line in ucd.lines("emoji/emoji-sequences.txt"):
+        f = [x.strip() for x in line.split("#", 1)[0].split(";")]
+        if len(f) > 1 and f[1] == "Basic_Emoji" and " " not in f[0]:
+            r = f[0].split("..")        # a sequence is a string, not a code point
+            basicEmoji.update(range(int(r[0], 16), int(r[-1], 16) + 1))
+
+    # age: major << 2 | minor, 0 unassigned (as ICU keeps it)
+    age = [0] * MAXCP
+    for first, last, f in ucd.fields("DerivedAge.txt"):
+        a, b = f[0].split(".")
+        if int(a) > 63 or int(b) > 3:
+            die(f"age {f[0]} does not fit a byte")
+        for c in range(first, last + 1):
+            age[c] = int(a) << 2 | int(b)
+    # numeric values
+    numVals = []
+    numIndex = {}
+    numv = [0] * MAXCP                  # 0: none, else index + 1
+    for first, last, f in ucd.fields("extracted/DerivedNumericValues.txt"):
+        r = f[2].strip()
+        if "/" in r:
+            p, q = r.split("/")
+            key = (int(p), int(q))
+        else:
+            key = (int(r), 1)
+        if key not in numIndex:
+            numIndex[key] = len(numVals)
+            numVals.append(key)
+        for c in range(first, last + 1):
+            numv[c] = numIndex[key] + 1
+
+    # Case_Sensitive (ICU's): in a case mapping or folding, either side
+    caseSensitive = set()
+    for first, last, f in ucd.fields("UnicodeData.txt"):
+        for i in (11, 12, 13):
+            if f[i] and int(f[i], 16) != first:
+                caseSensitive.update((first, int(f[i], 16)))
+    for first, _, f in ucd.fields("CaseFolding.txt"):
+        to = [int(x, 16) for x in f[1].split()]
+        caseSensitive.add(first)
+        caseSensitive.update(to)
+    for first, _, f in ucd.fields("SpecialCasing.txt"):
+        if len(f) > 4 and f[3].strip():
+            continue                    # conditional: language or context
+        for i in range(3):
+            to = [int(x, 16) for x in f[i].split()]
+            if to != [first]:
+                caseSensitive.add(first)
+                caseSensitive.update(to)
+
+    # records: per code point
+    flagsOf = []
+    for c in range(MAXCP):
+        fl = 0
+        if qc["NFD_QC"][c] == Y and ccc[c] == 0:
+            fl |= 1
+        if qc["NFKD_QC"][c] == Y and ccc[c] == 0:
+            fl |= 2
+        if comp_inert(c, qc["NFC_QC"], nfd):
+            fl |= 4
+        if comp_inert(c, qc["NFKC_QC"], nfkd):
+            fl |= 8
+        if c not in notStarter:
+            fl |= 16
+        if c in basicEmoji:
+            fl |= 32
+        if c in caseSensitive:
+            fl |= 64
+        flagsOf.append(fl)
+    out.update(dt=dt, hst=hst, gcb=gcb, sb=sb, wb=wb, inpc=inpc, insc=insc, incb=incb, qc=qc,
+               lccc=lccc, tccc=tccc, flags=flagsOf, idTypes=idTypes, age=age, numv=numv,
+               numVals=numVals, qcEnum=qcEnum, idtMap=idtMap)
+    return out
+
+
 # ---- main ------------------------------------------------------------------------
 
 def main():
@@ -290,16 +596,6 @@ def main():
             die(f"{what} needs more than {bits} bits")
     if max(sc) > 255:
         die("a script number above 255")
-
-    # property records: gc, bc, ccc, sc, ea | nt << 3 | vo << 5, lb
-    recIndex, recs = {}, []
-    props = [0] * MAXCP
-    for c in range(MAXCP):
-        r = (gc[c], bc[c], ccc[c], sc[c], ea[c] | nt[c] << 3 | vo[c] << 5, lb[c])
-        if r not in recIndex:
-            recIndex[r] = len(recs)
-            recs.append(r)
-        props[c] = recIndex[r]
 
     # ---- binary properties
     binFiles = ["PropList.txt", "DerivedCoreProperties.txt", "emoji/emoji-data.txt",
@@ -543,25 +839,123 @@ def main():
             continue
         errNames[v] = n
 
+    # ---- the rest of ICU's properties, and one record per code point for all
+    unorm2 = open(os.path.join(inc, "unicode", "unorm2.h")).read()
+    mp = more_props(ucd, pva, uchar, unorm2, gc, gcEnum, ccc, sets, aliases)
+    qc = mp["qc"]
+    idtList, idtIndex = [], {}
+    moreIndex, moreRecs = {}, []
+    recIndex, recs = {}, []
+    props = [0] * MAXCP
+    morev = [0] * MAXCP
+    for c in range(MAXCP):
+        t = mp["idTypes"][c]
+        if t not in idtIndex:
+            idtIndex[t] = len(idtList)
+            idtList.append(t)
+        m = (mp["dt"][c], mp["gcb"][c], mp["sb"][c], mp["wb"][c], mp["inpc"][c], mp["insc"][c],
+             mp["incb"][c],
+             qc["NFD_QC"][c] | qc["NFKD_QC"][c] << 1 | qc["NFC_QC"][c] << 2 | qc["NFKC_QC"][c] << 4,
+             mp["flags"][c], idtIndex[t])
+        if m not in moreIndex:
+            moreIndex[m] = len(moreRecs)
+            moreRecs.append(m)
+        morev[c] = moreIndex[m]
+        r = (gc[c], bc[c], ccc[c], sc[c], ea[c] | nt[c] << 3 | vo[c] << 5, lb[c])
+        if r not in recIndex:
+            recIndex[r] = len(recs)
+            recs.append(r)
+        props[c] = recIndex[r]
+    if len(moreRecs) > 0xFFFF or max(max(m) for m in moreRecs) > 255:
+        die("a property record field does not fit")
+    # Hangul_Syllable_Type: ICU's rule from the grapheme cluster break, checked
+    gcbEnum, _ = parse_enum(uchar, "UGraphemeClusterBreak")
+    hstEnum, _ = parse_enum(uchar, "UHangulSyllableType")
+    gcbToHst = {gcbEnum["U_GCB_L"]: hstEnum["U_HST_LEADING_JAMO"], gcbEnum["U_GCB_V"]: hstEnum["U_HST_VOWEL_JAMO"],
+                gcbEnum["U_GCB_T"]: hstEnum["U_HST_TRAILING_JAMO"], gcbEnum["U_GCB_LV"]: hstEnum["U_HST_LV_SYLLABLE"],
+                gcbEnum["U_GCB_LVT"]: hstEnum["U_HST_LVT_SYLLABLE"]}
+    for c in range(MAXCP):
+        h = gcbToHst.get(mp["gcb"][c], 0) if c <= 0xFFFF else 0
+        if h != mp["hst"][c]:
+            die(f"U+{c:04X}: Hangul_Syllable_Type is not ICU's rule from Grapheme_Cluster_Break")
+    # age as runs: start << 8 | major << 4 | minor
+    ageRuns = []
+    for c in range(MAXCP):
+        if c == 0 or mp["age"][c] != mp["age"][c - 1]:
+            ageRuns.append(c << 8 | mp["age"][c])
+    # numeric values: runs of one value, or of integers counting up by one
+    numVals, numIdx = [], {}
+    numRuns = []                     # [first, count, step, value index]
+    vals = mp["numVals"]
+    for c in range(MAXCP):
+        v = mp["numv"][c]
+        if not v:
+            continue
+        p, q = vals[v - 1]
+        if numRuns:
+            r = numRuns[-1]
+            p0, q0 = numVals[r[3]]
+            if r[0] + r[1] == c and r[1] < 255:
+                if r[2] == 0 and (p, q) == (p0, q0):
+                    r[1] += 1           # the same value
+                    continue
+                if q == q0 == 1 and p == p0 + r[1] and (r[2] == 1 or r[1] == 1):
+                    r[1] += 1           # counting up: 0, 1, 2, ...
+                    r[2] = 1
+                    continue
+        if (p, q) not in numIdx:
+            numIdx[(p, q)] = len(numVals)
+            numVals.append((p, q))
+        numRuns.append([c, 1, 0, numIdx[(p, q)]])
+    # lead and trail combining classes where they are not ccc
+    fcd = [(c, mp["lccc"][c], mp["tccc"][c]) for c in range(MAXCP)
+           if mp["lccc"][c] != ccc[c] or mp["tccc"][c] != ccc[c]]
+    # the code points uchar.cpp tests by number (u_isblank, u_isspace, u_digit,
+    # u_isIDIgnorable, ...): where ICU's uchar_addPropertyStarts adds a start
+    # besides its tries' (uo_props.c adds the tries' own)
+    hardStarts = [9, 10, 0xD + 1, 0x1C, 0x1F + 1, 0x85, 0x86, 0x7F, 0x200A, 0x200F + 1, 0x206A, 0x206F + 1,
+                  0xFEFF, 0xFF00, 0xA0, 0xA1, 0x2007, 0x2008, 0x202F, 0x2030, 0x61, 0x7B, 0x41, 0x5B,
+                  0xFF41, 0xFF5B, 0xFF21, 0xFF3B, 0x67, 0x47, 0xFF47, 0xFF27, 0x2060, 0xFFF0, 0xFFFB + 1,
+                  0xE0000, 0xE0FFF + 1, 0x34F, 0x350, 0x2FFE, 0x3000]
+    idTypesOut = idtList
+    maxes = {"BLOCK": max(b[2] for b in blocks), "SC": scCount - 1, "EA": max(ea), "LB": max(lb), "VO": max(vo),
+             "DT": max(m[0] for m in moreRecs), "GCB": max(m[1] for m in moreRecs), "SB": max(m[2] for m in moreRecs),
+             "WB": max(m[3] for m in moreRecs), "INPC": max(m[4] for m in moreRecs),
+             "INSC": max(m[5] for m in moreRecs), "INCB": max(m[6] for m in moreRecs)}
+
     # ---- write
     tries = {}
     with open(os.path.join(out, "uo_data.h"), "w") as f:
         f.write("/* made by gen_props.py from the UCD: unicode.library's own tables */\n")
         f.write("#include <stdint.h>\n\n")
         f.write(f'#define UO_UNICODE_VERSION "{ucdver}"\n')
+        f.write("enum { UO_UNICODE_MAJOR = %s, UO_UNICODE_MINOR = %s, UO_UNICODE_MICRO = %s };\n" % tuple(ucdver.split(".")))
         f.write("struct uo_prop { uint8_t gc, bc, ccc, sc, ea_nt_vo, lb; };\n")
+        f.write("struct uo_more { uint8_t dt, gcb, sb, wb, inpc, insc, incb, qc, flags, idt; };\n")
+        f.write("/* qc: NFD | NFKD << 1 | NFC << 2 | NFKC << 4; flags: */\n")
+        f.write("enum { UO_NFD_INERT = 1, UO_NFKD_INERT = 2, UO_NFC_INERT = 4, UO_NFKC_INERT = 8,\n"
+                "       UO_SEGMENT_STARTER = 16, UO_BASIC_EMOJI = 32, UO_CASE_SENSITIVE = 64 };\n")
+        f.write("struct uo_num { int32_t first; uint8_t count, step; uint16_t value; };\n")
         f.write("struct uo_case { int32_t upper, lower, title, fold; uint8_t flags; };\n")
         f.write("struct uo_full { int32_t c; uint16_t s[4][2]; };   /* start, length; 0xFFFF: none */\n")
         f.write("struct uo_range { int32_t first, last; int32_t value; };\n")
         f.write("enum { UO_CASED = 1, UO_IGNORABLE = 2, UO_SOFT_DOTTED = 4, UO_ABOVE = 8, UO_OTHER_ACCENT = 16,\n"
                 "       UO_FULL = 32, UO_LOWER = 64, UO_UPPER_OR_TITLE = 128 };\n")
         f.write("enum { UO_FULL_LOWER, UO_FULL_TITLE, UO_FULL_UPPER, UO_FULL_FOLD };\n")
-        for name, vals in (("props", props), ("bin", binv), ("case", casev)):
+        for name, vals in (("props", props), ("bin", binv), ("more", morev), ("case", casev)):
             tries[name] = build_trie(vals, name)
             b1, b2, _, _, _, ltype, _ = tries[name]
+            f.write(f"#define UO_{name.upper()}_B1 {b1}\n#define UO_{name.upper()}_B2 {b2}\n")
             f.write(f"extern const uint16_t uo_{name}_t1[], uo_{name}_t2[];\nextern const {ltype} uo_{name}_leaf[];\n")
             f.write(f"#define UO_{name.upper()}(c) uo_{name}_leaf[uo_{name}_t2[uo_{name}_t1[(c) >> {b1 + b2}] + (((c) >> {b2}) & {(1 << b1) - 1})] + ((c) & {(1 << b2) - 1})]\n")
         f.write("extern const struct uo_prop uo_props[];\nextern const uint32_t uo_bin_sets[][3];\n")
+        f.write("extern const struct uo_more uo_more[];\nextern const uint16_t uo_idtypes[];   /* 1 << UIdentifierType */\n")
+        f.write(f"#define UO_AGE_RUNS {len(ageRuns)}\nextern const uint32_t uo_age_runs[];   /* start << 8 | major << 4 | minor */\n")
+        f.write(f"#define UO_NUM_RUNS {len(numRuns)}\nextern const struct uo_num uo_num_runs[];\nextern const double uo_num_values[];\n")
+        f.write(f"#define UO_FCD_COUNT {len(fcd)}\n/* lead and trail ccc where they are not ccc: c << 8 | lead, and trail */\n"
+                "extern const uint32_t uo_fcd_lead[];\nextern const uint8_t uo_fcd_trail[];\n")
+        f.write(f"#define UO_HARD_STARTS {len(hardStarts)}\nextern const int32_t uo_hard_starts[];\n")
+        f.write("enum { " + ", ".join(f"UO_MAX_{k} = {v}" for k, v in maxes.items()) + " };\n")
         f.write("extern const struct uo_case uo_cases[];\nextern const struct uo_full uo_full[];\n")
         f.write(f"#define UO_FULL_COUNT {len(fullTab)}\nextern const uint16_t uo_full_str[];\n")
         f.write(f"#define UO_BIN_COUNT {len(binProps)}\nextern const int16_t uo_bin_props[];   /* bit -> UProperty */\n")
@@ -584,7 +978,7 @@ def main():
     with open(os.path.join(out, "uo_data.c"), "w") as f:
         f.write("/* made by gen_props.py from the UCD " + ucdver + ": unicode.library's own tables.\n")
         f.write(" * " + ", ".join(ucd.used) + " */\n#include \"uo_data.h\"\n\n")
-        for name in ("props", "bin", "case"):
+        for name in ("props", "bin", "more", "case"):
             b1, b2, t1, t2, leaf, ltype, size = tries[name]
             c_array(f, "uint16_t", f"uo_{name}_t1", t1)
             c_array(f, "uint16_t", f"uo_{name}_t2", t2)
@@ -595,6 +989,25 @@ def main():
             f.write("    {%d, %d, %d, %d, %d, %d},\n" % r)
         f.write("};\n\n")
         sizes["props"] += 6 * len(recs)
+        f.write(f"const struct uo_more uo_more[{len(moreRecs)}] = {{\n")
+        for r in moreRecs:
+            f.write("    {%d, %d, %d, %d, %d, %d, %d, %d, %d, %d},\n" % r)
+        f.write("};\n\n")
+        c_array(f, "uint16_t", "uo_idtypes", idTypesOut)
+        c_array(f, "uint32_t", "uo_age_runs", ageRuns, per=8)
+        f.write(f"const struct uo_num uo_num_runs[{len(numRuns)}] = {{\n")
+        for r in numRuns:
+            f.write("    {0x%X, %d, %d, %d},\n" % tuple(r))
+        f.write("};\n\n")
+        f.write(f"const double uo_num_values[{len(numVals)}] = {{\n")
+        for p_, q_ in numVals:
+            f.write(f"    {p_}.0 / {q_}.0,\n")
+        f.write("};\n\n")
+        c_array(f, "uint32_t", "uo_fcd_lead", [c << 8 | l for c, l, _ in fcd], per=8)
+        c_array(f, "uint8_t", "uo_fcd_trail", [t for _, _, t in fcd], per=16)
+        c_array(f, "int32_t", "uo_hard_starts", hardStarts, per=8)
+        sizes["more"] += 10 * len(moreRecs) + 2 * len(idTypesOut) + 4 * len(ageRuns) + 8 * len(numRuns) \
+            + 8 * len(numVals) + 5 * len(fcd) + 4 * len(hardStarts)
         f.write(f"const uint32_t uo_bin_sets[{len(binSets)}][3] = {{\n")
         for b in binSets:
             f.write("    {0x%x, 0x%x, 0x%x},\n" % (b & 0xFFFFFFFF, b >> 32 & 0xFFFFFFFF, b >> 64 & 0xFFFFFFFF))
@@ -664,7 +1077,7 @@ def main():
     total = sum(sizes.values())
     print(f"gen_props.py: UCD {ucdver}: {len(recs)} property records, {len(binProps)} binary properties "
           f"({len(binSets)} sets), {len(caseRecs)} case records, {len(fullTab)} full mappings; "
-          f"tables {sizes['props']} + {sizes['bin']} + {sizes['case']} = {total} bytes")
+          f"tables {sizes['props']} + {sizes['bin']} + {sizes['more']} + {sizes['case']} = {total} bytes")
 
 
 if __name__ == "__main__":
