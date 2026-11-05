@@ -19,10 +19,10 @@ pins numberOfGCMarkers at 1; OBJSC can still set either.
 Team 3
 ---
 diff --git a/Source/JavaScriptCore/runtime/Options.cpp b/Source/JavaScriptCore/runtime/Options.cpp
-index 3ef49ba..ec334bf 100644
+index 3ef49ba..bf7d6d9 100644
 --- a/Source/JavaScriptCore/runtime/Options.cpp
 +++ b/Source/JavaScriptCore/runtime/Options.cpp
-@@ -574,6 +574,16 @@ static unsigned numberOfSuperAndPerformanceCores()
+@@ -574,6 +574,17 @@ static unsigned numberOfSuperAndPerformanceCores()
  
  static void overrideDefaults()
  {
