@@ -186,6 +186,14 @@
         (P_newer "SYS:Classes/DataTypes/gfopengif.datatype" "GFOpenBrowser/Classes/DataTypes/gfopengif.datatype" "SYS:Classes/DataTypes" 3080193)
         (if (not (exists "DEVS:DataTypes/GFOpenGIF"))
             (copyfiles (source "GFOpenBrowser/Devs/DataTypes/GFOpenGIF") (dest "DEVS:DataTypes") (nogauge)))))
+; PNG out: gfopenpng.datatype 47.5 or newer writes PNG for the browser
+; (canvas toDataURL, saving pictures). Its descriptor, GFOpenPNG, is tried
+; before the system's PNG one, which stays as it was.
+(if (exists "GFOpenBrowser/Classes/DataTypes/gfopenpng.datatype")
+    (
+        (P_newer "SYS:Classes/DataTypes/gfopenpng.datatype" "GFOpenBrowser/Classes/DataTypes/gfopenpng.datatype" "SYS:Classes/DataTypes" 3080197)
+        (if (not (exists "DEVS:DataTypes/GFOpenPNG"))
+            (copyfiles (source "GFOpenBrowser/Devs/DataTypes/GFOpenPNG") (dest "DEVS:DataTypes") (nogauge)))))
 
 ; 3. The Unicode data, for every program that reads it, when LOCALE: has room
 ;    for it and 2,000,000 bytes more; the engine in the drawer carries its own
