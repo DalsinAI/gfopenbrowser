@@ -533,11 +533,12 @@ The patches, in order:
   `useM68KTemplateJIT` on (unless `forceMiniVMMode`), and the heap's checks
   use it: generational collections, normal heap growth, lazy sweeping, and
   bytecode kept. `useGenerationalGC=false` still forces full collections.
-- `0103-jsc-m68k-one-gc-marker.patch`: one GC marker (numberOfGCMarkers=1,
-  serial constraint solver) on the 68k. Helper markers raced the reddit
-  reCAPTCHA worker's marking and freed a live object's Structure (3 of 20
-  runs; 0 of 30 with one marker). A 68040 has one core, so they only took
-  turns. OBJSC can set either option back.
+- `0103-jsc-m68k-serial-gc-constraints.patch`: GC marking constraints run
+  serially on the 68k (useParallelMarkingConstraintSolver=false;
+  numberOfGCMarkers pinned at 1, which it already was on one core). The
+  parallel solver's helper threads raced the reddit reCAPTCHA worker's
+  marking and freed a live object's Structure (3 of 20 runs; 0 of 30 with it
+  off). OBJSC can set either option back.
 - `0104-jsc-m68k-jit-sooner.patch`: `thresholdForJITAfterWarmUp` stays
   500 on the 68k (100 and 50 were timed slower on bbc and reddit, with up
   to 43 MB more peak RAM and more than twice the code;
