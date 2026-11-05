@@ -1,0 +1,41 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: SacredTrees <121399723+SacredTrees@users.noreply.github.com>
+Date: Thu, 5 Nov 2026 14:45:00 +0000
+Subject: [PATCH] WebCore: animated images keep 2 MB of frames on the Amiga, not 30 MB
+
+WebCore keeps every decoded frame of an animation until they add up to
+30 MB (ImageFrameAnimator's LargeAnimationCutoff); only past that does it
+drop the frames before the one showing. On the Amiga that held the whole of
+a 400x400 animated GIF of 44 frames, about 28 MB, for as long as the page
+was open.
+
+On the Amiga the cutoff is 2 MB. Past it, as WebCore already does for large
+animations, the first frame and the one showing stay and the others go,
+from WebCore's frames and from the datatypes decoder's buffers (patch
+0110). gfopengif.datatype gives any frame again, and reading forward from
+the frame shown is cheap there, so a frame dropped is read again on the
+next time round. Other ports are unchanged.
+
+---
+diff --git a/Source/WebCore/platform/graphics/ImageFrameAnimator.cpp b/Source/WebCore/platform/graphics/ImageFrameAnimator.cpp
+index 5fa4c26..e406fae 100644
+--- a/Source/WebCore/platform/graphics/ImageFrameAnimator.cpp
++++ b/Source/WebCore/platform/graphics/ImageFrameAnimator.cpp
+@@ -65,7 +65,15 @@ void ImageFrameAnimator::destroyDecodedData(bool destroyAll)
+ {
+     // Animated images over a certain size are considered large enough that we'll
+     // only hang on to one frame at a time.
++#if PLATFORM(AMIGA)
++    // An Amiga has tens of megabytes, not gigabytes: past 2 MB of frames
++    // (three 400x400 frames) only the first and the one showing are kept.
++    // The datatypes decoder reads any frame again from the datatype, and
++    // reading forward from the frame shown is cheap there (DatatypesDecode.h).
++    static constexpr unsigned LargeAnimationCutoff = 2 * 1024 * 1024;
++#else
+     static constexpr unsigned LargeAnimationCutoff = 30 * 1024 * 1024;
++#endif
+ 
+     Ref source = m_source.get();
+     if (source->decodedSize() < LargeAnimationCutoff)
+-- 
+2.53.0
