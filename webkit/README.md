@@ -564,6 +564,11 @@ The patches, in order:
   frame's delay and the repetition count, and reads each frame straight
   into its pixels. Without that datatype GIFs show their first frame, as
   before; other pictures don't change.
+- `0111-amiga-small-animation-frame-cache.patch`: an animation keeps
+  2 MB of decoded frames on the Amiga, not WebCore's 30 MB. Past that, as
+  for large animations on other ports, only the first frame and the one
+  showing stay; the others are read again from the datatype when they come
+  round (0110). A 400x400 GIF of 44 frames held about 28 MB before.
 - `0120-amiga-http-authentication.patch`: HTTP log-ins. A 401 with a
   Basic or Digest challenge goes to the frame loader's client as an
   `AuthenticationChallenge` whose `authenticationClient()` is the handle
