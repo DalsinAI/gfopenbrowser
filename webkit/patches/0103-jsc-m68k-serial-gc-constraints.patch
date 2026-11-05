@@ -1,0 +1,42 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: SacredTrees <121399723+SacredTrees@users.noreply.github.com>
+Date: Wed, 4 Nov 2026 23:50:00 +0000
+Subject: [PATCH] JavaScriptCore: serial GC marking constraints on the 68k
+
+reddit's reCAPTCHA worker lost a live object's Structure: the object kept
+a Structure the last collection had not marked, the next property
+transition reused that cell for the new Structure (previous == this), and
+the worker aborted (and sometimes the page waited for it for ever). It
+was timing dependent: 3 of 20 runs on an idle Instance-32, none under host
+load. With useParallelMarkingConstraintSolver=false it was 0 of 30 on the
+same binary, and 0 of 30 with this patch built in.
+
+The parallel constraint solver runs marking constraints on the shared
+helper thread pool even with one marker (numberOfGCMarkers is already 1 on
+the one-core 68k). overrideDefaults() now turns it off on CPU(M68K) and
+pins numberOfGCMarkers at 1; OBJSC can still set either.
+
+Team 3
+---
+diff --git a/Source/JavaScriptCore/runtime/Options.cpp b/Source/JavaScriptCore/runtime/Options.cpp
+index 3ef49ba..bf7d6d9 100644
+--- a/Source/JavaScriptCore/runtime/Options.cpp
++++ b/Source/JavaScriptCore/runtime/Options.cpp
+@@ -574,6 +574,17 @@ static unsigned numberOfSuperAndPerformanceCores()
+ 
+ static void overrideDefaults()
+ {
++#if CPU(M68K)
++    // Serial marking constraints. With the parallel constraint solver
++    // (helper threads, even with one marker) reddit's reCAPTCHA worker lost
++    // a live object's Structure: the next transition reused its cell,
++    // previous == this, in 3 of 20 runs; 0 of 30 with the solver off. One
++    // core gains nothing from it. numberOfGCMarkers is already 1 here (one
++    // core) and is pinned. OBJSC can still set both.
++    Options::numberOfGCMarkers() = 1;
++    Options::useParallelMarkingConstraintSolver() = false;
++#endif
++
+ #if OS(DARWIN)
+     if (Options::machExceptionHandlerSandboxPolicy == Options::SandboxPolicy::Block)
+         disableAllSignalHandlerBasedOptions();
