@@ -289,3 +289,6 @@ uloc_getISOLanguages
 uloc_getVariant
 uloc_isRightToLeft
 uloc_setDefault
+# Poedit's wxString (UTF-32 wchar_t on the Amiga) to and from UChar.
+u_strFromUTF32
+u_strToUTF32
