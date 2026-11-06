@@ -39,7 +39,7 @@ are ordinary C calls, arguments on the stack, the way they were.
 
 | File | What it is |
 | --- | --- |
-| `calls.txt` | The 277 calls in table order: what the engine, JavaScriptEngine, harfbuzz-icu and libpsl call (`nm -u` of the 0.8.1 build). Then the two converter callbacks WebCore hands to ICU, what the GFOpenFont text path adds, and the 16 more Poedit calls (gfamigapoedit). Append only. |
+| `calls.txt` | The 279 calls in table order: what the engine, JavaScriptEngine, harfbuzz-icu and libpsl call (`nm -u` of the 0.8.1 build). Then the two converter callbacks WebCore hands to ICU, what the GFOpenFont text path adds, and the 18 more Poedit calls (gfamigapoedit). Append only. |
 | `gen_calls.py` | Makes the library's table (`ul_table.c`) and the programs' stubs (`ul_stubs.s`) from it. |
 | `unicode_lib.c` | The RomTag, the one call `UnicodeTable(count)` (LVO -30, `sfd/unicode_lib.sfd`), and the data: the first call reads `icudt78b.dat` from `LOCALE:Unicode/`, `LIBS:Unicode/` or the caller's `PROGDIR:Unicode/` and gives it to ICU. |
 | `ul_runtime.c` | What ICU needs from a C library, made safe to share between programs: one memory pool under a semaphore for `malloc` (and ICU's `new`), pthread mutexes, conditions, once and keys on Exec semaphores and task signals for libstdc++'s `std::mutex`, `std::condition_variable` and `std::call_once`, the 4-byte atomics under Forbid, `getenv` from DOS variables, and `fopen` that fails at once (all of ICU's data is in the loaded block, so ICU never needs a file). libnix's start-up is not linked: the libraries its maths and locale code call are opened here and libstdc++'s constructors run here. |
