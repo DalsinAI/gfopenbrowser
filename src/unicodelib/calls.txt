@@ -271,3 +271,21 @@ UCNV_FROM_U_CALLBACK_ESCAPE
 UCNV_TO_U_CALLBACK_SUBSTITUTE
 # The GFOpenFont text path (ComplexTextControllerOpenFont.cpp, 23 Oct).
 uscript_isRightToLeft
+# Poedit (gfamigapoedit, 6 Nov 2026): what Poedit 3.10 calls that the
+# table lacked: locale names and lists, character tests, versions.
+u_getBidiPairedBracket
+u_isblank
+u_islower
+u_isspace
+u_isupper
+u_strlen
+u_versionToString
+uenum_openCharStringsEnumeration
+uloc_acceptLanguage
+uloc_getDisplayLanguage
+uloc_getDisplayName
+uloc_getISOCountries
+uloc_getISOLanguages
+uloc_getVariant
+uloc_isRightToLeft
+uloc_setDefault
