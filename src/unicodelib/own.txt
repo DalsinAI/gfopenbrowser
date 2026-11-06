@@ -20,9 +20,13 @@ u_getVersion
 u_hasBinaryProperty
 u_isalnum
 u_isalpha
+u_isblank
 u_isdigit
+u_islower
 u_isprint
 u_ispunct
+u_isspace
+u_isupper
 u_isUWhiteSpace
 u_strFoldCase
 u_strToLower
