@@ -57,6 +57,21 @@ ok '[ $? -ne 0 ] && grep -q "stage ca failed" "$T/out"' "a failing command fails
 PACK_DIR="$T/p" sh "$T/repo/scripts/build-pack.sh" engine > "$T/out" 2>&1
 ok '[ $? -ne 0 ]' "engine without a stove or fonts is refused"
 
+# A named ICU_HOST_BUILD is never emptied; PACK_DIR may not hold a space or quote.
+mkdir -p "$T/stove/prefix/bin" "$T/given"
+printf '#!/bin/sh\n' > "$T/stove/prefix/bin/m68k-amigaos-gcc"; chmod +x "$T/stove/prefix/bin/m68k-amigaos-gcc"
+echo keep > "$T/given/keep.txt"
+PACK_DIR="$T/p" OS32_GCC16="$T/stove" ICU_HOST_BUILD="$T/given" sh "$PACK" oab-deps > "$T/out" 2>&1
+ok '[ $? -ne 0 ] && grep -q "has no config/icucross.mk" "$T/out" && [ -f "$T/given/keep.txt" ]' "a named ICU_HOST_BUILD that is no ICU build is refused, not emptied"
+DRY_RUN=1 PACK_DIR="$T/p" ICU_HOST_BUILD="$T/given" sh "$PACK" oab-deps > "$T/out" 2>&1
+ok '[ $? -eq 0 ] && ! grep -q "rm -rf .$T/given" "$T/out"' "a dry run never empties a named ICU_HOST_BUILD"
+DRY_RUN=1 PACK_DIR="$T/p" sh "$PACK" oab-deps > "$T/out" 2>&1
+ok 'grep -q "rm -rf .$T/p/icu-host" "$T/out"' "the default host ICU folder is built in PACK_DIR"
+DRY_RUN=1 PACK_DIR="$T/a b" sh "$PACK" fetch > "$T/out" 2>&1
+ok '[ $? -ne 0 ] && grep -q "space or a quote" "$T/out"' "a PACK_DIR with a space is refused"
+DRY_RUN=1 PACK_DIR="$T/a'b" sh "$PACK" fetch > "$T/out" 2>&1
+ok '[ $? -ne 0 ] && grep -q "space or a quote" "$T/out"' "a PACK_DIR with a quote is refused"
+
 # fetch-tarballs: copy from TARBALLS_FROM, keep, refuse.
 mkdir -p "$T/from"
 echo a > "$T/from/a.tar.gz"; echo b > "$T/from/b.zip"

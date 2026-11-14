@@ -20,7 +20,9 @@
 #   CA_FROM       Mozilla's CA list for the CA bundle (default
 #                 /usr/share/ca-certificates/mozilla, Debian's package)
 #   ICU_HOST_BUILD  a host ICU 78.3 build folder (ICU's cross build needs
-#                 one; default PACK_DIR/icu-host, built here when missing)
+#                 one). A folder named here is only read: one with no
+#                 config/icucross.mk is refused, never emptied. Default
+#                 PACK_DIR/icu-host, built here when missing
 #   TARBALLS_FROM an older tarballs folder to copy from (zlib.tar.gz has no
 #                 public URL; see scripts/tarballs.lock)
 #   JOBS          parallel jobs                  (default: CPU threads)
@@ -63,6 +65,9 @@ if [ "${1:-}" = --list ]; then
 fi
 
 : "${PACK_DIR:?set PACK_DIR to the work folder}"
+case $PACK_DIR in
+    *[[:space:]\'\"]*) die "PACK_DIR may not hold a space or a quote: $PACK_DIR" ;;
+esac
 GCC16=${OS32_GCC16:-"$HOME/AmiCradle/stoves/os32-gcc16"}
 JOBS=${JOBS:-$( (nproc || sysctl -n hw.ncpu) 2>/dev/null || echo 2)}
 NICE=${NICE:-10}
@@ -131,6 +136,11 @@ stage_ca() {
 
 stage_oab_deps() {
     need_stove
+    # A host ICU folder the user named is only read; only our own is built (and emptied first).
+    HOSTICU=${ICU_HOST_BUILD:-"$PACK_DIR/icu-host"}
+    if [ -n "${ICU_HOST_BUILD:-}" ] && [ "$DRY_RUN" != 1 ] && [ ! -f "$HOSTICU/config/icucross.mk" ]; then
+        die "ICU_HOST_BUILD=$HOSTICU has no config/icucross.mk (not a host ICU build); unset it to build one in $PACK_DIR/icu-host"
+    fi
     P="$OAB/m68k-amigaos"
     run mkdir -p "$P"
     run env OS32_GCC16="$GCC16" PREFIX="$P" TARBALLS="$TB" JOBS="$JOBS" AC_HELPERS=0 sh "$D/gfopenimage/build.sh"
@@ -140,8 +150,7 @@ stage_oab_deps() {
     run sh -c "cp -R '$D'/gfopenfont/sdk/Include_H/. '$P/include/'"
     # ICU: the sources from the tarball with our patch, a host build for the cross build, then ours.
     run sh -c "rm -rf '$PACK_DIR/icu-src' && mkdir -p '$PACK_DIR/icu-src' && tar -xzf '$TB/icu4c-78.3-sources.tgz' -C '$PACK_DIR/icu-src' && cd '$PACK_DIR/icu-src/icu' && patch -p1 < '$HERE/icu/patches/0001-icu78-amigaos3.patch'"
-    HOSTICU=${ICU_HOST_BUILD:-"$PACK_DIR/icu-host"}
-    if [ "$DRY_RUN" = 1 ] || [ ! -f "$HOSTICU/config/icucross.mk" ]; then
+    if [ -z "${ICU_HOST_BUILD:-}" ] && { [ "$DRY_RUN" = 1 ] || [ ! -f "$HOSTICU/config/icucross.mk" ]; }; then
         run sh -c "rm -rf '$HOSTICU' && mkdir -p '$HOSTICU' && cd '$HOSTICU' && '$PACK_DIR/icu-src/icu/source/configure' --disable-tests --disable-samples && make -j$JOBS"
     fi
     # the Unicode 17 database unicode.library's own code is made from (pinned in fetch-ucd.sh)
