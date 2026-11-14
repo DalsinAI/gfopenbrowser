@@ -222,18 +222,20 @@ EndIf
 ; unicode.library (ICU's code, shared), when this package carries it: 1.1
 ; or newer (the engine makes 279 calls; 1.0 has fewer, and the engine stops
 ; at "Loading the browser engine" with it). An older one is renamed
-; .before-20261114; one whose version cannot be read is kept.
+; .before-20261114; one whose version cannot be read is kept. Version reads
+; the file (FILE): opening it would load an old 1.0 into memory, and the
+; engine would then get that one until a reboot, whatever is on disk.
 If NOT EXISTS Libs/unicode.library
   Skip unidone
 EndIf
-Version unicode.library 1 1 >NIL:
+Version LIBS:unicode.library 1 1 FILE >NIL:
 Set vrc $RC
 If $vrc EQ 0 VAL
   Echo "LIBS:unicode.library is new enough, kept"
   Skip unidone
 EndIf
 If $vrc GE 10 VAL
-  ; no version to read: not loaded, and the file has no $VER
+  ; no version to read: no file, or one with no $VER
   If EXISTS LIBS:unicode.library
     Echo "LIBS:unicode.library is there; its version cannot be read from the Shell, so it is kept (Install-GFOpenBrowser checks it)"
     Skip unidone
@@ -251,6 +253,12 @@ If WARN
   Quit 20
 EndIf
 Echo "Installed LIBS:unicode.library"
+; an older one already in memory (opened since boot, now closed) goes
+Avail >NIL: FLUSH
+Version unicode.library 1 1 >NIL:
+If WARN
+  Echo "An older unicode.library is still in use: reboot before starting the browser"
+EndIf
 Lab unidone
 
 ; Compressed pages: openweb.fetch's native transport decodes gzip and br

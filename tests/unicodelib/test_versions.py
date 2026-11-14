@@ -10,8 +10,9 @@
 #  - calls.txt's line count is the last line of versions.txt;
 #  - unicode_lib.c's LIB_VERSION.LIB_REVISION and both $VER strings are it;
 #  - ul_client.h's UL_LIB_VERSION/REVISION are it;
-#  - the Shell Install asks Version for it and renames an older one;
-#  - the Installer compares getversion with it.
+#  - the Shell Install asks Version for it from the file (FILE, so an old one
+#    is not loaded), renames an older one and flushes memory after the copy;
+#  - the Installer compares getversion with it and flushes after the copy.
 #   python3 tests/unicodelib/test_versions.py [REPO]
 import os, re, sys
 
@@ -53,13 +54,17 @@ ok(f'#define UL_LIB_VERSION  {major}' in cl and f'#define UL_LIB_REVISION {minor
    f'ul_client.h asks for {ver}')
 
 sh = read('dist', 'GFOpenBrowser', 'Install')
-ok(f'Version unicode.library {major} {minor} >NIL:' in sh, f'Install asks Version for unicode.library {ver}')
+ok(f'Version LIBS:unicode.library {major} {minor} FILE >NIL:' in sh, f'Install asks Version for the LIBS: file of unicode.library {ver}')
+ok(not re.search(r'^Version unicode\.library \d+ \d+ >NIL:\n(?:.*\n){0,3}?If \$vrc', sh, re.M),
+   'Install does not open unicode.library to read its version (it would load an old one)')
+ok(re.search(r'Installed LIBS:unicode\.library"\n(?:;.*\n)*Avail >NIL: FLUSH\n', sh) is not None, 'Install flushes an old unicode.library out of memory after the copy')
 ok('Rename LIBS:unicode.library LIBS:unicode.library.before-' in sh, 'Install renames an older LIBS:unicode.library')
 ok('If NOT EXISTS LIBS:unicode.library\n    Copy' not in sh, 'Install no longer copies only when LIBS: has none')
 
 inst = read('dist', 'Install-GFOpenBrowser')
 ok(f'(getversion "LIBS:unicode.library") {major * 65536 + minor})' in inst, f'Install-GFOpenBrowser compares getversion with {ver}')
 ok('(rename "LIBS:unicode.library" "LIBS:unicode.library.before-' in inst, 'Install-GFOpenBrowser renames an older one')
+ok('(run "Avail >NIL: FLUSH")' in inst, 'Install-GFOpenBrowser flushes an old one out of memory after the copy')
 
 print(f'unicodelib versions: {passed} passed, {failed} failed')
 sys.exit(1 if failed else 0)

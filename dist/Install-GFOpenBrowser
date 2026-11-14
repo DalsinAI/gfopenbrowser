@@ -159,7 +159,10 @@
             (if (exists "LIBS:unicode.library")
                 (if (= 0 (rename "LIBS:unicode.library" "LIBS:unicode.library.before-20261114"))
                     (abort "Could not rename the old LIBS:unicode.library.")))
-            (copyfiles (source "GFOpenBrowser/Libs/unicode.library") (dest "LIBS:") (nogauge)))))
+            (copyfiles (source "GFOpenBrowser/Libs/unicode.library") (dest "LIBS:") (nogauge))
+            ; getversion reads the file; an older one opened since boot is
+            ; still in memory: flush it, or the engine gets it until a reboot
+            (run "Avail >NIL: FLUSH"))))
 
 ; Compressed pages: openweb.fetch's native transport decodes gzip and br
 ; through the datatypes stream class: z.library 53.12 (gzip.datatype opens
