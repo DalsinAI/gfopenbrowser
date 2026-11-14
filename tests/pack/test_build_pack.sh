@@ -22,6 +22,7 @@ DRY_RUN=1 PACK_DIR="$T/dry" sh "$PACK" > "$T/out" 2>&1
 ok '[ $? -eq 0 ] && [ ! -e "$T/dry" ]' "a dry run makes nothing"
 ok '[ "$(grep -c "^== " "$T/out")" -eq 8 ]' "a dry run prints every stage"
 ok 'grep -q "fetch-deps.sh $T/dry/deps" "$T/out"' "the dry run names fetch-deps"
+ok 'grep -q "fetch-ucd.sh $T/dry/oab-deps/ucd-17.0.0" "$T/out"' "oab-deps fetches the pinned Unicode database"
 ok 'grep -q "CA_BUNDLE=$T/dry/ca " "$T/out" && grep -q "OB_FONTS=$T/dry/fonts " "$T/out"' "package takes the ca and fonts stages' output"
 PACK_DIR="$T/p" sh "$PACK" nosuch > "$T/out" 2>&1
 ok '[ $? -ne 0 ] && grep -q "no stage nosuch" "$T/out" && [ ! -e "$T/p" ]' "an unknown stage is refused before anything runs"

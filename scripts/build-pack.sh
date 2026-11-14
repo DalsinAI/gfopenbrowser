@@ -35,7 +35,8 @@
 #   ca         gfopentls's tools/make_ca_bundle.py into PACK_DIR/ca
 #   oab-deps   zlib and libpng (gfopenimage), SQLite (gfopensqlite), cairo
 #              and pixman with user fonts (gfopencairo), OXP (gfopenxml),
-#              ICU 78.3 (scripts/build-icu.sh) and gfopenfont's SDK, into
+#              ICU 78.3 (scripts/build-icu.sh), Unicode 17's database
+#              (scripts/fetch-ucd.sh) and gfopenfont's SDK, into
 #              PACK_DIR/oab-deps, the OAB_DEPS build-webcore.sh reads
 #   libs       the Amiga libraries the package carries: gfopentls.library
 #              and gfopencrypto.library, gfopenfont.library,
@@ -146,6 +147,9 @@ stage_oab_deps() {
     if [ "$DRY_RUN" = 1 ] || [ ! -f "$HOSTICU/config/icucross.mk" ]; then
         run sh -c "rm -rf '$HOSTICU' && mkdir -p '$HOSTICU' && cd '$HOSTICU' && '$PACK_DIR/icu-src/icu/source/configure' --disable-tests --disable-samples && make -j$JOBS"
     fi
+    # the Unicode 17 database unicode.library's own code is made from (pinned in fetch-ucd.sh)
+    [ "$DRY_RUN" != 1 ] && [ -f "$OAB/ucd-17.0.0/UnicodeData.txt" ] ||
+        run sh "$HERE/scripts/fetch-ucd.sh" "$OAB/ucd-17.0.0"
     run env ICU_SRC="$PACK_DIR/icu-src/icu" ICU_HOST_BUILD="$HOSTICU" OS32_GCC16="$GCC16" OAB_DEPS="$OAB" JOBS="$JOBS" \
         sh "$HERE/scripts/build-icu.sh"
 }
