@@ -138,7 +138,7 @@ stage_oab_deps() {
     run env OS32_GCC16="$GCC16" PREFIX="$P" TARBALLS="$TB" JOBS="$JOBS" CAIRO_FONTS=user DEPS_PREFIX="$P" \
         sh "$D/gfopencairo/build.sh"
     run env OS32_GCC16="$GCC16" OUT="$PACK_DIR/oxp" sh "$D/gfopenxml/oxp/build-amiga.sh"
-    run sh -c "mkdir -p '$P/include' '$P/lib' && cp '$PACK_DIR/oxp/liboxp.a' '$P/lib/' && cp -R '$PACK_DIR'/oxp/include/. '$P/include/'"
+    run sh -c "mkdir -p '$P/include' '$P/lib' && cp '$PACK_DIR/oxp/lib/liboxp.a' '$P/lib/' && cp -R '$PACK_DIR'/oxp/include/. '$P/include/'"
     run sh -c "cp -R '$D'/gfopenfont/sdk/Include_H/. '$P/include/'"
     # ICU: the sources from the tarball with our patch, a host build for the cross build, then ours.
     run sh -c "rm -rf '$PACK_DIR/icu-src' && mkdir -p '$PACK_DIR/icu-src' && tar -xzf '$TB/icu4c-78.3-sources.tgz' -C '$PACK_DIR/icu-src' && cd '$PACK_DIR/icu-src/icu' && patch -p1 < '$HERE/icu/patches/0001-icu78-amigaos3.patch'"
