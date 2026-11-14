@@ -18,5 +18,5 @@ gfopencairo     https://github.com/DalsinAI/gfopencairo.git            5309bcc70
 gfopensqlite    https://github.com/DalsinAI/gfopensqlite.git           cec8684ddd905d8739e719de8b05d3fe34a878db  SQLite (into OAB_DEPS)
 gfopentls       https://github.com/DalsinAI/gfopentls.git              28b5bf5955bdde4805e60d8f07f8bf2d8c4c5352  gfopentls.library, gfopencrypto.library and the CA bundle (OPENTLS_LIBS, CA_BUNDLE)
 gfopensdk       https://github.com/DalsinAI/gfopensdk.git              79e8d48151082ef2ee3cfe97998ebb80eec2aa86  GFOpenNDK's Include_H (NDK_INCLUDE) and the GFOpen SDK's headers
-amicradle-guest https://github.com/DalsinAI/amicradle-guest.git        92494b8270bcdfe5c3495807490606053ef0ffec  sparse=libraries/opengadtools,libraries/openzlib,common/amiga,hostlib/zlib,hostlib/probe  GFOpenGadTools' theme for gfopenlayout.library (OGT_ROOT), z.library (GFOpenZlib)
+amicradle-guest https://github.com/DalsinAI/amicradle-guest.git        92494b8270bcdfe5c3495807490606053ef0ffec  sparse=libraries/opengadtools,libraries/openzlib,libraries/common,libraries/gadtools,common,hostlib/zlib,hostlib/probe  GFOpenGadTools' theme for gfopenlayout.library (OGT_ROOT), z.library (GFOpenZlib)
 gfopenimage     https://github.com/DalsinAI/gfopenimage.git            0a82cb467171068525d804c89028b20589141f73  zlib and libpng (into OAB_DEPS, for cairo; until PLAN step 6)
