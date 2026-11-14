@@ -69,14 +69,16 @@ sources alone (see README.md, "Building"). The source is offered from the
 same place as this package, at no charge: the same GitHub repository
 holds this release and its source. If that ever stops working, ask in the
 repository's issues ($R/issues) and the AmiCradle Team will send the
-complete corresponding source, for at least three years from this
-release, for no more than the cost of sending it.
+complete corresponding source, at no charge, for at least three years
+from this release.
 
 Other licences in this package:
   Licences/ICU-LICENSE.txt           unicode.library and Unicode/icudt78b.dat (ICU 78.3)
   Licences/Liberation-OFL-1.1.txt    Libs/WebBrowser/Fonts/Liberation*.ttf
   Licences/DejaVu-LICENSE.txt        Libs/WebBrowser/Fonts/DejaVu*.ttf
   S/GFOpenTLS/ca-bundle.LICENSE      the CA list (Mozilla, MPL 2.0)
-  THIRD_PARTY_NOTICES.md             everything else, file by file
+  THIRD_PARTY_NOTICES.md             everything else, file by file, in the
+                                     commit above (zlib, SQLite and the
+                                     other libraries the engine links)
 TXT
 } > "$1"

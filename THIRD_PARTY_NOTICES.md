@@ -67,9 +67,20 @@ repository):
 
 - WebKit's WTF, bmalloc and JavaScriptCore (LGPL-2 / BSD);
 - ICU 78.3 (Unicode License v3);
+- zlib 1.3.1 (zlib licence: Copyright (C) 1995-2024 Jean-loup Gailly and
+  Mark Adler), from the tarball in `scripts/tarballs.lock`, built by gfopenimage;
+- SQLite 3.53.4, the amalgamation (public domain, no notice required), built
+  by gfopensqlite (AmiCradle Team, MIT, its own patches);
+- OXP, the XML parser (gfopenxml, AmiCradle Team, MIT);
+- gfopenfont.library's SDK headers (gfopenfont, AmiCradle Team, MIT);
 - libnix and libpthread from bebbo's amiga-gcc (libnix: public domain/its own
   terms; libpthread by Szilard Biro: zlib-style);
 - libstdc++, libgcc and libatomic (GPL-3.0 with the GCC Runtime Library Exception).
+
+The engine links no cairo, pixman, libpng or libjpeg: since WebKit patch 0094
+(`USE_CAIRO` off) it draws on gfopengpu.library, and since patch 0074 it reads
+PNG through the system's PNG datatype. gfopenimage's build makes libpng and
+libjpeg as well, but the engine does not link them.
 
 A `jsc` binary built from this repository is a combined work that includes
 LGPL-licensed JavaScriptCore; distribute it under the LGPL's terms (source and

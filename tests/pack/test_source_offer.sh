@@ -26,6 +26,12 @@ ok 'grep -q "the $N patches" "$T/S.txt"' "counts webkit/patches"
 ok 'grep -q "Libs/WebBrowser/WebBrowserEngine" "$T/S.txt" && grep -q "Libs/JavaScript/JavaScriptEngine" "$T/S.txt"' "names both LGPL programs"
 ok 'grep -q "GFOpenBrowser 0\." "$T/S.txt"' "carries the readme's version"
 ok '! grep -q "NOT A RELEASE" "$T/S.txt"' "a commit given is not marked"
+# Every repository path SOURCE.txt names is in this tree.
+for f in $(grep -oE '(scripts|webkit|dist)/[A-Za-z0-9_./-]*[A-Za-z0-9_/]|README\.md|THIRD_PARTY_NOTICES\.md' "$T/S.txt" | sort -u); do
+    ok '[ -e "$HERE/$f" ]' "SOURCE.txt names $f, which is in the tree"
+done
+ok '[ "$(grep -oE "scripts/[a-z-]+\.(lock|sh)" "$T/S.txt" | sort -u | wc -l)" -ge 3 ]' "SOURCE.txt names the pin files and build-pack.sh"
+ok '! grep -qi "cost of sending" "$T/S.txt"' "the offer is at no charge, once"
 for f in $(sed -n 's|^  Licences/\([^ ]*\).*|\1|p' "$T/S.txt") LGPL-2.txt LGPL-2.1.txt; do
     ok '[ -s "$HERE/dist/licences/$f" ]' "dist/licences/$f is there"
 done
