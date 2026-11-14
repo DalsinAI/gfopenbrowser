@@ -48,6 +48,17 @@ with tempfile.TemporaryDirectory() as t:
         ok(got.get('__ZN3JSC2VMC1Ev') == 'JSC::VM::VM()', f'constructor demangled with {kind}')
         ok(got.get('__ZN3JSC2VMD1Ev') == 'JSC::VM::~VM()', f'destructor demangled with {kind}')
     ok(jsimage.demangle([]) == {}, 'no names, no run')
+    bad = os.path.join(t, 'bad'); os.mkdir(bad)
+    f = os.path.join(bad, 'm68k-amigaos-c++filt')
+    with open(f, 'w') as fh:
+        fh.write('#!/bin/sh\nhead -1\n')
+    os.chmod(f, 0o755)
+    jsimage.NM = os.path.join(bad, 'm68k-amigaos-nm')
+    try:
+        jsimage.demangle(['__ZN3JSC2VMC1Ev', '__ZN3JSC2VMD1Ev'])
+        ok(False, 'a c++filt that prints fewer lines stops jsimage')
+    except SystemExit as e:
+        ok('2 names' in str(e), 'a c++filt that prints fewer lines stops jsimage')
 
 print(f'jsimage demangle: {passed} passed, {failed} failed')
 sys.exit(1 if failed else 0)

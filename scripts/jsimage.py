@@ -221,7 +221,10 @@ def demangle(names):
     cxxfilt = NM[:-2] + 'c++filt' if NM.endswith('nm') else 'c++filt'
     r = subprocess.run([cxxfilt, '-n'], input='\n'.join(n[1:] if n.startswith('_') else n for n in names) + '\n',
                        capture_output=True, text=True)
-    return dict(zip(names, r.stdout.splitlines()))
+    out = r.stdout.splitlines()
+    if r.returncode != 0 or len(out) != len(names):
+        sys.exit(f'jsimage: {cxxfilt} -n failed (exit {r.returncode}, {len(out)} lines for {len(names)} names)')
+    return dict(zip(names, out))
 
 
 def nm_whole(path, mapfile, stats=None, cut_out=None):
