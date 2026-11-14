@@ -72,6 +72,13 @@ ok '[ -s "$T/deps/webkit/.ob-patches" ]' "the patch stamp is written"
 # A second run leaves both as they are.
 run; ok '[ $? -eq 0 ] && grep -q "lib: at $LIB1 already" "$T/out" && grep -q "webkit: at $WK already" "$T/out"' "a re-run changes nothing"
 
+# A changed sparse= list is applied to the checkout at its pin.
+lock "lib file://$T/up/lib $LIB1 sparse=keep,skip  the library" "webkit file://$T/up/webkit $WK  the engine"
+run; ok '[ $? -eq 0 ] && grep -q "lib: sparse paths now keep,skip" "$T/out" && [ -f "$T/deps/lib/skip/b.txt" ]' "a widened sparse= list is checked out"
+run; ok '[ $? -eq 0 ] && ! grep -q "sparse paths now" "$T/out"' "and left alone on the next run"
+lock "lib file://$T/up/lib $LIB1 sparse=keep  the library" "webkit file://$T/up/webkit $WK  the engine"
+run; ok '[ $? -eq 0 ] && [ ! -e "$T/deps/lib/skip/b.txt" ] && [ "$(git -C "$T/deps/lib" rev-parse HEAD)" = "$LIB1" ]' "a narrowed one too, still at the pin"
+
 # Refusals, each leaving the checkout untouched.
 echo local > "$T/deps/lib/keep/a.txt"
 run; ok '[ $? -ne 0 ] && grep -q "local changes" "$T/out"' "local changes are refused"

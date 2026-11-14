@@ -17,7 +17,8 @@
 # it is (WebKit's patches included, checked by the stamp file
 # DEPS_DIR/webkit/.ob-patches, the patches' sha256). One at another commit,
 # or with local changes, is refused: the script never throws work away, so
-# move it aside yourself. It fetches the one commit (--depth 1), so a pin
+# move it aside yourself. A checkout at its pin whose sparse= list the lock
+# has changed gets the new list. It fetches the one commit (--depth 1), so a pin
 # must be a commit the server still has.
 set -eu
 
@@ -88,6 +89,16 @@ fetch_one() {
                 die "webkit: $d is at the pin but its patches are not this repository's; move it aside"
         else
             [ -z "$(git -C "$d" status --porcelain)" ] || die "$name: $d has local changes; move it aside"
+        fi
+        # a sparse= list the lock has changed since: widen or narrow it (no history is touched)
+        if [ -n "$sparse" ]; then
+            want=$(printf '%s' "$sparse" | tr ',' '\n' | sort | tr '\n' ' ')
+            now=$(git -C "$d" sparse-checkout list 2>/dev/null | sort | tr '\n' ' ')
+            if [ "$want" != "$now" ]; then
+                git -C "$d" sparse-checkout set --cone $(printf '%s' "$sparse" | tr ',' ' ') ||
+                    die "$name: cannot set its sparse paths to $sparse"
+                echo "$name: sparse paths now $sparse"
+            fi
         fi
         echo "$name: at $commit already"
         return

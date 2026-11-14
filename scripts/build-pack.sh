@@ -188,8 +188,8 @@ stage_package() {
     need_fonts
     run env $(engine_env) OPENTLS_LIBS="$L/opentls" CA_BUNDLE="$PACK_DIR/ca" \
         OPENFONT_LIB="$L/gfopenfont/gfopenfont.library" OPENFONT_SRC="$D/gfopenfont" \
-        OPENGPU_LIB="$L/gfopengpu/gfopengpu.library" OPENLAYOUT_LIB="$L/gfopenlayout/lib/gfopenlayout.library" \
-        DATATYPES_DIR="$L/datatypes" ZLIB_LIB="$L/openzlib/z.library" JSON_LIB="$L/json-library/json.library" \
+        OPENGPU_LIB="$L/gfopengpu/libs/gfopengpu.library" OPENLAYOUT_LIB="$L/gfopenlayout/lib/gfopenlayout.library" \
+        DATATYPES_DIR="$L/datatypes" ZLIB_LIB="$L/openzlib/libs/z.library" JSON_LIB="$L/json-library/json.library" \
         UNICODE_LIB="$PACK_DIR/build/unicode-library/unicode.library" \
         sh "$HERE/scripts/package-browser.sh" "$PACK_DIR/out"
 }
