@@ -33,8 +33,7 @@
 #   fonts      the 14 fonts (fonts.sha256) into PACK_DIR/fonts, the OB_FONTS
 #              of the engine and package stages
 #   ca         gfopentls's tools/make_ca_bundle.py into PACK_DIR/ca
-#   oab-deps   zlib and libpng (gfopenimage), SQLite (gfopensqlite), cairo
-#              and pixman with user fonts (gfopencairo), OXP (gfopenxml),
+#   oab-deps   zlib (gfopenimage), SQLite (gfopensqlite), OXP (gfopenxml),
 #              ICU 78.3 (scripts/build-icu.sh), Unicode 17's database
 #              (scripts/fetch-ucd.sh) and gfopenfont's SDK, into
 #              PACK_DIR/oab-deps, the OAB_DEPS build-webcore.sh reads
@@ -136,8 +135,6 @@ stage_oab_deps() {
     run mkdir -p "$P"
     run env OS32_GCC16="$GCC16" PREFIX="$P" TARBALLS="$TB" JOBS="$JOBS" AC_HELPERS=0 sh "$D/gfopenimage/build.sh"
     run env OS32_GCC16="$GCC16" PREFIX="$P" TARBALLS="$TB" JOBS="$JOBS" sh "$D/gfopensqlite/build.sh"
-    run env OS32_GCC16="$GCC16" PREFIX="$P" TARBALLS="$TB" JOBS="$JOBS" CAIRO_FONTS=user DEPS_PREFIX="$P" \
-        sh "$D/gfopencairo/build.sh"
     run env OS32_GCC16="$GCC16" OUT="$PACK_DIR/oxp" sh "$D/gfopenxml/oxp/build-amiga.sh"
     run sh -c "mkdir -p '$P/include' '$P/lib' && cp '$PACK_DIR/oxp/lib/liboxp.a' '$P/lib/' && cp -R '$PACK_DIR'/oxp/include/. '$P/include/'"
     run sh -c "cp -R '$D'/gfopenfont/sdk/Include_H/. '$P/include/'"

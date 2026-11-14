@@ -4,8 +4,8 @@ A WebKit-based web browser for AmigaOS 3.2. Needs a 68040 with FPU.
 
 **Status, 4 October 2026:** WebKit's engine, WebCore, draws real pages on
 AmigaOS 3.2.3. It lays out HTML and CSS, runs the page's JavaScript
-(JavaScriptCore) and paints with cairo, FreeType and HarfBuzz into a 32-bit
-bitmap; pictures are decoded by the system's datatypes. The browser window,
+(JavaScriptCore) and paints on GFOpenGPU (no cairo since patch 0094), with
+text from gfopenfont.library, into a 32-bit bitmap; pictures are decoded by the system's datatypes. The browser window,
 **GFOpenBrowser** (GadTools), and its network layer (openweb.fetch, from
 gfopenservice; libcurl on GFOpenTLS until WebKit patch 0075) are
 built and being brought up on the test instance. See
@@ -95,14 +95,13 @@ The JavaScript engine:
 4. Run `WEBKIT_SOURCE=... scripts/build-jsc.sh`.
 
 GFOpenBrowser on WebCore needs, besides the compiler and ICU above, the
-libraries from the GFOpen ports (zlib and libpng from gfopenimage, SQLite
-from gfopensqlite, cairo and pixman from gfopencairo, OXP from gfopenxml)
-built into one prefix. No curl,
+libraries from the GFOpen ports (zlib from gfopenimage, SQLite from
+gfopensqlite, OXP from gfopenxml) built into one prefix. No cairo, pixman
+or libpng: since WebKit patch 0094 the engine draws on GFOpenGPU. No curl,
 nghttp2, libpsl or AmiSSL: the network is openweb.fetch, so
 DalsinAI/gfopenservice and DalsinAI/gfopendatatypes must be checked out
 beside this repository (or named by `OPENSERVICE_DIR` and
-`OPENDATATYPES_DIR`). cairo is built without FreeType (gfopencairo,
-`CAIRO_FONTS=user`) and the prefix holds gfopenfont.library's SDK
+`OPENDATATYPES_DIR`). The prefix holds gfopenfont.library's SDK
 (gfopenfont): the engine's text is drawn and shaped with gfopenfont.library
 1.4, which the Amiga needs in `LIBS:`. Then apply the patches in `webkit/`
 and run `WEBKIT_SOURCE=... OAB_DEPS=... scripts/build-webcore.sh`.

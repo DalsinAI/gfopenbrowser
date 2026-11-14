@@ -14,9 +14,8 @@ gfopenrtg       https://github.com/DalsinAI/gfopenrtg.git              b1a46724d
 gfopenlayout    https://github.com/DalsinAI/gfopenlayout.git           34472a128d90f0f20049fd1ca89993b38e697fba  gfopenlayout.library: the window's dialogs (GFOPENLAYOUT_DIR, OPENLAYOUT_LIB)
 gfopenfont      https://github.com/DalsinAI/gfopenfont.git             6afe55d19fed27dedd627434401667a6f26d2ece  gfopenfont.library 1.4+, its SDK, the CJK font fetch (OPENFONT_LIB, OPENFONT_SRC)
 gfopenxml       https://github.com/DalsinAI/gfopenxml.git              2f687ecd99da570e7c9cb9fe3cfdabcae97e6cd1  OXP, the XML parser (liboxp.a into OAB_DEPS)
-gfopencairo     https://github.com/DalsinAI/gfopencairo.git            5309bcc7012d2fb7b43ad8c0567aceb33be9a8df  cairo and pixman, CAIRO_FONTS=user (into OAB_DEPS; until PLAN step 6)
 gfopensqlite    https://github.com/DalsinAI/gfopensqlite.git           cec8684ddd905d8739e719de8b05d3fe34a878db  SQLite (into OAB_DEPS)
 gfopentls       https://github.com/DalsinAI/gfopentls.git              28b5bf5955bdde4805e60d8f07f8bf2d8c4c5352  gfopentls.library, gfopencrypto.library and the CA bundle (OPENTLS_LIBS, CA_BUNDLE)
 gfopensdk       https://github.com/DalsinAI/gfopensdk.git              79e8d48151082ef2ee3cfe97998ebb80eec2aa86  GFOpenNDK's Include_H (NDK_INCLUDE) and the GFOpen SDK's headers
 amicradle-guest https://github.com/DalsinAI/amicradle-guest.git        92494b8270bcdfe5c3495807490606053ef0ffec  sparse=libraries/opengadtools,libraries/openzlib,libraries/common,libraries/gadtools,common,build,hostlib/zlib,hostlib/probe  GFOpenGadTools' theme for gfopenlayout.library (OGT_ROOT), z.library (GFOpenZlib)
-gfopenimage     https://github.com/DalsinAI/gfopenimage.git            0a82cb467171068525d804c89028b20589141f73  zlib and libpng (into OAB_DEPS, for cairo; until PLAN step 6)
+gfopenimage     https://github.com/DalsinAI/gfopenimage.git            0a82cb467171068525d804c89028b20589141f73  zlib (into OAB_DEPS: OptionsAmiga.cmake finds ZLIB); its build.sh makes libpng and libjpeg too, which the engine does not link
