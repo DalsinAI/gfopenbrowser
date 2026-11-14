@@ -16,6 +16,13 @@ on:
       - 'tests/pack/**'
       - 'scripts/jsimage.py'
       - 'tests/jsimage/**'
+      - 'src/unicodelib/calls.txt'
+      - 'src/unicodelib/versions.txt'
+      - 'src/unicodelib/unicode_lib.c'
+      - 'src/unicodelib/ul_client.h'
+      - 'dist/Install-GFOpenBrowser'
+      - 'dist/GFOpenBrowser/Install'
+      - 'tests/unicodelib/**'
       - '.github/workflows/pack.yml'
   pull_request:
     paths:
@@ -29,6 +36,13 @@ on:
       - 'tests/pack/**'
       - 'scripts/jsimage.py'
       - 'tests/jsimage/**'
+      - 'src/unicodelib/calls.txt'
+      - 'src/unicodelib/versions.txt'
+      - 'src/unicodelib/unicode_lib.c'
+      - 'src/unicodelib/ul_client.h'
+      - 'dist/Install-GFOpenBrowser'
+      - 'dist/GFOpenBrowser/Install'
+      - 'tests/unicodelib/**'
       - '.github/workflows/pack.yml'
   workflow_dispatch:
 
@@ -43,3 +57,5 @@ jobs:
         run: sh tests/pack/test_build_pack.sh
       - name: jsimage demangle
         run: python3 tests/jsimage/test_demangle.py
+      - name: unicode.library version and installers
+        run: python3 tests/unicodelib/test_versions.py

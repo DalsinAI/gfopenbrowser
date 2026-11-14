@@ -150,9 +150,19 @@
 ; one shared copy (4 MB); the engine's line breaking, normalisation, IDNA,
 ; collation and number and date formatting go through it. A package built
 ; without it carries none.
+; 1.1 or newer: the engine makes 279 calls and 1.0 has fewer. copylib keeps
+; a LIBS: copy of the same version, so an older one is renamed here first
+; (.before-20261114), as gfopenlayout.library's is.
 (if (exists "GFOpenBrowser/Libs/unicode.library")
-    (copylib (source "GFOpenBrowser/Libs/unicode.library") (dest "LIBS:") (nogauge)
-        (prompt "Installing unicode.library") (help @copylib-help) (confirm "expert")))
+    (if (< (getversion "LIBS:unicode.library") 65537)
+        (
+            (if (exists "LIBS:unicode.library")
+                (if (= 0 (rename "LIBS:unicode.library" "LIBS:unicode.library.before-20261114"))
+                    (abort "Could not rename the old LIBS:unicode.library.")))
+            (copyfiles (source "GFOpenBrowser/Libs/unicode.library") (dest "LIBS:") (nogauge))
+            ; getversion reads the file; an older one opened since boot is
+            ; still in memory: flush it, or the engine gets it until a reboot
+            (run "Avail >NIL: FLUSH"))))
 
 ; Compressed pages: openweb.fetch's native transport decodes gzip and br
 ; through the datatypes stream class: z.library 53.12 (gzip.datatype opens

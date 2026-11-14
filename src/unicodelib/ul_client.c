@@ -51,6 +51,12 @@ int ul_client_open(void)
         return UL_OPEN_OK;
     if (!(base = openLibrary()))
         return UL_OPEN_NO_LIBRARY;
+    /* One with fewer calls than this program gives no table either: say so,
+       not that the data file is missing. */
+    if (base->lib_Version == UL_LIB_VERSION && base->lib_Revision < UL_LIB_REVISION) {
+        CloseLibrary(base);
+        return UL_OPEN_TOO_OLD;
+    }
     if (!(table = __UnicodeTable_base(base, UL_CALLS))) {
         CloseLibrary(base);
         return UL_OPEN_NO_DATA;
@@ -72,6 +78,8 @@ const char *ul_client_error(int code)
     switch (code) {
     case UL_OPEN_NO_LIBRARY:
         return "unicode.library (version 1) is not in LIBS: or the program's Libs/";
+    case UL_OPEN_TOO_OLD:
+        return "unicode.library in LIBS: is older than this program needs (" UL_LIB_VERSION_TEXT "): install the package's Libs/unicode.library";
     case UL_OPEN_NO_DATA:
         return "unicode.library cannot read " UL_DATA_FILE " from LOCALE:Unicode/, LIBS:Unicode/ or PROGDIR:Unicode/";
     default:

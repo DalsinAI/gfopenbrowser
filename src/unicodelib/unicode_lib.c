@@ -39,7 +39,7 @@
 #endif
 
 #define LIB_VERSION  1
-#define LIB_REVISION 0
+#define LIB_REVISION 1
 
 struct ULBase {
     struct Library lib;
@@ -52,9 +52,9 @@ struct DosLibrary *DOSBase;
 extern void *const ul_table[UL_CALLS];
 
 static const char lib_name[] = "unicode.library";
-static const char lib_id[] = "unicode.library 1.0 (23.10.2026) ICU " U_ICU_VERSION ", AmiCradle Team\r\n";
+static const char lib_id[] = "unicode.library 1.1 (14.11.2026) ICU " U_ICU_VERSION ", AmiCradle Team\r\n";
 static const char lib_ver[] __attribute__((used)) =
-    "\0$VER: unicode.library 1.0 (23.10.2026) ICU " U_ICU_VERSION ", AmiCradle Team";
+    "\0$VER: unicode.library 1.1 (14.11.2026) ICU " U_ICU_VERSION ", AmiCradle Team";
 
 /* ---- ICU's data -------------------------------------------------------------- */
 
