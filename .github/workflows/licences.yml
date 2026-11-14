@@ -1,0 +1,30 @@
+name: package licences
+
+# SOURCE.txt (scripts/write-source-offer.sh) and the licence texts the
+# package carries (dist/licences), tested on the host.
+on:
+  push:
+    paths:
+      - 'scripts/write-source-offer.sh'
+      - 'scripts/package-browser.sh'
+      - 'dist/licences/**'
+      - 'webkit/UPSTREAM'
+      - 'tests/pack/test_source_offer.sh'
+      - '.github/workflows/licences.yml'
+  pull_request:
+    paths:
+      - 'scripts/write-source-offer.sh'
+      - 'scripts/package-browser.sh'
+      - 'dist/licences/**'
+      - 'webkit/UPSTREAM'
+      - 'tests/pack/test_source_offer.sh'
+      - '.github/workflows/licences.yml'
+  workflow_dispatch:
+
+jobs:
+  tests:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: source offer and licence texts
+        run: sh tests/pack/test_source_offer.sh

@@ -213,6 +213,10 @@ if [ -n "${EXTRAS:-}" ]; then cp -R "$EXTRAS" "$OUT/Extras"; fi
 cp "$HERE/icons/GFOpenBrowser/GFOpenBrowser.info" "$HERE/icons/GFOpenBrowser/GFOpenBrowser.readme.info" "$D/"
 cp "$HERE/openbrowser.readme" "$D/GFOpenBrowser.readme"
 cp "$HERE/THIRD_PARTY_NOTICES.md" "$HERE/LICENSE" "$D/"
+# the LGPL parts' source offer and the licence texts (scripts/write-source-offer.sh)
+sh "$HERE/scripts/write-source-offer.sh" "$D/SOURCE.txt"
+mkdir -p "$D/Licences"
+cp "$HERE"/dist/licences/*.txt "$D/Licences/"
 if command -v jlha >/dev/null 2>&1; then
     (cd "$(dirname "$OUT")" && rm -f "$(basename "$OUT").lha" && jlha ao2q "$(basename "$OUT").lha" "$(basename "$OUT")" >/dev/null)
     echo "$OUT.lha"
