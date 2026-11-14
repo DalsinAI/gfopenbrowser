@@ -20,8 +20,9 @@
 ;  - LIBS:gfopenlayout.library 11 or newer (the window's dialogs, find bar,
 ;    downloads and preferences): the same rules, renamed .before-20261103;
 ;  - LIBS:json.library (the engine's JSON.parse needs it),
-;    LIBS:unicode.library (its Unicode calls, when the package carries it)
 ;    and S:GFOpenTLS/ca-bundle.pem when missing;
+;  - LIBS:unicode.library 1.1 or newer (its Unicode calls, when the package
+;    carries it): the same rules, renamed .before-20261114;
 ;  - for compressed pages, LIBS:z.library 53.12 and
 ;    SYS:Classes/DataTypes/stream.datatype, gzip.datatype and
 ;    brotli.datatype 47.1 or newer, with the same rules as GFOpenTLS
@@ -218,17 +219,39 @@ If NOT EXISTS LIBS:json.library
   Echo "Installed LIBS:json.library"
 EndIf
 
-; unicode.library (ICU's code, shared), when this package carries it
-If EXISTS Libs/unicode.library
-  If NOT EXISTS LIBS:unicode.library
-    Copy Libs/unicode.library LIBS: QUIET
-    If WARN
-      Echo "Could not copy unicode.library to LIBS:"
-      Quit 20
-    EndIf
-    Echo "Installed LIBS:unicode.library"
+; unicode.library (ICU's code, shared), when this package carries it: 1.1
+; or newer (the engine makes 279 calls; 1.0 has fewer, and the engine stops
+; at "Loading the browser engine" with it). An older one is renamed
+; .before-20261114; one whose version cannot be read is kept.
+If NOT EXISTS Libs/unicode.library
+  Skip unidone
+EndIf
+Version unicode.library 1 1 >NIL:
+Set vrc $RC
+If $vrc EQ 0 VAL
+  Echo "LIBS:unicode.library is new enough, kept"
+  Skip unidone
+EndIf
+If $vrc GE 10 VAL
+  ; no version to read: not loaded, and the file has no $VER
+  If EXISTS LIBS:unicode.library
+    Echo "LIBS:unicode.library is there; its version cannot be read from the Shell, so it is kept (Install-GFOpenBrowser checks it)"
+    Skip unidone
+  EndIf
+Else
+  Rename LIBS:unicode.library LIBS:unicode.library.before-20261114
+  If WARN
+    Echo "Could not rename the old LIBS:unicode.library; nothing changed."
+    Quit 20
   EndIf
 EndIf
+Copy Libs/unicode.library LIBS: QUIET
+If WARN
+  Echo "Could not copy unicode.library to LIBS: (is LIBS: full or write-protected?)"
+  Quit 20
+EndIf
+Echo "Installed LIBS:unicode.library"
+Lab unidone
 
 ; Compressed pages: openweb.fetch's native transport decodes gzip and br
 ; through the datatypes stream class. LIBS:z.library 53.12 (gzip.datatype

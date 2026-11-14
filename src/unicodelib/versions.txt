@@ -1,0 +1,7 @@
+# unicode.library's versions and how many calls each has (calls.txt's lines).
+# Append a line, with a new revision, whenever calls.txt grows: programs built
+# with more calls need the newer library, and the installers replace an older
+# one by its version (tests/unicodelib/test_versions.py checks all of this).
+# version  calls
+1.0        (before 6 November 2026; fewer than 279)
+1.1        279

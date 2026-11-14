@@ -9,7 +9,14 @@ extern "C" {
 
 #define UL_OPEN_OK         0
 #define UL_OPEN_NO_LIBRARY 1   /* no unicode.library 1 in LIBS: */
-#define UL_OPEN_NO_DATA    2   /* it cannot read ICU's data file, or is older than the program */
+#define UL_OPEN_NO_DATA    2   /* it cannot read ICU's data file */
+#define UL_OPEN_TOO_OLD    3   /* it has fewer calls than the program (older than UL_LIB_VERSION_TEXT) */
+
+/* The first version of unicode.library with all UL_CALLS calls; it is the
+ * last line of versions.txt (tests/unicodelib/test_versions.py checks). */
+#define UL_LIB_VERSION  1
+#define UL_LIB_REVISION 1
+#define UL_LIB_VERSION_TEXT "1.1"
 
 #define UL_DATA_FILE "icudt78b.dat"
 
