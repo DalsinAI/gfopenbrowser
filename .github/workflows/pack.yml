@@ -1,0 +1,39 @@
+name: pack build scripts
+
+# The package build's scripts (scripts/build-pack.sh, fetch-deps.sh,
+# fetch-tarballs.sh) and their pin files, tested on the host with local
+# repositories and files only: no network, no stove.
+on:
+  push:
+    paths:
+      - 'scripts/build-pack.sh'
+      - 'scripts/fetch-deps.sh'
+      - 'scripts/fetch-tarballs.sh'
+      - 'scripts/deps.lock'
+      - 'scripts/tarballs.lock'
+      - 'scripts/fonts.sha256'
+      - 'webkit/UPSTREAM'
+      - 'tests/pack/**'
+      - '.github/workflows/pack.yml'
+  pull_request:
+    paths:
+      - 'scripts/build-pack.sh'
+      - 'scripts/fetch-deps.sh'
+      - 'scripts/fetch-tarballs.sh'
+      - 'scripts/deps.lock'
+      - 'scripts/tarballs.lock'
+      - 'scripts/fonts.sha256'
+      - 'webkit/UPSTREAM'
+      - 'tests/pack/**'
+      - '.github/workflows/pack.yml'
+  workflow_dispatch:
+
+jobs:
+  tests:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: fetch-deps
+        run: sh tests/pack/test_fetch_deps.sh
+      - name: build-pack and fetch-tarballs
+        run: sh tests/pack/test_build_pack.sh
