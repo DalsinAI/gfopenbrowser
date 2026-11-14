@@ -95,9 +95,9 @@ The JavaScript engine:
 4. Run `WEBKIT_SOURCE=... scripts/build-jsc.sh`.
 
 GFOpenBrowser on WebCore needs, besides the compiler and ICU above, the
-libraries from the GFOpenAmiga ports (cairo and pixman, libxml2, SQLite, zlib
-and libpng; see
-https://github.com/DalsinAI/gfopenamiga) built into one prefix. No curl,
+libraries from the GFOpen ports (zlib and libpng from gfopenimage, SQLite
+from gfopensqlite, cairo and pixman from gfopencairo, OXP from gfopenxml)
+built into one prefix. No curl,
 nghttp2, libpsl or AmiSSL: the network is openweb.fetch, so
 DalsinAI/gfopenservice and DalsinAI/gfopendatatypes must be checked out
 beside this repository (or named by `OPENSERVICE_DIR` and
@@ -115,6 +115,18 @@ FPU (hard float, `-m68881`) and plenty of Fast RAM. GFOpenBrowser's package
 (`scripts/package-browser.sh`) carries one of them: `WebBrowserEngine`,
 which webbrowser.library starts and which has GFOpenBrowser's window; the
 `GFOpenBrowser` icon starts a small launcher that asks the library for it.
+
+The whole package from the repositories alone, with nothing from an older
+machine: `PACK_DIR=... scripts/build-pack.sh`. It checks out every input at
+the commit pinned in `scripts/deps.lock` (WebKit with `webkit/patches`
+applied), takes every upstream tarball at the sha256 in
+`scripts/tarballs.lock` and the fonts at the sha256s in
+`scripts/fonts.sha256`, builds each library with its own repository's
+script, then the engine and the package, niced, one stage at a time
+(`build-pack.sh --list`), with each stage's time in `PACK_DIR/pack.log`. A
+stage that fails stops the build, and running that stage again carries on.
+Its host tests are `tests/pack/test_fetch_deps.sh` and
+`tests/pack/test_build_pack.sh`.
 
 The build has two halves. The engine (WebKit's WebCore, JavaScriptCore,
 WTF, PAL and bmalloc) is built by `build-webcore.sh build-engine`, and only
