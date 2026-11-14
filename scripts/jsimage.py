@@ -211,12 +211,15 @@ def long_names(files, base):
 
 
 def demangle(names):
-    """{name: demangled} (Amiga names carry one more leading underscore)"""
+    """{name: demangled} (Amiga names carry one more leading underscore).
+    The underscore is taken off here, so c++filt runs with -n: the target's
+    own c++filt (binutils 2.46, m68k-amigaos) takes one off by default as
+    well, and a name with two gone is left as it was, unmatched."""
     names = sorted(names)
     if not names:
         return {}
     cxxfilt = NM[:-2] + 'c++filt' if NM.endswith('nm') else 'c++filt'
-    r = subprocess.run([cxxfilt], input='\n'.join(n[1:] if n.startswith('_') else n for n in names) + '\n',
+    r = subprocess.run([cxxfilt, '-n'], input='\n'.join(n[1:] if n.startswith('_') else n for n in names) + '\n',
                        capture_output=True, text=True)
     return dict(zip(names, r.stdout.splitlines()))
 
