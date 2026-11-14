@@ -14,6 +14,8 @@ on:
       - 'scripts/fonts.sha256'
       - 'webkit/UPSTREAM'
       - 'tests/pack/**'
+      - 'scripts/jsimage.py'
+      - 'tests/jsimage/**'
       - 'src/unicodelib/calls.txt'
       - 'src/unicodelib/versions.txt'
       - 'src/unicodelib/unicode_lib.c'
@@ -32,6 +34,8 @@ on:
       - 'scripts/fonts.sha256'
       - 'webkit/UPSTREAM'
       - 'tests/pack/**'
+      - 'scripts/jsimage.py'
+      - 'tests/jsimage/**'
       - 'src/unicodelib/calls.txt'
       - 'src/unicodelib/versions.txt'
       - 'src/unicodelib/unicode_lib.c'
@@ -51,5 +55,7 @@ jobs:
         run: sh tests/pack/test_fetch_deps.sh
       - name: build-pack and fetch-tarballs
         run: sh tests/pack/test_build_pack.sh
+      - name: jsimage demangle
+        run: python3 tests/jsimage/test_demangle.py
       - name: unicode.library version and installers
         run: python3 tests/unicodelib/test_versions.py
