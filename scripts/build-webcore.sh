@@ -32,16 +32,17 @@
 #   OS32_GCC16      stove root (prefix/, compat/)
 #                   (default ~/AmiCradle/stoves/os32-gcc16)
 #   OAB_DEPS        folder holding icu78-m68k-amigaos/ (scripts/build-icu.sh)
-#                   and m68k-amigaos/, the libraries from the GFOpenAmiga ports
-#                   (cairo and pixman, SQLite, zlib, libpng) in one
-#                   prefix, with the gfopenfont.library 1.4 SDK
+#                   and m68k-amigaos/, one prefix with SQLite (gfopensqlite)
+#                   and zlib (gfopenimage), the gfopenfont.library 1.4 SDK
 #                   (gfopenfont's sdk/Include_H in its include/) and
 #                   OXP, the XML parser (gfopenxml's oxp/build-amiga.sh with
-#                   OUT set to that prefix; WebKit patch 0030). Its cairo is
-#                   built without FreeType (gfopencairo's build.sh with
-#                   CAIRO_FONTS=user): text is drawn and shaped with
-#                   gfopenfont.library (WebKit patch 0090), and FreeType,
-#                   HarfBuzz, fontconfig and Expat are not used.
+#                   OUT set to that prefix; WebKit patch 0030). No cairo,
+#                   pixman or libpng: the engine draws on GFOpenGPU (WebKit
+#                   patch 0094, USE_CAIRO off) and writes PNG through the
+#                   PNG datatype (0074); text is drawn and shaped with
+#                   gfopenfont.library (0090), and FreeType, HarfBuzz,
+#                   fontconfig and Expat are not used.
+#                   scripts/build-pack.sh makes this prefix from pins.
 #                   No curl or nghttp2: the network is openweb.fetch (WebKit
 #                   patch 0075). At run time the Amiga needs, without a
 #                   services card or a Cradle, a TCP/IP stack,
