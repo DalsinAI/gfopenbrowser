@@ -52,8 +52,10 @@ written from RFC 7932, with the static dictionary taken from the RFC's
 text), built from their own repositories.
 
 The package carries fonts that are not in this repository: in
-`Libs/WebBrowser/Fonts/` the Liberation and DejaVu faces from the build
-machine's `OB_FONTS`; and in `Fonts/`, for the Installer to put in `FONTS:`,
+`Libs/WebBrowser/Fonts/` the Liberation faces (SIL Open Font License 1.1,
+`Licences/Liberation-OFL-1.1.txt`) and DejaVu faces (the Bitstream Vera and
+Arev licences, `Licences/DejaVu-LICENSE.txt`), at the sha256s in
+`scripts/fonts.sha256`; and in `Fonts/`, for the Installer to put in `FONTS:`,
 gfopenfont's CJK faces with their licences: Droid Sans Fallback Full from the
 Android Open Source Project (Apache License 2.0, `DroidSansFallback.NOTICE`)
 for Chinese and Japanese, and NanumGothic by NHN Corporation (SIL Open Font
@@ -65,11 +67,28 @@ repository):
 
 - WebKit's WTF, bmalloc and JavaScriptCore (LGPL-2 / BSD);
 - ICU 78.3 (Unicode License v3);
+- zlib 1.3.1 (zlib licence: Copyright (C) 1995-2024 Jean-loup Gailly and
+  Mark Adler), from the tarball in `scripts/tarballs.lock`, built by gfopenimage;
+- SQLite 3.53.4, the amalgamation (public domain, no notice required), built
+  by gfopensqlite (AmiCradle Team, MIT, its own patches);
+- OXP, the XML parser (gfopenxml, AmiCradle Team, MIT);
+- gfopenfont.library's SDK headers (gfopenfont, AmiCradle Team, MIT);
 - libnix and libpthread from bebbo's amiga-gcc (libnix: public domain/its own
   terms; libpthread by Szilard Biro: zlib-style);
 - libstdc++, libgcc and libatomic (GPL-3.0 with the GCC Runtime Library Exception).
+
+The engine links no cairo, pixman, libpng or libjpeg: since WebKit patch 0094
+(`USE_CAIRO` off) it draws on gfopengpu.library, and since patch 0074 it reads
+PNG through the system's PNG datatype. gfopenimage's build makes libpng and
+libjpeg as well, but the engine does not link them.
 
 A `jsc` binary built from this repository is a combined work that includes
 LGPL-licensed JavaScriptCore; distribute it under the LGPL's terms (source and
 relinking information available). JavaScriptCore stays a separate program; it
 is not part of AmiCradle's own core.
+
+The package's `SOURCE.txt` (`scripts/write-source-offer.sh`) names the two
+programs in it with LGPL code (`WebBrowserEngine` and `JavaScriptEngine`) and
+the exact source of that build: this repository's commit, WebKit's pin with
+`webkit/patches`, and `scripts/deps.lock`. The LGPL texts and ICU's licence
+are in the package's `Licences/` (from `dist/licences/`).
