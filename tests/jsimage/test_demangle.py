@@ -60,5 +60,12 @@ with tempfile.TemporaryDirectory() as t:
     except SystemExit as e:
         ok('2 names' in str(e), 'a c++filt that prints fewer lines stops jsimage')
 
+    jsimage.NM = os.path.join(t, 'none', 'm68k-amigaos-nm')
+    try:
+        jsimage.demangle(['__ZN3JSC2VMC1Ev'])
+        ok(False, 'no c++filt stops jsimage with a message')
+    except SystemExit as e:
+        ok('cannot run' in str(e) and 'c++filt' in str(e), 'no c++filt stops jsimage with a message, not a traceback')
+
 print(f'jsimage demangle: {passed} passed, {failed} failed')
 sys.exit(1 if failed else 0)
