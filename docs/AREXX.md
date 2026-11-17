@@ -19,6 +19,20 @@ title = RESULT
 SAY title 'loaded in' RESULT 'ms'
 ```
 
+## The speed test
+
+`Rexx/SpeedTest.rexx` in the GFOpenBrowser drawer times the browser on the
+machine it runs on: how long it takes to start, and how long each of five
+fixed pages takes to load (`QUICK`: the first three). From a Shell:
+
+```
+rx Work:GFOpenBrowser/Rexx/SpeedTest.rexx
+```
+
+It starts the browser when it is not running and closes it again at the
+end, prints one line per page and writes the table to
+`RAM:GFOpenBrowser-Speed.txt`. Run it twice to see the cached loads.
+
 ## Rules
 
 The same as every GFOpen application's port:
@@ -43,7 +57,12 @@ The same as every GFOpen application's port:
 | `GETTITLE` | | The page's title |
 | `STATUS` | | `LOADING <percent>` while a page loads, `DONE 100` once it has |
 | `LOADTIME` | `RC` 5 while a page loads and before the first has | The last finished load, in milliseconds |
+| `LOADCOUNT` | | How many loads have finished since the window opened. A script notes it, sends `OPEN`, and waits for it to go up |
 | `GETTEXT` | | The page's text, cut to 4095 characters |
+| `GETSOURCE` | | The page as HTML, as it stands now, cut to 4095 characters. `SAVE` writes all of it |
+| `SAVE <file>` | Writes the page into a file: its HTML (UTF-8, as the page has it); its text in Latin-1 when the name ends in `.txt`; a picture of the part the window shows when it ends in `.png`, written by a PNG datatype. `FILE=` may come before the name. `RC` 10 when the file can't be written (`LASTERROR` gives the AmigaDOS code, `FAULT` its text), 5 when the page has nothing to save or no PNG datatype writes | |
+| `RUNSCRIPT <script>` | Runs JavaScript in the page, as if the page had run it. `JS` is the same command. `RC` 5 when JavaScript is off, 10 when the script throws or has a syntax error (`LASTERROR` gives the error) | The text of the script's value; empty for `undefined` and `null` |
+| `PRINT` | `RC` 5: the browser doesn't print yet. `SAVE` a `.png` or `.txt` instead | |
 | `ACTIVATE` | Brings the window to the front and makes it active | |
 | `DEACTIVATE` | Sends the window to the back | |
 | `FAULT <code>` | | AmigaDOS's text for an error code |
@@ -54,8 +73,11 @@ The same as every GFOpen application's port:
 Text is Latin-1, as in the window's own gadgets: characters outside it come
 back as `?`.
 
-Saving and printing a page, its source, running a script on the page and
-tabs are not there yet.
+Printing waits for the browser to print, and the browser has one page a
+window, so there are no tab commands.
+
+A script sent with `RUNSCRIPT` can do whatever the page's own scripts can,
+with the page's log-ins. Only programs on this Amiga can reach the port.
 
 The commands are in `src/webcore/ob_rexx.c` (plain C, tested on the host by
 `tests/test_ob_rexx.c`); the port itself is in `src/webcore/ob_browser.c`.

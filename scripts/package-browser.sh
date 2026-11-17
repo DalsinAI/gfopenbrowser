@@ -207,6 +207,8 @@ fi
 cp "$CA_BUNDLE/ca-bundle.pem" "$D/S/GFOpenTLS/"
 [ -f "$CA_BUNDLE/ca-bundle.LICENSE" ] && cp "$CA_BUNDLE/ca-bundle.LICENSE" "$D/S/GFOpenTLS/"
 cp "$HERE/dist/GFOpenBrowser/Install" "$D/Install"
+mkdir -p "$D/Rexx"
+cp "$HERE/dist/GFOpenBrowser/Rexx/SpeedTest.rexx" "$D/Rexx/"
 cp "$HERE/icons/GFOpenBrowser.info" "$OUT/GFOpenBrowser.info"
 cp "$HERE/dist/Install-GFOpenBrowser" "$HERE/dist/Install-GFOpenBrowser.info" "$OUT/"
 if [ -n "${EXTRAS:-}" ]; then cp -R "$EXTRAS" "$OUT/Extras"; fi
