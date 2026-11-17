@@ -79,12 +79,12 @@
 #   OB_OPTIMIZE     "size" (-Os, CMake's MinSizeRel), "js" (-Os, but -O2
 #                   for JavaScriptCore and its interpreter), "layout" (-Os,
 #                   but -O2 for WebCore's css, dom, layout, rendering and
-#                   style folders) or "speed" (-O2 throughout: Release with
-#                   -O2 rather than CMake's -O3)
+#                   style folders), "js-layout" (both) or "speed" (-O2
+#                   throughout: Release with -O2 rather than CMake's -O3)
 #                   for a new build folder; an existing folder keeps its
 #                   choice. Use a separate WEBKIT_BUILD to compare them.
 #                   "js" costs about 6 MB of code and runs pages 1.1-1.65x
-#                   faster on a 68040 than "size".          (default js)
+#                   faster on a 68040 than "size".   (default js-layout)
 #   OB_GC_SECTIONS  1: each function and variable in its own section, and the
 #                   linker drops the ones nothing uses (-ffunction-sections
 #                   -fdata-sections, --gc-sections). For a new build folder;
@@ -303,7 +303,7 @@ generator() {
 # The engine's options from the build folder's cache: what the compiler is
 # told, and which WebKit features are built.
 engine_options() {
-    grep -E '^(CMAKE_BUILD_TYPE|CMAKE_TOOLCHAIN_FILE|PORT|DEVELOPER_MODE|ENABLE_[A-Z0-9_]+|USE_[A-Z0-9_]+|CMAKE_(C|CXX)_FLAGS[A-Z_]*|CMAKE_(C|CXX)_STANDARD_LIBRARIES|Ruby_EXECUTABLE)(:[A-Z]+)?=' \
+    grep -E '^(CMAKE_BUILD_TYPE|CMAKE_TOOLCHAIN_FILE|PORT|DEVELOPER_MODE|ENABLE_[A-Z0-9_]+|USE_[A-Z0-9_]+|CMAKE_(C|CXX)_FLAGS[A-Z_]*|CMAKE_(C|CXX)_STANDARD_LIBRARIES|CMAKE_PROJECT_INCLUDE|Ruby_EXECUTABLE)(:[A-Z]+)?=' \
         "$BUILD/CMakeCache.txt" | LC_ALL=C sort
 }
 
@@ -465,15 +465,17 @@ configure_engine() {
         cmake "$BUILD" "$@"
         return
     fi
-    case "${OB_OPTIMIZE:-js}" in
+    case "${OB_OPTIMIZE:-js-layout}" in
         size) set -- "$@" -DCMAKE_BUILD_TYPE=MinSizeRel ;;
         js) set -- "$@" -DCMAKE_BUILD_TYPE=MinSizeRel \
             -DCMAKE_PROJECT_INCLUDE="$ROOT/scripts/cmake/ob-optimize-js.cmake" ;;
         layout) set -- "$@" -DCMAKE_BUILD_TYPE=MinSizeRel \
             -DCMAKE_PROJECT_INCLUDE="$ROOT/scripts/cmake/ob-optimize-layout.cmake" ;;
+        js-layout) set -- "$@" -DCMAKE_BUILD_TYPE=MinSizeRel \
+            -DCMAKE_PROJECT_INCLUDE="$ROOT/scripts/cmake/ob-optimize-js-layout.cmake" ;;
         speed) set -- "$@" -DCMAKE_BUILD_TYPE=Release \
             "-DCMAKE_C_FLAGS_RELEASE=-O2 -DNDEBUG" "-DCMAKE_CXX_FLAGS_RELEASE=-O2 -DNDEBUG" ;;
-        *) echo "OB_OPTIMIZE must be size, js, layout or speed" >&2; exit 2 ;;
+        *) echo "OB_OPTIMIZE must be size, js, layout, js-layout or speed" >&2; exit 2 ;;
     esac
     # Through CFLAGS, CXXFLAGS and LDFLAGS, which CMake puts before the
     # toolchain file's flags in a new folder's cache (so the engine's
