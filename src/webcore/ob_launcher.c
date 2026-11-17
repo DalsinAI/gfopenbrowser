@@ -184,7 +184,8 @@ static void toolTypeTags(int argc, char **argv, struct TagItem *tags)
     tags[1].ti_Tag = WBA_Pictures;  tags[1].ti_Data = TRUE;
     tags[2].ti_Tag = WBA_WebFonts;  tags[2].ti_Data = FALSE;
     tags[3].ti_Tag = WBA_Lite;      tags[3].ti_Data = FALSE;
-    tags[4].ti_Tag = TAG_DONE;
+    tags[4].ti_Tag = WBA_RunScript; tags[4].ti_Data = TRUE;
+    tags[5].ti_Tag = TAG_DONE;
     if (argc != 0 || !startup || !startup->sm_NumArgs)
         return;
     if (!(IconBase = OpenLibrary((CONST_STRPTR)"icon.library", 37)))
@@ -201,6 +202,8 @@ static void toolTypeTags(int argc, char **argv, struct TagItem *tags)
             tags[2].ti_Data = TRUE;
         if ((value = FindToolType((CONST_STRPTR *)icon->do_ToolTypes, (CONST_STRPTR)"LITE")) && MatchToolValue(value, (CONST_STRPTR)"YES"))
             tags[3].ti_Data = TRUE;
+        if ((value = FindToolType((CONST_STRPTR *)icon->do_ToolTypes, (CONST_STRPTR)"RUNSCRIPT")) && MatchToolValue(value, (CONST_STRPTR)"NO"))
+            tags[4].ti_Data = FALSE;
         FreeDiskObject(icon);
     }
     CloseLibrary(IconBase);
@@ -211,7 +214,7 @@ static void toolTypeTags(int argc, char **argv, struct TagItem *tags)
  * such library, in LIBS: or in this drawer's Libs. */
 static LONG openInLibrary(int argc, char **argv, struct Task **splash)
 {
-    struct TagItem tags[5];
+    struct TagItem tags[6];
     LONG result;
     if (!(WebBrowserBase = OpenLibrary((CONST_STRPTR)WEBBROWSER_NAME, 1))
         && !(WebBrowserBase = OpenLibrary((CONST_STRPTR)"PROGDIR:Libs/" WEBBROWSER_NAME, 1)))

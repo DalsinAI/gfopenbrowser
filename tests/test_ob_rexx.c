@@ -142,6 +142,16 @@ static void batch2(ob_rexx *rx)
     CHECK(ob_rexx_command(rx, "LASTERROR", result, sizeof result) == OB_RX_OK);
     CHECK(!strcmp(result, "RUNSCRIPT: JavaScript is off"));
     scriptAnswer = 1;
+    /* switched off (the tool type RUNSCRIPT=NO): nothing runs, whatever is sent */
+    rx->host.script_off = 1;
+    CHECK(ob_rexx_command(rx, "RUNSCRIPT document.title", result, sizeof result) == OB_RX_NOW && !result[0]);
+    CHECK(ob_rexx_command(rx, "LASTERROR", result, sizeof result) == OB_RX_OK);
+    CHECK(!strcmp(result, "RUNSCRIPT is switched off (the tool type RUNSCRIPT=NO)"));
+    CHECK(ob_rexx_command(rx, "js 1", result, sizeof result) == OB_RX_NOW);
+    CHECK(ob_rexx_command(rx, "RUNSCRIPT", result, sizeof result) == OB_RX_NOW);
+    CHECK(ob_rexx_command(rx, "GETSOURCE", result, sizeof result) == OB_RX_OK);   /* the others go on */
+    rx->host.script_off = 0;
+    CHECK(ob_rexx_command(rx, "RUNSCRIPT document.title", result, sizeof result) == OB_RX_OK);
     CHECK(ob_rexx_command(rx, "HELP", result, sizeof result) == OB_RX_OK);
     CHECK(strstr(result, "GETSOURCE") && strstr(result, "SAVE") && strstr(result, "RUNSCRIPT") && strstr(result, "PRINT"));
 }

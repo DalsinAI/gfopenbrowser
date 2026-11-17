@@ -17,6 +17,10 @@ extern "C" {
  * and brings that to the front). 1 on success. */
 int obb_open(const char *url, int scripts, int pictures, int webFonts, int lite, int network);
 
+/* Whether the ARexx port's RUNSCRIPT runs scripts (it does at first); for
+ * the window opened next. */
+void obb_set_run_script(int allowed);
+
 /* The window's signal, to wait on; 0 when no window is open. */
 ULONG obb_signals(void);
 

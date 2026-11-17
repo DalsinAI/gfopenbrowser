@@ -61,7 +61,7 @@ The same as every GFOpen application's port:
 | `GETTEXT` | | The page's text, cut to 4095 characters |
 | `GETSOURCE` | | The page as HTML, as it stands now, cut to 4095 characters. `SAVE` writes all of it |
 | `SAVE <file>` | Writes the page into a file: its HTML (UTF-8, as the page has it); its text in Latin-1 when the name ends in `.txt`; a picture of the part the window shows when it ends in `.png`, written by a PNG datatype. `FILE=` may come before the name. `RC` 10 when the file can't be written (`LASTERROR` gives the AmigaDOS code, `FAULT` its text), 5 when the page has nothing to save or no PNG datatype writes | |
-| `RUNSCRIPT <script>` | Runs JavaScript in the page, as if the page had run it. `JS` is the same command. `RC` 5 when JavaScript is off, 10 when the script throws or has a syntax error (`LASTERROR` gives the error) | The text of the script's value; empty for `undefined` and `null` |
+| `RUNSCRIPT <script>` | Runs JavaScript in the page, as if the page had run it. `JS` is the same command. `RC` 5 when JavaScript is off or the command is switched off, 10 when the script throws or has a syntax error (`LASTERROR` gives the error). The script is run with `eval`, so on a site whose security policy forbids `eval` it fails with `RC` 10 and that error | The text of the script's value; empty for `undefined` and `null` |
 | `PRINT` | `RC` 5: the browser doesn't print yet. `SAVE` a `.png` or `.txt` instead | |
 | `ACTIVATE` | Brings the window to the front and makes it active | |
 | `DEACTIVATE` | Sends the window to the back | |
@@ -78,6 +78,10 @@ window, so there are no tab commands.
 
 A script sent with `RUNSCRIPT` can do whatever the page's own scripts can,
 with the page's log-ins. Only programs on this Amiga can reach the port.
+To switch the command off, give GFOpenBrowser's icon the tool type
+`RUNSCRIPT=NO` (Information in the Workbench's Icons menu): `RUNSCRIPT` and
+`JS` then answer `RC` 5 and run nothing; the other commands go on as before.
+It takes effect when the browser's window next opens.
 
 The commands are in `src/webcore/ob_rexx.c` (plain C, tested on the host by
 `tests/test_ob_rexx.c`); the port itself is in `src/webcore/ob_browser.c`.

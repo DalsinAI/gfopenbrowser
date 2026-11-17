@@ -26,7 +26,7 @@
 #endif
 
 const char LibName[] = WEBBROWSER_NAME;
-const char LibVersion[] __attribute__((used)) = "$VER: webbrowser.library 1.1 (6.10.2026)";
+const char LibVersion[] __attribute__((used)) = "$VER: webbrowser.library 1.2 (17.11.2026)";
 #define LibIdString (LibVersion + 6)
 
 struct ExecBase *SysBase;
@@ -331,6 +331,8 @@ static LONG wbOpenBrowser(REG(a0, CONST_STRPTR url), REG(a1, struct TagItem *tag
     m.arg[1] = GetTagData(WBA_Pictures, TRUE, tags);
     m.arg[2] = GetTagData(WBA_WebFonts, FALSE, tags);
     m.arg[3] = GetTagData(WBA_Lite, FALSE, tags);
+    /* 1 for off, so that a 1.1 library's 0 leaves the command on */
+    m.arg[4] = !GetTagData(WBA_RunScript, TRUE, tags);
     result = ask(&m);
     if (result == WBERR_NOENGINE && ensureEngine() > 0)
         result = ask(&m);
@@ -353,7 +355,7 @@ static struct Library *libInit(REG(d0, struct Library *lib), REG(a0, BPTR seg), 
     lib->lib_Node.ln_Name = (char *)LibName;
     lib->lib_Flags = LIBF_SUMUSED | LIBF_CHANGED;
     lib->lib_Version = 1;
-    lib->lib_Revision = 1;
+    lib->lib_Revision = 2;
     lib->lib_IdString = (APTR)LibIdString;
     DOSBase = (struct DosLibrary *)OpenLibrary((CONST_STRPTR)"dos.library", 37);
     UtilityBase = OpenLibrary((CONST_STRPTR)"utility.library", 37);

@@ -214,6 +214,8 @@ static int run(ob_rexx *rx, const char *command, char *result, size_t size)
     }
     if (word(command, "RUNSCRIPT", &arg) || word(command, "JS", &arg)) {
         int done;
+        if (h->script_off)
+            return fail(rx, OB_RX_NOW, "RUNSCRIPT is switched off (the tool type RUNSCRIPT=NO)");
         if (!*arg)
             return fail(rx, OB_RX_ERROR, "RUNSCRIPT needs a script");
         if (!h->script || !size)

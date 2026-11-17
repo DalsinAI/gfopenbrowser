@@ -39,6 +39,7 @@
 #define WBA_Signal   (WBA_Dummy + 3)   /* ULONG signal bit: Signal()led to the opener when the page changes or finishes */
 #define WBA_WebFonts (WBA_Dummy + 4)   /* BOOL, default FALSE: fonts the page downloads (WB_OpenBrowser) */
 #define WBA_Lite     (WBA_Dummy + 5)   /* BOOL, default FALSE: lighter pages (WB_OpenBrowser) */
+#define WBA_RunScript (WBA_Dummy + 6)  /* BOOL, default TRUE: the window's ARexx port runs RUNSCRIPT (WB_OpenBrowser, 1.2) */
 
 /* WB_State flags */
 #define WBS_LOADING  (1 << 0)
