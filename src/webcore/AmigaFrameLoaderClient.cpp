@@ -285,7 +285,11 @@ private:
     String generatedMIMETypeForURLScheme(StringView) const final { return emptyString(); }
 
     void frameLoadCompleted() final { }
-    void restoreViewState() final { frame().loader().history().restoreScrollPositionAndViewState(); }
+    // HistoryController::restoreScrollPositionAndViewState() calls this and
+    // then restores the scroll position itself, so there is nothing to do
+    // here. Calling it back from here never ended: on Reload, Back and
+    // Forward the engine ran out of stack (an illegal instruction on the Pi).
+    void restoreViewState() final { }
     void provisionalLoadStarted() final { }
     void didFinishLoad() final { }
     void prepareForDataSourceReplacement() final { }
