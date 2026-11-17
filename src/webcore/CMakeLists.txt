@@ -179,6 +179,28 @@ set(OB_SYSTEM_INCLUDE_DIRECTORIES
     ${AC_WEBCORE_DEPS}/include
 )
 
+# The engine's allocator and its other additions to libnix (stove/compat:
+# small blocks in size classes, GC blocks in arenas, aligned_alloc, long
+# double maths), built here from this checkout so that every program links
+# the checkout's own. They used to come from the stove's libos32compat.a,
+# which stove/STOVE-NOTES.txt step 4 builds by hand: the stoves in use were
+# built on 9 October, before the size-class allocator (#26, 20 October), so
+# every engine up to 0.9.0 RC2 had the old wrapper that hands each malloc
+# to libnix. scripts/build-webcore.sh checks each program's link map for
+# this library's allocator. The name stays libos32compat.a, so that a
+# jsimage client and the image share one allocator (scripts/jsimage.py
+# shares a run-time member both of them link).
+set(OB_COMPAT_DIR ${CMAKE_CURRENT_SOURCE_DIR}/../../stove/compat)
+file(GLOB OB_COMPAT_SOURCES ${OB_COMPAT_DIR}/*.c ${OB_COMPAT_DIR}/*.cpp)
+file(GLOB OB_COMPAT_LDBL_SOURCES ${OB_COMPAT_DIR}/ldbl/*.c)
+add_library(OBCompat STATIC ${OB_COMPAT_SOURCES} ${OB_COMPAT_LDBL_SOURCES})
+set_target_properties(OBCompat PROPERTIES OUTPUT_NAME os32compat)
+# -O2 as the stove builds it (after the build type's -Os, so it wins); the
+# long double files without builtins, which would call themselves.
+target_compile_options(OBCompat PRIVATE -O2)
+set_source_files_properties(${OB_COMPAT_LDBL_SOURCES} PROPERTIES COMPILE_OPTIONS -fno-builtin)
+target_include_directories(OBCompat PRIVATE ${OB_COMPAT_DIR} ${CMAKE_CURRENT_SOURCE_DIR}/../../stove/include)
+
 # Static archives that depend on each other (WebCore, JavaScriptCore, WTF,
 # OXP, SQLite...) are linked as one group, so their order does not
 # matter, followed by what libnix programs need. No curl or nghttp2 (WebKit
@@ -201,6 +223,7 @@ macro(OB_LINK _target)
         z oxp sqlite3
         icui18n icuuc icudata
         amiga pthread atomic stdc++ m
+        OBCompat
         -Wl,--end-group
     )
 endmacro()
@@ -337,6 +360,7 @@ target_link_libraries(JavaScriptEngine PRIVATE
     JavaScriptCore WTF bmalloc
     icui18n icuuc icudata
     amiga pthread atomic stdc++ m
+    OBCompat
     -Wl,--end-group
 )
 
@@ -348,9 +372,9 @@ target_compile_options(JSImageClient PRIVATE -ffreestanding -fno-builtin)
 # GFOpenBrowser: the small program the icon starts. It shows a title window at
 # once and asks webbrowser.library (LIBS:, or the drawer's Libs before
 # Install) for a browser window, which WebBrowserEngine opens. It needs nothing of WebKit's, only the C library,
-# the stove's compat library (the toolchain wraps malloc) and libpthread
+# the compat library above (the toolchain wraps malloc) and libpthread
 # (the toolchain links with -fexceptions, whose frame tables use it).
 add_executable(OpenBrowserLauncher ob_launcher.c ob_splash.c)
 target_include_directories(OpenBrowserLauncher PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/../webbrowser/include)
 set_target_properties(OpenBrowserLauncher PROPERTIES OUTPUT_NAME GFOpenBrowser)
-target_link_libraries(OpenBrowserLauncher PRIVATE -L${AC_OS32_STOVE}/compat -los32compat pthread)
+target_link_libraries(OpenBrowserLauncher PRIVATE OBCompat pthread)
