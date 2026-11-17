@@ -16,6 +16,9 @@
  *   STATUS               "LOADING <percent>" or "DONE 100"
  *   LOADTIME             the last finished load in milliseconds; 5 while
  *                        the first page still loads
+ *   LOADCOUNT            how many loads have finished since the window
+ *                        opened: a script notes it, sends OPEN, and waits
+ *                        for it to go up (Rexx/SpeedTest.rexx)
  *   GETTEXT              the page's text (cut to the result's size)
  *   ACTIVATE, DEACTIVATE the window to the front and active, or to the back
  *   FAULT <code>         AmigaDOS's text for an error code
@@ -51,6 +54,7 @@ typedef struct {
     const char *(*title)(void *user);
     int (*loading)(void *user, int *percent);          /* 1 while a page loads */
     long (*load_ms)(void *user);                       /* the last finished load, -1: none yet */
+    long (*load_count)(void *user);                    /* loads finished so far */
     int (*text)(void *user, char *buffer, int size);
     void (*activate)(void *user, int front);
     int (*fault)(void *user, long code, char *buffer, int size);

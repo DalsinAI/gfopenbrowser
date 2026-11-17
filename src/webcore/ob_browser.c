@@ -527,6 +527,7 @@ static void onStatus(void *context, const char *text)
 
 static int loadPercent;
 static long lastLoadMs = -1;   /* the last finished load, for ARexx's LOADTIME */
+static long loadsDone;         /* loads finished since the window opened, for LOADCOUNT */
 
 static void onLoading(void *context, int isLoading, int percent)
 {
@@ -538,6 +539,7 @@ static void onLoading(void *context, int isLoading, int percent)
         benchLoadEnd = clockMicros();
         benchDue = 1;
         lastLoadMs = (long)((benchLoadEnd - benchLoadStart) / 1000);
+        loadsDone++;
     }
     /* Only what shows: the whole percentage, and whether it loads. */
     if (isLoading == loading && (!isLoading || percent == loadPercent))
@@ -920,6 +922,7 @@ static int rxLoading(void *user, int *percent)
 }
 
 static long rxLoadMs(void *user) { (void)user; return loading ? -1 : lastLoadMs; }
+static long rxLoadCount(void *user) { (void)user; return loadsDone; }
 
 static int rxText(void *user, char *buffer, int size)
 {
@@ -972,6 +975,7 @@ static void rexxOpen(void)
     host.title = rxTitle;
     host.loading = rxLoading;
     host.load_ms = rxLoadMs;
+    host.load_count = rxLoadCount;
     host.text = rxText;
     host.activate = rxActivate;
     host.fault = rxFault;

@@ -9,7 +9,7 @@
 #include <string.h>
 
 static const char helpText[] =
-    "VERSION OPEN OPENURL RELOAD STOP BACK FORWARD GETURL GETTITLE STATUS LOADTIME GETTEXT"
+    "VERSION OPEN OPENURL RELOAD STOP BACK FORWARD GETURL GETTITLE STATUS LOADTIME LOADCOUNT GETTEXT"
     " ACTIVATE DEACTIVATE FAULT LASTERROR HELP QUIT";
 
 static int upper(int c)
@@ -154,6 +154,13 @@ static int run(ob_rexx *rx, const char *command, char *result, size_t size)
             return fail(rx, OB_RX_NOW, "LOADTIME: no page has finished loading yet");
         if (size)
             snprintf(result, size, "%ld", ms);
+        return OB_RX_OK;
+    }
+    if (word(command, "LOADCOUNT", &arg)) {
+        if (!h->load_count)
+            return fail(rx, OB_RX_NOW, "LOADCOUNT: no page");
+        if (size)
+            snprintf(result, size, "%ld", h->load_count(h->user));
         return OB_RX_OK;
     }
     if (word(command, "GETTEXT", &arg)) {
