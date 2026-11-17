@@ -89,6 +89,11 @@
 #                   linker drops the ones nothing uses (-ffunction-sections
 #                   -fdata-sections, --gc-sections). For a new build folder;
 #                   an existing folder keeps its choice.       (default 0)
+#   OB_STDLIB_ASSERTIONS 1: libstdc++'s run-time checks (_GLIBCXX_ASSERTIONS:
+#                   a bounds check on each vector, string, span and optional
+#                   access, WebKit's default). 0: none, as a release build
+#                   of the libraries the engine stands on. For a new build
+#                   folder; an existing folder keeps its choice. (default 0)
 #   OB_PCREL        1: pc-relative code (-mpcrel -fPIC: bsr.l and (bd,pc),
 #                   32-bit displacements on the 68040) linked as one hunk
 #                   (toolchain/amigaos3-onehunk.ld), so calls and addresses
@@ -484,6 +489,15 @@ configure_engine() {
            export CXXFLAGS="${CXXFLAGS:+$CXXFLAGS }-ffunction-sections -fdata-sections"
            export LDFLAGS="${LDFLAGS:+$LDFLAGS }-Wl,--gc-sections" ;;
         *) echo "OB_GC_SECTIONS must be 0 or 1" >&2; exit 2 ;;
+    esac
+    # WebKit turns libstdc++'s assertions on for every file it builds: a
+    # check, and its branch, in each vector, string and span access of the
+    # style, layout and JavaScript inner loops. WebKit's own RELEASE_ASSERTs
+    # stay as they are.
+    case "${OB_STDLIB_ASSERTIONS:-0}" in
+        0) set -- "$@" -DUSE_CXX_STDLIB_ASSERTIONS=OFF ;;
+        1) set -- "$@" -DUSE_CXX_STDLIB_ASSERTIONS=ON ;;
+        *) echo "OB_STDLIB_ASSERTIONS must be 0 or 1" >&2; exit 2 ;;
     esac
     # -mpcrel alone gives 16-bit (d16,pc) data references, which cannot
     # reach across a 70 MB program; with -fPIC they are 32-bit (bd,pc). Our
