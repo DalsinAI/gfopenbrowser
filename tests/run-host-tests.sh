@@ -35,6 +35,9 @@ sh "$HERE/tests/webcore/test_optimize_js_layout.sh"
 # webbrowser.library's wait for its engine: it stops when the engine's process ended with no engine
 "$CC" $FLAGS -I"$HERE/src/webbrowser" "$HERE/tests/test_wb_engine_wait.c" -o "$OUT/test_wb_engine_wait"
 "$OUT/test_wb_engine_wait"
+# the engine's short look for a service answer before it sleeps for one
+"$CC" $FLAGS -I"$HERE/src/webcore" "$HERE/tests/test_ob_awake_wait.c" -o "$OUT/test_ob_awake_wait"
+"$OUT/test_ob_awake_wait"
 "$CC" $FLAGS -I"$WL" -I"$OL/include" "$WL/wl_html.c" "$WL/wl_css.c" $RT "$OL/src/openlayout.c" \
     "$HERE/tests/test_wl_html.c" -o "$OUT/test_wl_html"
 "$CC" $FLAGS -I"$WL" -I"$OL/include" "$WL/wl_css.c" $RT "$OL/src/openlayout.c" \
