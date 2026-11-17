@@ -23,6 +23,10 @@ on:
       - 'dist/Install-GFOpenBrowser'
       - 'dist/GFOpenBrowser/Install'
       - 'tests/unicodelib/**'
+      - 'openbrowser.readme'
+      - 'src/webcore/ob_launcher.c'
+      - 'src/webcore/ob_browser.c'
+      - 'tests/release/**'
       - '.github/workflows/pack.yml'
   pull_request:
     paths:
@@ -43,6 +47,10 @@ on:
       - 'dist/Install-GFOpenBrowser'
       - 'dist/GFOpenBrowser/Install'
       - 'tests/unicodelib/**'
+      - 'openbrowser.readme'
+      - 'src/webcore/ob_launcher.c'
+      - 'src/webcore/ob_browser.c'
+      - 'tests/release/**'
       - '.github/workflows/pack.yml'
   workflow_dispatch:
 
@@ -59,3 +67,5 @@ jobs:
         run: python3 tests/jsimage/test_demangle.py
       - name: unicode.library version and installers
         run: python3 tests/unicodelib/test_versions.py
+      - name: release version strings agree
+        run: python3 tests/release/test_rc_version.py
