@@ -22,6 +22,7 @@ set(OB_CORE_SOURCES
     ob_jsoptions.c
     AmigaSessionStorage.cpp
     AmigaWebView.cpp
+    ob_clipboard.c
     ob_httpcache.c
     ob_scriptcache.c
     ob_tata.c
