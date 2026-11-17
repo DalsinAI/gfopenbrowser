@@ -132,6 +132,35 @@ full Chromium's new headless mode keeps part of the window for its top bar.
   and is not, a new time-out. `report.py` exits with 3 when something got
   worse.
 
+### The speed gate
+
+`report.py --baseline` compares one run with the run before it. The speed
+gate compares a run with a baseline kept in the repository
+(`tests/bench/speed-baseline.csv`) and fails on a clear regression, so that
+a speed-up cannot quietly go missing: in October 2026 the engine's fast
+allocator was merged but never linked, pages loaded about four times
+slower for a month, and no check said so.
+
+```sh
+# the fixed pages only, three runs each (report.py gives the medians)
+python3 tools/bench/stage.py --out "$INSTANCE_ROOT/devices/harddisks/DH1/Bench" --sets local --repeat 3
+sh tools/bench/run-bench.sh "$R"
+python3 tools/bench/report.py "$R" --csv "$R/results.csv"
+python3 tools/bench/speedgate.py "$R/results.csv"
+```
+
+It judges the `local` pages only (our own, no network). A page fails when
+its `startup_ms`, `load_done_ms` or `painted_ms` is more than twice the
+baseline's and more than 500 ms slower (`--factor`, `--min-ms`). The gate
+is that wide on purpose: lab times move with the host's load and can
+double on a busy host. A baseline page that is missing from the run, did
+not finish or has no time fails too, and a missing baseline is exit code 2,
+never a pass. Exit codes: 0 pass, 1 a clear regression, 2 could not run.
+
+Run it on every release candidate before it is published. After a release
+candidate's run, `speedgate.py results.csv --update --note "0.9.0 RC3"`
+writes the new baseline; it goes in a PR of its own with the lab's result.
+
 ### test262
 
 `tests/bench/test262-slice.txt` pins a test262 commit and about 100 tests
