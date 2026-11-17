@@ -277,6 +277,7 @@ set(WebBrowserEngine_SOURCES
     ${CMAKE_CURRENT_SOURCE_DIR}/../webbrowser/wb_engine.c
     ob_blit.c
     ob_browser_engine.c
+    ob_rexx.c
     ob_dialogs.c
     ob_splash.c
 )
@@ -297,6 +298,7 @@ set(OpenBrowser_SOURCES
     ${OB_PROGRAM_SOURCES}
     ob_blit.c
     ob_browser.c
+    ob_rexx.c
     ob_dialogs.c
     ob_splash.c
 )
