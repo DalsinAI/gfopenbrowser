@@ -10,7 +10,7 @@
 
 static const char helpText[] =
     "VERSION OPEN OPENURL RELOAD STOP BACK FORWARD GETURL GETTITLE STATUS LOADTIME LOADCOUNT GETTEXT"
-    " ACTIVATE DEACTIVATE FAULT LASTERROR HELP QUIT";
+    " GETSOURCE SAVE RUNSCRIPT JS PRINT ACTIVATE DEACTIVATE FAULT LASTERROR HELP QUIT";
 
 static int upper(int c)
 {
@@ -48,6 +48,18 @@ static int fail(ob_rexx *rx, int rc, const char *why)
 {
     snprintf(rx->lasterror, sizeof rx->lasterror, "%s", why);
     return rc;
+}
+
+/* Whether name ends in ending, in any case. */
+static int ends(const char *name, const char *ending)
+{
+    size_t n = strlen(name), e = strlen(ending), i;
+    if (n <= e)
+        return 0;
+    for (i = 0; i < e; i++)
+        if (upper((unsigned char)name[n - e + i]) != ending[i])
+            return 0;
+    return 1;
 }
 
 /* An argument as ReadArgs would give it: an optional KEYWORD= or KEYWORD
@@ -169,6 +181,58 @@ static int run(ob_rexx *rx, const char *command, char *result, size_t size)
         result[0] = 0;
         h->text(h->user, result, (int)size);
         result[size - 1] = 0;
+        return OB_RX_OK;
+    }
+    if (word(command, "GETSOURCE", &arg)) {
+        if (!h->source || !size)
+            return fail(rx, OB_RX_NOW, "GETSOURCE: no page");
+        result[0] = 0;
+        h->source(h->user, result, (int)size);
+        result[size - 1] = 0;
+        return OB_RX_OK;
+    }
+    if (word(command, "SAVE", &arg)) {
+        char file[512];
+        char why[200];
+        long error;
+        int format = OB_RX_SAVE_HTML;
+        if (!argument(arg, "FILE", file, sizeof file))
+            return fail(rx, OB_RX_ERROR, *arg ? "SAVE: the file's name is too long" : "SAVE needs a file");
+        if (ends(file, ".TXT"))
+            format = OB_RX_SAVE_TEXT;
+        else if (ends(file, ".PNG"))
+            format = OB_RX_SAVE_PNG;
+        if (!h->save)
+            return fail(rx, OB_RX_NOW, "SAVE: no page");
+        error = h->save(h->user, file, format);
+        if (!error)
+            return OB_RX_OK;
+        if (error < 0)
+            return fail(rx, OB_RX_NOW, format == OB_RX_SAVE_PNG ? "SAVE: no picture of the page (is a PNG datatype installed?)" : "SAVE: the page has nothing to save yet");
+        snprintf(why, sizeof why, "SAVE: couldn't write the file (error %ld; FAULT %ld says why)", error, error);
+        return fail(rx, OB_RX_ERROR, why);
+    }
+    if (word(command, "RUNSCRIPT", &arg) || word(command, "JS", &arg)) {
+        int done;
+        if (!*arg)
+            return fail(rx, OB_RX_ERROR, "RUNSCRIPT needs a script");
+        if (!h->script || !size)
+            return fail(rx, OB_RX_NOW, "RUNSCRIPT: no page");
+        result[0] = 0;
+        done = h->script(h->user, arg, result, (int)size);
+        result[size - 1] = 0;
+        if (done < 0)
+            return fail(rx, OB_RX_NOW, "RUNSCRIPT: JavaScript is off");
+        if (!done) {
+            char why[200];
+            snprintf(why, sizeof why, "RUNSCRIPT: %.180s", result[0] ? result : "the script failed");
+            return fail(rx, OB_RX_ERROR, why);
+        }
+        return OB_RX_OK;
+    }
+    if (word(command, "PRINT", &arg)) {
+        if (!h->print || !h->print(h->user))
+            return fail(rx, OB_RX_NOW, "PRINT: the browser doesn't print yet (SAVE a .png or .txt)");
         return OB_RX_OK;
     }
     if (word(command, "ACTIVATE", &arg) || word(command, "DEACTIVATE", &arg)) {
