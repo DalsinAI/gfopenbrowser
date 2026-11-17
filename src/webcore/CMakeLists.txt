@@ -191,8 +191,8 @@ set(OB_SYSTEM_INCLUDE_DIRECTORIES
 # jsimage client and the image share one allocator (scripts/jsimage.py
 # shares a run-time member both of them link).
 set(OB_COMPAT_DIR ${CMAKE_CURRENT_SOURCE_DIR}/../../stove/compat)
-file(GLOB OB_COMPAT_SOURCES CONFIGURE_DEPENDS ${OB_COMPAT_DIR}/*.c ${OB_COMPAT_DIR}/*.cpp)
-file(GLOB OB_COMPAT_LDBL_SOURCES CONFIGURE_DEPENDS ${OB_COMPAT_DIR}/ldbl/*.c)
+file(GLOB OB_COMPAT_SOURCES ${OB_COMPAT_DIR}/*.c ${OB_COMPAT_DIR}/*.cpp)
+file(GLOB OB_COMPAT_LDBL_SOURCES ${OB_COMPAT_DIR}/ldbl/*.c)
 add_library(OBCompat STATIC ${OB_COMPAT_SOURCES} ${OB_COMPAT_LDBL_SOURCES})
 set_target_properties(OBCompat PROPERTIES OUTPUT_NAME os32compat)
 # -O2 as the stove builds it (after the build type's -Os, so it wins); the
