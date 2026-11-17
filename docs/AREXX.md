@@ -19,6 +19,20 @@ title = RESULT
 SAY title 'loaded in' RESULT 'ms'
 ```
 
+## The speed test
+
+`Rexx/SpeedTest.rexx` in the GFOpenBrowser drawer times the browser on the
+machine it runs on: how long it takes to start, and how long each of five
+fixed pages takes to load (`QUICK`: the first three). From a Shell:
+
+```
+rx Work:GFOpenBrowser/Rexx/SpeedTest.rexx
+```
+
+It starts the browser when it is not running and closes it again at the
+end, prints one line per page and writes the table to
+`RAM:GFOpenBrowser-Speed.txt`. Run it twice to see the cached loads.
+
 ## Rules
 
 The same as every GFOpen application's port:
@@ -43,6 +57,7 @@ The same as every GFOpen application's port:
 | `GETTITLE` | | The page's title |
 | `STATUS` | | `LOADING <percent>` while a page loads, `DONE 100` once it has |
 | `LOADTIME` | `RC` 5 while a page loads and before the first has | The last finished load, in milliseconds |
+| `LOADCOUNT` | | How many loads have finished since the window opened. A script notes it, sends `OPEN`, and waits for it to go up |
 | `GETTEXT` | | The page's text, cut to 4095 characters |
 | `ACTIVATE` | Brings the window to the front and makes it active | |
 | `DEACTIVATE` | Sends the window to the back | |

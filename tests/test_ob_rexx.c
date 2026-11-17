@@ -22,7 +22,7 @@ static int failures;
 struct page {
     char opened[2048];
     int reloads, stops, backs, forwards, quits, front, back_ok, forward_ok, loading, percent;
-    long load_ms;
+    long load_ms, loads;
 };
 
 static void p_open(void *user, const char *address)
@@ -43,6 +43,7 @@ static int p_loading(void *user, int *percent)
     return p->loading;
 }
 static long p_load_ms(void *user) { return ((struct page *)user)->load_ms; }
+static long p_load_count(void *user) { return ((struct page *)user)->loads; }
 static int p_text(void *user, char *buffer, int size)
 {
     (void)user;
@@ -81,6 +82,7 @@ int main(void)
     host.title = p_title;
     host.loading = p_loading;
     host.load_ms = p_load_ms;
+    host.load_count = p_load_count;
     host.text = p_text;
     host.activate = p_activate;
     host.fault = p_fault;
@@ -163,6 +165,12 @@ int main(void)
     CHECK(!strcmp(result, "DONE 100"));
     CHECK(ob_rexx_command(&rx, "LOADTIME", result, sizeof result) == OB_RX_OK);
     CHECK(!strcmp(result, "7100"));
+    /* finished loads counted, for a script that waits for its own OPEN */
+    CHECK(ob_rexx_command(&rx, "LOADCOUNT", result, sizeof result) == OB_RX_OK);
+    CHECK(!strcmp(result, "0"));
+    page.loads = 3;
+    CHECK(ob_rexx_command(&rx, "loadcount", result, sizeof result) == OB_RX_OK);
+    CHECK(!strcmp(result, "3"));
 
     /* the window, FAULT, HELP, QUIT */
     CHECK(ob_rexx_command(&rx, "ACTIVATE", result, sizeof result) == OB_RX_OK && page.front == 1);
@@ -179,7 +187,7 @@ int main(void)
     ob_rexx_init(&rx, NULL);
     {
         static const char *const all[] = { "OPEN x", "RELOAD", "STOP", "BACK", "FORWARD", "GETURL", "GETTITLE", "STATUS",
-            "LOADTIME", "GETTEXT", "ACTIVATE", "DEACTIVATE", "FAULT 205", "QUIT" };
+            "LOADTIME", "LOADCOUNT", "GETTEXT", "ACTIVATE", "DEACTIVATE", "FAULT 205", "QUIT" };
         unsigned i;
         for (i = 0; i < sizeof all / sizeof all[0]; i++)
             CHECK(ob_rexx_command(&rx, all[i], result, sizeof result) == OB_RX_NOW);
