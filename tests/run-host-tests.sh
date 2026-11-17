@@ -66,6 +66,9 @@ OS32M="-D_DEFAULT_SOURCE -Daligned_alloc=os32_aligned_alloc -Dmemalign=os32_mema
 # the browser's ARexx commands (the GFOPENBROWSER port), with a stand-in page
 "$CC" $FLAGS -I"$HERE/src/webcore" "$HERE/src/webcore/ob_rexx.c" \
     "$HERE/tests/test_ob_rexx.c" -o "$OUT/test_ob_rexx"
+# the file requester's names (a page's file button)
+"$CC" $FLAGS -I"$HERE/src/webcore" "$HERE/src/webcore/ob_filereq.c" \
+    "$HERE/tests/test_ob_filereq.c" -o "$OUT/test_ob_filereq"
 # the clipboard's IFF FTXT clips (the browser's copy and paste)
 "$CC" $FLAGS -I"$HERE/src/webcore" "$HERE/src/webcore/ob_clipboard.c" \
     "$HERE/tests/test_ob_clipboard.c" -o "$OUT/test_ob_clipboard"
@@ -146,6 +149,7 @@ rm -rf "$OUT/httpcache"
 "$OUT/test_ob_httpcache" "$OUT/httpcache"
 "$OUT/test_ob_scriptcache"
 "$OUT/test_ob_rexx"
+"$OUT/test_ob_filereq"
 "$OUT/test_ob_clipboard"
 sh "$HERE/tests/webcore/test_script_cache_default.sh"
 "$OUT/test_public_suffixes" "$HERE/data/public-suffixes" "$HERE/tests/public-suffix-cases.txt"

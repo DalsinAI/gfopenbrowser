@@ -85,6 +85,8 @@ public:
     void runAlert(const String&);
     bool runConfirm(const String&);
     bool runPrompt(const String& message, const String& defaultValue, String& result);
+    // A page's file button: the window's file requester. False for Cancel.
+    bool runFileChooser(bool many, Vector<String>& files);
     // A server's log-in panel (the window's authenticate callback): true
     // with user and password filled to log in.
     bool runAuthentication(const String& host, const String& realm, unsigned previousFailures, String& user, String& password);

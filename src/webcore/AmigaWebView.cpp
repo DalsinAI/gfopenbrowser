@@ -706,6 +706,20 @@ bool WebView::runPrompt(const String& message, const String& defaultValue, Strin
     return true;
 }
 
+bool WebView::runFileChooser(bool many, Vector<String>& files)
+{
+    if (!m_callbacks.choose_files)
+        return false;
+    static char names[16384];
+    names[0] = 0;
+    if (m_callbacks.choose_files(m_callbacks.context, many, names, sizeof names) <= 0)
+        return false;
+    names[sizeof names - 1] = 0;
+    for (auto& name : String::fromUTF8(names).split('\n'))
+        files.append(name);
+    return !files.isEmpty();
+}
+
 bool WebView::runAuthentication(const String& host, const String& realm, unsigned previousFailures, String& user, String& password)
 {
     if (!m_callbacks.authenticate)
