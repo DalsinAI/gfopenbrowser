@@ -89,6 +89,11 @@
 #                   linker drops the ones nothing uses (-ffunction-sections
 #                   -fdata-sections, --gc-sections). For a new build folder;
 #                   an existing folder keeps its choice.       (default 0)
+#   OB_STDLIB_ASSERTIONS 1: libstdc++'s run-time checks (_GLIBCXX_ASSERTIONS:
+#                   a bounds check on each vector, string, span and optional
+#                   access, WebKit's default). 0: none, as a release build
+#                   of the libraries the engine stands on. For a new build
+#                   folder; an existing folder keeps its choice. (default 0)
 #   OB_PCREL        1: pc-relative code (-mpcrel -fPIC: bsr.l and (bd,pc),
 #                   32-bit displacements on the 68040) linked as one hunk
 #                   (toolchain/amigaos3-onehunk.ld), so calls and addresses
@@ -487,6 +492,15 @@ configure_engine() {
            export LDFLAGS="${LDFLAGS:+$LDFLAGS }-Wl,--gc-sections" ;;
         *) echo "OB_GC_SECTIONS must be 0 or 1" >&2; exit 2 ;;
     esac
+    # WebKit turns libstdc++'s assertions on for every file it builds: a
+    # check, and its branch, in each vector, string and span access of the
+    # style, layout and JavaScript inner loops. WebKit's own RELEASE_ASSERTs
+    # stay as they are.
+    case "${OB_STDLIB_ASSERTIONS:-0}" in
+        0) set -- "$@" -DUSE_CXX_STDLIB_ASSERTIONS=OFF ;;
+        1) set -- "$@" -DUSE_CXX_STDLIB_ASSERTIONS=ON ;;
+        *) echo "OB_STDLIB_ASSERTIONS must be 0 or 1" >&2; exit 2 ;;
+    esac
     # -mpcrel alone gives 16-bit (d16,pc) data references, which cannot
     # reach across a 70 MB program; with -fPIC they are 32-bit (bd,pc). Our
     # ld resolves pc-relative references only inside one hunk, hence the
@@ -600,12 +614,33 @@ browser_build() {
         unicode_library
     fi
     check_engine
+    mkdir -p "$BUILD/logs"
+    : > "$BUILD/logs/.browser-build-start"
     if [ "$(generator)" = Ninja ]; then
         run_build "$name" "$JOBS" "$@"
     else
         "$GMAKE" -C "$BUILD" -s cmake_check_build_system
         run_build "$name" "$JOBS" $(for t in "$@"; do echo "$t/fast"; done)
     fi
+    check_allocator "$BUILD/logs/.browser-build-start"
+}
+
+# check_allocator SINCE: every program linked after the file SINCE took
+# malloc from the checkout's allocator (stove/compat, built as OBCompat in
+# src/webcore/CMakeLists.txt), as its link map shows. Until 0.9.0 RC2 the
+# programs took the stove's libos32compat.a, built by hand on 9 October
+# without the size-class allocator, and nothing said so.
+check_allocator() {
+    for map in "$BUILD"/bin/*.map; do
+        [ -f "$map" ] && [ "$map" -nt "$1" ] || continue
+        case "$map" in *.plain.map) continue ;; esac
+        from=$(grep -o '[^ ]*libos32compat\.a(os32compat_malloc[^)]*)' "$map" | head -n 1)
+        case "$from" in
+            "") die "$(basename "$map" .map) links no os32compat_malloc (its map: $map): the engine's allocator is missing" ;;
+            "$GCC16"/*|*/compat/libos32compat.a\(*)
+                die "$(basename "$map" .map) takes malloc from $from, the stove's copy, not this checkout's stove/compat (its map: $map)" ;;
+        esac
+    done
 }
 
 # Folding (OB_FOLD, scripts/hunkfold.py). Our ld keeps every object's copy

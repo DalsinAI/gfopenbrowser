@@ -59,6 +59,15 @@ ok '[ $? -eq 0 ]' "the repository's deps.lock parses"
 ok '[ ! -e "$T/dry" ]' "a dry run makes nothing"
 ok '[ "$(wc -l < "$T/dry.out")" -eq "$(grep -c "^[a-z]" "$HERE/scripts/deps.lock")" ]' "a dry run lists each input once"
 ok 'grep -q "^webkit $(cut -d" " -f2 "$HERE/webkit/UPSTREAM") " "$T/dry.out"' "deps.lock's WebKit pin is webkit/UPSTREAM's"
+# gfopenservice #44 (a5b2cc1): the fetch's wait no longer spins on TLS bytes no fetch can take (on the
+# Amiga about 1 s of busy CPU for each image Aminet's front page asked for). Its own host test is
+# gfopenservice's host/test_wfnet.py; here, the pin must not go back before it.
+svc=$(awk '$1 == "gfopenservice" { print $3 }' "$HERE/scripts/deps.lock")
+ok '[ "$svc" = a5b2cc1ee58f5a9b60263f1c8836d4c150e75b5a ]' "gfopenservice is pinned at a5b2cc1, the wait-loop fix (got $svc)"
+if [ -f "${OPENSERVICE_DIR:-/nonexistent}/src/wfnet.c" ]; then
+    ok 'grep -q "if (w->more)" "$OPENSERVICE_DIR/src/wfnet.c" && ! grep -q "tls_pending(w->io.env, c->tls) > 0" "$OPENSERVICE_DIR/src/wfnet.c"' \
+        "OPENSERVICE_DIR's block() waits on the sockets, not on tls_pending"
+fi
 
 # A pinned, sparse checkout of an older commit, and WebKit with its patches.
 lock "lib file://$T/up/lib $LIB1 sparse=keep  the library" "webkit file://$T/up/webkit $WK  the engine"

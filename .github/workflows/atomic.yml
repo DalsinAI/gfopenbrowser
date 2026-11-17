@@ -1,0 +1,27 @@
+name: engine atomics
+
+# src/webcore/ob_atomic.c (the engine's atomics with the 68040's CAS and
+# CAS2) on a 68040 under qemu-m68k: four threads at once on every size and
+# operation, through CAS/CAS2 and through the Chip RAM path.
+on:
+  push:
+    paths:
+      - 'src/webcore/ob_atomic.c'
+      - 'tests/atomic/**'
+      - '.github/workflows/atomic.yml'
+  pull_request:
+    paths:
+      - 'src/webcore/ob_atomic.c'
+      - 'tests/atomic/**'
+      - '.github/workflows/atomic.yml'
+  workflow_dispatch:
+
+jobs:
+  qemu-m68040:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: m68k cross compiler and qemu-m68k
+        run: sudo apt-get update && sudo apt-get install -y gcc-m68k-linux-gnu qemu-user
+      - name: ob_atomic.c under qemu-m68k -cpu m68040
+        run: sh tests/atomic/run.sh

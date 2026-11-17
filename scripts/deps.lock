@@ -8,7 +8,7 @@
 # MIT, Copyright (c) 2026 AmiCradle Team.
 
 webkit          https://github.com/WebKit/WebKit.git                   54fe1539718eef2f24d813019949ca8cd4b9e89e  sparse=CMakeLists.txt,Source/cmake,Source/WTF,Source/bmalloc,Source/JavaScriptCore,Source/WebCore,Source/ThirdParty,Tools  WTF, bmalloc, JavaScriptCore, WebCore (sparse; webkit/patches applied in order)
-gfopenservice   https://github.com/DalsinAI/gfopenservice.git          3390efefe644cc9ddfd6413014e533e3b7878b95  openweb.fetch client and native transport on gfopentls.library (OPENSERVICE_DIR)
+gfopenservice   https://github.com/DalsinAI/gfopenservice.git          a5b2cc1ee58f5a9b60263f1c8836d4c150e75b5a  openweb.fetch client and native transport on gfopentls.library (OPENSERVICE_DIR)
 gfopendatatypes https://github.com/DalsinAI/gfopendatatypes.git        ba3eb5b89f1bbaebf70ae1eeb8af0717ffde1399  stream/gzip/brotli, gif and png datatypes (OPENDATATYPES_DIR, DATATYPES_DIR)
 gfopenrtg       https://github.com/DalsinAI/gfopenrtg.git              b1a46724d3b060d9fba2e85b3274150f5edc6939  gfopengpu.library and its stream headers (OPENAMIGARTG_DIR, OPENGPU_LIB)
 gfopenlayout    https://github.com/DalsinAI/gfopenlayout.git           34472a128d90f0f20049fd1ca89993b38e697fba  gfopenlayout.library: the window's dialogs (GFOPENLAYOUT_DIR, OPENLAYOUT_LIB)
