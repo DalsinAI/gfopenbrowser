@@ -42,6 +42,10 @@ WebKit/JavaScriptCore needs C++23, which GCC 6.5 cannot do.
    need it.
 
 4. compat/ -> <stove>/compat/libos32compat.a (MIT)
+   GFOpenBrowser no longer uses this copy: src/webcore/CMakeLists.txt builds
+   compat/ from the checkout (OBCompat) and links it into every program, and
+   scripts/build-webcore.sh checks the link maps. A stove built before
+   20 Oct 2026 has the old wrapper, without the size-class allocator.
    Build every .c/.cpp with -O2 -m68020 -m68881 -fno-delete-null-pointer-checks
    (ldbl/ with -fno-builtin)
    and archive them. Programs link
