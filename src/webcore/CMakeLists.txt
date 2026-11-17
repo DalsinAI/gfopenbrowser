@@ -278,6 +278,7 @@ set(WebBrowserEngine_SOURCES
     ob_blit.c
     ob_browser_engine.c
     ob_rexx.c
+    ob_filereq.c
     ob_dialogs.c
     ob_splash.c
 )
@@ -299,6 +300,7 @@ set(OpenBrowser_SOURCES
     ob_blit.c
     ob_browser.c
     ob_rexx.c
+    ob_filereq.c
     ob_dialogs.c
     ob_splash.c
 )

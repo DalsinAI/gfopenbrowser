@@ -41,6 +41,11 @@ typedef struct {
      * log-in is kept for the server and realm until the program ends. */
     int (*authenticate)(void *context, const char *host, const char *realm, int previousFailures,
         char *user, int userSize, char *password, int passwordSize);
+    /* A page's file button (<input type="file">): the user picks a file,
+     * or any number of them when many is 1. Fills result with the files'
+     * full names, one a line (parted by "\n"), at most resultSize bytes,
+     * and returns how many; 0 for Cancel. */
+    int (*choose_files)(void *context, int many, char *result, int resultSize);
 } OBWebViewCallbacks;
 
 /* Mouse buttons and the qualifiers that go with events. */

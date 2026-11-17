@@ -43,6 +43,7 @@
 
 #include "ob_blit.h"
 #include "ob_dialogs.h"
+#include "ob_filereq.h"
 #include "ob_webview.h"
 #include "ob_tata.h"
 #include "ob_splash.h"
@@ -600,6 +601,13 @@ static int onPrompt(void *context, const char *message, const char *defaultValue
 {
     (void)context;
     return window ? obd_prompt(window, pageHost, message, defaultValue, result, resultSize) : 0;
+}
+
+/* A page's file button: asl.library's requester over the window. */
+static int onChooseFiles(void *context, int many, char *result, int resultSize)
+{
+    (void)context;
+    return window ? ob_filereq_choose(window, many, result, resultSize) : 0;
 }
 
 static int onAuthenticate(void *context, const char *host, const char *realm, int previousFailures,
@@ -1390,6 +1398,7 @@ static int openBrowserWindow(const char *url, int network)
     callbacks.confirm = onConfirm;
     callbacks.prompt = onPrompt;
     callbacks.authenticate = onAuthenticate;
+    callbacks.choose_files = onChooseFiles;
     callbacks.resource = onResource;
     callbacks.rendered = onRendered;
     {
