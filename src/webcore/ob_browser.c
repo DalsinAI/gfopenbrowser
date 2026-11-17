@@ -933,6 +933,78 @@ static int rxText(void *user, char *buffer, int size)
     return (int)strlen(buffer);
 }
 
+static int rxSource(void *user, char *buffer, int size)
+{
+    (void)user;
+    ob_webview_source(view, buffer, size);
+    utf8ToLatin1(buffer, buffer, size);
+    return (int)strlen(buffer);
+}
+
+/* From WebCore's platform/image-decoders/amiga/DatatypesDecode.h. */
+extern int obdt_encode_png(const unsigned char *pixels, unsigned width, unsigned height, unsigned stride,
+    unsigned flags, unsigned char **data, unsigned long *size);
+extern void obdt_free_encoded(unsigned char *data);
+#define OBDT_PNG_OPAQUE 2
+
+/* SAVE: the page's HTML (UTF-8, as the page has it), its text (Latin-1),
+ * or the part of it the window shows as a PNG, written by a PNG datatype. */
+static long rxSave(void *user, const char *file, int format)
+{
+    unsigned char *data = NULL, *encoded = NULL;
+    unsigned long size = 0;
+    long error = 0;
+    BPTR out;
+    (void)user;
+    if (format == OB_RX_SAVE_PNG) {
+        if (!pageBuffer || !obdt_encode_png(pageBuffer, (unsigned)pageWidth, (unsigned)pageHeight, (unsigned)pageStride,
+                OBDT_PNG_OPAQUE, &encoded, &size))
+            return -1;
+        data = encoded;
+    } else {
+        int length = format == OB_RX_SAVE_TEXT ? ob_webview_text(view, NULL, 0) : ob_webview_source(view, NULL, 0);
+        if (length <= 0)
+            return -1;
+        if (!(data = malloc((size_t)length + 1)))
+            return ERROR_NO_FREE_STORE;
+        if (format == OB_RX_SAVE_TEXT) {
+            ob_webview_text(view, (char *)data, length + 1);
+            utf8ToLatin1((char *)data, (char *)data, length + 1);
+        } else
+            ob_webview_source(view, (char *)data, length + 1);
+        size = strlen((char *)data);
+    }
+    if (!(out = Open((CONST_STRPTR)file, MODE_NEWFILE)))
+        error = IoErr();
+    else {
+        if (Write(out, data, (LONG)size) != (LONG)size)
+            error = IoErr();
+        Close(out);
+        if (error)
+            DeleteFile((CONST_STRPTR)file);
+    }
+    if (encoded)
+        obdt_free_encoded(encoded);
+    else
+        free(data);
+    return error ? error : 0;
+}
+
+static int rxScript(void *user, const char *script, char *buffer, int size)
+{
+    static char utf8[8192];
+    int done;
+    (void)user;
+    if (strlen(script) * 2 >= sizeof utf8) {
+        snprintf(buffer, size, "the script is too long");
+        return 0;
+    }
+    latin1ToUTF8(script, utf8, sizeof utf8);
+    done = ob_webview_run_script(view, utf8, buffer, size);
+    utf8ToLatin1(buffer, buffer, size);
+    return done;
+}
+
 static void rxActivate(void *user, int front)
 {
     (void)user;
@@ -977,6 +1049,9 @@ static void rexxOpen(void)
     host.load_ms = rxLoadMs;
     host.load_count = rxLoadCount;
     host.text = rxText;
+    host.source = rxSource;
+    host.save = rxSave;
+    host.script = rxScript;
     host.activate = rxActivate;
     host.fault = rxFault;
     host.quit = rxQuit;
