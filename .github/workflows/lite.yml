@@ -2,7 +2,8 @@ name: GFOpenBrowser Lite
 
 # GFOpenBrowser Lite and weblayout (src/ob_*.c, src/weblayout, GFOpenMail's
 # network layer), the engine's malloc (stove/compat/os32compat_malloc.c) and
-# its HTTP disk cache (src/webcore/ob_httpcache.c), and its public suffix
+# its HTTP disk cache (src/webcore/ob_httpcache.c), its frame loader client's
+# history calls, and its public suffix
 # lookup (WebKit patch 0070):
 # the host tests, and the 68040 build with the GFOpenAmigaGCC
 # release and GFOpenNDK, pinned as gfopencurl's CI pins them; and
@@ -17,6 +18,8 @@ on:
       - 'third_party/opentls/**'
       - 'tests/test_*.c'
       - 'src/webcore/ob_httpcache.*'
+      - 'src/webcore/AmigaFrameLoaderClient.cpp'
+      - 'tests/webcore/**'
       - 'tests/host/**'
       - 'tests/run-host-tests.sh'
       - 'tests/public-suffix-cases.txt'
@@ -42,6 +45,8 @@ on:
       - 'third_party/opentls/**'
       - 'tests/test_*.c'
       - 'src/webcore/ob_httpcache.*'
+      - 'src/webcore/AmigaFrameLoaderClient.cpp'
+      - 'tests/webcore/**'
       - 'tests/host/**'
       - 'tests/run-host-tests.sh'
       - 'tests/public-suffix-cases.txt'

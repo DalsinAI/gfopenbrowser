@@ -27,6 +27,8 @@ FLAGS="-O2 -std=c99 -Wall -Wextra -Werror -pedantic"
 [ "${SANITIZE:-0}" = 1 ] && FLAGS="$FLAGS -g -fsanitize=address,undefined -fno-sanitize-recover=all"
 mkdir -p "$OUT"
 RT="$WL/wl_mem.c $WL/wl_libc.c"     # weblayout's allocator and its own C library calls
+# the engine's frame loader client never calls back into HistoryController's restore
+sh "$HERE/tests/webcore/test_frame_loader_client.sh"
 # webbrowser.library's wait for its engine: it stops when the engine's process ended with no engine
 "$CC" $FLAGS -I"$HERE/src/webbrowser" "$HERE/tests/test_wb_engine_wait.c" -o "$OUT/test_wb_engine_wait"
 "$OUT/test_wb_engine_wait"
