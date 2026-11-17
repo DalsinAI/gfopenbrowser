@@ -1574,7 +1574,9 @@ static int browserMain(int argc, char **argv)
         next = ob_webcore_next_timer_micros();
         if (next == 0) {
             /* More is due at once: take any input, then go round again. */
-            got = SetSignal(0, (1UL << window->UserPort->mp_SigBit) | (1UL << wakeSignal));
+            got = SetSignal(0, (1UL << window->UserPort->mp_SigBit) | (1UL << wakeSignal) | rexxSignal());
+            if (got & rexxSignal())
+                rexxEvents();   /* STATUS and STOP are answered while a page keeps WebCore busy */
             if (got & (1UL << window->UserPort->mp_SigBit))
                 handleWindow();
             continue;
