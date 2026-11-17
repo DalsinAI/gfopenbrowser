@@ -31,6 +31,7 @@ RT="$WL/wl_mem.c $WL/wl_libc.c"     # weblayout's allocator and its own C librar
 sh "$HERE/tests/webcore/test_frame_loader_client.sh"
 sh "$HERE/tests/webcore/test_engine_allocator.sh"
 sh "$HERE/tests/webcore/test_stdlib_assertions.sh"
+sh "$HERE/tests/webcore/test_optimize_js_layout.sh"
 # webbrowser.library's wait for its engine: it stops when the engine's process ended with no engine
 "$CC" $FLAGS -I"$HERE/src/webbrowser" "$HERE/tests/test_wb_engine_wait.c" -o "$OUT/test_wb_engine_wait"
 "$OUT/test_wb_engine_wait"
