@@ -226,7 +226,13 @@ static LONG openInLibrary(int argc, char **argv, struct Task **splash)
     toolTypeTags(argc, argv, tags);
     result = WB_OpenBrowser((CONST_STRPTR)(argc > 1 ? argv[1] : ""), tags);
     if (result < 0) {
-        ob_splash("The browser engine did not start", 0);
+        /* Refused: the engine's program ended before it began. With Tata
+         * running that is Tata's "Don't run it" (asked, or kept as "never");
+         * the library stopped waiting the second it happened. */
+        if (result == WBERR_REFUSED)
+            ob_splash(FindPort((CONST_STRPTR)"Tata") ? "Tata did not let the browser engine run" : "The browser engine stopped as it started", 0);
+        else
+            ob_splash("The browser engine did not start", 0);
         Delay(5 * TICKS_PER_SECOND);
     }
     CloseLibrary(WebBrowserBase);
