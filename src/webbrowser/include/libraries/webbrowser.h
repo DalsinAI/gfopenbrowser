@@ -55,5 +55,6 @@
 #define WBERR_NOMEMORY (-2)
 #define WBERR_BADVIEW  (-3)
 #define WBERR_TIMEOUT  (-4)
+#define WBERR_REFUSED  (-5)   /* WB_OpenBrowser: the engine's program was started and ended at once, with no engine: not allowed to run (Tata), or it failed */
 
 #endif

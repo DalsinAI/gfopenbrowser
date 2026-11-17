@@ -18,6 +18,7 @@
 
 #include "libraries/webbrowser.h"
 #include "wb_protocol.h"
+#include "wb_wait.h"
 #include "ob_cgx.h"
 
 #ifndef REG
@@ -74,12 +75,26 @@ static LONG simple(ULONG command, APTR view)
     return ask(&m);
 }
 
-/* Starts the engine when it is not running, and waits for its port. */
+/* Whether the Shell that starts the engine, a process called
+ * WebBrowserEngine, is there. */
+static int engineProcess(void)
+{
+    struct Task *t;
+    Forbid();
+    t = FindTask((CONST_STRPTR)"WebBrowserEngine");
+    Permit();
+    return t != NULL;
+}
+
+/* Starts the engine when it is not running, and waits for its port: 1 when
+ * it is there, 0 when it can't be started or the time is over, and -1 when
+ * its process ended with no port made (wb_wait.h): refused, or failed at
+ * once. */
 static int ensureEngine(void)
 {
     char path[300];
     BPTR lock;
-    int i;
+    int i, seen;
     if (FindPort((CONST_STRPTR)WEBBROWSER_ENGINE_PORT))
         return 1;
     /* The engine's full name: the shell that starts it has no PROGDIR: of
@@ -99,12 +114,14 @@ static int ensureEngine(void)
     if (SystemTags((CONST_STRPTR)path, SYS_Asynch, TRUE, SYS_Input, Open((CONST_STRPTR)"NIL:", MODE_OLDFILE),
             SYS_Output, Open((CONST_STRPTR)"NIL:", MODE_NEWFILE), NP_Name, (ULONG)"WebBrowserEngine", TAG_DONE) == -1)
         return 0;
-    for (i = 0; i < ENGINE_WAIT; i++) {
+    seen = engineProcess();
+    for (i = 1; ; i++) {
+        int state;
         Delay(TICKS_PER_SECOND);
-        if (FindPort((CONST_STRPTR)WEBBROWSER_ENGINE_PORT))
-            return 1;
+        state = wb_engine_wait(FindPort((CONST_STRPTR)WEBBROWSER_ENGINE_PORT) != NULL, engineProcess(), &seen, i, ENGINE_WAIT);
+        if (state != WB_WAIT_ON)
+            return state == WB_WAIT_READY ? 1 : state == WB_WAIT_ENDED ? -1 : 0;
     }
-    return 0;
 }
 
 /* ---- the calls (LVO -30 onwards, in this order) ---- */
@@ -114,7 +131,7 @@ static APTR wbOpenView(REG(d0, LONG width), REG(d1, LONG height), REG(a0, struct
     struct WBMessage m;
     LONG result;
     (void)base;
-    if (!ensureEngine())
+    if (ensureEngine() <= 0)
         return NULL;
     memset(&m, 0, sizeof m);
     m.command = WBC_OPEN;
@@ -125,7 +142,7 @@ static APTR wbOpenView(REG(d0, LONG width), REG(d1, LONG height), REG(a0, struct
     m.arg[4] = (LONG)GetTagData(WBA_Signal, (ULONG)-1, tags);
     result = ask(&m);
     /* The engine quits when idle, and may have just done so. */
-    if (result == WBERR_NOENGINE && ensureEngine())
+    if (result == WBERR_NOENGINE && ensureEngine() > 0)
         result = ask(&m);
     return result > 0 ? (APTR)result : NULL;
 }
@@ -303,9 +320,10 @@ static LONG wbOpenBrowser(REG(a0, CONST_STRPTR url), REG(a1, struct TagItem *tag
 {
     struct WBMessage m;
     LONG result;
+    int started;
     (void)base;
-    if (!ensureEngine())
-        return WBERR_NOENGINE;
+    if ((started = ensureEngine()) <= 0)
+        return started < 0 ? WBERR_REFUSED : WBERR_NOENGINE;
     memset(&m, 0, sizeof m);
     m.command = WBC_BROWSER;
     m.text = (const char *)url;
@@ -314,7 +332,7 @@ static LONG wbOpenBrowser(REG(a0, CONST_STRPTR url), REG(a1, struct TagItem *tag
     m.arg[2] = GetTagData(WBA_WebFonts, FALSE, tags);
     m.arg[3] = GetTagData(WBA_Lite, FALSE, tags);
     result = ask(&m);
-    if (result == WBERR_NOENGINE && ensureEngine())
+    if (result == WBERR_NOENGINE && ensureEngine() > 0)
         result = ask(&m);
     return result;
 }
