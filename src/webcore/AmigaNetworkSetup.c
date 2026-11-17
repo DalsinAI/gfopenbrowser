@@ -19,6 +19,7 @@
 #endif
 
 #include "ob_network.h"
+#include "ob_clipboard.h"
 
 static BYTE mainPriority;
 
@@ -31,6 +32,8 @@ static void resetFPCR(void)
 int ob_network_open(void)
 {
     mainPriority = FindTask(NULL)->tc_Node.ln_Pri;
+    /* Copy and paste go through the Amiga clipboard (ob_clipboard.c). */
+    obclip_install();
 #ifdef OB_OPENSERVICE
     /* Page pictures, SVG included, decoded by a board in this machine or a
      * paired Cradle, when one offers it. */
