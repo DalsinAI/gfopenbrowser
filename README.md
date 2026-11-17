@@ -11,6 +11,10 @@ gfopenservice; libcurl on GFOpenTLS until WebKit patch 0075) are
 built and being brought up on the test instance. See
 [docs/WEBCORE_PORT.md](docs/WEBCORE_PORT.md).
 
+Other programs drive the browser through its ARexx port, `GFOPENBROWSER`
+(open a page, reload, back, forward, the address, title, load state and
+load time, the page's text): see [docs/AREXX.md](docs/AREXX.md).
+
 JavaScriptCore on its own runs in a Shell:
 
 ```

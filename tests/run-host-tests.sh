@@ -63,6 +63,9 @@ OS32M="-D_DEFAULT_SOURCE -Daligned_alloc=os32_aligned_alloc -Dmemalign=os32_mema
 # the scripts folder (WebKit patch 0099): mkdtemp(), utimes()
 "$CC" $FLAGS -D_DEFAULT_SOURCE -I"$HERE/src/webcore" "$HERE/src/webcore/ob_scriptcache.c" \
     "$HERE/tests/test_ob_scriptcache.c" -o "$OUT/test_ob_scriptcache"
+# the browser's ARexx commands (the GFOPENBROWSER port), with a stand-in page
+"$CC" $FLAGS -I"$HERE/src/webcore" "$HERE/src/webcore/ob_rexx.c" \
+    "$HERE/tests/test_ob_rexx.c" -o "$OUT/test_ob_rexx"
 # Lite's address parser (its network calls stubbed in the test)
 "$CC" $FLAGS -D_DEFAULT_SOURCE -I"$HERE/src" -I"$OM" "$HERE/src/ob_http.c" "$OM/oam_buf.c" "$WL/wl_url.c" $RT \
     "$HERE/tests/test_ob_url_parse.c" -o "$OUT/test_ob_url_parse"
@@ -139,6 +142,7 @@ tail -1 "$OUT/test_wl_html.log"
 rm -rf "$OUT/httpcache"
 "$OUT/test_ob_httpcache" "$OUT/httpcache"
 "$OUT/test_ob_scriptcache"
+"$OUT/test_ob_rexx"
 sh "$HERE/tests/webcore/test_script_cache_default.sh"
 "$OUT/test_public_suffixes" "$HERE/data/public-suffixes" "$HERE/tests/public-suffix-cases.txt"
 "$OUT/test_opengpu_paint"

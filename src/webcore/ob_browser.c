@@ -37,12 +37,16 @@
 #include <proto/icon.h>
 #include <proto/keymap.h>
 #include <proto/timer.h>
+#include <proto/rexxsyslib.h>
+#include <rexx/storage.h>
+#include <rexx/rxslib.h>
 
 #include "ob_blit.h"
 #include "ob_dialogs.h"
 #include "ob_webview.h"
 #include "ob_tata.h"
 #include "ob_splash.h"
+#include "ob_rexx.h"
 
 /* TLS sessions kept from the last run (ob_webview_load_tls_sessions). */
 #define TLS_SESSIONS "PROGDIR:TLSSessions"
@@ -522,6 +526,7 @@ static void onStatus(void *context, const char *text)
 }
 
 static int loadPercent;
+static long lastLoadMs = -1;   /* the last finished load, for ARexx's LOADTIME */
 
 static void onLoading(void *context, int isLoading, int percent)
 {
@@ -532,6 +537,7 @@ static void onLoading(void *context, int isLoading, int percent)
     else if (!isLoading && loading) {
         benchLoadEnd = clockMicros();
         benchDue = 1;
+        lastLoadMs = (long)((benchLoadEnd - benchLoadStart) / 1000);
     }
     /* Only what shows: the whole percentage, and whether it loads. */
     if (isLoading == loading && (!isLoading || percent == loadPercent))
@@ -864,6 +870,184 @@ static void handleKey(struct IntuiMessage *msg)
         latin1[0] = 0;
     latin1ToUTF8(latin1, utf8, sizeof utf8);
     ob_webview_key(view, down, rawKey, utf8, qualifiers(msg->Qualifier));
+}
+
+/* --- ARexx: the GFOPENBROWSER port (ob_rexx.h has the commands) --------------- */
+
+struct RxsLib *RexxSysBase;
+static struct MsgPort *rexxPort;
+static char rexxName[32];
+static ob_rexx rexx;
+static char rexxResult[4096];
+
+static void rxOpen(void *user, const char *address)
+{
+    char utf8[sizeof urlText * 2];
+    (void)user;
+    latin1ToUTF8(address, utf8, sizeof utf8);
+    ob_webview_load(view, utf8);
+}
+
+static void rxReload(void *user) { (void)user; ob_webview_reload(view); }
+static void rxStop(void *user) { (void)user; ob_webview_stop(view); }
+
+static int rxBack(void *user)
+{
+    (void)user;
+    if (!ob_webview_can_go_back(view))
+        return 0;
+    ob_webview_back(view);
+    return 1;
+}
+
+static int rxForward(void *user)
+{
+    (void)user;
+    if (!ob_webview_can_go_forward(view))
+        return 0;
+    ob_webview_forward(view);
+    return 1;
+}
+
+static const char *rxURL(void *user) { (void)user; return urlText; }
+static const char *rxTitle(void *user) { (void)user; return titleText; }
+
+static int rxLoading(void *user, int *percent)
+{
+    (void)user;
+    *percent = loadPercent;
+    return loading;
+}
+
+static long rxLoadMs(void *user) { (void)user; return loading ? -1 : lastLoadMs; }
+
+static int rxText(void *user, char *buffer, int size)
+{
+    static char utf8[sizeof rexxResult * 2];
+    (void)user;
+    ob_webview_text(view, utf8, sizeof utf8);
+    utf8ToLatin1(utf8, buffer, size);
+    return (int)strlen(buffer);
+}
+
+static void rxActivate(void *user, int front)
+{
+    (void)user;
+    if (!window)
+        return;
+    if (front) {
+        if (ownScreen)
+            ScreenToFront(ownScreen);
+        WindowToFront(window);
+        ActivateWindow(window);
+    } else
+        WindowToBack(window);
+}
+
+static int rxFault(void *user, long code, char *buffer, int size)
+{
+    (void)user;
+    return size > 0 && Fault(code, NULL, (STRPTR)buffer, size) > 0;
+}
+
+static void rxQuit(void *user) { (void)user; quitNow = 1; }
+
+/* The port: GFOPENBROWSER, or GFOPENBROWSER.2 and so on for another copy.
+ * Without rexxsyslib.library there is none. */
+static void rexxOpen(void)
+{
+    ob_rexx_host host;
+    struct MsgPort *port;
+    int n;
+    if (rexxPort)
+        return;
+    memset(&host, 0, sizeof host);
+    host.version = version + 6;
+    host.open = rxOpen;
+    host.reload = rxReload;
+    host.stop = rxStop;
+    host.back = rxBack;
+    host.forward = rxForward;
+    host.url = rxURL;
+    host.title = rxTitle;
+    host.loading = rxLoading;
+    host.load_ms = rxLoadMs;
+    host.text = rxText;
+    host.activate = rxActivate;
+    host.fault = rxFault;
+    host.quit = rxQuit;
+    ob_rexx_init(&rexx, &host);
+    if (!RexxSysBase)
+        RexxSysBase = (struct RxsLib *)OpenLibrary((CONST_STRPTR)"rexxsyslib.library", 36);
+    if (!RexxSysBase || !(port = CreateMsgPort()))
+        return;
+    port->mp_Node.ln_Pri = 0;
+    Forbid();
+    for (n = 1; n < 10; n++) {
+        if (n == 1)
+            strcpy(rexxName, OB_RX_PORT);
+        else
+            snprintf(rexxName, sizeof rexxName, OB_RX_PORT ".%d", n);
+        if (!FindPort((CONST_STRPTR)rexxName))
+            break;
+    }
+    if (n == 10) {
+        Permit();
+        DeleteMsgPort(port);
+        return;
+    }
+    port->mp_Node.ln_Name = rexxName;
+    AddPort(port);
+    Permit();
+    rexxPort = port;
+}
+
+static void rexxClose(void)
+{
+    struct RexxMsg *rm;
+    if (rexxPort) {
+        Forbid();
+        RemPort(rexxPort);
+        while ((rm = (struct RexxMsg *)GetMsg(rexxPort))) {
+            rm->rm_Result1 = OB_RX_FAIL;
+            rm->rm_Result2 = 0;
+            ReplyMsg((struct Message *)rm);
+        }
+        Permit();
+        DeleteMsgPort(rexxPort);
+        rexxPort = NULL;
+    }
+    if (RexxSysBase)
+        CloseLibrary((struct Library *)RexxSysBase);
+    RexxSysBase = NULL;
+}
+
+static ULONG rexxSignal(void)
+{
+    return rexxPort ? 1UL << rexxPort->mp_SigBit : 0;
+}
+
+/* The commands waiting on the port, each answered before the next. No
+ * requester is shown while one runs. */
+static void rexxEvents(void)
+{
+    struct RexxMsg *rm;
+    while (rexxPort && (rm = (struct RexxMsg *)GetMsg(rexxPort))) {
+        struct Process *me = (struct Process *)FindTask(NULL);
+        APTR was = me->pr_WindowPtr;
+        int rc = OB_RX_FAIL;
+        rexxResult[0] = 0;
+        if (IsRexxMsg(rm) && view) {
+            me->pr_WindowPtr = (APTR)-1;
+            rc = ob_rexx_command(&rexx, (const char *)rm->rm_Args[0], rexxResult, sizeof rexxResult);
+            me->pr_WindowPtr = was;
+        }
+        rm->rm_Result1 = rc;
+        rm->rm_Result2 = 0;
+        if (rc == OB_RX_OK && (rm->rm_Action & RXFF_RESULT))
+            rm->rm_Result2 = (LONG)CreateArgstring((STRPTR)rexxResult, (LONG)strlen(rexxResult));
+        ReplyMsg((struct Message *)rm);
+    }
 }
 
 /* --- the program ------------------------------------------------------------ */
@@ -1222,6 +1406,7 @@ static int openBrowserWindow(const char *url, int network)
     if (!quitNow) {
         makeMenus();
         updateButtons();
+        rexxOpen();
         setStatus(network ? "Ready." : "No network: bsdsocket.library is missing.");
         ob_webview_load(view, url);
     }
@@ -1232,6 +1417,7 @@ static void closeBrowserWindow(void)
 {
     if (benchDue)
         benchReport();
+    rexxClose();
     ob_download_set_callback(NULL, NULL);
     obd_close_panels();
     findBarHeight = 0;
@@ -1313,7 +1499,7 @@ int obb_open(const char *url, int scripts, int pictures, int webFonts, int lite,
 
 ULONG obb_signals(void)
 {
-    return window ? 1UL << window->UserPort->mp_SigBit : 0;
+    return window ? (1UL << window->UserPort->mp_SigBit) | rexxSignal() : 0;
 }
 
 /* After WebCore's turn and any wake-up: input, then what changed on the
@@ -1322,6 +1508,7 @@ int obb_update(void)
 {
     if (!window)
         return 0;
+    rexxEvents();
     handleWindow();
     if (quitNow) {
         closeBrowserWindow();
@@ -1393,7 +1580,8 @@ static int browserMain(int argc, char **argv)
             continue;
         }
         armTimer(next);
-        waitMask = (1UL << window->UserPort->mp_SigBit) | (1UL << wakeSignal) | (1UL << timerPort->mp_SigBit) | SIGBREAKF_CTRL_C;
+        waitMask = (1UL << window->UserPort->mp_SigBit) | (1UL << wakeSignal) | (1UL << timerPort->mp_SigBit) | rexxSignal()
+            | SIGBREAKF_CTRL_C;
         got = Wait(waitMask);
         if (got & SIGBREAKF_CTRL_C)
             quitNow = 1;
@@ -1403,6 +1591,8 @@ static int browserMain(int argc, char **argv)
                 timerPending = 0;
             }
         }
+        if (got & rexxSignal())
+            rexxEvents();
         if (got & (1UL << window->UserPort->mp_SigBit))
             handleWindow();
     }
