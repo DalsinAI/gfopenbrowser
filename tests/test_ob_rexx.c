@@ -60,6 +60,91 @@ static int p_fault(void *user, long code, char *buffer, int size)
     return 1;
 }
 static void p_quit(void *user) { ((struct page *)user)->quits++; }
+static char saved[64];
+static int savedFormat = -1;
+static long saveAnswer;
+static int scriptAnswer = 1;
+static int p_source(void *user, char *buffer, int size)
+{
+    (void)user;
+    snprintf(buffer, size, "<html><head></head><body><h1>Example Domain</h1></body></html>");
+    return 1;
+}
+static long p_save(void *user, const char *file, int format)
+{
+    (void)user;
+    snprintf(saved, sizeof saved, "%s", file);
+    savedFormat = format;
+    return saveAnswer;
+}
+static int p_script(void *user, const char *script, char *buffer, int size)
+{
+    (void)user;
+    if (scriptAnswer == 1)
+        snprintf(buffer, size, "ran:%s", script);
+    else if (!scriptAnswer)
+        snprintf(buffer, size, "ReferenceError: Can't find variable: nope");
+    return scriptAnswer;
+}
+static void batch2(ob_rexx *rx)
+{
+    char result[256], small[8];
+    /* before the page gives them: 5, with a reason */
+    CHECK(ob_rexx_command(rx, "GETSOURCE", result, sizeof result) == OB_RX_NOW);
+    CHECK(ob_rexx_command(rx, "SAVE RAM:a.html", result, sizeof result) == OB_RX_NOW);
+    CHECK(ob_rexx_command(rx, "RUNSCRIPT 1+1", result, sizeof result) == OB_RX_NOW);
+    CHECK(ob_rexx_command(rx, "PRINT", result, sizeof result) == OB_RX_NOW);
+    CHECK(ob_rexx_command(rx, "LASTERROR", result, sizeof result) == OB_RX_OK);
+    CHECK(strstr(result, "doesn't print yet"));
+    rx->host.source = p_source;
+    rx->host.save = p_save;
+    rx->host.script = p_script;
+    CHECK(ob_rexx_command(rx, "getsource", result, sizeof result) == OB_RX_OK);
+    CHECK(!strncmp(result, "<html>", 6) && strstr(result, "</html>"));
+    CHECK(ob_rexx_command(rx, "GETSOURCE", small, sizeof small) == OB_RX_OK);
+    CHECK(!strcmp(small, "<html><"));
+    /* SAVE: the format follows the name */
+    CHECK(ob_rexx_command(rx, "SAVE RAM:page.html", result, sizeof result) == OB_RX_OK);
+    CHECK(!strcmp(saved, "RAM:page.html") && savedFormat == OB_RX_SAVE_HTML && !result[0]);
+    CHECK(ob_rexx_command(rx, "SAVE \"RAM:My Page.TXT\"", result, sizeof result) == OB_RX_OK);
+    CHECK(!strcmp(saved, "RAM:My Page.TXT") && savedFormat == OB_RX_SAVE_TEXT);
+    CHECK(ob_rexx_command(rx, "save FILE=RAM:shot.png", result, sizeof result) == OB_RX_OK);
+    CHECK(!strcmp(saved, "RAM:shot.png") && savedFormat == OB_RX_SAVE_PNG);
+    CHECK(ob_rexx_command(rx, "SAVE RAM:noending", result, sizeof result) == OB_RX_OK);
+    CHECK(savedFormat == OB_RX_SAVE_HTML);
+    CHECK(ob_rexx_command(rx, "SAVE .png", result, sizeof result) == OB_RX_OK);
+    CHECK(savedFormat == OB_RX_SAVE_HTML);   /* a name that is only an ending is a name */
+    CHECK(ob_rexx_command(rx, "SAVE", result, sizeof result) == OB_RX_ERROR);
+    CHECK(ob_rexx_command(rx, "LASTERROR", result, sizeof result) == OB_RX_OK);
+    CHECK(!strcmp(result, "SAVE needs a file"));
+    saveAnswer = 205;
+    CHECK(ob_rexx_command(rx, "SAVE Nowhere:x.html", result, sizeof result) == OB_RX_ERROR);
+    CHECK(ob_rexx_command(rx, "LASTERROR", result, sizeof result) == OB_RX_OK);
+    CHECK(strstr(result, "error 205") && strstr(result, "FAULT 205"));
+    saveAnswer = -1;
+    CHECK(ob_rexx_command(rx, "SAVE RAM:x.png", result, sizeof result) == OB_RX_NOW);
+    CHECK(ob_rexx_command(rx, "LASTERROR", result, sizeof result) == OB_RX_OK);
+    CHECK(strstr(result, "PNG datatype"));
+    saveAnswer = 0;
+    /* RUNSCRIPT: the script goes as written, quotes and all */
+    CHECK(ob_rexx_command(rx, "RUNSCRIPT document.title", result, sizeof result) == OB_RX_OK);
+    CHECK(!strcmp(result, "ran:document.title"));
+    CHECK(ob_rexx_command(rx, "js  'a' + \"b\"", result, sizeof result) == OB_RX_OK);
+    CHECK(!strcmp(result, "ran:'a' + \"b\""));
+    CHECK(ob_rexx_command(rx, "RUNSCRIPT", result, sizeof result) == OB_RX_ERROR);
+    CHECK(ob_rexx_command(rx, "JSON", result, sizeof result) == OB_RX_FAIL);
+    scriptAnswer = 0;
+    CHECK(ob_rexx_command(rx, "RUNSCRIPT nope", result, sizeof result) == OB_RX_ERROR && !result[0]);
+    CHECK(ob_rexx_command(rx, "LASTERROR", result, sizeof result) == OB_RX_OK);
+    CHECK(!strcmp(result, "RUNSCRIPT: ReferenceError: Can't find variable: nope"));
+    scriptAnswer = -1;
+    CHECK(ob_rexx_command(rx, "RUNSCRIPT 1", result, sizeof result) == OB_RX_NOW);
+    CHECK(ob_rexx_command(rx, "LASTERROR", result, sizeof result) == OB_RX_OK);
+    CHECK(!strcmp(result, "RUNSCRIPT: JavaScript is off"));
+    scriptAnswer = 1;
+    CHECK(ob_rexx_command(rx, "HELP", result, sizeof result) == OB_RX_OK);
+    CHECK(strstr(result, "GETSOURCE") && strstr(result, "SAVE") && strstr(result, "RUNSCRIPT") && strstr(result, "PRINT"));
+}
 
 int main(void)
 {
@@ -194,6 +279,13 @@ int main(void)
         CHECK(ob_rexx_command(&rx, "VERSION", result, sizeof result) == OB_RX_OK && !strcmp(result, "GFOpenBrowser"));
         CHECK(ob_rexx_command(&rx, "VERSION", NULL, 0) == OB_RX_OK);
         CHECK(ob_rexx_command(&rx, "GETTEXT", NULL, 0) == OB_RX_NOW);
+    }
+
+    /* save, source, run a script, print */
+    {
+        ob_rexx second;
+        ob_rexx_init(&second, NULL);
+        batch2(&second);
     }
 
     if (failures) {
