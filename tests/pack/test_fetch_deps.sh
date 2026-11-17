@@ -60,13 +60,16 @@ ok '[ ! -e "$T/dry" ]' "a dry run makes nothing"
 ok '[ "$(wc -l < "$T/dry.out")" -eq "$(grep -c "^[a-z]" "$HERE/scripts/deps.lock")" ]' "a dry run lists each input once"
 ok 'grep -q "^webkit $(cut -d" " -f2 "$HERE/webkit/UPSTREAM") " "$T/dry.out"' "deps.lock's WebKit pin is webkit/UPSTREAM's"
 # gfopenservice #44 (a5b2cc1): the fetch's wait no longer spins on TLS bytes no fetch can take (on the
-# Amiga about 1 s of busy CPU for each image Aminet's front page asked for). Its own host test is
-# gfopenservice's host/test_wfnet.py; here, the pin must not go back before it.
+# Amiga about 1 s of busy CPU for each image Aminet's front page asked for). #46 (46ba68e): TLS
+# sessions kept per host name and resumed. Their own host test is gfopenservice's host/test_wfnet.py;
+# here, the pin must not go back before them.
 svc=$(awk '$1 == "gfopenservice" { print $3 }' "$HERE/scripts/deps.lock")
-ok '[ "$svc" = a5b2cc1ee58f5a9b60263f1c8836d4c150e75b5a ]' "gfopenservice is pinned at a5b2cc1, the wait-loop fix (got $svc)"
+ok '[ "$svc" = 46ba68e9b7cff83546116c1bc823baa0ce11d290 ]' "gfopenservice is pinned at 46ba68e, the wait-loop fix and TLS resumption (got $svc)"
 if [ -f "${OPENSERVICE_DIR:-/nonexistent}/src/wfnet.c" ]; then
     ok 'grep -q "if (w->more)" "$OPENSERVICE_DIR/src/wfnet.c" && ! grep -q "tls_pending(w->io.env, c->tls) > 0" "$OPENSERVICE_DIR/src/wfnet.c"' \
         "OPENSERVICE_DIR's block() waits on the sockets, not on tls_pending"
+    ok 'grep -q "OT_SetSession(t->conn, e->sess\[i\].s)" "$OPENSERVICE_DIR/src/wfnet_amiga.c"' \
+        "OPENSERVICE_DIR's Amiga transport offers kept TLS sessions"
 fi
 
 # A pinned, sparse checkout of an older commit, and WebKit with its patches.
