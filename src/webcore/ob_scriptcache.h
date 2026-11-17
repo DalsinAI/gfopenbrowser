@@ -17,8 +17,10 @@ extern "C" {
 #define OB_SCRIPTCACHE_DIR "PROGDIR:Cache/Scripts"
 #define OB_SCRIPTCACHE_MAX (32L * 1024 * 1024)
 
-/* The folder's .jsc files down to three quarters of max bytes, when they
- * are over it: oldest first. Returns the bytes left. */
+/* The folder's .jsg files (scripts' top-level code) down to three quarters
+ * of max bytes, when they are over it: oldest first. The .jsc files of
+ * before 0.9.0 RC3, which held functions' code as well, are removed.
+ * Returns the bytes left. */
 long ob_scriptcache_trim(const char *dir, long max);
 
 #ifdef __cplusplus

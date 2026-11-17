@@ -60,6 +60,9 @@ OS32M="-D_DEFAULT_SOURCE -Daligned_alloc=os32_aligned_alloc -Dmemalign=os32_mema
 # opendir(), stat() and setenv(): POSIX
 "$CC" $FLAGS -D_DEFAULT_SOURCE -I"$HERE/src/webcore" "$HERE/src/webcore/ob_httpcache.c" \
     "$HERE/tests/test_ob_httpcache.c" -o "$OUT/test_ob_httpcache"
+# the scripts folder (WebKit patch 0099): mkdtemp(), utimes()
+"$CC" $FLAGS -D_DEFAULT_SOURCE -I"$HERE/src/webcore" "$HERE/src/webcore/ob_scriptcache.c" \
+    "$HERE/tests/test_ob_scriptcache.c" -o "$OUT/test_ob_scriptcache"
 # Lite's address parser (its network calls stubbed in the test)
 "$CC" $FLAGS -D_DEFAULT_SOURCE -I"$HERE/src" -I"$OM" "$HERE/src/ob_http.c" "$OM/oam_buf.c" "$WL/wl_url.c" $RT \
     "$HERE/tests/test_ob_url_parse.c" -o "$OUT/test_ob_url_parse"
@@ -135,6 +138,8 @@ tail -1 "$OUT/test_wl_html.log"
 "$OUT/test_ob_http_fetch"
 rm -rf "$OUT/httpcache"
 "$OUT/test_ob_httpcache" "$OUT/httpcache"
+"$OUT/test_ob_scriptcache"
+sh "$HERE/tests/webcore/test_script_cache_default.sh"
 "$OUT/test_public_suffixes" "$HERE/data/public-suffixes" "$HERE/tests/public-suffix-cases.txt"
 "$OUT/test_opengpu_paint"
 # a test's last line only, but its whole log and a failed run when it fails (a pipe into tail hid the failure).

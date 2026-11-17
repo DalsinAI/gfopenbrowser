@@ -247,7 +247,7 @@ new file mode 100644
 index 0000000..7ba9a5a
 --- /dev/null
 +++ b/Source/WebCore/bindings/js/amiga/AmigaScriptBytecode.cpp
-@@ -0,0 +1,295 @@
+@@ -0,0 +1,291 @@
 +/*
 + * Copyright (C) 2026 AmiCradle Team.
 + *
@@ -481,7 +481,7 @@ index 0000000..7ba9a5a
 +        return nullptr;     // nothing kept, or a script too short to be worth a file
 +    auto separator = dir.endsWith('/') || dir.endsWith(':') ? ""_s : "/"_s;
 +    char name[24];
-+    snprintf(name, sizeof name, "%08lx-%08lx.jsc", static_cast<unsigned long>(textHash(source)), static_cast<unsigned long>(source.length()));
++    snprintf(name, sizeof name, "%08lx-%08lx.jsg", static_cast<unsigned long>(textHash(source)), static_cast<unsigned long>(source.length()));
 +    m_path = makeString(dir, separator, String::fromLatin1(name));
 +    auto utf8Path = m_path.utf8();
 +    FILE* file = fopen(reinterpret_cast<const char*>(utf8Path.data()), "rb");
@@ -516,15 +516,11 @@ index 0000000..7ba9a5a
 +        m_bytecode->addGlobalUpdate(*update);
 +}
 +
-+void AmigaScriptBytecode::updateCache(const JSC::UnlinkedFunctionExecutable* executable, JSC::CodeSpecializationKind kind, const JSC::UnlinkedFunctionCodeBlock* codeBlock) const
++// Only a script's top-level code is kept (cacheBytecode()), not each
++// function's as it is first called: pages that read back files holding
++// function updates stopped loading (reddit.com, 4 November 2026).
++void AmigaScriptBytecode::updateCache(const JSC::UnlinkedFunctionExecutable*, JSC::CodeSpecializationKind, const JSC::UnlinkedFunctionCodeBlock*) const
 +{
-+    Locker locker { m_lock };
-+    if (!m_bytecode)
-+        return;
-+    JSC::BytecodeCacheError error;
-+    RefPtr<JSC::CachedBytecode> function = JSC::encodeFunctionCodeBlock(executable->vm(), codeBlock, error);
-+    if (function && !error.isValid())
-+        m_bytecode->addFunctionUpdate(executable, kind, *function);
 +}
 +
 +// What is to be written goes to the writer's list (writeAmigaScriptBytecode()).
