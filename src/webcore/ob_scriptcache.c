@@ -42,9 +42,15 @@ long ob_scriptcache_trim(const char *dir, long max)
     while ((e = readdir(d))) {
         size_t len = strlen(e->d_name);
         struct stat st;
-        if (len < 5 || len >= sizeof list[0].name || strcmp(e->d_name + len - 4, ".jsc"))
+        if (len < 5 || len >= sizeof list[0].name)
             continue;
         pathOf(path, sizeof path, dir, e->d_name);
+        if (!strcmp(e->d_name + len - 4, ".jsc")) {
+            remove(path);                           /* before 0.9.0 RC3: functions' code as well, never read now */
+            continue;
+        }
+        if (strcmp(e->d_name + len - 4, ".jsg"))
+            continue;
         if (stat(path, &st))
             continue;
         if (n == room) {

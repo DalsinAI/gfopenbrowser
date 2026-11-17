@@ -504,8 +504,10 @@ The patches, in order:
   (`src/webcore/ob_tata.c`).
 - `0099-amiga-script-bytecode-cache.patch`: page and worker scripts are
   translated once. WebCore's two script source providers keep what
-  JavaScriptCore makes from a script (its bytecode, and each function's when
-  first called) in a file in the folder the browser names
+  JavaScriptCore makes from a script (its top-level bytecode; since 0.9.0
+  RC3 not each function's as it is first called, which left pages such as
+  reddit.com hanging when read back) in a `.jsg` file in the folder the
+  browser names
   (`setAmigaScriptBytecodeFolder`), named by a hash and the length of the
   text, and load it the next time the same text runs. GFOpenBrowser uses
   `PROGDIR:Cache/Scripts`, trims it to 32 MB at start (`ob_scriptcache.c`)
