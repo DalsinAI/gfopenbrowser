@@ -597,6 +597,12 @@ The patches, in order:
   pasteboard goes to the clipboard too, and text another program copied
   since becomes the pasteboard before it is read. Markup stays inside the
   program, so a copy between pages keeps its formatting.
+- `0122-jsc-m68k-thread-hooks-off-at-exit.patch`: the switch and launch
+  hooks patch 0033 puts on each task that runs JavaScript come off again
+  when the program ends (`jsc_m68k_detach_threads()`, called by a
+  destructor). A program started from a Shell runs on the Shell's own
+  process, which lives on: exec went on calling the hooks in the freed
+  program, and the next program loaded there hung the machine.
 
 `0001-amiga-m68k-jsconly.patch` is one combined patch. It holds:
 

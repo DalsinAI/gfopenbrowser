@@ -1,0 +1,68 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: SacredTrees <121399723+SacredTrees@users.noreply.github.com>
+Date: Tue, 17 Nov 2026 23:55:00 +0000
+Subject: [PATCH] JSC m68k: take the task hooks off at exit
+
+Patch 0033 puts a switch and a launch hook (tc_Switch, tc_Launch, with
+TF_SWITCH and TF_LAUNCH) on every task that runs JavaScript, and never
+took them off. A program started from a Shell runs on the Shell's own
+process, which lives on after the program has gone and its code is freed.
+Exec's task switcher went on calling the two hooks in that freed memory
+each time the Shell's task was switched; when the next program was loaded
+over it the machine hung (a jump into half-loaded code in supervisor mode
+with interrupts off, then address 0).
+
+jsc_m68k_detach_threads() takes the hooks and the two flags off every
+task that still has ours, inside Disable(), and forgets the tasks. A
+destructor calls it when the program ends; a program may also call it
+itself before it ends.
+
+Seen with the test viewer run twice in a row from one Shell, the first
+run on a page with scripts (17 November 2026). The browser started from
+a Shell that stays open had the same fault.
+
+Team 2
+---
+  Source/JavaScriptCore/llint/LowLevelInterpreter.cpp | 27 +++++++++++++++++++++
+  1 file changed, 27 insertions(+)
+
+diff --git a/Source/JavaScriptCore/llint/LowLevelInterpreter.cpp b/Source/JavaScriptCore/llint/LowLevelInterpreter.cpp
+--- a/Source/JavaScriptCore/llint/LowLevelInterpreter.cpp
++++ b/Source/JavaScriptCore/llint/LowLevelInterpreter.cpp
+@@ -499,6 +499,33 @@
+     task->tc_Flags |= TF_SWITCH | TF_LAUNCH;
+     Enable();
+ }
++
++// At exit the hooks come off again. The main thread is often not ours to
++// end: a program started from a Shell runs on the Shell's own process,
++// which lives on after the program's code is freed. Left on, exec's task
++// switcher went on calling the hooks in that freed memory, and the next
++// program loaded there hung the machine (17 November 2026: a second run
++// of the viewer straight after a first that had run a page's scripts).
++extern "C" void jsc_m68k_detach_threads()
++{
++    Disable();
++    for (auto& thread : m68kThreads) {
++        struct Task* task = thread.task;
++        if (task && m68kTaskExists(task)
++            && task->tc_Launch == reinterpret_cast<decltype(task->tc_Launch)>(jsc_m68k_task_launch)) {
++            task->tc_Flags &= ~(TF_SWITCH | TF_LAUNCH);
++            task->tc_Switch = nullptr;
++            task->tc_Launch = nullptr;
++        }
++        thread.task = nullptr;
++    }
++    Enable();
++}
++
++__attribute__((destructor)) static void detachM68KThreadsAtExit()
++{
++    jsc_m68k_detach_threads();
++}
+ #endif
+ 
+ JSValue CLoop::execute(OpcodeID entryOpcodeID, void* executableAddress, VM* vm, ProtoCallFrame* protoCallFrame, bool isInitializationPass)
+-- 
+2.43.0
+
