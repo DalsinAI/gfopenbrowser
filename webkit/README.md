@@ -590,6 +590,13 @@ The patches, in order:
   openweb.fetch answers the server's challenge with. Credentials are kept
   for the session by server and realm and tried once without asking;
   three refusals show the 401 page. Synchronous loads go on without.
+- `0121-amiga-clipboard-plain-text.patch`: copy and paste with other
+  programs. The program gives the pasteboard two calls
+  (`obpb_set_system_clipboard()`; GFOpenBrowser's `ob_clipboard.c` reads
+  and writes clipboard.device as IFF FTXT). Plain text written to the
+  pasteboard goes to the clipboard too, and text another program copied
+  since becomes the pasteboard before it is read. Markup stays inside the
+  program, so a copy between pages keeps its formatting.
 
 `0001-amiga-m68k-jsconly.patch` is one combined patch. It holds:
 

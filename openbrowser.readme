@@ -40,9 +40,13 @@ ARexx
 -----
 While its window is open the browser has an ARexx port, GFOPENBROWSER:
 OPEN <address>, RELOAD, STOP, BACK, FORWARD, GETURL, GETTITLE, STATUS,
-LOADTIME, GETTEXT, ACTIVATE, DEACTIVATE, VERSION, FAULT, LASTERROR, HELP and
+LOADTIME, GETTEXT, GETSOURCE,
+SAVE, RUNSCRIPT, ACTIVATE, DEACTIVATE, VERSION, FAULT, LASTERROR, HELP and
 QUIT. RC is 0 done, 5 not possible now, 10 an error, 20 an unknown command.
   rx "ADDRESS GFOPENBROWSER 'OPEN https://aminet.net/'"
+Rexx/SpeedTest.rexx times the browser on your machine: its start and the
+loads of five pages, written to RAM:GFOpenBrowser-Speed.txt.
+  rx Work:GFOpenBrowser/Rexx/SpeedTest.rexx
 
 Requirements
 ------------

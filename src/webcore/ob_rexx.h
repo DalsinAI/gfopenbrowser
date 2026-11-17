@@ -16,7 +16,19 @@
  *   STATUS               "LOADING <percent>" or "DONE 100"
  *   LOADTIME             the last finished load in milliseconds; 5 while
  *                        the first page still loads
+ *   LOADCOUNT            how many loads have finished since the window
+ *                        opened: a script notes it, sends OPEN, and waits
+ *                        for it to go up (Rexx/SpeedTest.rexx)
  *   GETTEXT              the page's text (cut to the result's size)
+ *   GETSOURCE            the page as HTML, as it stands now (cut to the
+ *                        result's size: SAVE writes all of it)
+ *   SAVE <file>          the page into a file: its HTML, or its text when
+ *                        the name ends in .txt, or a picture of it when
+ *                        it ends in .png (FILE= may lead)
+ *   RUNSCRIPT <script>   run JavaScript in the page; the result is its
+ *                        value as text (JS is the same). 5 when
+ *                        JavaScript is off, 10 when the script throws
+ *   PRINT                5: the browser doesn't print yet
  *   ACTIVATE, DEACTIVATE the window to the front and active, or to the back
  *   FAULT <code>         AmigaDOS's text for an error code
  *   LASTERROR            why the last command failed
@@ -36,6 +48,10 @@
 #define OB_RX_ERROR 10
 #define OB_RX_FAIL 20
 
+#define OB_RX_SAVE_HTML 0
+#define OB_RX_SAVE_TEXT 1
+#define OB_RX_SAVE_PNG 2
+
 /* What the commands do, given by the program that has the page. Text is
  * the program's own (Latin-1 on the Amiga). Any call may be NULL: its
  * command then answers 5. */
@@ -51,7 +67,16 @@ typedef struct {
     const char *(*title)(void *user);
     int (*loading)(void *user, int *percent);          /* 1 while a page loads */
     long (*load_ms)(void *user);                       /* the last finished load, -1: none yet */
+    long (*load_count)(void *user);                    /* loads finished so far */
     int (*text)(void *user, char *buffer, int size);
+    int (*source)(void *user, char *buffer, int size);
+    /* format: OB_RX_SAVE_*. 0 when written, else an AmigaDOS error code
+     * (FAULT gives its text), or -1 when the page can't give that format. */
+    long (*save)(void *user, const char *file, int format);
+    /* 1 with the value's text in buffer, 0 when the script threw (its
+     * message in buffer), -1 when JavaScript is off. */
+    int (*script)(void *user, const char *script, char *buffer, int size);
+    int (*print)(void *user);                          /* 1 when it went to the printer */
     void (*activate)(void *user, int front);
     int (*fault)(void *user, long code, char *buffer, int size);
     void (*quit)(void *user);
@@ -59,7 +84,7 @@ typedef struct {
 
 typedef struct {
     ob_rexx_host host;
-    char lasterror[128];
+    char lasterror[256];
 } ob_rexx;
 
 void ob_rexx_init(ob_rexx *rx, const ob_rexx_host *host);
