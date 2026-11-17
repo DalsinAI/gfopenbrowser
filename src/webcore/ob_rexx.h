@@ -27,7 +27,9 @@
  *                        it ends in .png (FILE= may lead)
  *   RUNSCRIPT <script>   run JavaScript in the page; the result is its
  *                        value as text (JS is the same). 5 when
- *                        JavaScript is off, 10 when the script throws
+ *                        JavaScript is off or the command is switched
+ *                        off (the tool type RUNSCRIPT=NO), 10 when the
+ *                        script throws
  *   PRINT                5: the browser doesn't print yet
  *   ACTIVATE, DEACTIVATE the window to the front and active, or to the back
  *   FAULT <code>         AmigaDOS's text for an error code
@@ -76,6 +78,7 @@ typedef struct {
     /* 1 with the value's text in buffer, 0 when the script threw (its
      * message in buffer), -1 when JavaScript is off. */
     int (*script)(void *user, const char *script, char *buffer, int size);
+    int script_off;                                    /* 1: RUNSCRIPT is switched off */
     int (*print)(void *user);                          /* 1 when it went to the printer */
     void (*activate)(void *user, int front);
     int (*fault)(void *user, long code, char *buffer, int size);

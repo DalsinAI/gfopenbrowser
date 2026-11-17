@@ -25,7 +25,7 @@ enum {
     WBC_KEY,         /* arg 0: down, 1: raw key, 2: qualifiers; text: the characters */
     WBC_SCROLL,      /* arg 0, 1: dx, dy */
     WBC_SHUTDOWN,
-    WBC_BROWSER      /* text: the URL (or NULL); arg 0-3: scripts, pictures, web fonts, lite */
+    WBC_BROWSER      /* text: the URL (or NULL); arg 0-3: scripts, pictures, web fonts, lite; arg 4: 1 when ARexx's RUNSCRIPT is switched off */
 };
 
 struct WBMessage {

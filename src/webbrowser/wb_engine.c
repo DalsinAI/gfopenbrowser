@@ -371,6 +371,7 @@ static int handle(struct WBMessage *m)
             ob_webview_wheel(v->web, v->width / 2, v->height / 2, m->arg[0], m->arg[1], 0);
         break;
     case WBC_BROWSER:
+        obb_set_run_script(!m->arg[4]);
         m->result = obb_open(m->text, m->arg[0], m->arg[1], m->arg[2], m->arg[3], networkUp) ? 0 : WBERR_NOMEMORY;
         break;
     case WBC_SHUTDOWN:

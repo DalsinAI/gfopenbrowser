@@ -888,6 +888,7 @@ struct RxsLib *RexxSysBase;
 static struct MsgPort *rexxPort;
 static char rexxName[32];
 static ob_rexx rexx;
+static int rexxRunScript = 1;   /* 0: the tool type RUNSCRIPT=NO */
 static char rexxResult[4096];
 
 static void rxOpen(void *user, const char *address)
@@ -1060,6 +1061,7 @@ static void rexxOpen(void)
     host.source = rxSource;
     host.save = rxSave;
     host.script = rxScript;
+    host.script_off = !rexxRunScript;
     host.activate = rxActivate;
     host.fault = rxFault;
     host.quit = rxQuit;
@@ -1299,6 +1301,8 @@ static void readToolTypes(int argc, char **argv)
             webFontsOn = 1;
         if ((value = FindToolType((CONST_STRPTR *)icon->do_ToolTypes, (CONST_STRPTR)"LITE")) && MatchToolValue(value, (CONST_STRPTR)"YES"))
             liteOn = 1;
+        if ((value = FindToolType((CONST_STRPTR *)icon->do_ToolTypes, (CONST_STRPTR)"RUNSCRIPT")) && MatchToolValue(value, (CONST_STRPTR)"NO"))
+            rexxRunScript = 0;
         FreeDiskObject(icon);
     }
     CloseLibrary(IconBase);
@@ -1548,6 +1552,11 @@ static void closeBrowserWindow(void)
 
 static int guiLibrariesOpen;
 static struct timerequest clockRequest;  /* opened for TimerBase only: GetSysTime() */
+
+void obb_set_run_script(int allowed)
+{
+    rexxRunScript = allowed != 0;
+}
 
 int obb_open(const char *url, int scripts, int pictures, int webFonts, int lite, int network)
 {
