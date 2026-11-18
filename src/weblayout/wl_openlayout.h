@@ -1,10 +1,10 @@
 #ifndef WL_OPENLAYOUT_H
 #define WL_OPENLAYOUT_H
 
-#include "openlayout.h"
+#include <gfopenlayout.h>
 
 #ifdef WL_USE_OPENLAYOUT_LIBRARY
-#include <proto/openlayout.h>
+#include <proto/gfopenlayout.h>
 
 int wl_openlayout_open(void);
 void wl_openlayout_close(void);

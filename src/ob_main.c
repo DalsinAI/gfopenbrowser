@@ -43,15 +43,13 @@
 #include "oam_text.h"
 #include "ob_http.h"
 #include "weblayout/weblayout.h"
-#ifdef OB_WEBLAYOUT_LIBRARY
-/* built with WEBLAYOUT=library: the engine is LIBS:weblayout.library */
+/* the page engine is weblayout.library: LIBS:, or this drawer's Libs */
 #include <proto/weblayout.h>
 struct Library *WebLayoutBase = NULL;
-#endif
 
 struct Library *GadToolsBase = NULL;
 
-#define VERSION_TEXT "GFOpenBrowserLite 0.4.3 (4.11.2026)"
+#define VERSION_TEXT "GFOpenBrowserLite 0.4.4 (18.11.2026)"
 static const char version[] __attribute__((used)) = "$VER: " VERSION_TEXT;
 #define PORT_NAME "AMICRADLE.BROWSER"
 #define HOME_PAGE "http://example.com/"
@@ -813,29 +811,26 @@ static void rexx_events(void)
     }
 }
 
-/* weblayout's WL_Close, and the library when it is one */
+/* weblayout's WL_Close, and the library */
 static void close_weblayout(void)
 {
-#ifdef OB_WEBLAYOUT_LIBRARY
     if (!WebLayoutBase) return;
     WL_Close();
     CloseLibrary(WebLayoutBase);
     WebLayoutBase = NULL;
-#else
-    WL_Close();
-#endif
 }
 
 static int browser_main(int argc, char **argv)
 {
     char err[200];
-#ifdef OB_WEBLAYOUT_LIBRARY
     WebLayoutBase = OpenLibrary((CONST_STRPTR)WEBLAYOUT_NAME, WEBLAYOUT_VERSION);
+    if (!WebLayoutBase)
+        WebLayoutBase = OpenLibrary((CONST_STRPTR)"PROGDIR:Libs/" WEBLAYOUT_NAME, WEBLAYOUT_VERSION);
     if (!WebLayoutBase) {
-        PutStr((STRPTR)"GFOpenBrowser needs weblayout.library 1 and gfopenlayout.library 2 or later\n");
+        PutStr((STRPTR)"GFOpenBrowser needs weblayout.library 1 (in LIBS: or this drawer's Libs)\n"
+                       "and LIBS:gfopenlayout.library 2 or later (GFOpenUp installs it)\n");
         return 20;
     }
-#endif
     if (!WL_Open()) {
         PutStr((STRPTR)"GFOpenBrowser needs gfopenlayout.library 2 or later\n");
         close_weblayout();

@@ -13,6 +13,10 @@
 #   OUT_DIR/GFOpenBrowserLite-<version>.lha      the archive:
 #       GFOpenBrowserLite.info                   the drawer's icon
 #       GFOpenBrowserLite/GFOpenBrowserLite        the program
+#       GFOpenBrowserLite/Libs/weblayout.library   its page engine
+#                   (WEBLAYOUT_LIB, default build/weblayout-library/
+#                   weblayout.library: scripts/build-weblayout-library.sh);
+#                   the program opens it from LIBS: or from here
 #       GFOpenBrowserLite/GFOpenBrowserLite.info   its icon
 #       GFOpenBrowserLite/GFOpenBrowserLite.readme (openbrowserlite.readme)
 #       GFOpenBrowserLite/GFOpenBrowserLite.readme.info
@@ -35,6 +39,12 @@ README="$HERE/openbrowserlite.readme"
 mkdir -p "$OUT"
 OUT=$(CDPATH= cd -- "$OUT" && pwd)
 [ -f "$PROG" ] || { echo "package-lite.sh: no $PROG (run scripts/build-openbrowser.sh)" >&2; exit 2; }
+WLLIB=${WEBLAYOUT_LIB:-"$HERE/build/weblayout-library/weblayout.library"}
+[ -f "$WLLIB" ] || { echo "package-lite.sh: no $WLLIB (run scripts/build-weblayout-library.sh, or set WEBLAYOUT_LIB)" >&2; exit 2; }
+if LC_ALL=C grep -a -q "ol_document_new" "$PROG"; then
+    echo "package-lite.sh: $PROG has GFOpenLayout built in; the release uses the libraries" >&2
+    exit 2
+fi
 
 VERSION=$(sed -n 's/^Version: *//p' "$README" | head -1)
 [ -n "$VERSION" ] || { echo "package-lite.sh: no Version: line in $README" >&2; exit 2; }
@@ -50,6 +60,8 @@ rm -rf "$STAGE"
 mkdir -p "$STAGE/GFOpenBrowserLite"
 D="$STAGE/GFOpenBrowserLite"
 cp "$PROG" "$D/GFOpenBrowserLite"
+mkdir -p "$D/Libs"
+cp "$WLLIB" "$D/Libs/weblayout.library"
 cp "$README" "$D/GFOpenBrowserLite.readme"
 cp "$HERE/LICENSE" "$D/LICENSE"
 # the icon set's drawer, tool and readme icons (icons/), under Lite's names
@@ -63,6 +75,7 @@ find "$STAGE" -exec touch -h -d "@$EPOCH" {} +
 FILES="GFOpenBrowserLite.info
 GFOpenBrowserLite/GFOpenBrowserLite
 GFOpenBrowserLite/GFOpenBrowserLite.info
+GFOpenBrowserLite/Libs/weblayout.library
 GFOpenBrowserLite/GFOpenBrowserLite.readme
 GFOpenBrowserLite/GFOpenBrowserLite.readme.info
 GFOpenBrowserLite/LICENSE"
