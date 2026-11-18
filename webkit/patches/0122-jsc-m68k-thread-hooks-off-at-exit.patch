@@ -12,12 +12,15 @@ each time the Shell's task was switched; when the next program was loaded
 over it the machine hung (a jump into half-loaded code in supervisor mode
 with interrupts off, then address 0).
 
-jsc_m68k_detach_threads() takes the hooks and the two flags off every
-task that still has ours, inside Disable(), and forgets the tasks. What
-the task had before our hooks (kept when they go on) is put back, in
-case another program had hooks of its own there; as a rule that is
-nothing. A destructor calls it when the program ends; a program may also
-call it itself before it ends.
+jsc_m68k_detach_thread() takes the hooks and the two flags off the
+thread that calls it, inside Disable(), and frees its slot. What the task
+had before our hooks (kept when they go on) is put back, in case another
+program had hooks of its own there; as a rule that is nothing. A
+destructor calls it when the program ends, after every other destructor.
+
+The program's other threads keep their hooks: they may still be in the
+interpreter, and their tasks end with the program. (Taking them off every
+thread at exit stalled one run in eight in the lab.)
 
 Seen with the test viewer run twice in a row from one Shell, the first
 run on a page with scripts (17 November 2026). The browser started from
@@ -25,8 +28,8 @@ a Shell that stays open had the same fault.
 
 Team 2
 ---
-  Source/JavaScriptCore/llint/LowLevelInterpreter.cpp | 35 +++++++++++++++++++++
-  1 file changed, 35 insertions(+)
+  Source/JavaScriptCore/llint/LowLevelInterpreter.cpp | 39 +++++++++++++++++++++
+  1 file changed, 39 insertions(+)
 
 diff --git a/Source/JavaScriptCore/llint/LowLevelInterpreter.cpp b/Source/JavaScriptCore/llint/LowLevelInterpreter.cpp
 --- a/Source/JavaScriptCore/llint/LowLevelInterpreter.cpp
@@ -42,7 +45,7 @@ diff --git a/Source/JavaScriptCore/llint/LowLevelInterpreter.cpp b/Source/JavaSc
  };
  
  static M68KThreadRegisters m68kThreads[M68KThreadSlots];
-@@ -494,11 +498,42 @@
+@@ -494,11 +498,46 @@
          thread = m68kThreadFor(nullptr);
      RELEASE_ASSERT(thread);
      thread->task = task;
@@ -55,33 +58,37 @@ diff --git a/Source/JavaScriptCore/llint/LowLevelInterpreter.cpp b/Source/JavaSc
      Enable();
  }
 +
-+// At exit the hooks come off again, and what the task had before them goes
-+// back (nothing, as a rule). The main thread is often not ours to
-+// end: a program started from a Shell runs on the Shell's own process,
-+// which lives on after the program's code is freed. Left on, exec's task
-+// switcher went on calling the hooks in that freed memory, and the next
-+// program loaded there hung the machine (17 November 2026: a second run
-+// of the viewer straight after a first that had run a page's scripts).
-+extern "C" void jsc_m68k_detach_threads()
++// At exit the hooks come off the thread that ends the program, and what it
++// had before them goes back (nothing, as a rule). That thread is often not
++// ours to end: a program started from a Shell runs on the Shell's own
++// process, which lives on after the program's code is freed. Left on,
++// exec's task switcher went on calling the hooks in that freed memory, and
++// the next program loaded there hung the machine (17 November 2026: a
++// second run of the viewer straight after a first that had run a page's
++// scripts). The program's other threads keep theirs: they may still be in
++// the interpreter, and their tasks end with the program.
++extern "C" void jsc_m68k_detach_thread()
 +{
++    struct Task* task = SysBase->ThisTask;
 +    Disable();
-+    for (auto& thread : m68kThreads) {
-+        struct Task* task = thread.task;
-+        if (task && m68kTaskExists(task)
-+            && task->tc_Launch == reinterpret_cast<decltype(task->tc_Launch)>(jsc_m68k_task_launch)) {
-+            task->tc_Flags = (task->tc_Flags & ~(TF_SWITCH | TF_LAUNCH)) | thread.flagsBefore;
-+            task->tc_Switch = thread.switchBefore;
-+            task->tc_Launch = thread.launchBefore;
++    M68KThreadRegisters* thread = m68kThreadFor(task);
++    if (thread) {
++        if (task->tc_Launch == reinterpret_cast<decltype(task->tc_Launch)>(jsc_m68k_task_launch)) {
++            task->tc_Flags = (task->tc_Flags & ~(TF_SWITCH | TF_LAUNCH)) | thread->flagsBefore;
++            task->tc_Switch = thread->switchBefore;
++            task->tc_Launch = thread->launchBefore;
 +        }
-+        thread.task = nullptr;
++        thread->task = nullptr;
 +    }
 +    Enable();
 +}
 +
-+__attribute__((destructor)) static void detachM68KThreadsAtExit()
++// Priority 101: after every other destructor, which may still run scripts.
++__attribute__((destructor(101))) static void detachM68KThreadAtExit()
 +{
-+    jsc_m68k_detach_threads();
++    jsc_m68k_detach_thread();
 +}
++
  #endif
  
  JSValue CLoop::execute(OpcodeID entryOpcodeID, void* executableAddress, VM* vm, ProtoCallFrame* protoCallFrame, bool isInitializationPass)

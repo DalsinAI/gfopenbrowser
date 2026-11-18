@@ -598,9 +598,10 @@ The patches, in order:
   since becomes the pasteboard before it is read. Markup stays inside the
   program, so a copy between pages keeps its formatting.
 - `0122-jsc-m68k-thread-hooks-off-at-exit.patch`: the switch and launch
-  hooks patch 0033 puts on each task that runs JavaScript come off again
-  when the program ends (`jsc_m68k_detach_threads()`, called by a
-  destructor), and what the task had before them goes back. A program started from a Shell runs on the Shell's own
+  hooks patch 0033 puts on each task that runs JavaScript come
+  off the thread that ends the program (`jsc_m68k_detach_thread()`,
+  called by the last destructor), and what the task had before them goes
+  back. A program started from a Shell runs on the Shell's own
   process, which lives on: exec went on calling the hooks in the freed
   program, and the next program loaded there hung the machine.
 
