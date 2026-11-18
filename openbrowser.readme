@@ -20,7 +20,7 @@ Installing
 Double-click Install-GFOpenBrowser (the Installer). It checks for AmigaOS 3.2
 and a 68040 or 68060 with its FPU, asks where the GFOpenBrowser drawer goes
 (about 90 MB; Work: rather than System:), and adds only what is missing or
-too old: gfopentls.library 1.2+, gfopencrypto.library 2.1+, json.library, and
+too old: gfopentls.library 1.2+, gfopencrypto.library 2.2+, json.library, and
 the certificates in S:GFOpenTLS. The browser has one engine,
 Libs/WebBrowser/WebBrowserEngine in the drawer, which webbrowser.library
 starts; it stays there. An older LIBS:WebBrowser/WebBrowserEngine (the

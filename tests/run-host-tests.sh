@@ -43,6 +43,8 @@ sh "$HERE/tests/webcore/test_websocket_no_channel.sh"
 OUT="$OUT/zlib-library" sh "$HERE/tests/webcore/test_zlib_library.sh"
 # GFOpenTLS headers come from its checkout, no copy here
 sh "$HERE/tests/webcore/test_tls_headers_from_checkout.sh"
+# the engine has no SHA code: WebKit's digests go to gfopencrypto.library (patch 0124, src/webcore/ob_digest.c)
+OUT="$OUT/digest-library" sh "$HERE/tests/webcore/test_digest_library.sh"
 # webbrowser.library's wait for its engine: it stops when the engine's process ended with no engine
 "$CC" $FLAGS -I"$HERE/src/webbrowser" "$HERE/tests/test_wb_engine_wait.c" -o "$OUT/test_wb_engine_wait"
 "$OUT/test_wb_engine_wait"

@@ -23,6 +23,7 @@ set(OB_CORE_SOURCES
     AmigaSessionStorage.cpp
     AmigaWebView.cpp
     ob_clipboard.c
+    ob_digest.c
     ob_httpcache.c
     ob_scriptcache.c
     ob_tata.c
@@ -125,6 +126,10 @@ if (NOT EXISTS "${OB_GFOPENTLS_DIR}/include/proto/gfopentls.h")
     message(FATAL_ERROR "gfopentls not found at ${OB_GFOPENTLS_DIR}: openweb.fetch's native transport "
         "needs its include/proto/gfopentls.h. Check out DalsinAI/gfopentls beside this repository or set GFOPENTLS_DIR.")
 endif ()
+# ob_digest.c has gfopencrypto.library work out WebKit's SHA digests (patch
+# 0124); the library's headers are GFOpenTLS's too.
+set_property(SOURCE ob_digest.c APPEND PROPERTY
+    INCLUDE_DIRECTORIES "${OB_GFOPENTLS_DIR}/include")
 file(GLOB OB_WFNET_SOURCES "${OB_OPENSERVICE_DIR}/src/wfnet*.c")
 list(APPEND OB_CORE_SOURCES "${OB_OPENSERVICE_DIR}/src/webfetch.c" ${OB_WFNET_SOURCES})
 set_property(SOURCE "${OB_OPENSERVICE_DIR}/src/wfnet_amiga.c" APPEND PROPERTY

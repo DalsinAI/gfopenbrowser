@@ -79,7 +79,8 @@
 (if (exists "GFOpenBrowser.info")
     (copyfiles (source "GFOpenBrowser.info") (dest #where) (nogauge)))
 
-; 2. https: GFOpenTLS 1.2 or newer and GFOpenCrypto 2.1 or newer, and the
+; 2. https: GFOpenTLS 1.2 or newer and GFOpenCrypto 2.2 or newer (the engine
+;    takes its SHA digests from it, and SHA-1 came with 2.2), and the
 ;    certificates. An older library is renamed .before-20261104 (kept), then
 ;    the one in the drawer goes in; a newer one is left as it is.
 (if (< (getversion "LIBS:gfopentls.library") 65538)
@@ -88,7 +89,7 @@
             (if (= 0 (rename "LIBS:gfopentls.library" "LIBS:gfopentls.library.before-20261104"))
                 (abort "Could not rename the old LIBS:gfopentls.library. Nothing else was changed in LIBS:.")))
         (copyfiles (source "GFOpenBrowser/Libs/gfopentls.library") (dest "LIBS:") (nogauge))))
-(if (< (getversion "LIBS:gfopencrypto.library") 131073)
+(if (< (getversion "LIBS:gfopencrypto.library") 131074)
     (
         (if (exists "LIBS:gfopencrypto.library")
             (if (= 0 (rename "LIBS:gfopencrypto.library" "LIBS:gfopencrypto.library.before-20261104"))
