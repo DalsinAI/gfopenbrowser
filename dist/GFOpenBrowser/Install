@@ -20,6 +20,11 @@
 ;  - LIBS:gfopenlayout.library 11 or newer (the window's dialogs, find bar,
 ;    downloads and preferences): the same rules, renamed .before-20261103;
 ;  - LIBS:json.library (the engine's JSON.parse needs it),
+;  - LIBS:javascript.library and C:JS when missing (JavaScript for any
+;    program and from the Shell), with LIBS:JavaScript/JavaScriptEngine,
+;    which is replaced by this package's: the browser's engine uses that
+;    file too. Install-GFOpenBrowser also replaces an older library and
+;    checks LIBS: for room;
 ;    and S:GFOpenTLS/ca-bundle.pem when missing;
 ;  - LIBS:unicode.library 1.1 or newer (its Unicode calls, when the package
 ;    carries it): the same rules, renamed .before-20261114;
@@ -218,6 +223,57 @@ If NOT EXISTS LIBS:json.library
   EndIf
   Echo "Installed LIBS:json.library"
 EndIf
+
+; javascript.library and JS, when this package carries them: missing ones go
+; in. LIBS:JavaScript/JavaScriptEngine is the file the browser's engine
+; looks for first, so this package's replaces whatever is there.
+If NOT EXISTS Libs/javascript.library
+  Skip jsdone
+EndIf
+If NOT EXISTS LIBS:JavaScript
+  MakeDir LIBS:JavaScript
+EndIf
+Copy Libs/JavaScript/JavaScriptEngine LIBS:JavaScript QUIET
+If WARN
+  Echo "Could not copy JavaScriptEngine to LIBS:JavaScript (is LIBS: full?): javascript.library is not installed; the browser uses its drawer's copy"
+  If EXISTS LIBS:JavaScript/JavaScriptEngine
+    Delete LIBS:JavaScript/JavaScriptEngine QUIET
+  EndIf
+  Skip jsdone
+EndIf
+; JavaScriptEngine reads the Unicode data from LOCALE:Unicode, or else from
+; LIBS:JavaScript/Unicode: without either it cannot start
+If NOT EXISTS LOCALE:Unicode/icudt78b.dat
+  If NOT EXISTS LIBS:JavaScript/Unicode
+    MakeDir LIBS:JavaScript/Unicode
+  EndIf
+  Copy Libs/WebBrowser/Unicode/icudt78b.dat LIBS:JavaScript/Unicode QUIET
+  If WARN
+    Echo "Could not copy the Unicode data to LIBS:JavaScript/Unicode (is LIBS: full?): javascript.library is not installed; the browser uses its drawer's copies"
+    If EXISTS LIBS:JavaScript/Unicode/icudt78b.dat
+      Delete LIBS:JavaScript/Unicode/icudt78b.dat QUIET
+    EndIf
+    Delete LIBS:JavaScript/JavaScriptEngine QUIET
+    Skip jsdone
+  EndIf
+EndIf
+If NOT EXISTS LIBS:javascript.library
+  Copy Libs/javascript.library LIBS: QUIET
+  If WARN
+    Echo "Could not copy javascript.library to LIBS:"
+    Quit 20
+  EndIf
+  Echo "Installed LIBS:javascript.library"
+EndIf
+If NOT EXISTS C:JS
+  Copy C/JS C: QUIET
+  If WARN
+    Echo "Could not copy JS to C:"
+    Quit 20
+  EndIf
+  Echo "Installed C:JS"
+EndIf
+Lab jsdone
 
 ; unicode.library (ICU's code, shared), when this package carries it: 1.1
 ; or newer (the engine makes 279 calls; 1.0 has fewer, and the engine stops

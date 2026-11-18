@@ -65,9 +65,11 @@
 #                  takes JavaScriptCore from JavaScriptEngine, packed beside
 #                  it as Libs/JavaScript/JavaScriptEngine. 0: the engine
 #                  with its own JavaScriptCore (bin/WebBrowserEngine)
-#   EXTRAS         optional: a folder with Libs/javascript.library,
-#                  Libs/JavaScript/JavaScriptEngine, C/JS and
-#                  Libs/json.library, which the Installer offers
+#   JS_LIB_DIR     scripts/build-javascript-library.sh's output folder
+#                  (default build/javascript-library): javascript.library
+#                  and JS, packed with a jsimage engine, whose
+#                  JavaScriptEngine is the one the library runs. The
+#                  Installer puts them in LIBS: and C: when missing or older
 #
 # OUT_DIR/GFOpenBrowser/            the drawer: GFOpenBrowser (the launcher),
 #                                 Libs/ (webbrowser.library, GFOpenTLS,
@@ -76,14 +78,14 @@
 #                                 unicode.library, z.library and WebBrowser/: the engine with Fonts/,
 #                                 Tata.ads, Unicode/ and Network/, and
 #                                 with a jsimage engine JavaScript/
-#                                 JavaScriptEngine),
+#                                 JavaScriptEngine and javascript.library),
+#                                 C/JS (with a jsimage engine),
 #                                 Classes/DataTypes/ and Devs/DataTypes/
 #                                 (stream, gzip and brotli), S/GFOpenTLS/,
 #                                 Install, icons and readme
 # OUT_DIR/GFOpenBrowser.info        the drawer's icon
 # OUT_DIR/Install-GFOpenBrowser     the Installer script (SYS:System/Installer),
 # OUT_DIR/Install-GFOpenBrowser.info  and its icon: double-click to install
-# OUT_DIR/Extras/                 when EXTRAS is set
 # OUT_DIR.lha                     the archive, beside OUT_DIR
 #
 # One engine: WebBrowserEngine, which webbrowser.library starts and which has
@@ -132,10 +134,21 @@ if [ "${OB_JSIMAGE:-}" != 0 ] && [ -f "$JSI/WebBrowserEngine/WebBrowserEngine" ]
     "$STRIP" -o "$E/WebBrowserEngine" "$JSI/WebBrowserEngine/WebBrowserEngine"
     "$STRIP" -o "$D/Libs/JavaScript/JavaScriptEngine" "$JSI/JavaScriptEngine"
     echo "engine: jsimage client, with Libs/JavaScript/JavaScriptEngine"
+    # javascript.library (JavaScript for any program) and JS, its Shell
+    # command: the library runs the same JavaScriptEngine, so the package
+    # has all it needs. The Installer puts them in LIBS: and C:
+    JSLIBDIR=${JS_LIB_DIR:-"$HERE/build/javascript-library"}
+    for f in javascript.library JS; do
+        [ -f "$JSLIBDIR/$f" ] || { echo "package-browser.sh: no $JSLIBDIR/$f (scripts/build-javascript-library.sh, or set JS_LIB_DIR)" >&2; exit 2; }
+    done
+    mkdir -p "$D/C"
+    cp "$JSLIBDIR/javascript.library" "$D/Libs/javascript.library"
+    cp "$JSLIBDIR/JS" "$D/C/JS"
 elif [ "${OB_JSIMAGE:-}" = 1 ]; then
     echo "OB_JSIMAGE=1, but $JSI has no current client (build-webcore.sh jsimage)" >&2; exit 1
 else
     "$STRIP" -o "$E/WebBrowserEngine" "$BIN/WebBrowserEngine"
+    echo "engine: with its own JavaScriptCore; javascript.library is not packed (it needs the jsimage JavaScriptEngine)"
 fi
 cp "$WBLIB" "$D/Libs/"
 cp "$OB_FONTS"/*.ttf "$E/Fonts/"
@@ -240,7 +253,6 @@ mkdir -p "$D/Rexx"
 cp "$HERE/dist/GFOpenBrowser/Rexx/SpeedTest.rexx" "$D/Rexx/"
 cp "$HERE/icons/GFOpenBrowser.info" "$OUT/GFOpenBrowser.info"
 cp "$HERE/dist/Install-GFOpenBrowser" "$HERE/dist/Install-GFOpenBrowser.info" "$OUT/"
-if [ -n "${EXTRAS:-}" ]; then cp -R "$EXTRAS" "$OUT/Extras"; fi
 cp "$HERE/icons/GFOpenBrowser/GFOpenBrowser.info" "$HERE/icons/GFOpenBrowser/GFOpenBrowser.readme.info" "$D/"
 cp "$HERE/openbrowser.readme" "$D/GFOpenBrowser.readme"
 cp "$HERE/THIRD_PARTY_NOTICES.md" "$HERE/LICENSE" "$D/"
