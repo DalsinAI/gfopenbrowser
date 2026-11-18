@@ -67,6 +67,12 @@
 #                   for the window's dialogs, find bar, downloads and
 #                   preferences (src/webcore/ob_dialogs.c; headers only,
 #                   required) (default ../gfopenlayout beside this repository)
+#   GFOPENGADTOOLS_DIR
+#                   gfopengadtools' checkout: GFOpenGadTools' toolbar and
+#                   icons, built into the engine for the window's Back,
+#                   Forward, Reload, Stop and Find buttons
+#                   (src/webcore/ob_toolbar.c; sources, required)
+#                   (default ../gfopengadtools beside this repository)
 #
 # No Ruby: WebKit's Ruby generators run as Python ports (patches 0019 and
 # 0021), with the python3 CMake finds.
@@ -244,6 +250,15 @@ gfopenlayout_dir() {
     fi
 }
 
+# gfopengadtools' checkout, as src/webcore/CMakeLists.txt finds it.
+gfopengadtools_dir() {
+    if [ -n "${GFOPENGADTOOLS_DIR:-}" ] && [ -f "$GFOPENGADTOOLS_DIR/lib/ogt_toolbar.c" ]; then
+        echo "$GFOPENGADTOOLS_DIR"
+    else
+        echo "$ROOT/../gfopengadtools"
+    fi
+}
+
 need_sources() {
     : "${WEBKIT_SOURCE:?set WEBKIT_SOURCE to the patched WebKit tree}"
     : "${OAB_DEPS:?set OAB_DEPS to the folder with icu78-m68k-amigaos and m68k-amigaos}"
@@ -254,6 +269,8 @@ need_sources() {
         die "gfopenrtg missing at $(openamigartg_dir): the window is painted through gfopengpu.library (set OPENAMIGARTG_DIR)"
     [ -f "$(gfopenlayout_dir)/include/gfopenlayout_ui_amiga.h" ] ||
         die "gfopenlayout missing at $(gfopenlayout_dir): the window's dialogs are gfopenlayout.library's (set GFOPENLAYOUT_DIR)"
+    [ -f "$(gfopengadtools_dir)/lib/ogt_toolbar.c" ] ||
+        die "gfopengadtools missing at $(gfopengadtools_dir): the window's icon buttons are GFOpenGadTools' toolbar (set GFOPENGADTOOLS_DIR)"
     export OAB_DEPS
 }
 

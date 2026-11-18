@@ -183,6 +183,7 @@ engine_env() {
     echo WEBKIT_SOURCE="$D/webkit" WEBKIT_BUILD="$PACK_DIR/build" OS32_GCC16="$GCC16" OAB_DEPS="$OAB" \
         OPENSERVICE_DIR="$D/gfopenservice" OPENDATATYPES_DIR="$D/gfopendatatypes" \
         OPENAMIGARTG_DIR="$D/gfopenrtg" GFOPENLAYOUT_DIR="$D/gfopenlayout" \
+        GFOPENGADTOOLS_DIR="$D/gfopengadtools" \
         NDK_INCLUDE="$D/gfopensdk/OpenNDK/Include_H" OB_FONTS="$OB_FONTS" JOBS="$JOBS"
 }
 

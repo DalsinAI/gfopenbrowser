@@ -77,6 +77,8 @@ OS32M="-D_DEFAULT_SOURCE -Daligned_alloc=os32_aligned_alloc -Dmemalign=os32_mema
 # the clipboard's IFF FTXT clips (the browser's copy and paste)
 "$CC" $FLAGS -I"$HERE/src/webcore" "$HERE/src/webcore/ob_clipboard.c" \
     "$HERE/tests/test_ob_clipboard.c" -o "$OUT/test_ob_clipboard"
+# the toolbar row: where the address field goes beside the icon buttons
+"$CC" $FLAGS -I"$HERE/src/webcore" "$HERE/tests/test_ob_toolbar.c" -o "$OUT/test_ob_toolbar"
 # Lite's address parser (its network calls stubbed in the test)
 "$CC" $FLAGS -D_DEFAULT_SOURCE -I"$HERE/src" -I"$OM" "$HERE/src/ob_http.c" "$OM/oam_buf.c" "$WL/wl_url.c" $RT \
     "$HERE/tests/test_ob_url_parse.c" -o "$OUT/test_ob_url_parse"
@@ -156,6 +158,7 @@ rm -rf "$OUT/httpcache"
 "$OUT/test_ob_rexx"
 "$OUT/test_ob_filereq"
 "$OUT/test_ob_clipboard"
+"$OUT/test_ob_toolbar"
 sh "$HERE/tests/webcore/test_script_cache_default.sh"
 "$OUT/test_public_suffixes" "$HERE/data/public-suffixes" "$HERE/tests/public-suffix-cases.txt"
 "$OUT/test_opengpu_paint"

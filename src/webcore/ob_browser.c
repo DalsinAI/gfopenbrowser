@@ -48,6 +48,7 @@
 #include "ob_tata.h"
 #include "ob_splash.h"
 #include "ob_rexx.h"
+#include "ob_toolbar.h"
 
 /* TLS sessions kept from the last run (ob_webview_load_tls_sessions). */
 #define TLS_SESSIONS "PROGDIR:TLSSessions"
@@ -221,12 +222,22 @@ static void setURLGadget(const char *latin1)
 /* The buttons' disabled state as shown (-1: not set since they were made). */
 static signed char shownDisabled[GID_COUNT];
 
+/* The toolbar's buttons are icons (ob_toolbar.c: GFOpenGadTools' toolbar
+ * and the Chrome icon set) when the theme can draw on the screen; the text
+ * buttons below are what is left otherwise. Their gadgets' ids start at
+ * GID_ICONS, in OBT_* order. */
+#define GID_ICONS 100
+static int iconButtons;
+
 static void setDisabled(int id, int disabled)
 {
     if (shownDisabled[id] == disabled)
         return;
     shownDisabled[id] = disabled;
-    GT_SetGadgetAttrs(gadgets[id], window, NULL, GA_Disabled, disabled, TAG_DONE);
+    if (iconButtons)
+        obt_enable(window, id == GID_BACK ? OBT_BACK : id == GID_FORWARD ? OBT_FORWARD : OBT_STOP, !disabled);
+    else
+        GT_SetGadgetAttrs(gadgets[id], window, NULL, GA_Disabled, disabled, TAG_DONE);
 }
 
 static void updateButtons(void)
@@ -271,23 +282,37 @@ static int makeGadgets(void)
     ng.ng_Height = fontHeight + 6;
     g = CreateContext(&gadgetList);
     x = left;
-    g = makeButton(g, &ng, GID_BACK, "Back", x, labelWidth("Back"));
-    x += labelWidth("Back") + 4;
-    g = makeButton(g, &ng, GID_FORWARD, "Forward", x, labelWidth("Forward"));
-    x += labelWidth("Forward") + 4;
-    g = makeButton(g, &ng, GID_RELOAD, "Reload", x, labelWidth("Reload"));
-    x += labelWidth("Reload") + 4;
-    g = makeButton(g, &ng, GID_STOP, "Stop", x, labelWidth("Stop"));
-    x += labelWidth("Stop") + 8;
-    buttonsRight = x;
-
-    ng.ng_LeftEdge = buttonsRight;
-    ng.ng_Width = window->BorderLeft + inner - 4 - buttonsRight;
+    iconButtons = obt_open(window->WScreen);
+    if (iconButtons) {
+        /* Back, Forward, Reload, Stop and Find as one group of icons at the
+         * left, and the address in the rest of the row. */
+        obt_row row;
+        int barWidth, barHeight = obt_layout(window, left, top, obt_room(inner), &barWidth);
+        obt_place(left, top, window->BorderLeft + inner, barWidth, barHeight, fontHeight, &row);
+        obt_move(row.barTop);
+        toolbarHeight = row.height + 6;
+        obt_background(window, window->BorderLeft, window->BorderTop, inner, toolbarHeight);
+        ng.ng_LeftEdge = row.fieldLeft;
+        ng.ng_TopEdge = row.fieldTop;
+        ng.ng_Width = row.fieldWidth;
+    } else {
+        g = makeButton(g, &ng, GID_BACK, "Back", x, labelWidth("Back"));
+        x += labelWidth("Back") + 4;
+        g = makeButton(g, &ng, GID_FORWARD, "Forward", x, labelWidth("Forward"));
+        x += labelWidth("Forward") + 4;
+        g = makeButton(g, &ng, GID_RELOAD, "Reload", x, labelWidth("Reload"));
+        x += labelWidth("Reload") + 4;
+        g = makeButton(g, &ng, GID_STOP, "Stop", x, labelWidth("Stop"));
+        x += labelWidth("Stop") + 8;
+        buttonsRight = x;
+        ng.ng_LeftEdge = buttonsRight;
+        ng.ng_Width = window->BorderLeft + inner - 4 - buttonsRight;
+        toolbarHeight = ng.ng_Height + 6;
+    }
     ng.ng_GadgetText = NULL;
     ng.ng_GadgetID = GID_URL;
     gadgets[GID_URL] = g = CreateGadget(STRING_KIND, g, &ng, GTST_String, (ULONG)urlText, GTST_MaxChars, sizeof urlText - 1, TAG_DONE);
 
-    toolbarHeight = ng.ng_Height + 6;
     statusHeight = fontHeight + 6;
     ng.ng_LeftEdge = window->BorderLeft;
     ng.ng_TopEdge = window->Height - window->BorderBottom - statusHeight;
@@ -308,11 +333,29 @@ static int makeGadgets(void)
     AddGList(window, gadgetList, (UWORD)-1, (UWORD)-1, NULL);
     RefreshGList(gadgetList, window, NULL, (UWORD)-1);
     GT_RefreshWindow(window, NULL);
+    if (iconButtons) {
+        obt_add(window, GID_ICONS);
+        obt_draw(window);
+    }
     return 1;
+}
+
+/* The toolbar's row again after damage: its background, the address field
+ * over it, and the buttons. */
+static void redrawToolbar(void)
+{
+    if (!iconButtons || !gadgets[GID_URL])
+        return;
+    obt_background(window, window->BorderLeft, window->BorderTop,
+        window->Width - window->BorderLeft - window->BorderRight, toolbarHeight);
+    RefreshGList(gadgets[GID_URL], window, NULL, 1);
+    obt_draw(window);
 }
 
 static void removeGadgets(void)
 {
+    if (iconButtons && window)
+        obt_remove(window);
     if (gadgetList) {
         RemoveGList(window, gadgetList, (UWORD)-1);
         FreeGadgets(gadgetList);
@@ -1150,8 +1193,27 @@ static void loadTyped(void)
         ob_webview_load(view, utf8);
 }
 
+/* One of the icon buttons, let go over itself. */
+static void handleIconButton(int which)
+{
+    obt_press(window, which, 0);
+    if (!obt_enabled(which))
+        return;
+    switch (which) {
+    case OBT_BACK: ob_webview_back(view); break;
+    case OBT_FORWARD: ob_webview_forward(view); break;
+    case OBT_RELOAD: ob_webview_reload(view); break;
+    case OBT_STOP: ob_webview_stop(view); break;
+    case OBT_FIND: openFind(); break;
+    }
+}
+
 static void handleGadget(struct Gadget *gadget)
 {
+    if (iconButtons && obt_which(gadget->GadgetID) >= 0) {
+        handleIconButton(obt_which(gadget->GadgetID));
+        return;
+    }
     switch (gadget->GadgetID) {
     case GID_BACK: ob_webview_back(view); break;
     case GID_FORWARD: ob_webview_forward(view); break;
@@ -1345,6 +1407,10 @@ static void handleWindow(void)
         case IDCMP_GADGETUP:
             handleGadget((struct Gadget *)copy.IAddress);
             break;
+        case IDCMP_GADGETDOWN:
+            if (iconButtons)
+                obt_press(window, obt_which(((struct Gadget *)copy.IAddress)->GadgetID), 1);
+            break;
         case IDCMP_MENUPICK:
             handleMenu(copy.Code);
             break;
@@ -1358,6 +1424,7 @@ static void handleWindow(void)
         case IDCMP_REFRESHWINDOW:
             GT_BeginRefresh(window);
             GT_EndRefresh(window, TRUE);
+            redrawToolbar();
             paintPage(0, 0, pageWidth, pageHeight, 1);
             obd_find_redraw();
             break;
@@ -1373,6 +1440,8 @@ static void handleWindow(void)
         handleMouse(&move);
     if (findCloseDue && window)
         closeFind();
+    if (iconButtons && window)
+        obt_settle(window);
     if (window)
         obd_draw();
 }
@@ -1458,7 +1527,7 @@ static int openBrowserWindow(const char *url, int network)
         WA_MinWidth, 320, WA_MinHeight, 200, WA_MaxWidth, -1, WA_MaxHeight, -1,
         WA_Flags, WFLG_CLOSEGADGET | WFLG_DRAGBAR | WFLG_DEPTHGADGET | WFLG_SIZEGADGET | WFLG_SIZEBBOTTOM
             | WFLG_ACTIVATE | WFLG_REPORTMOUSE | WFLG_SMART_REFRESH,
-        WA_IDCMP, IDCMP_CLOSEWINDOW | IDCMP_GADGETUP | IDCMP_MOUSEMOVE | IDCMP_MOUSEBUTTONS | IDCMP_RAWKEY
+        WA_IDCMP, IDCMP_CLOSEWINDOW | IDCMP_GADGETUP | IDCMP_GADGETDOWN | IDCMP_MOUSEMOVE | IDCMP_MOUSEBUTTONS | IDCMP_RAWKEY
             | IDCMP_NEWSIZE | IDCMP_REFRESHWINDOW | IDCMP_ACTIVEWINDOW | IDCMP_INACTIVEWINDOW | IDCMP_MENUPICK
             | BUTTONIDCMP | STRINGIDCMP,
         WA_NewLookMenus, TRUE,
@@ -1524,6 +1593,8 @@ static void closeBrowserWindow(void)
         CloseWindow(window);
     }
     window = NULL;
+    obt_close();
+    iconButtons = 0;
     ob_blit_close();
     if (visualInfo)
         FreeVisualInfo(visualInfo);
