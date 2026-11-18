@@ -39,6 +39,13 @@ bad=$(awk '/^@@ / { if (c && k != n) print "x"; split($3, a, ","); n = a[2]; k =
            c && /^[+ ]/ { k++ }' "$P")
 ok '[ -z "$bad" ]' "each hunk counts its lines"
 
+# abort() in the test viewer and in the engine ends with _exit(), which runs
+# no destructors: each takes the hooks off itself first.
+for f in src/webcore/obcore_view.c src/webbrowser/wb_engine.c; do
+    last=$(awk '/^void abort\(void\)/ { p = 1 } p && /jsc_m68k_detach_thread\(\);/ { d = NR } p && /_exit\(20\);/ { print (d == NR - 1) ? "ok" : "no"; exit }' "$ROOT/$f")
+    ok '[ "$last" = ok ]' "$f: abort() takes the hooks off just before _exit()"
+done
+
 cat > "$OUT/t.cpp" <<'EOF'
 #include <cstdio>
 #define TF_SWITCH (1 << 6)

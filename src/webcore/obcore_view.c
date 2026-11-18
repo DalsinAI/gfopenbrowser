@@ -86,6 +86,11 @@ static const char version[] __attribute__((used)) = "$VER: obcore-view 0.2 (23.1
 static ULONG codeStart, codeEnd;
 static void stopWatchdog(void);
 
+/* JavaScriptCore's task hooks come off this thread (WebKit patch 0122).
+ * _exit() runs no destructors, so abort() calls it itself: from a Shell
+ * the hooks would stay on the Shell's process and hang the next program. */
+void jsc_m68k_detach_thread(void);
+
 void abort(void)
 {
     struct Task *task = FindTask(NULL);
@@ -101,6 +106,7 @@ void abort(void)
     fflush(stdout);
     Wait(SIGBREAKF_CTRL_C);
     stopWatchdog();
+    jsc_m68k_detach_thread();
     _exit(20);
 }
 
