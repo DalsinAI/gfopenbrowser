@@ -117,6 +117,22 @@ CRYPTOVER=$(LC_ALL=C grep -a -o '\$VER: gfopencrypto.library [0-9]*\.[0-9]*' "$O
 case "$CRYPTOVER" in
     ''|0.*|1.*|2.0|2.1) echo "package-browser.sh: $OPENTLS_LIBS/gfopencrypto.library is ${CRYPTOVER:-of no version this can read}; the engine needs 2.2 or newer" >&2; exit 1 ;;
 esac
+# webbrowser.library not older than this tree's source: WEBBROWSER_LIB may
+# name a library built earlier, and an old one fails quietly (with 1.1 the
+# RUNSCRIPT=NO tool type does nothing, the switch came in 1.2)
+WBWANT=$(sed -n 's/.*\$VER: webbrowser.library \([0-9]*\.[0-9]*\).*/\1/p' "$HERE/src/webbrowser/wb_library.c" | head -1)
+WBVER=$(LC_ALL=C grep -a -o '\$VER: webbrowser.library [0-9]*\.[0-9]*' "$WBLIB" | head -1 | sed 's/.* //')
+case "$WBWANT" in
+    *.*) ;;
+    *) echo "package-browser.sh: src/webbrowser/wb_library.c gives no version" >&2; exit 1 ;;
+esac
+case "$WBVER" in
+    *.*) ;;
+    *) echo "package-browser.sh: $WBLIB is of no version this can read; the package needs webbrowser.library $WBWANT or newer" >&2; exit 1 ;;
+esac
+if [ "${WBVER%.*}" -lt "${WBWANT%.*}" ] || { [ "${WBVER%.*}" -eq "${WBWANT%.*}" ] && [ "${WBVER#*.}" -lt "${WBWANT#*.}" ]; }; then
+    echo "package-browser.sh: $WBLIB is $WBVER; the package needs webbrowser.library $WBWANT or newer (build src/webbrowser again)" >&2; exit 1
+fi
 rm -rf "$OUT"; mkdir -p "$OUT"
 D="$OUT/GFOpenBrowser"; E="$D/Libs/WebBrowser"
 mkdir -p "$D/S/GFOpenTLS" "$E/Fonts" "$E/Unicode"
