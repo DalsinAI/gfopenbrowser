@@ -9,6 +9,12 @@
    RAM:GFOpenBrowser-Speed.txt and to the Shell. Nothing else is changed.
    Run it twice to see the second, cached, loads.
 
+   A start is only a start with no engine in memory. The engine can stay
+   loaded after the window has closed, and the next start then uses it
+   again and is much shorter. So before it starts the browser this waits
+   up to 30 seconds for an engine from an earlier run to go, and the
+   report says which kind of start was measured.
+
    MIT, Copyright (c) 2026 AmiCradle Team. */
 OPTIONS RESULTS
 PARSE UPPER ARG option .
@@ -38,10 +44,19 @@ ELSE IF colon > 0 THEN drawer = LEFT(me, colon)
 
 started = 0
 startup = -1
+reused = 0
 IF ~SHOW('P', port) THEN DO
     IF ~EXISTS(drawer'GFOpenBrowser') THEN DO
         SAY 'GFOpenBrowser is not running and is not in "'drawer'": start it, then run this again.'
         EXIT 10
+    END
+    IF engineLoaded() THEN DO
+        SAY 'An engine from an earlier run is still loaded: waiting for it to go...'
+        CALL TIME 'R'
+        DO WHILE engineLoaded() & TIME('E') < 30
+            ADDRESS COMMAND 'Wait 1'
+        END
+        reused = engineLoaded()
     END
     SAY 'Starting GFOpenBrowser...'
     CALL TIME 'R'
@@ -66,7 +81,8 @@ ADDRESS VALUE port
 'VERSION'
 version = RESULT
 line.1 = version', 'DATE()' 'TIME()
-IF startup >= 0 THEN line.2 = 'Start to first page shown: 'FORMAT(startup, , 1)' s'
+IF startup >= 0 & reused THEN line.2 = 'Start to first page shown: 'FORMAT(startup, , 1)' s (an engine from an earlier run was still loaded and was used again)'
+ELSE IF startup >= 0 THEN line.2 = 'Start to first page shown: 'FORMAT(startup, , 1)' s (no engine was loaded)'
 ELSE line.2 = 'Start: the browser was already running'
 line.3 = ''
 line.4 = LEFT('Page', 40) RIGHT('Load ms', 8)'  Title'
@@ -102,9 +118,31 @@ IF OPEN('out', report, 'W') THEN DO
     SAY 'Written to 'report
 END
 ELSE SAY 'Could not write 'report
-IF started THEN 'QUIT'
+IF started THEN DO
+    'QUIT'
+    /* so that a run straight after this one starts from nothing */
+    CALL TIME 'R'
+    DO WHILE (SHOW('P', port) | engineLoaded()) & TIME('E') < 30
+        ADDRESS COMMAND 'Wait 1'
+    END
+    IF engineLoaded() THEN SAY 'The engine is still loaded 30 seconds after QUIT: the next start will use it again.'
+END
 IF failed > 0 THEN EXIT 5
 EXIT 0
+
+/* 1 when a WebBrowserEngine process is loaded, from the Shell's Status. */
+engineLoaded: PROCEDURE
+    list = 'T:GFOpenBrowser-Speed.status'
+    found = 0
+    ADDRESS COMMAND 'Status >'list
+    IF OPEN('st', list, 'R') THEN DO
+        DO WHILE ~EOF('st')
+            IF POS('WEBBROWSERENGINE', UPPER(READLN('st'))) > 0 THEN found = 1
+        END
+        CALL CLOSE 'st'
+    END
+    ADDRESS COMMAND 'Delete >NIL: 'list
+    RETURN found
 
 /* Waits until the browser has finished at least `count` loads and is not
    loading: the last load's time in ms, or -1 after `limit` seconds. */
