@@ -611,6 +611,15 @@ The patches, in order:
   `new WebSocket(...)` stopped the whole browser. The connection now
   fails as a blocked one does, with a console message and the error and
   close events, and the page carries on.
+- `0124-amiga-digests-from-gfopencrypto-library.patch`: SHA-1, SHA-256,
+  SHA-384 and SHA-512 come from gfopencrypto.library. `CryptoDigestAmiga.cpp`
+  (patch 0002) had its own SHA-256 and SHA-512 round functions and used
+  WTF's SHA-1; it now calls the browser's `ob_digest_*` functions
+  (`src/webcore/ob_digest.c`), which pass whole blocks to the library
+  (`OC_SHA1Blocks`, `OC_SHA256Blocks`, `OC_SHA512Blocks`) and keep only the
+  buffering and the padding. Without the library (2.2 or newer) a digest
+  gives an empty hash. MD5 and SHA-1 inside WTF are upstream's classes and
+  stay.
 
 `0001-amiga-m68k-jsconly.patch` is one combined patch. It holds:
 
