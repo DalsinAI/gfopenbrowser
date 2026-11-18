@@ -47,6 +47,14 @@ ok 'grep -q "(P_newer \"C:JS\" \"GFOpenBrowser/C/JS\" \"C:\" 65536)" "$INST"' "I
 ok 'grep -q "\$VER: JS 1\.0 " "$HERE/src/jslib/JS.c"' "JS is 1.0, the version asked for"
 ok '! grep -q "askoptions\|#extras\|Extras/" "$INST"' "Install-GFOpenBrowser asks nothing about extras"
 ok 'grep -q "(getdiskspace \"LIBS:\")" "$INST"' "Install-GFOpenBrowser looks at the room in LIBS: first"
+# Step 5 runs on every install: it must not stop the Installer on a full
+# System:. Its room counts the Unicode data too, and both copies may fail.
+STEP=$(sed -n '/^; 5\. javascript.library/,/^(if (not (exists "LIBS:bsdsocket.library"))/p' "$INST")
+ok 'echo "$STEP" | grep -q "(set #jsneed (+ (if #jssame 0 (getsize #jsenew)) (if #jswanticu (getsize #icunew) 0) 2000000))"' "step 5's room is the engine, the Unicode data when it is to be copied, and 2,000,000 bytes"
+ok '[ "$(echo "$STEP" | grep -c "(copyfiles")" -eq 2 ] && [ "$(echo "$STEP" | grep -c "(optional \"nofail\")")" -eq 2 ]' "both of step 5's copies are nofail"
+ok 'echo "$STEP" | grep -q "(if #jsok" && [ "$(echo "$STEP" | grep -c "\.incomplete-")" -eq 2 ]' "step 5 checks both files after the copy and renames a part-written one"
+ok '[ "$(grep -n "(set #icunew" "$INST" | cut -d: -f1)" -lt "$(grep -n "(set #jswanticu" "$INST" | cut -d: -f1)" ]' "#icunew is set before step 5 uses it"
+ok 'grep -q "^  Copy Libs/WebBrowser/Unicode/icudt78b.dat LIBS:JavaScript/Unicode QUIET" "$SH"' "the Shell Install gives the engine its Unicode data when LOCALE: has none"
 # P_newer is defined before its use in step 5
 ok '[ "$(grep -n "^(procedure P_newer" "$INST" | cut -d: -f1)" -lt "$(grep -n "P_newer \"LIBS:javascript.library\"" "$INST" | cut -d: -f1)" ]' "P_newer is defined before step 5"
 # Parentheses outside strings and comments balance, and never close too far.

@@ -269,38 +269,65 @@
 ;    LIBS:JavaScript/JavaScriptEngine, the same file the browser's engine
 ;    takes JavaScriptCore from (it looks there first, then in its drawer),
 ;    so that file must be this package's: one of another size is replaced,
-;    not kept, as an older image is of no use to this engine. It is about
-;    21 MB: when LIBS: has no room for it and 2,000,000 bytes more, nothing
-;    of this step is installed and the browser uses its drawer's copy.
+;    not kept, as an older image is of no use to this engine. That engine
+;    reads the Unicode data from LOCALE:Unicode or else from
+;    LIBS:JavaScript/Unicode, so when step 3 left none in LOCALE: a copy
+;    goes there. Room is checked first for what is to be copied (the engine,
+;    about 21 MB, the data, about 4.6 MB, and 2,000,000 bytes more): with
+;    too little, nothing of this step is installed. Neither copy stops the
+;    installation when it fails: a part-written file is renamed out of the
+;    way and the step is given up, as in step 3. The browser then uses its
+;    drawer's copies, and does not need this step.
 (set #jse "LIBS:JavaScript/JavaScriptEngine")
 (set #jsenew "GFOpenBrowser/Libs/JavaScript/JavaScriptEngine")
+(set #jsicu "LIBS:JavaScript/Unicode/icudt78b.dat")
 (if (and (exists "GFOpenBrowser/Libs/javascript.library") (exists #jsenew))
     (
         (set #jsfree (getdiskspace "LIBS:"))
-        (set #jsneed (+ (getsize #jsenew) 2000000))
         (set #jssame (and (exists #jse) (= (getsize #jse) (getsize #jsenew))))
-        (if (and (not #jssame) (> #jsfree 0) (<= #jsfree #jsneed))
+        (set #jswanticu
+            (and (not (exists "LOCALE:Unicode/icudt78b.dat"))
+                 (not (and (exists #jsicu) (= (getsize #jsicu) (getsize #icunew))))))
+        (set #jsneed (+ (if #jssame 0 (getsize #jsenew)) (if #jswanticu (getsize #icunew) 0) 2000000))
+        (if (and (or (not #jssame) #jswanticu) (> #jsfree 0) (<= #jsfree #jsneed))
             (
-                (message (cat "LIBS: has " #jsfree " bytes free, and javascript.library's engine needs " #jsneed
-                              " (the file and 2,000,000 bytes more), so javascript.library and JS are not "
+                (message (cat "LIBS: has " #jsfree " bytes free, and javascript.library's engine and its data need " #jsneed
+                              " (the files and 2,000,000 bytes more), so javascript.library and JS are not "
                               "installed. GFOpenBrowser does not need them.") (all))
                 ; an image left from an older version would be the one the
                 ; browser's engine finds first: out of its way, kept
-                (if (exists #jse)
+                (if (and (exists #jse) (not #jssame))
                     (rename #jse (cat #jse ".before-" #stamp))))
             (
                 (makedir "LIBS:JavaScript")
                 (if (not #jssame)
-                    (copyfiles (source #jsenew) (dest "LIBS:JavaScript") (nogauge)
+                    (copyfiles (source #jsenew) (dest "LIBS:JavaScript") (nogauge) (optional "nofail")
                         (prompt "Installing javascript.library's engine") (help @copyfiles-help)))
-                ; JavaScriptEngine reads ICU's data from LOCALE:Unicode, or else
-                ; from its own drawer
-                (if (not (exists "LOCALE:Unicode/icudt78b.dat"))
+                (if #jswanticu
                     (
                         (makedir "LIBS:JavaScript/Unicode")
-                        (copyfiles (source "GFOpenBrowser/Libs/WebBrowser/Unicode") (dest "LIBS:JavaScript/Unicode") (all) (nogauge))))
-                (P_newer "LIBS:javascript.library" "GFOpenBrowser/Libs/javascript.library" "LIBS:" 65536)
-                (P_newer "C:JS" "GFOpenBrowser/C/JS" "C:" 65536)))))
+                        (copyfiles (source "GFOpenBrowser/Libs/WebBrowser/Unicode") (dest "LIBS:JavaScript/Unicode") (all) (nogauge)
+                            (optional "nofail"))))
+                (set #jsok
+                    (and (exists #jse) (= (getsize #jse) (getsize #jsenew))
+                         (or (exists "LOCALE:Unicode/icudt78b.dat")
+                             (and (exists #jsicu) (= (getsize #jsicu) (getsize #icunew))))))
+                (if #jsok
+                    (
+                        (P_newer "LIBS:javascript.library" "GFOpenBrowser/Libs/javascript.library" "LIBS:" 65536)
+                        (P_newer "C:JS" "GFOpenBrowser/C/JS" "C:" 65536))
+                    (
+                        ; a part-written engine would be the one the browser
+                        ; finds first, and part-written data breaks it: both
+                        ; renamed out of the way (not deleted)
+                        (if (and (exists #jse) (<> (getsize #jse) (getsize #jsenew)))
+                            (rename #jse (cat #jse ".incomplete-" #stamp)))
+                        (if (and (exists #jsicu) (<> (getsize #jsicu) (getsize #icunew)))
+                            (rename #jsicu (cat #jsicu ".incomplete-" #stamp)))
+                        (message (cat "Could not copy javascript.library's engine or its Unicode data to LIBS:JavaScript "
+                                      "(is System: full?), so javascript.library and JS are not installed. "
+                                      "GFOpenBrowser does not need them.") (all))
+                        (transcript "LIBS:JavaScript: copy failed, javascript.library and JS not installed")))))))
 
 (if (not (exists "LIBS:bsdsocket.library"))
     (message (cat "There is no bsdsocket.library: GFOpenBrowser needs a network. "

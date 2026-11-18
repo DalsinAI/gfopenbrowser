@@ -241,6 +241,22 @@ If WARN
   EndIf
   Skip jsdone
 EndIf
+; JavaScriptEngine reads the Unicode data from LOCALE:Unicode, or else from
+; LIBS:JavaScript/Unicode: without either it cannot start
+If NOT EXISTS LOCALE:Unicode/icudt78b.dat
+  If NOT EXISTS LIBS:JavaScript/Unicode
+    MakeDir LIBS:JavaScript/Unicode
+  EndIf
+  Copy Libs/WebBrowser/Unicode/icudt78b.dat LIBS:JavaScript/Unicode QUIET
+  If WARN
+    Echo "Could not copy the Unicode data to LIBS:JavaScript/Unicode (is LIBS: full?): javascript.library is not installed; the browser uses its drawer's copies"
+    If EXISTS LIBS:JavaScript/Unicode/icudt78b.dat
+      Delete LIBS:JavaScript/Unicode/icudt78b.dat QUIET
+    EndIf
+    Delete LIBS:JavaScript/JavaScriptEngine QUIET
+    Skip jsdone
+  EndIf
+EndIf
 If NOT EXISTS LIBS:javascript.library
   Copy Libs/javascript.library LIBS: QUIET
   If WARN
