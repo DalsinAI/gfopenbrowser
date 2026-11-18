@@ -627,6 +627,15 @@ The patches, in order:
   `toStdFileSystemPath`, `fromStdFileSystemPath` (`FileSystem.cpp`),
   `fileSystemRepresentation` and `stringFromFileSystemRepresentation`
   (`FileSystemPOSIX.cpp`) convert on `OS(AMIGA)`.
+- `0126-amiga-one-thread-decodes-pictures.patch`: one decoding thread for
+  every picture. Upstream's `ImageFrameWorkQueue` gives each picture a
+  thread of its own that waits until the picture goes, so the port had
+  asynchronous decoding off and decoded on the page's task. On `OS(AMIGA)`
+  the pictures share one `WorkQueue` and each request is one task on it.
+  With it the browser turns `LargeImageAsyncDecodingEnabled` on and paints
+  with `PaintBehavior::DefaultAsynchronousImageDecode`
+  (`src/webcore/AmigaWebView.cpp`): a large picture drawn for the first
+  time decodes off the page's task.
 
 `0001-amiga-m68k-jsconly.patch` is one combined patch. It holds:
 

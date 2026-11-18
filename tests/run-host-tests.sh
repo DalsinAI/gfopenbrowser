@@ -51,6 +51,8 @@ sh "$HERE/tests/pack/test_ship_jslib.sh"
 sh "$HERE/tests/webcore/test_blob_registry.sh"
 # file names go to the filing system as ISO 8859-1, not UTF-8 (WebKit patch 0125)
 sh "$HERE/tests/webcore/test_file_names_latin1.sh"
+# large pictures decode off the page's task, on one thread (WebKit patch 0126)
+sh "$HERE/tests/webcore/test_async_decode.sh"
 # webbrowser.library's wait for its engine: it stops when the engine's process ended with no engine
 "$CC" $FLAGS -I"$HERE/src/webbrowser" "$HERE/tests/test_wb_engine_wait.c" -o "$OUT/test_wb_engine_wait"
 "$OUT/test_wb_engine_wait"
