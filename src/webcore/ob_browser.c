@@ -43,10 +43,12 @@
 
 #include "ob_blit.h"
 #include "ob_dialogs.h"
+#include "ob_filereq.h"
 #include "ob_webview.h"
 #include "ob_tata.h"
 #include "ob_splash.h"
 #include "ob_rexx.h"
+#include "ob_toolbar.h"
 
 /* TLS sessions kept from the last run (ob_webview_load_tls_sessions). */
 #define TLS_SESSIONS "PROGDIR:TLSSessions"
@@ -220,12 +222,22 @@ static void setURLGadget(const char *latin1)
 /* The buttons' disabled state as shown (-1: not set since they were made). */
 static signed char shownDisabled[GID_COUNT];
 
+/* The toolbar's buttons are icons (ob_toolbar.c: GFOpenGadTools' toolbar
+ * and the Chrome icon set) when the theme can draw on the screen; the text
+ * buttons below are what is left otherwise. Their gadgets' ids start at
+ * GID_ICONS, in OBT_* order. */
+#define GID_ICONS 100
+static int iconButtons;
+
 static void setDisabled(int id, int disabled)
 {
     if (shownDisabled[id] == disabled)
         return;
     shownDisabled[id] = disabled;
-    GT_SetGadgetAttrs(gadgets[id], window, NULL, GA_Disabled, disabled, TAG_DONE);
+    if (iconButtons)
+        obt_enable(window, id == GID_BACK ? OBT_BACK : id == GID_FORWARD ? OBT_FORWARD : OBT_STOP, !disabled);
+    else
+        GT_SetGadgetAttrs(gadgets[id], window, NULL, GA_Disabled, disabled, TAG_DONE);
 }
 
 static void updateButtons(void)
@@ -270,23 +282,37 @@ static int makeGadgets(void)
     ng.ng_Height = fontHeight + 6;
     g = CreateContext(&gadgetList);
     x = left;
-    g = makeButton(g, &ng, GID_BACK, "Back", x, labelWidth("Back"));
-    x += labelWidth("Back") + 4;
-    g = makeButton(g, &ng, GID_FORWARD, "Forward", x, labelWidth("Forward"));
-    x += labelWidth("Forward") + 4;
-    g = makeButton(g, &ng, GID_RELOAD, "Reload", x, labelWidth("Reload"));
-    x += labelWidth("Reload") + 4;
-    g = makeButton(g, &ng, GID_STOP, "Stop", x, labelWidth("Stop"));
-    x += labelWidth("Stop") + 8;
-    buttonsRight = x;
-
-    ng.ng_LeftEdge = buttonsRight;
-    ng.ng_Width = window->BorderLeft + inner - 4 - buttonsRight;
+    iconButtons = obt_open(window->WScreen);
+    if (iconButtons) {
+        /* Back, Forward, Reload, Stop and Find as one group of icons at the
+         * left, and the address in the rest of the row. */
+        obt_row row;
+        int barWidth, barHeight = obt_layout(window, left, top, obt_room(inner), &barWidth);
+        obt_place(left, top, window->BorderLeft + inner, barWidth, barHeight, fontHeight, &row);
+        obt_move(row.barTop);
+        toolbarHeight = row.height + 6;
+        obt_background(window, window->BorderLeft, window->BorderTop, inner, toolbarHeight);
+        ng.ng_LeftEdge = row.fieldLeft;
+        ng.ng_TopEdge = row.fieldTop;
+        ng.ng_Width = row.fieldWidth;
+    } else {
+        g = makeButton(g, &ng, GID_BACK, "Back", x, labelWidth("Back"));
+        x += labelWidth("Back") + 4;
+        g = makeButton(g, &ng, GID_FORWARD, "Forward", x, labelWidth("Forward"));
+        x += labelWidth("Forward") + 4;
+        g = makeButton(g, &ng, GID_RELOAD, "Reload", x, labelWidth("Reload"));
+        x += labelWidth("Reload") + 4;
+        g = makeButton(g, &ng, GID_STOP, "Stop", x, labelWidth("Stop"));
+        x += labelWidth("Stop") + 8;
+        buttonsRight = x;
+        ng.ng_LeftEdge = buttonsRight;
+        ng.ng_Width = window->BorderLeft + inner - 4 - buttonsRight;
+        toolbarHeight = ng.ng_Height + 6;
+    }
     ng.ng_GadgetText = NULL;
     ng.ng_GadgetID = GID_URL;
     gadgets[GID_URL] = g = CreateGadget(STRING_KIND, g, &ng, GTST_String, (ULONG)urlText, GTST_MaxChars, sizeof urlText - 1, TAG_DONE);
 
-    toolbarHeight = ng.ng_Height + 6;
     statusHeight = fontHeight + 6;
     ng.ng_LeftEdge = window->BorderLeft;
     ng.ng_TopEdge = window->Height - window->BorderBottom - statusHeight;
@@ -307,11 +333,29 @@ static int makeGadgets(void)
     AddGList(window, gadgetList, (UWORD)-1, (UWORD)-1, NULL);
     RefreshGList(gadgetList, window, NULL, (UWORD)-1);
     GT_RefreshWindow(window, NULL);
+    if (iconButtons) {
+        obt_add(window, GID_ICONS);
+        obt_draw(window);
+    }
     return 1;
+}
+
+/* The toolbar's row again after damage: its background, the address field
+ * over it, and the buttons. */
+static void redrawToolbar(void)
+{
+    if (!iconButtons || !gadgets[GID_URL])
+        return;
+    obt_background(window, window->BorderLeft, window->BorderTop,
+        window->Width - window->BorderLeft - window->BorderRight, toolbarHeight);
+    RefreshGList(gadgets[GID_URL], window, NULL, 1);
+    obt_draw(window);
 }
 
 static void removeGadgets(void)
 {
+    if (iconButtons && window)
+        obt_remove(window);
     if (gadgetList) {
         RemoveGList(window, gadgetList, (UWORD)-1);
         FreeGadgets(gadgetList);
@@ -527,6 +571,7 @@ static void onStatus(void *context, const char *text)
 
 static int loadPercent;
 static long lastLoadMs = -1;   /* the last finished load, for ARexx's LOADTIME */
+static long loadsDone;         /* loads finished since the window opened, for LOADCOUNT */
 
 static void onLoading(void *context, int isLoading, int percent)
 {
@@ -538,6 +583,7 @@ static void onLoading(void *context, int isLoading, int percent)
         benchLoadEnd = clockMicros();
         benchDue = 1;
         lastLoadMs = (long)((benchLoadEnd - benchLoadStart) / 1000);
+        loadsDone++;
     }
     /* Only what shows: the whole percentage, and whether it loads. */
     if (isLoading == loading && (!isLoading || percent == loadPercent))
@@ -600,6 +646,13 @@ static int onPrompt(void *context, const char *message, const char *defaultValue
 {
     (void)context;
     return window ? obd_prompt(window, pageHost, message, defaultValue, result, resultSize) : 0;
+}
+
+/* A page's file button: asl.library's requester over the window. */
+static int onChooseFiles(void *context, int many, char *result, int resultSize)
+{
+    (void)context;
+    return window ? ob_filereq_choose(window, many, result, resultSize) : 0;
 }
 
 static int onAuthenticate(void *context, const char *host, const char *realm, int previousFailures,
@@ -878,6 +931,7 @@ struct RxsLib *RexxSysBase;
 static struct MsgPort *rexxPort;
 static char rexxName[32];
 static ob_rexx rexx;
+static int rexxRunScript = 1;   /* 0: the tool type RUNSCRIPT=NO */
 static char rexxResult[4096];
 
 static void rxOpen(void *user, const char *address)
@@ -920,6 +974,7 @@ static int rxLoading(void *user, int *percent)
 }
 
 static long rxLoadMs(void *user) { (void)user; return loading ? -1 : lastLoadMs; }
+static long rxLoadCount(void *user) { (void)user; return loadsDone; }
 
 static int rxText(void *user, char *buffer, int size)
 {
@@ -928,6 +983,78 @@ static int rxText(void *user, char *buffer, int size)
     ob_webview_text(view, utf8, sizeof utf8);
     utf8ToLatin1(utf8, buffer, size);
     return (int)strlen(buffer);
+}
+
+static int rxSource(void *user, char *buffer, int size)
+{
+    (void)user;
+    ob_webview_source(view, buffer, size);
+    utf8ToLatin1(buffer, buffer, size);
+    return (int)strlen(buffer);
+}
+
+/* From WebCore's platform/image-decoders/amiga/DatatypesDecode.h. */
+extern int obdt_encode_png(const unsigned char *pixels, unsigned width, unsigned height, unsigned stride,
+    unsigned flags, unsigned char **data, unsigned long *size);
+extern void obdt_free_encoded(unsigned char *data);
+#define OBDT_PNG_OPAQUE 2
+
+/* SAVE: the page's HTML (UTF-8, as the page has it), its text (Latin-1),
+ * or the part of it the window shows as a PNG, written by a PNG datatype. */
+static long rxSave(void *user, const char *file, int format)
+{
+    unsigned char *data = NULL, *encoded = NULL;
+    unsigned long size = 0;
+    long error = 0;
+    BPTR out;
+    (void)user;
+    if (format == OB_RX_SAVE_PNG) {
+        if (!pageBuffer || !obdt_encode_png(pageBuffer, (unsigned)pageWidth, (unsigned)pageHeight, (unsigned)pageStride,
+                OBDT_PNG_OPAQUE, &encoded, &size))
+            return -1;
+        data = encoded;
+    } else {
+        int length = format == OB_RX_SAVE_TEXT ? ob_webview_text(view, NULL, 0) : ob_webview_source(view, NULL, 0);
+        if (length <= 0)
+            return -1;
+        if (!(data = malloc((size_t)length + 1)))
+            return ERROR_NO_FREE_STORE;
+        if (format == OB_RX_SAVE_TEXT) {
+            ob_webview_text(view, (char *)data, length + 1);
+            utf8ToLatin1((char *)data, (char *)data, length + 1);
+        } else
+            ob_webview_source(view, (char *)data, length + 1);
+        size = strlen((char *)data);
+    }
+    if (!(out = Open((CONST_STRPTR)file, MODE_NEWFILE)))
+        error = IoErr();
+    else {
+        if (Write(out, data, (LONG)size) != (LONG)size)
+            error = IoErr();
+        Close(out);
+        if (error)
+            DeleteFile((CONST_STRPTR)file);
+    }
+    if (encoded)
+        obdt_free_encoded(encoded);
+    else
+        free(data);
+    return error ? error : 0;
+}
+
+static int rxScript(void *user, const char *script, char *buffer, int size)
+{
+    static char utf8[8192];
+    int done;
+    (void)user;
+    if (strlen(script) * 2 >= sizeof utf8) {
+        snprintf(buffer, size, "the script is too long");
+        return 0;
+    }
+    latin1ToUTF8(script, utf8, sizeof utf8);
+    done = ob_webview_run_script(view, utf8, buffer, size);
+    utf8ToLatin1(buffer, buffer, size);
+    return done;
 }
 
 static void rxActivate(void *user, int front)
@@ -972,7 +1099,12 @@ static void rexxOpen(void)
     host.title = rxTitle;
     host.loading = rxLoading;
     host.load_ms = rxLoadMs;
+    host.load_count = rxLoadCount;
     host.text = rxText;
+    host.source = rxSource;
+    host.save = rxSave;
+    host.script = rxScript;
+    host.script_off = !rexxRunScript;
     host.activate = rxActivate;
     host.fault = rxFault;
     host.quit = rxQuit;
@@ -1061,8 +1193,27 @@ static void loadTyped(void)
         ob_webview_load(view, utf8);
 }
 
+/* One of the icon buttons, let go over itself. */
+static void handleIconButton(int which)
+{
+    obt_press(window, which, 0);
+    if (!obt_enabled(which))
+        return;
+    switch (which) {
+    case OBT_BACK: ob_webview_back(view); break;
+    case OBT_FORWARD: ob_webview_forward(view); break;
+    case OBT_RELOAD: ob_webview_reload(view); break;
+    case OBT_STOP: ob_webview_stop(view); break;
+    case OBT_FIND: openFind(); break;
+    }
+}
+
 static void handleGadget(struct Gadget *gadget)
 {
+    if (iconButtons && obt_which(gadget->GadgetID) >= 0) {
+        handleIconButton(obt_which(gadget->GadgetID));
+        return;
+    }
     switch (gadget->GadgetID) {
     case GID_BACK: ob_webview_back(view); break;
     case GID_FORWARD: ob_webview_forward(view); break;
@@ -1212,6 +1363,8 @@ static void readToolTypes(int argc, char **argv)
             webFontsOn = 1;
         if ((value = FindToolType((CONST_STRPTR *)icon->do_ToolTypes, (CONST_STRPTR)"LITE")) && MatchToolValue(value, (CONST_STRPTR)"YES"))
             liteOn = 1;
+        if ((value = FindToolType((CONST_STRPTR *)icon->do_ToolTypes, (CONST_STRPTR)"RUNSCRIPT")) && MatchToolValue(value, (CONST_STRPTR)"NO"))
+            rexxRunScript = 0;
         FreeDiskObject(icon);
     }
     CloseLibrary(IconBase);
@@ -1254,6 +1407,10 @@ static void handleWindow(void)
         case IDCMP_GADGETUP:
             handleGadget((struct Gadget *)copy.IAddress);
             break;
+        case IDCMP_GADGETDOWN:
+            if (iconButtons)
+                obt_press(window, obt_which(((struct Gadget *)copy.IAddress)->GadgetID), 1);
+            break;
         case IDCMP_MENUPICK:
             handleMenu(copy.Code);
             break;
@@ -1267,6 +1424,7 @@ static void handleWindow(void)
         case IDCMP_REFRESHWINDOW:
             GT_BeginRefresh(window);
             GT_EndRefresh(window, TRUE);
+            redrawToolbar();
             paintPage(0, 0, pageWidth, pageHeight, 1);
             obd_find_redraw();
             break;
@@ -1282,6 +1440,8 @@ static void handleWindow(void)
         handleMouse(&move);
     if (findCloseDue && window)
         closeFind();
+    if (iconButtons && window)
+        obt_settle(window);
     if (window)
         obd_draw();
 }
@@ -1367,7 +1527,7 @@ static int openBrowserWindow(const char *url, int network)
         WA_MinWidth, 320, WA_MinHeight, 200, WA_MaxWidth, -1, WA_MaxHeight, -1,
         WA_Flags, WFLG_CLOSEGADGET | WFLG_DRAGBAR | WFLG_DEPTHGADGET | WFLG_SIZEGADGET | WFLG_SIZEBBOTTOM
             | WFLG_ACTIVATE | WFLG_REPORTMOUSE | WFLG_SMART_REFRESH,
-        WA_IDCMP, IDCMP_CLOSEWINDOW | IDCMP_GADGETUP | IDCMP_MOUSEMOVE | IDCMP_MOUSEBUTTONS | IDCMP_RAWKEY
+        WA_IDCMP, IDCMP_CLOSEWINDOW | IDCMP_GADGETUP | IDCMP_GADGETDOWN | IDCMP_MOUSEMOVE | IDCMP_MOUSEBUTTONS | IDCMP_RAWKEY
             | IDCMP_NEWSIZE | IDCMP_REFRESHWINDOW | IDCMP_ACTIVEWINDOW | IDCMP_INACTIVEWINDOW | IDCMP_MENUPICK
             | BUTTONIDCMP | STRINGIDCMP,
         WA_NewLookMenus, TRUE,
@@ -1390,6 +1550,7 @@ static int openBrowserWindow(const char *url, int network)
     callbacks.confirm = onConfirm;
     callbacks.prompt = onPrompt;
     callbacks.authenticate = onAuthenticate;
+    callbacks.choose_files = onChooseFiles;
     callbacks.resource = onResource;
     callbacks.rendered = onRendered;
     {
@@ -1432,6 +1593,8 @@ static void closeBrowserWindow(void)
         CloseWindow(window);
     }
     window = NULL;
+    obt_close();
+    iconButtons = 0;
     ob_blit_close();
     if (visualInfo)
         FreeVisualInfo(visualInfo);
@@ -1460,6 +1623,11 @@ static void closeBrowserWindow(void)
 
 static int guiLibrariesOpen;
 static struct timerequest clockRequest;  /* opened for TimerBase only: GetSysTime() */
+
+void obb_set_run_script(int allowed)
+{
+    rexxRunScript = allowed != 0;
+}
 
 int obb_open(const char *url, int scripts, int pictures, int webFonts, int lite, int network)
 {

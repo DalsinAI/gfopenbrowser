@@ -4,9 +4,10 @@ Status: approved, in progress. Proposed 19 October 2026; Dale approved the
 design on 20 October 2026 (01:32), with the proposed answers to the open
 questions below. weblayout.library 1.0 is built (`src/weblayout/library`,
 `scripts/build-weblayout-library.sh`) and its Amiga test program with it;
-neither has run on an Amiga yet. GFOpenBrowser Lite keeps the engine linked
-in by default (`WEBLAYOUT=linked`) until the library has run on an instance;
-`WEBLAYOUT=library` builds it on the library instead.
+neither has run on an Amiga yet (lab check owed). Since 18 November 2026
+(Lite 0.4.4) GFOpenBrowser Lite is built on the library only: the program
+no longer carries weblayout or GFOpenLayout, and its drawer has
+`Libs/weblayout.library`.
 
 ## Why
 
@@ -181,7 +182,7 @@ Approved with the proposed answers (20 October 2026):
 TOOLCHAIN_DIR=... NDK_INCLUDE=.../OpenNDK/Include_H OPENLAYOUT_SRC=.../gfopenlayout \
     scripts/build-weblayout-library.sh            # build/weblayout-library/weblayout.library
                                                   # build/weblayout-library/tests/WebLayoutLibTest
-WEBLAYOUT=library scripts/build-openbrowser.sh    # GFOpenBrowserLite on LIBS:weblayout.library
+scripts/build-openbrowser.sh                      # GFOpenBrowserLite, which opens weblayout.library
 ```
 
 A program using the library includes `weblayout.h` and then
@@ -197,8 +198,7 @@ To install, copy `weblayout.library` to `LIBS:`, with gfopenlayout.library 2
 
 ## Still to do
 
-- Run `WebLayoutLibTest` and GFOpenBrowserLite built with `WEBLAYOUT=library`
-  on an AmigaOS 3.2.3 instance, then on the real 68040. Until then Lite's
-  default build stays linked and the release archive has no library in it.
+- Run `WebLayoutLibTest` and GFOpenBrowserLite on an AmigaOS 3.2.3 instance,
+  then on the real 68040 (lab check owed: neither has run on an Amiga).
 - The GFOpenNDK entry (SFD and headers in gfopensdk), and a GFOpenUp part
   for `LIBS:weblayout.library` with gfopenlayout.library beside it.

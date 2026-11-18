@@ -14,6 +14,8 @@ built and being brought up on the test instance. See
 Other programs drive the browser through its ARexx port, `GFOPENBROWSER`
 (open a page, reload, back, forward, the address, title, load state and
 load time, the page's text): see [docs/AREXX.md](docs/AREXX.md).
+Copy and paste go through the Amiga clipboard (clipboard.device, IFF FTXT),
+so text moves between pages and other programs.
 
 JavaScriptCore on its own runs in a Shell:
 
@@ -28,9 +30,9 @@ opens http:// and https:// pages (bsdsocket.library and GFOpenTLS) and lays
 them out: headings, paragraphs, lists, links you click, pictures through
 the system's datatypes and a practical CSS cascade (the page's `<style>`,
 `style=` and up to eight linked stylesheets). No JavaScript, no WebKit: it is
-about 100 KB. Its page engine, weblayout (`src/weblayout`, on GFOpenLayout), is
-kept behind one header as the bones of a future weblayout.library
-([docs/WEBLAYOUT_LIBRARY.md](docs/WEBLAYOUT_LIBRARY.md)). Other programs open
+about 65 KB. Its page engine is weblayout.library (`src/weblayout`,
+[docs/WEBLAYOUT_LIBRARY.md](docs/WEBLAYOUT_LIBRARY.md)), which lays pages out
+through gfopenlayout.library; neither is built into the program. Other programs open
 pages in it through its ARexx port, `AMICRADLE.BROWSER`:
 
 ```
@@ -65,24 +67,27 @@ No binaries are kept here, and no WebKit, ICU or AmigaOS files.
 
 GFOpenBrowser Lite is built with the GFOpenAmigaGCC 16.2.0-open3 release and
 GFOpenNDK (DalsinAI/gfopensdk), for the 68040 with its FPU (`-m68040
--m68881`; not an LC or EC040), with GFOpenLayout from DalsinAI/gfopenlayout.
+-m68881`; not an LC or EC040), with gfopenlayout's headers (DalsinAI/gfopenlayout).
 Its TLS is GFOpenTLS: gfopentls.library's API headers are in `third_party/opentls`,
 and no AmiSSL SDK is needed:
 
 ```
 TOOLCHAIN_DIR=.../openamigagcc-16.2.0-open3-x86_64-linux \
 NDK_INCLUDE=.../gfopensdk/OpenNDK/Include_H \
+OPENLAYOUT_SRC=.../gfopenlayout scripts/build-weblayout-library.sh
 OPENLAYOUT_SRC=.../gfopenlayout scripts/build-openbrowser.sh
 OPENLAYOUT_SRC=.../gfopenlayout tests/run-host-tests.sh
 ```
 
 (`STOVE=` an os32-gcc16 stove works in place of the first two; `TESTS=1`
-adds the Amiga test programs; `OPENLAYOUT=library` uses the resident
-gfopenlayout.library 2 instead of building GFOpenLayout in.) The cloud CI,
-`.github/workflows/lite.yml`, does both on every change.
+adds the Amiga test programs. The program opens weblayout.library from
+`LIBS:` or its drawer's `Libs`, and that opens gfopenlayout.library 2 or
+newer; only the host tests compile GFOpenLayout's source in, as there is no
+library on the host.) The cloud CI, `.github/workflows/lite.yml`, does this
+on every change.
 
 It needs AmigaOS 3.2, a 68040 with its FPU, a TCP/IP stack
-(bsdsocket.library) and, for https://, GFOpenTLS (gfopentls.library with
+(bsdsocket.library), gfopenlayout.library in `LIBS:` (GFOpenUp) and, for https://, GFOpenTLS (gfopentls.library with
 gfopencrypto.library, and the CA list in `S:GFOpenTLS/ca-bundle.pem`: GFOpenUp's
 GFOpenTLS part). Pictures need datatypes for their formats (GFOpenUp's
 GFOpenImage adds PNG and WebP).
@@ -99,8 +104,9 @@ The JavaScript engine:
 4. Run `WEBKIT_SOURCE=... scripts/build-jsc.sh`.
 
 GFOpenBrowser on WebCore needs, besides the compiler and ICU above, the
-libraries from the GFOpen ports (zlib from gfopenimage, SQLite from
-gfopensqlite, OXP from gfopenxml) built into one prefix. No cairo, pixman
+libraries from the GFOpen ports (SQLite from gfopensqlite, OXP from
+gfopenxml; from gfopenimage's zlib only the header, as the engine calls
+z.library when it runs) built into one prefix. No cairo, pixman
 or libpng: since WebKit patch 0094 the engine draws on GFOpenGPU. No curl,
 nghttp2, libpsl or AmiSSL: the network is openweb.fetch, so
 DalsinAI/gfopenservice and DalsinAI/gfopendatatypes must be checked out

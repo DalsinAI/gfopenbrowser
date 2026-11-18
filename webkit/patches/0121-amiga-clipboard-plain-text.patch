@@ -1,0 +1,165 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: SacredTrees <121399723+SacredTrees@users.noreply.github.com>
+Date: Tue, 17 Nov 2026 20:50:00 +0000
+Subject: [PATCH] WebCore: plain text to and from the Amiga clipboard
+
+The Amiga pasteboard lived inside the program: text copied in a page could
+be pasted in another page and nowhere else, and text copied in another
+program could not be pasted in a page.
+
+The program can now give the pasteboard two calls
+(obpb_set_system_clipboard(): GFOpenBrowser's ob_clipboard.c, which reads
+and writes clipboard.device as IFF FTXT). Plain text written to the
+pasteboard goes to the clipboard as well. Before the pasteboard is read
+or asked what it holds, the clipboard's text is looked at: when it is not
+the text this program last wrote or saw, another program has copied
+since, and that text becomes the pasteboard (the markup of an earlier
+copy in a page goes, so a paste gives what was copied last). Markup stays
+inside the program, so a copy from one page to another keeps its
+formatting as before. "text/plain" and "text" name the same entry as
+"text/plain;charset=utf-8".
+
+Without the calls nothing changes.
+
+Team 2
+---
+  Source/WebCore/platform/amiga/PasteboardAmiga.cpp | 78 ++++++++++++++++++++++-
+  1 file changed, 76 insertions(+), 2 deletions(-)
+
+diff --git a/Source/WebCore/platform/amiga/PasteboardAmiga.cpp b/Source/WebCore/platform/amiga/PasteboardAmiga.cpp
+index fcfe4cc..f03e77b 100644
+--- a/Source/WebCore/platform/amiga/PasteboardAmiga.cpp
++++ b/Source/WebCore/platform/amiga/PasteboardAmiga.cpp
+@@ -23,8 +23,11 @@
+  * ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+  */
+ 
+-// The pasteboard inside OpenBrowser: text copied in one page can be pasted
+-// in another. The Amiga clipboard (clipboard.device, IFF FTXT) comes later.
++// The pasteboard inside OpenBrowser: what is copied in one page can be
++// pasted in another, and plain text goes to and comes from the Amiga
++// clipboard through the program's calls (obpb_set_system_clipboard():
++// GFOpenBrowser's ob_clipboard.c, clipboard.device as IFF FTXT). Without
++// them the pasteboard stays inside the program.
+ 
+ #include "config.h"
+ #include "Pasteboard.h"
+@@ -44,6 +47,65 @@ static HashMap<String, String>& amigaPasteboard()
+ 
+ static constexpr auto plainTextType = "text/plain;charset=utf-8"_s;
+ 
++extern "C" {
++// read gives the clipboard's text to its text call (UTF-8) and returns 1,
++// or returns 0 when the clipboard holds no text; write returns 1 when the
++// text is on the clipboard.
++typedef void (*OBPBText)(void* context, const char* utf8, unsigned long length);
++typedef int (*OBPBRead)(OBPBText, void* context);
++typedef int (*OBPBWrite)(const char* utf8, unsigned long length);
++void obpb_set_system_clipboard(OBPBRead, OBPBWrite);
++}
++
++static OBPBRead s_systemRead;
++static OBPBWrite s_systemWrite;
++
++void obpb_set_system_clipboard(OBPBRead read, OBPBWrite write)
++{
++    s_systemRead = read;
++    s_systemWrite = write;
++}
++
++// The clipboard's text as this program last saw it (wrote it or read it).
++static String& lastSystemText()
++{
++    static NeverDestroyed<String> text;
++    return text;
++}
++
++static bool isPlainTextType(const String& type)
++{
++    return type == plainTextType || type == "text/plain"_s || type == "text"_s;
++}
++
++static void takeSystemText(void* context, const char* utf8, unsigned long length)
++{
++    *static_cast<String*>(context) = String::fromUTF8(unsafeMakeSpan(utf8, length));
++}
++
++// When another program has put text on the clipboard since, that text is
++// the pasteboard: what a page copied before it (its markup too) is gone.
++static void takeSystemClipboard()
++{
++    if (!s_systemRead)
++        return;
++    String text;
++    if (!s_systemRead(takeSystemText, &text) || text.isNull() || text == lastSystemText())
++        return;
++    lastSystemText() = text;
++    amigaPasteboard().clear();
++    amigaPasteboard().set(plainTextType, text);
++}
++
++static void giveSystemClipboard(const String& text)
++{
++    if (!s_systemWrite)
++        return;
++    auto utf8 = text.utf8();
++    if (s_systemWrite(reinterpret_cast<const char*>(utf8.data()), utf8.length()))
++        lastSystemText() = text;
++}
++
+ std::unique_ptr<Pasteboard> Pasteboard::createForCopyAndPaste(std::unique_ptr<PasteboardContext>&& context)
+ {
+     return makeUnique<Pasteboard>(WTF::move(context));
+@@ -56,16 +118,19 @@ Pasteboard::Pasteboard(std::unique_ptr<PasteboardContext>&& context)
+ 
+ bool Pasteboard::hasData()
+ {
++    takeSystemClipboard();
+     return !amigaPasteboard().isEmpty();
+ }
+ 
+ Vector<String> Pasteboard::typesSafeForBindings(const String&)
+ {
++    takeSystemClipboard();
+     return copyToVector(amigaPasteboard().keys());
+ }
+ 
+ Vector<String> Pasteboard::typesForLegacyUnsafeBindings()
+ {
++    takeSystemClipboard();
+     return copyToVector(amigaPasteboard().keys());
+ }
+ 
+@@ -76,6 +141,9 @@ String Pasteboard::readOrigin()
+ 
+ String Pasteboard::readString(const String& type)
+ {
++    takeSystemClipboard();
++    if (isPlainTextType(type))
++        return amigaPasteboard().get(plainTextType);
+     return amigaPasteboard().get(type);
+ }
+ 
+@@ -86,6 +154,11 @@ String Pasteboard::readStringInCustomData(const String&)
+ 
+ void Pasteboard::writeString(const String& type, const String& text)
+ {
++    if (isPlainTextType(type)) {
++        amigaPasteboard().set(plainTextType, text);
++        giveSystemClipboard(text);
++        return;
++    }
+     amigaPasteboard().set(type, text);
+ }
+ 
+@@ -101,6 +174,7 @@ void Pasteboard::clear(const String& type)
+ 
+ void Pasteboard::read(PasteboardPlainText& text, PlainTextURLReadingPolicy, std::optional<size_t>)
+ {
++    takeSystemClipboard();
+     text.text = amigaPasteboard().get(plainTextType);
+ }
+ 
+-- 
+2.43.0
+

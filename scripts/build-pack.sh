@@ -43,8 +43,8 @@
 #              and gfopencrypto.library, gfopenfont.library,
 #              gfopengpu.library, gfopenlayout.library (with GFOpenGadTools'
 #              theme), z.library, the stream, gzip, brotli, gif and png
-#              datatypes, json.library and webbrowser.library, into
-#              PACK_DIR/libs
+#              datatypes, json.library, javascript.library with its JS
+#              command, and webbrowser.library, into PACK_DIR/libs
 #   engine     build-webcore.sh configure-engine, build-engine, jsimage and
 #              build-browser, in PACK_DIR/build
 #   package    scripts/package-browser.sh PACK_DIR/out
@@ -176,6 +176,8 @@ stage_libs() {
     run env OS32_GCC16="$GCC16" PREFIX="$L/datatypes" sh "$D/gfopendatatypes/Datatypes/gif/build.sh"
     run env OS32_GCC16="$GCC16" PREFIX="$L/datatypes" sh "$D/gfopendatatypes/Datatypes/png/build.sh"
     run env OS32_GCC16="$GCC16" sh "$HERE/scripts/build-json-library.sh" "$L/json-library"
+    run env STOVE="$GCC16" NDK_INCLUDE="$D/gfopensdk/OpenNDK/Include_H" \
+        sh "$HERE/scripts/build-javascript-library.sh" "$L/javascript-library"
     run env OS32_GCC16="$GCC16" sh "$HERE/src/webbrowser/build-library.sh"
 }
 
@@ -183,6 +185,8 @@ engine_env() {
     echo WEBKIT_SOURCE="$D/webkit" WEBKIT_BUILD="$PACK_DIR/build" OS32_GCC16="$GCC16" OAB_DEPS="$OAB" \
         OPENSERVICE_DIR="$D/gfopenservice" OPENDATATYPES_DIR="$D/gfopendatatypes" \
         OPENAMIGARTG_DIR="$D/gfopenrtg" GFOPENLAYOUT_DIR="$D/gfopenlayout" \
+        GFOPENGADTOOLS_DIR="$D/gfopengadtools" GFOPENSDK_DIR="$D/gfopensdk" \
+        GFOPENTLS_DIR="$D/gfopentls" \
         NDK_INCLUDE="$D/gfopensdk/OpenNDK/Include_H" OB_FONTS="$OB_FONTS" JOBS="$JOBS"
 }
 
@@ -200,6 +204,7 @@ stage_package() {
         OPENFONT_LIB="$L/gfopenfont/gfopenfont.library" OPENFONT_SRC="$D/gfopenfont" \
         OPENGPU_LIB="$L/gfopengpu/libs/gfopengpu.library" OPENLAYOUT_LIB="$L/gfopenlayout/lib/gfopenlayout.library" \
         DATATYPES_DIR="$L/datatypes" ZLIB_LIB="$L/openzlib/libs/z.library" JSON_LIB="$L/json-library/json.library" \
+        JS_LIB_DIR="$L/javascript-library" \
         UNICODE_LIB="$PACK_DIR/build/unicode-library/unicode.library" \
         sh "$HERE/scripts/package-browser.sh" "$PACK_DIR/out"
 }

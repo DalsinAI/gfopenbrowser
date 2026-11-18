@@ -60,6 +60,11 @@ static struct WBMessage *current;       /* the message being handled */
  * link map), on the engine's output. */
 static ULONG codeStart, codeEnd;
 
+/* JavaScriptCore's task hooks come off this thread (WebKit patch 0122).
+ * _exit() runs no destructors, so abort() calls it itself: from a Shell
+ * the hooks would stay on the Shell's process and hang the next program. */
+void jsc_m68k_detach_thread(void);
+
 void abort(void)
 {
     struct Task *task = FindTask(NULL);
@@ -94,6 +99,7 @@ void abort(void)
         }
     }
     Wait(SIGBREAKF_CTRL_C);
+    jsc_m68k_detach_thread();
     _exit(20);
 }
 
@@ -371,6 +377,7 @@ static int handle(struct WBMessage *m)
             ob_webview_wheel(v->web, v->width / 2, v->height / 2, m->arg[0], m->arg[1], 0);
         break;
     case WBC_BROWSER:
+        obb_set_run_script(!m->arg[4]);
         m->result = obb_open(m->text, m->arg[0], m->arg[1], m->arg[2], m->arg[3], networkUp) ? 0 : WBERR_NOMEMORY;
         break;
     case WBC_SHUTDOWN:

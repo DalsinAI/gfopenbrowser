@@ -164,7 +164,16 @@ private:
 
     DisplayRefreshMonitorFactory* displayRefreshMonitorFactory() const final { return nullptr; }
 
-    void runOpenPanel(LocalFrame&, FileChooser&) final { }
+    // A page's file button: the window's file requester (asl.library).
+    void runOpenPanel(LocalFrame&, FileChooser& chooser) final
+    {
+        Ref protectedChooser { chooser };
+        Vector<String> files;
+        if (m_view.runFileChooser(chooser.settings().allowsMultipleFiles, files))
+            chooser.chooseFiles(files);
+        else
+            chooser.cancelFileChoosing();
+    }
     void showShareSheet(ShareDataWithParsedURL&&, CompletionHandler<void(bool)>&& completionHandler) final { completionHandler(false); }
     void loadIconForFiles(const Vector<String>&, FileIconLoader&) final { }
 

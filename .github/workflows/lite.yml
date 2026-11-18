@@ -72,7 +72,7 @@ on:
   workflow_dispatch:
 
 env:
-  OPENLAYOUT_REF: ce9f92de37463c9333bf5793b35a6b37ea27614e   # gfopenlayout master: gfopenlayout.library 2.0
+  OPENLAYOUT_REF: d622316a026e320a20823b6e8a084c1b3b48aac8   # gfopenlayout master: gfopenlayout.library 24
   OPENSDK_REF: e75b5ffae42b6c446ec11cb195b919151e56529c      # gfopensdk main, as gfopencurl
   OPENAMIGARTG_REF: a14091d9b7e286f93aa335861934c574c3a6b29c # gfopenrtg main: the GFOpenGPU headers at include/gfopengpu/ (#162)
   TC_URL: https://github.com/DalsinAI/gfopengcc/releases/download/v16.2.0-open6/gfopenamigagcc-16.2.0-open6-x86_64-linux.tar.xz
@@ -125,18 +125,6 @@ jobs:
           curl -fsSL -o tc/tc.tar.xz "$TC_URL"
           echo "$TC_SHA256  tc/tc.tar.xz" | sha256sum -c -
           tar xf tc/tc.tar.xz -C tc
-      - name: 68040 build (GFOpenLayout built in)
-        run: |
-          TOOLCHAIN_DIR=tc/gfopenamigagcc-16.2.0-open6-x86_64-linux \
-          NDK_INCLUDE=$PWD/gfopensdk/OpenNDK/Include_H \
-          OPENLAYOUT_SRC=$PWD/gfopenlayout TESTS=1 \
-          scripts/build-openbrowser.sh build/os3
-      - name: 68040 build (resident gfopenlayout.library)
-        run: |
-          TOOLCHAIN_DIR=tc/gfopenamigagcc-16.2.0-open6-x86_64-linux \
-          NDK_INCLUDE=$PWD/gfopensdk/OpenNDK/Include_H \
-          OPENLAYOUT_SRC=$PWD/gfopenlayout OPENLAYOUT=library \
-          scripts/build-openbrowser.sh build/os3-library
       - name: 68040 build (weblayout.library and WebLayoutLibTest)
         # also checks src/weblayout/library/sdk against the SFD with GFOpenSDK's ndkgen.py
         run: |
@@ -144,17 +132,17 @@ jobs:
           NDK_INCLUDE=$PWD/gfopensdk/OpenNDK/Include_H \
           OPENLAYOUT_SRC=$PWD/gfopenlayout OPENSDK_SRC=$PWD/gfopensdk \
           scripts/build-weblayout-library.sh build/weblayout-library
-      - name: 68040 build (GFOpenBrowserLite on weblayout.library)
+      - name: 68040 build (GFOpenBrowserLite on weblayout.library, obfetch, test programs)
         run: |
           TOOLCHAIN_DIR=tc/gfopenamigagcc-16.2.0-open6-x86_64-linux \
           NDK_INCLUDE=$PWD/gfopensdk/OpenNDK/Include_H \
-          OPENLAYOUT_SRC=$PWD/gfopenlayout WEBLAYOUT=library \
-          scripts/build-openbrowser.sh build/os3-weblayout
+          OPENLAYOUT_SRC=$PWD/gfopenlayout TESTS=1 \
+          scripts/build-openbrowser.sh build/os3
       - name: Check the library
         run: |
           D=tc/gfopenamigagcc-16.2.0-open6-x86_64-linux/bin
           L=build/weblayout-library/weblayout.library
-          for f in $L build/weblayout-library/tests/WebLayoutLibTest build/os3-weblayout/GFOpenBrowserLite; do
+          for f in $L build/weblayout-library/tests/WebLayoutLibTest build/os3/GFOpenBrowserLite; do
             $D/m68k-amigaos-objdump -f "$f" | grep -q 'file format amiga' || { echo "$f is not an Amiga executable"; exit 1; }
           done
           # nothing left to resolve, and no C library in it
@@ -168,12 +156,16 @@ jobs:
           [ "$G" = "_DataTypesBase _GfxBase _LayersBase _OpenLayoutBase _SysBase " ] || { echo "weblayout.library has other globals"; exit 1; }
           strings $L | grep '^\$VER: weblayout.library 1\.'
           strings $L | grep -q '^weblayout.library 1\.0 .*The AmiCradle Team'
-          strings build/os3-weblayout/GFOpenBrowserLite | grep -q '^weblayout.library$'
+          strings build/os3/GFOpenBrowserLite | grep -q 'weblayout.library$'
+          # the program carries neither GFOpenLayout nor weblayout: both are libraries
+          if $D/m68k-amigaos-nm build/os3/GFOpenBrowserLite | grep -E ' _(ol_[a-z_]+|wl_document_[a-z_]+)$'; then
+            echo "GFOpenLayout or weblayout is built into GFOpenBrowserLite"; exit 1
+          fi
           sha256sum $L build/weblayout-library/tests/WebLayoutLibTest
       - name: Check the programs
         run: |
           D=tc/gfopenamigagcc-16.2.0-open6-x86_64-linux/bin
-          for f in build/os3/GFOpenBrowserLite build/os3/obfetch build/os3/tests/* build/os3-library/GFOpenBrowserLite; do
+          for f in build/os3/GFOpenBrowserLite build/os3/obfetch build/os3/tests/*; do
             $D/m68k-amigaos-objdump -f "$f" | grep -q 'file format amiga' || { echo "$f is not an Amiga executable"; exit 1; }
           done
           strings build/os3/GFOpenBrowserLite | grep '^\$VER: GFOpenBrowserLite 0\.4\.' 
@@ -186,7 +178,7 @@ jobs:
           sudo apt-get install -y -qq jlha-utils lhasa
       - name: Release archive
         run: |
-          scripts/package-lite.sh build/os3 build/package
+          WEBLAYOUT_LIB=build/weblayout-library/weblayout.library scripts/package-lite.sh build/os3 build/package
           lhasa t build/package/GFOpenBrowserLite-*.lha
           lhasa v build/package/GFOpenBrowserLite-*.lha
           echo "### GFOpenBrowser Lite release archive" >> "$GITHUB_STEP_SUMMARY"
@@ -207,7 +199,6 @@ jobs:
           path: |
             build/weblayout-library/weblayout.library
             build/weblayout-library/tests/WebLayoutLibTest
-            build/os3-weblayout/GFOpenBrowserLite
           retention-days: 14
       - uses: actions/upload-artifact@v4
         with:

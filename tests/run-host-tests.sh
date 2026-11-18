@@ -27,27 +27,50 @@ FLAGS="-O2 -std=c99 -Wall -Wextra -Werror -pedantic"
 [ "${SANITIZE:-0}" = 1 ] && FLAGS="$FLAGS -g -fsanitize=address,undefined -fno-sanitize-recover=all"
 mkdir -p "$OUT"
 RT="$WL/wl_mem.c $WL/wl_libc.c"     # weblayout's allocator and its own C library calls
+# GFOpenLayout's source, compiled in on the host only (there is no
+# gfopenlayout.library here); the Amiga programs open the library
+OLSRC="$OL/src/openlayout.c $OL/src/openlayout_css.c $OL/src/gfcss_parse.c $OL/src/gfcss_select.c $OL/src/gfcss_values.c"
 # the engine's frame loader client never calls back into HistoryController's restore
 sh "$HERE/tests/webcore/test_frame_loader_client.sh"
 sh "$HERE/tests/webcore/test_engine_allocator.sh"
 sh "$HERE/tests/webcore/test_stdlib_assertions.sh"
 sh "$HERE/tests/webcore/test_optimize_js_layout.sh"
+# the hooks JavaScriptCore puts on a task come off again at exit (WebKit patch 0122)
+OUT="$OUT/task-hooks-off" sh "$HERE/tests/webcore/test_task_hooks_off.sh"
+# a WebSocket with no channel fails, it does not assert (WebKit patch 0123)
+sh "$HERE/tests/webcore/test_websocket_no_channel.sh"
+# the engine links no zlib: its ten calls go to z.library (src/webcore/ob_zlib.c)
+OUT="$OUT/zlib-library" sh "$HERE/tests/webcore/test_zlib_library.sh"
+# GFOpenTLS headers come from its checkout, no copy here
+sh "$HERE/tests/webcore/test_tls_headers_from_checkout.sh"
+# the engine has no SHA code: WebKit's digests go to gfopencrypto.library (patch 0124, src/webcore/ob_digest.c)
+OUT="$OUT/digest-library" sh "$HERE/tests/webcore/test_digest_library.sh"
+# the package carries javascript.library and JS, and the installers put them in LIBS: and C:
+sh "$HERE/tests/pack/test_ship_jslib.sh"
+# the packer refuses a webbrowser.library older than the source's
+sh "$HERE/tests/pack/test_webbrowser_lib_version.sh"
+# the engine has a blob registry (files from the file button, Blob, blob: addresses)
+sh "$HERE/tests/webcore/test_blob_registry.sh"
+# file names go to the filing system as ISO 8859-1, not UTF-8 (WebKit patch 0125)
+sh "$HERE/tests/webcore/test_file_names_latin1.sh"
+# large pictures decode off the page's task, on one thread (WebKit patch 0126)
+sh "$HERE/tests/webcore/test_async_decode.sh"
 # webbrowser.library's wait for its engine: it stops when the engine's process ended with no engine
 "$CC" $FLAGS -I"$HERE/src/webbrowser" "$HERE/tests/test_wb_engine_wait.c" -o "$OUT/test_wb_engine_wait"
 "$OUT/test_wb_engine_wait"
 # the engine's short look for a service answer before it sleeps for one
 "$CC" $FLAGS -I"$HERE/src/webcore" "$HERE/tests/test_ob_awake_wait.c" -o "$OUT/test_ob_awake_wait"
 "$OUT/test_ob_awake_wait"
-"$CC" $FLAGS -I"$WL" -I"$OL/include" "$WL/wl_html.c" "$WL/wl_css.c" $RT "$OL/src/openlayout.c" \
+"$CC" $FLAGS -I"$WL" -I"$OL/include" "$WL/wl_html.c" "$WL/wl_css.c" $RT $OLSRC \
     "$HERE/tests/test_wl_html.c" -o "$OUT/test_wl_html"
-"$CC" $FLAGS -I"$WL" -I"$OL/include" "$WL/wl_css.c" $RT "$OL/src/openlayout.c" \
+"$CC" $FLAGS -I"$WL" -I"$OL/include" "$WL/wl_css.c" $RT $OLSRC \
     "$HERE/tests/test_wl_css.c" -o "$OUT/test_wl_css"
 "$CC" $FLAGS -I"$WL" "$WL/wl_url.c" $RT "$HERE/tests/test_wl_url.c" -o "$OUT/test_wl_url"
 "$CC" $FLAGS -I"$WL" "$WL/wl_text.c" $RT "$HERE/tests/test_wl_libc.c" -o "$OUT/test_wl_libc"
 OM="$HERE/third_party/openmail"     # strncasecmp: POSIX
 "$CC" $FLAGS -D_DEFAULT_SOURCE -I"$HERE/tests/host" -I"$WL" -I"$OM" -I"$OL/include" \
     "$WL/wl_document.c" "$WL/wl_paint.c" "$WL/wl_html.c" "$WL/wl_css.c" "$WL/wl_url.c" \
-    "$WL/wl_text.c" $RT "$OL/src/openlayout.c" \
+    "$WL/wl_text.c" $RT $OLSRC \
     "$HERE/tests/test_wl_document.c" -o "$OUT/test_wl_document"
 "$CC" $FLAGS -D_DEFAULT_SOURCE -I"$OM" "$OM/oam_html.c" "$OM/oam_buf.c" \
     "$HERE/tests/test_oam_html.c" -o "$OUT/test_oam_html"
@@ -69,6 +92,14 @@ OS32M="-D_DEFAULT_SOURCE -Daligned_alloc=os32_aligned_alloc -Dmemalign=os32_mema
 # the browser's ARexx commands (the GFOPENBROWSER port), with a stand-in page
 "$CC" $FLAGS -I"$HERE/src/webcore" "$HERE/src/webcore/ob_rexx.c" \
     "$HERE/tests/test_ob_rexx.c" -o "$OUT/test_ob_rexx"
+# the file requester's names (a page's file button)
+"$CC" $FLAGS -I"$HERE/src/webcore" "$HERE/src/webcore/ob_filereq.c" \
+    "$HERE/tests/test_ob_filereq.c" -o "$OUT/test_ob_filereq"
+# the clipboard's IFF FTXT clips (the browser's copy and paste)
+"$CC" $FLAGS -I"$HERE/src/webcore" "$HERE/src/webcore/ob_clipboard.c" \
+    "$HERE/tests/test_ob_clipboard.c" -o "$OUT/test_ob_clipboard"
+# the toolbar row: where the address field goes beside the icon buttons
+"$CC" $FLAGS -I"$HERE/src/webcore" "$HERE/tests/test_ob_toolbar.c" -o "$OUT/test_ob_toolbar"
 # Lite's address parser (its network calls stubbed in the test)
 "$CC" $FLAGS -D_DEFAULT_SOURCE -I"$HERE/src" -I"$OM" "$HERE/src/ob_http.c" "$OM/oam_buf.c" "$WL/wl_url.c" $RT \
     "$HERE/tests/test_ob_url_parse.c" -o "$OUT/test_ob_url_parse"
@@ -146,7 +177,11 @@ rm -rf "$OUT/httpcache"
 "$OUT/test_ob_httpcache" "$OUT/httpcache"
 "$OUT/test_ob_scriptcache"
 "$OUT/test_ob_rexx"
+"$OUT/test_ob_filereq"
+"$OUT/test_ob_clipboard"
+"$OUT/test_ob_toolbar"
 sh "$HERE/tests/webcore/test_script_cache_default.sh"
+python3 "$HERE/tests/pack/test_icons.py"
 "$OUT/test_public_suffixes" "$HERE/data/public-suffixes" "$HERE/tests/public-suffix-cases.txt"
 "$OUT/test_opengpu_paint"
 # a test's last line only, but its whole log and a failed run when it fails (a pipe into tail hid the failure).

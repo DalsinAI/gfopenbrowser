@@ -41,6 +41,11 @@ typedef struct {
      * log-in is kept for the server and realm until the program ends. */
     int (*authenticate)(void *context, const char *host, const char *realm, int previousFailures,
         char *user, int userSize, char *password, int passwordSize);
+    /* A page's file button (<input type="file">): the user picks a file,
+     * or any number of them when many is 1. Fills result with the files'
+     * full names, one a line (parted by "\n"), at most resultSize bytes,
+     * and returns how many; 0 for Cancel. */
+    int (*choose_files)(void *context, int many, char *result, int resultSize);
 } OBWebViewCallbacks;
 
 /* Mouse buttons and the qualifiers that go with events. */
@@ -100,6 +105,14 @@ void ob_webview_resize(OBWebView *view, int width, int height);
 /* The page's text (innerText of the document), UTF-8, cut to fit size;
  * returns its full length in bytes. */
 int ob_webview_text(OBWebView *view, char *buffer, int size);
+/* The page as HTML, as it stands now (the document element's outerHTML),
+ * UTF-8, cut to fit size; returns its full length in bytes. */
+int ob_webview_source(OBWebView *view, char *buffer, int size);
+/* Runs script (UTF-8) in the page, as if the page had run it. 1 with the
+ * text of its value in buffer ("" for undefined and null), 0 with the
+ * error's text when it threw or could not run, -1 when the page's
+ * scripts are off. buffer is UTF-8, cut to fit size. */
+int ob_webview_run_script(OBWebView *view, const char *script, char *buffer, int size);
 /* Bytes the view's requests have received since it was created, as WebCore
  * reports them arriving (for tools/bench; 0 if the loader reports none). */
 unsigned long ob_webview_bytes_received(OBWebView *view);

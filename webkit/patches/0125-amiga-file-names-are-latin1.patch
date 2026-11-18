@@ -1,0 +1,84 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: SacredTrees <121399723+SacredTrees@users.noreply.github.com>
+Date: Wed, 18 Nov 2026 12:50:00 +0000
+Subject: [PATCH] Amiga: file names go to the filing system as ISO 8859-1
+
+WTF hands every path to the filing system as UTF-8 (FileSystem.cpp's
+std::filesystem calls, FileSystemPOSIX.cpp's fileSystemRepresentation).
+An Amiga file name is ISO 8859-1 bytes. A name with a letter above 127,
+"Grün-café.txt", went out as "GrÃ¼n-cafÃ©.txt": no such file. A page that
+got that file from its file button saw size 0 and FileReader failed
+with NotFoundError, while a file with a plain name read well.
+
+On OS(AMIGA) the four places that cross that border now use ISO 8859-1:
+toStdFileSystemPath and fromStdFileSystemPath (FileSystem.cpp),
+fileSystemRepresentation and stringFromFileSystemRepresentation
+(FileSystemPOSIX.cpp). A character outside ISO 8859-1 becomes "?", as
+String::latin1() gives it; such a name cannot be on an Amiga disk.
+fileSystemRepresentation keeps its UTF8CString return type (every caller
+only passes the bytes on).
+
+Team 2
+---
+ Source/WTF/wtf/FileSystem.cpp               | 10 ++++++++--
+ Source/WTF/wtf/posix/FileSystemPOSIX.cpp    | 12 ++++++++++++
+ 2 files changed, 20 insertions(+), 2 deletions(-)
+
+diff --git a/Source/WTF/wtf/FileSystem.cpp b/Source/WTF/wtf/FileSystem.cpp
+--- a/Source/WTF/wtf/FileSystem.cpp
++++ b/Source/WTF/wtf/FileSystem.cpp
+@@ -60,7 +60,11 @@
+ 
+ static std::filesystem::path toStdFileSystemPath(StringView path)
+ {
+-#if HAVE(MISSING_U8STRING)
++#if OS(AMIGA)
++    // Amiga file names are ISO 8859-1 bytes, not UTF-8.
++    auto latin1 = path.toString().latin1();
++    return std::filesystem::path(std::string(reinterpret_cast<const char*>(latin1.data()), latin1.length()));
++#elif HAVE(MISSING_U8STRING)
+ ALLOW_DEPRECATED_DECLARATIONS_BEGIN
+     return std::filesystem::u8path(path.utf8().data());
+ ALLOW_DEPRECATED_DECLARATIONS_END
+@@ -71,7 +75,9 @@
+ 
+ static String fromStdFileSystemPath(const std::filesystem::path& path)
+ {
+-#if HAVE(MISSING_U8STRING)
++#if OS(AMIGA)
++    return String::fromLatin1(path.string().c_str());
++#elif HAVE(MISSING_U8STRING)
+     // FIXME: This uses u8string so how can it be correct inside HAVE(MISSING_U8STRING)?
+     return String::fromUTF8(unsafeSpan(path.u8string().c_str()));
+ #else
+diff --git a/Source/WTF/wtf/posix/FileSystemPOSIX.cpp b/Source/WTF/wtf/posix/FileSystemPOSIX.cpp
+--- a/Source/WTF/wtf/posix/FileSystemPOSIX.cpp
++++ b/Source/WTF/wtf/posix/FileSystemPOSIX.cpp
+@@ -146,12 +146,24 @@
+     if (path.isNull())
+         return String();
+ 
++#if OS(AMIGA)
++    // Amiga file names are ISO 8859-1 bytes, not UTF-8.
++    return String::fromLatin1(reinterpret_cast<const char*>(path.span().data()));
++#else
+     return String::fromUTF8(path.span());
++#endif
+ }
+ 
+ UTF8CString fileSystemRepresentation(const String& path)
+ {
++#if OS(AMIGA)
++    // Amiga file names are ISO 8859-1 bytes, not UTF-8. The type says UTF-8;
++    // the bytes go to the filing system as they are.
++    auto latin1 = path.latin1();
++    return UTF8CString::unsafeFromUTF8(reinterpret_cast<const char*>(latin1.data()));
++#else
+     return path.utf8();
++#endif
+ }
+ #endif
+ 
+-- 
+2.43.0
+

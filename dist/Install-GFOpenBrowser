@@ -1,11 +1,12 @@
-; $VER: Install-GFOpenBrowser 0.9.0 (17.11.2026)
+; $VER: Install-GFOpenBrowser 0.9.0 (18.11.2026)
 ; GFOpenBrowser's Installer script (SYS:System/Installer). Run it from its icon
 ; beside the GFOpenBrowser drawer; from a Shell, "Execute Install" in the drawer
 ; does the same without questions. Nothing is deleted: a file it would
-; replace is renamed, and the closing message says how to undo.
+; replace is renamed, and the closing message says how to undo. (One file is
+; replaced: LIBS:JavaScript/JavaScriptEngine, see step 5.)
 ; MIT, Copyright (c) 2026 AmiCradle Team.
 
-(set #version "0.9.0 RC2 (17.11.2026)")
+(set #version "0.9.0 RC4 (18.11.2026)")
 (set @app-name "GFOpenBrowser")
 (set #stamp "20261104")
 (set #backup (cat "LIBS:WebBrowser/WebBrowserEngine.before-" #stamp))
@@ -41,15 +42,6 @@
     (abort (cat #where " has " (/ (getdiskspace #where) 1048576) " MB free, and GFOpenBrowser needs about "
                 (/ #need 1048576) " MB. Choose another place, or make room, and run the Installer again.")))
 
-; The extras: libraries other programs can use. Not needed by the browser.
-(set #extras
-    (askoptions
-        (prompt "Also install these? GFOpenBrowser does not need them.")
-        (help (cat "javascript.library runs JavaScript for any program; it puts about 38 MB "
-                   "in LIBS:JavaScript. JS runs a script from the Shell."))
-        (choices "javascript.library and JS (about 38 MB in LIBS:)")
-        (default 0)))
-
 ; 1. The drawer and its icon. Over an older version's drawer: its engines
 ;    are renamed .before-<stamp> first (kept, not overwritten); 0.8.0 and
 ;    0.8.1 test had GFOpenBrowser.engine beside the launcher as well, which
@@ -79,7 +71,8 @@
 (if (exists "GFOpenBrowser.info")
     (copyfiles (source "GFOpenBrowser.info") (dest #where) (nogauge)))
 
-; 2. https: GFOpenTLS 1.2 or newer and GFOpenCrypto 2.1 or newer, and the
+; 2. https: GFOpenTLS 1.2 or newer and GFOpenCrypto 2.2 or newer (the engine
+;    takes its SHA digests from it, and SHA-1 came with 2.2), and the
 ;    certificates. An older library is renamed .before-20261104 (kept), then
 ;    the one in the drawer goes in; a newer one is left as it is.
 (if (< (getversion "LIBS:gfopentls.library") 65538)
@@ -88,7 +81,7 @@
             (if (= 0 (rename "LIBS:gfopentls.library" "LIBS:gfopentls.library.before-20261104"))
                 (abort "Could not rename the old LIBS:gfopentls.library. Nothing else was changed in LIBS:.")))
         (copyfiles (source "GFOpenBrowser/Libs/gfopentls.library") (dest "LIBS:") (nogauge))))
-(if (< (getversion "LIBS:gfopencrypto.library") 131073)
+(if (< (getversion "LIBS:gfopencrypto.library") 131074)
     (
         (if (exists "LIBS:gfopencrypto.library")
             (if (= 0 (rename "LIBS:gfopencrypto.library" "LIBS:gfopencrypto.library.before-20261104"))
@@ -270,24 +263,71 @@
                 (abort "Could not rename LIBS:WebBrowser/WebBrowserEngine. Nothing else was changed in LIBS:WebBrowser."))
             (set #renamed 1))))
 
-; 5. The extras
-(if (bitand #extras 1)
+; 5. javascript.library 1.0 or newer in LIBS: and JS in C:, when missing or
+;    older (an older one is renamed .before-<stamp>): JavaScript for any
+;    program, and from the Shell. The library runs
+;    LIBS:JavaScript/JavaScriptEngine, the same file the browser's engine
+;    takes JavaScriptCore from (it looks there first, then in its drawer),
+;    so that file must be this package's: one of another size is replaced,
+;    not kept, as an older image is of no use to this engine. That engine
+;    reads the Unicode data from LOCALE:Unicode or else from
+;    LIBS:JavaScript/Unicode, so when step 3 left none in LOCALE: a copy
+;    goes there. Room is checked first for what is to be copied (the engine,
+;    about 21 MB, the data, about 4.6 MB, and 2,000,000 bytes more): with
+;    too little, nothing of this step is installed. Neither copy stops the
+;    installation when it fails: a part-written file is renamed out of the
+;    way and the step is given up, as in step 3. The browser then uses its
+;    drawer's copies, and does not need this step.
+(set #jse "LIBS:JavaScript/JavaScriptEngine")
+(set #jsenew "GFOpenBrowser/Libs/JavaScript/JavaScriptEngine")
+(set #jsicu "LIBS:JavaScript/Unicode/icudt78b.dat")
+(if (and (exists "GFOpenBrowser/Libs/javascript.library") (exists #jsenew))
     (
-        (copyfiles (source "Extras/Libs/javascript.library") (dest "LIBS:") (nogauge))
-        (makedir "LIBS:JavaScript")
-        (copyfiles (source "Extras/Libs/JavaScript") (dest "LIBS:JavaScript") (all))
-        ; a browser engine that takes JavaScriptCore from JavaScriptEngine
-        ; looks in LIBS:JavaScript first: its own image goes there, so the
-        ; engine and javascript.library use one file
-        (if (exists "GFOpenBrowser/Libs/JavaScript/JavaScriptEngine")
-            (copyfiles (source "GFOpenBrowser/Libs/JavaScript/JavaScriptEngine") (dest "LIBS:JavaScript") (nogauge)))
-        ; JavaScriptEngine reads ICU's data from LOCALE:Unicode, or else
-        ; from its own drawer
-        (if (not (exists "LOCALE:Unicode/icudt78b.dat"))
+        (set #jsfree (getdiskspace "LIBS:"))
+        (set #jssame (and (exists #jse) (= (getsize #jse) (getsize #jsenew))))
+        (set #jswanticu
+            (and (not (exists "LOCALE:Unicode/icudt78b.dat"))
+                 (not (and (exists #jsicu) (= (getsize #jsicu) (getsize #icunew))))))
+        (set #jsneed (+ (if #jssame 0 (getsize #jsenew)) (if #jswanticu (getsize #icunew) 0) 2000000))
+        (if (and (or (not #jssame) #jswanticu) (> #jsfree 0) (<= #jsfree #jsneed))
             (
-                (makedir "LIBS:JavaScript/Unicode")
-                (copyfiles (source "GFOpenBrowser/Libs/WebBrowser/Unicode") (dest "LIBS:JavaScript/Unicode") (all) (nogauge))))
-        (copyfiles (source "Extras/C/JS") (dest "C:") (nogauge))))
+                (message (cat "LIBS: has " #jsfree " bytes free, and javascript.library's engine and its data need " #jsneed
+                              " (the files and 2,000,000 bytes more), so javascript.library and JS are not "
+                              "installed. GFOpenBrowser does not need them.") (all))
+                ; an image left from an older version would be the one the
+                ; browser's engine finds first: out of its way, kept
+                (if (and (exists #jse) (not #jssame))
+                    (rename #jse (cat #jse ".before-" #stamp))))
+            (
+                (makedir "LIBS:JavaScript")
+                (if (not #jssame)
+                    (copyfiles (source #jsenew) (dest "LIBS:JavaScript") (nogauge) (optional "nofail")
+                        (prompt "Installing javascript.library's engine") (help @copyfiles-help)))
+                (if #jswanticu
+                    (
+                        (makedir "LIBS:JavaScript/Unicode")
+                        (copyfiles (source "GFOpenBrowser/Libs/WebBrowser/Unicode") (dest "LIBS:JavaScript/Unicode") (all) (nogauge)
+                            (optional "nofail"))))
+                (set #jsok
+                    (and (exists #jse) (= (getsize #jse) (getsize #jsenew))
+                         (or (exists "LOCALE:Unicode/icudt78b.dat")
+                             (and (exists #jsicu) (= (getsize #jsicu) (getsize #icunew))))))
+                (if #jsok
+                    (
+                        (P_newer "LIBS:javascript.library" "GFOpenBrowser/Libs/javascript.library" "LIBS:" 65536)
+                        (P_newer "C:JS" "GFOpenBrowser/C/JS" "C:" 65536))
+                    (
+                        ; a part-written engine would be the one the browser
+                        ; finds first, and part-written data breaks it: both
+                        ; renamed out of the way (not deleted)
+                        (if (and (exists #jse) (<> (getsize #jse) (getsize #jsenew)))
+                            (rename #jse (cat #jse ".incomplete-" #stamp)))
+                        (if (and (exists #jsicu) (<> (getsize #jsicu) (getsize #icunew)))
+                            (rename #jsicu (cat #jsicu ".incomplete-" #stamp)))
+                        (message (cat "Could not copy javascript.library's engine or its Unicode data to LIBS:JavaScript "
+                                      "(is System: full?), so javascript.library and JS are not installed. "
+                                      "GFOpenBrowser does not need them.") (all))
+                        (transcript "LIBS:JavaScript: copy failed, javascript.library and JS not installed")))))))
 
 (if (not (exists "LIBS:bsdsocket.library"))
     (message (cat "There is no bsdsocket.library: GFOpenBrowser needs a network. "

@@ -22,6 +22,8 @@ set(OB_CORE_SOURCES
     ob_jsoptions.c
     AmigaSessionStorage.cpp
     AmigaWebView.cpp
+    ob_clipboard.c
+    ob_digest.c
     ob_httpcache.c
     ob_scriptcache.c
     ob_tata.c
@@ -114,10 +116,24 @@ endif ()
 # OpenWebFetchAmiga.c is given the client's headers. The native transport
 # reaches gfopentls.library through GFOpenTLS's headers and the datatypes
 # through gfopendatatypes' (wfnet_amiga.c and wfnet_dec.c only).
+# GFOpenTLS's headers come from its own checkout (GFOPENTLS_DIR, or
+# gfopentls beside this repository); this repository keeps no copy.
+set(OB_GFOPENTLS_DIR "$ENV{GFOPENTLS_DIR}")
+if (NOT EXISTS "${OB_GFOPENTLS_DIR}/include/proto/gfopentls.h")
+    set(OB_GFOPENTLS_DIR "${CMAKE_CURRENT_SOURCE_DIR}/../../../gfopentls")
+endif ()
+if (NOT EXISTS "${OB_GFOPENTLS_DIR}/include/proto/gfopentls.h")
+    message(FATAL_ERROR "gfopentls not found at ${OB_GFOPENTLS_DIR}: openweb.fetch's native transport "
+        "needs its include/proto/gfopentls.h. Check out DalsinAI/gfopentls beside this repository or set GFOPENTLS_DIR.")
+endif ()
+# ob_digest.c has gfopencrypto.library work out WebKit's SHA digests (patch
+# 0124); the library's headers are GFOpenTLS's too.
+set_property(SOURCE ob_digest.c APPEND PROPERTY
+    INCLUDE_DIRECTORIES "${OB_GFOPENTLS_DIR}/include")
 file(GLOB OB_WFNET_SOURCES "${OB_OPENSERVICE_DIR}/src/wfnet*.c")
 list(APPEND OB_CORE_SOURCES "${OB_OPENSERVICE_DIR}/src/webfetch.c" ${OB_WFNET_SOURCES})
 set_property(SOURCE "${OB_OPENSERVICE_DIR}/src/wfnet_amiga.c" APPEND PROPERTY
-    INCLUDE_DIRECTORIES "${CMAKE_CURRENT_SOURCE_DIR}/../../third_party/gfopentls/include")
+    INCLUDE_DIRECTORIES "${OB_GFOPENTLS_DIR}/include")
 set_property(SOURCE "${OB_OPENSERVICE_DIR}/src/wfnet_amiga.c" "${OB_OPENSERVICE_DIR}/src/wfnet_dec.c" APPEND PROPERTY
     INCLUDE_DIRECTORIES "${OB_OPENDATATYPES_DIR}/Datatypes/include")
 set_property(SOURCE "${WEBCORE_DIR}/platform/network/amiga/OpenWebFetchAmiga.c" TARGET_DIRECTORY WebCore APPEND PROPERTY
@@ -157,6 +173,26 @@ if (NOT EXISTS "${OB_GFOPENLAYOUT_DIR}/include/inline/gfopenlayout.h" OR NOT EXI
 endif ()
 set_property(DIRECTORY APPEND PROPERTY CMAKE_CONFIGURE_DEPENDS "${OB_GFOPENLAYOUT_DIR}/include/inline/gfopenlayout.h")
 set_property(SOURCE ob_dialogs.c APPEND PROPERTY INCLUDE_DIRECTORIES "${OB_GFOPENLAYOUT_DIR}/include")
+
+# GFOpenGadTools (DalsinAI/gfopengadtools beside this repository, or
+# GFOPENGADTOOLS_DIR): the window's Back, Forward, Reload, Stop and Find
+# buttons are its toolbar with the Chrome icon set (ob_toolbar.c). It is a
+# link library: its files compile into the window's program as they do into
+# the office programs.
+set(OB_GFOPENGADTOOLS_DIR "$ENV{GFOPENGADTOOLS_DIR}")
+if (NOT EXISTS "${OB_GFOPENGADTOOLS_DIR}/lib/ogt_toolbar.c")
+    set(OB_GFOPENGADTOOLS_DIR "${CMAKE_CURRENT_SOURCE_DIR}/../../../gfopengadtools")
+endif ()
+if (NOT EXISTS "${OB_GFOPENGADTOOLS_DIR}/lib/ogt_toolbar.c" OR NOT EXISTS "${OB_GFOPENGADTOOLS_DIR}/lib/ogt_iconset.c")
+    message(FATAL_ERROR "gfopengadtools not found at ${OB_GFOPENGADTOOLS_DIR}: the window's toolbar is "
+        "GFOpenGadTools' (lib/ogt_toolbar.c, lib/ogt_iconset.c). Clone DalsinAI/gfopengadtools beside this "
+        "repository, or set GFOPENGADTOOLS_DIR.")
+endif ()
+set(OB_TOOLBAR_SOURCES ob_toolbar.c)
+foreach (ogt_file ogt_toolbar ogt_draw ogt_theme ogt_icons ogt_font ogt_look ogt_iconset ogt_iconfile)
+    list(APPEND OB_TOOLBAR_SOURCES "${OB_GFOPENGADTOOLS_DIR}/lib/${ogt_file}.c")
+endforeach ()
+set_property(SOURCE ob_toolbar.c ob_browser.c ob_browser_engine.c APPEND PROPERTY INCLUDE_DIRECTORIES "${OB_GFOPENGADTOOLS_DIR}/lib")
 
 set(OB_FRAMEWORKS
     JavaScriptCore
@@ -208,6 +244,22 @@ target_include_directories(OBCompat PRIVATE ${OB_COMPAT_DIR} ${CMAKE_CURRENT_SOU
 # patch 0075): openweb.fetch's native transport opens bsdsocket.library,
 # gfopentls.library and datatypes.library itself, so there is no network or
 # TLS library to link.
+# zlib is z.library (DalsinAI/gfopenzlib, in LIBS: from GFOpenUp), not code in
+# the engine: OBZ is ob_zlib.c, zlib's ten calls WebCore uses passed on to the
+# library. Its headers are GFOpenSDK's (checked out beside this repository, or
+# GFOPENSDK_DIR). build-webcore.sh gives WebKit this archive as its zlib
+# (ZLIB_LIBRARY_RELEASE), so no libz.a is on the link line.
+set(OB_GFOPENSDK_DIR "$ENV{GFOPENSDK_DIR}")
+if (NOT EXISTS "${OB_GFOPENSDK_DIR}/Include/proto/z.h")
+    set(OB_GFOPENSDK_DIR "${CMAKE_CURRENT_SOURCE_DIR}/../../../gfopensdk")
+endif ()
+if (NOT EXISTS "${OB_GFOPENSDK_DIR}/Include/proto/z.h")
+    message(FATAL_ERROR "gfopensdk not found at ${OB_GFOPENSDK_DIR}: the engine calls z.library "
+        "through its Include/proto/z.h. Check out DalsinAI/gfopensdk beside this repository or set GFOPENSDK_DIR.")
+endif ()
+add_library(OBZ STATIC ob_zlib.c)
+set_property(SOURCE ob_zlib.c APPEND PROPERTY INCLUDE_DIRECTORIES "${OB_GFOPENSDK_DIR}/Include")
+
 macro(OB_LINK _target)
     # OB_ICU_DATA=library: icui18n, icuuc and icudata are the library's stubs
     if (OB_ICU_DATA STREQUAL "library")
@@ -221,7 +273,7 @@ macro(OB_LINK _target)
     target_link_libraries(${_target} PRIVATE
         -Wl,--start-group
         OBCore WebCore PAL JavaScriptCore WTF bmalloc
-        z oxp sqlite3
+        OBZ oxp sqlite3
         icui18n icuuc icudata
         amiga pthread atomic stdc++ m
         OBCompat
@@ -278,8 +330,10 @@ set(WebBrowserEngine_SOURCES
     ob_blit.c
     ob_browser_engine.c
     ob_rexx.c
+    ob_filereq.c
     ob_dialogs.c
     ob_splash.c
+    ${OB_TOOLBAR_SOURCES}
 )
 set(WebBrowserEngine_FRAMEWORKS ${OB_FRAMEWORKS})
 set(WebBrowserEngine_PRIVATE_INCLUDE_DIRECTORIES ${OB_PRIVATE_INCLUDE_DIRECTORIES}
@@ -299,8 +353,10 @@ set(OpenBrowser_SOURCES
     ob_blit.c
     ob_browser.c
     ob_rexx.c
+    ob_filereq.c
     ob_dialogs.c
     ob_splash.c
+    ${OB_TOOLBAR_SOURCES}
 )
 set(OpenBrowser_OUTPUT_NAME GFOpenBrowser.engine)
 set(OpenBrowser_FRAMEWORKS ${OB_FRAMEWORKS})

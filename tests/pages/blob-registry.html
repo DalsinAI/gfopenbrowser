@@ -1,0 +1,18 @@
+<!DOCTYPE html><html><head><meta charset="utf-8"><title>zblob start</title></head><body>
+<input type="file" id="f" style="font-size:20px"><pre id="o"></pre>
+<script>
+var out = [], left = 6, t = setTimeout(function () { left = 1; out.push('TIMEOUT'); done(); }, 20000);
+function done() { if (--left) return; clearTimeout(t); document.getElementById('o').textContent = out.join('\n'); document.title = 'zdone ' + out.join(' '); }
+function step(name, f) { try { f(function (r) { out.push(name + '=' + r); done(); }); } catch (e) { out.push(name + '=THROW:' + e); done(); } }
+var b = new Blob(['hello ', 'blob ', 'wörld'], { type: 'text/plain' });
+step('size', function (k) { k(b.size + '/' + b.slice(6, 10).size + '/' + b.type); });
+step('reader', function (k) { var r = new FileReader(); r.onload = function () { k(r.result === 'hello blob wörld' ? 'ok' : 'WRONG:' + r.result); }; r.onerror = function () { k('ERR:' + r.error); }; r.readAsText(b); });
+step('slice', function (k) { b.slice(6, 10).text().then(function (s) { k(s === 'blob' ? 'ok' : 'WRONG:' + s); }, function (e) { k('ERR:' + e); }); });
+step('fetch', function (k) { var u = URL.createObjectURL(b); fetch(u).then(function (r) { return r.text(); }).then(function (s) { k(s === 'hello blob wörld' ? 'ok' : 'WRONG:' + s); }, function (e) { k('ERR:' + e); }); });
+step('worker', function (k) { var w = new Worker(URL.createObjectURL(new Blob(['postMessage(6 + 7)'], { type: 'text/javascript' }))); w.onmessage = function (e) { k(e.data === 13 ? 'ok' : 'WRONG:' + e.data); }; w.onerror = function (e) { k('ERR:' + e.message); }; });
+step('image', function (k) { var gif = atob('R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7'), a = new Uint8Array(gif.length); for (var i = 0; i < gif.length; i++) a[i] = gif.charCodeAt(i);
+  var im = new Image(); im.onload = function () { k(im.naturalWidth === 1 ? 'ok' : 'WRONG:' + im.naturalWidth); }; im.onerror = function () { k('ERR'); }; im.src = URL.createObjectURL(new Blob([a], { type: 'image/gif' })); });
+document.getElementById('f').onchange = function () { var f = this.files[0], r = new FileReader();
+  r.onload = function () { document.title = 'zfile ' + f.name + ' size=' + f.size + ' read=' + r.result.length + ' [' + r.result.substring(0, 16) + ']'; };
+  r.onerror = function () { document.title = 'zfile ' + f.name + ' size=' + f.size + ' ERR ' + r.error; }; r.readAsText(f); };
+</script></body></html>

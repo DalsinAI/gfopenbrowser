@@ -11,7 +11,7 @@ OpenUp 0.8.11 had left opentls.library in LIBS:.
 ## What changed
 
 - `third_party/opentls/include/libraries/opentls.h`: `OPENTLSLIB_NAME` is `"gfopentls.library"`. The API is the
-  same (`third_party/gfopentls` has the renamed headers).
+  same (the renamed headers were in `third_party/gfopentls` then; since 18 November 2026 the engine takes them from the gfopentls checkout).
 - `third_party/openmail/oam_net_amiga.c`: its step and its message name gfopentls.library and GFOpenUp's GFOpenTLS
   part.
 - `$VER: GFOpenBrowserLite 0.4.3 (4.11.2026)`; the readme's Version is 0.4.3.

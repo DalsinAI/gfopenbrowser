@@ -103,7 +103,7 @@ library then needs an engine in `LIBS:WebBrowser` of its own.
 | `WB_Key(view, down, rawKey, text, qualifiers)` | -108 | |
 | `WB_Scroll(view, dx, dy)` | -114 | |
 | `WB_Shutdown()` | -120 | ends the engine |
-| `WB_OpenBrowser(url, tags)` | -126 | GFOpenBrowser's window (1.1); tags `WBA_Scripts`, `WBA_Pictures`, `WBA_WebFonts`, `WBA_Lite` |
+| `WB_OpenBrowser(url, tags)` | -126 | GFOpenBrowser's window (1.1); tags `WBA_Scripts`, `WBA_Pictures`, `WBA_WebFonts`, `WBA_Lite`, `WBA_RunScript` (1.2) |
 
 Headers: `src/webbrowser/include` (`libraries/webbrowser.h`,
 `proto/webbrowser.h`, `inline/webbrowser.h`, `clib/webbrowser_protos.h`).

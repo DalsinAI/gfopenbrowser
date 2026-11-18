@@ -590,6 +590,52 @@ The patches, in order:
   openweb.fetch answers the server's challenge with. Credentials are kept
   for the session by server and realm and tried once without asking;
   three refusals show the 401 page. Synchronous loads go on without.
+- `0121-amiga-clipboard-plain-text.patch`: copy and paste with other
+  programs. The program gives the pasteboard two calls
+  (`obpb_set_system_clipboard()`; GFOpenBrowser's `ob_clipboard.c` reads
+  and writes clipboard.device as IFF FTXT). Plain text written to the
+  pasteboard goes to the clipboard too, and text another program copied
+  since becomes the pasteboard before it is read. Markup stays inside the
+  program, so a copy between pages keeps its formatting.
+- `0122-jsc-m68k-thread-hooks-off-at-exit.patch`: the switch and launch
+  hooks patch 0033 puts on each task that runs JavaScript come
+  off the thread that ends the program (`jsc_m68k_detach_thread()`,
+  called by the last destructor), and what the task had before them goes
+  back. A program started from a Shell runs on the Shell's own
+  process, which lives on: exec went on calling the hooks in the freed
+  program, and the next program loaded there hung the machine.
+- `0123-amiga-websocket-no-channel-fails.patch`: a WebSocket with no
+  channel fails, it does not assert. The port gives pages no WebSocket
+  channel yet (`EmptySocketProvider`, patch 0071), and
+  `WebSocket::connect()` met `RELEASE_ASSERT(m_channel)`: a page that did
+  `new WebSocket(...)` stopped the whole browser. The connection now
+  fails as a blocked one does, with a console message and the error and
+  close events, and the page carries on.
+- `0124-amiga-digests-from-gfopencrypto-library.patch`: SHA-1, SHA-256,
+  SHA-384 and SHA-512 come from gfopencrypto.library. `CryptoDigestAmiga.cpp`
+  (patch 0002) had its own SHA-256 and SHA-512 round functions and used
+  WTF's SHA-1; it now calls the browser's `ob_digest_*` functions
+  (`src/webcore/ob_digest.c`), which pass whole blocks to the library
+  (`OC_SHA1Blocks`, `OC_SHA256Blocks`, `OC_SHA512Blocks`) and keep only the
+  buffering and the padding. Without the library (2.2 or newer) a digest
+  gives an empty hash. MD5 and SHA-1 inside WTF are upstream's classes and
+  stay.
+- `0125-amiga-file-names-are-latin1.patch`: file names go to the filing
+  system as ISO 8859-1, not UTF-8. WTF passed every path as UTF-8, so a
+  file with an accent in its name ("Grün-café.txt") was not found: a
+  page that got it from a file button saw size 0 and FileReader failed.
+  `toStdFileSystemPath`, `fromStdFileSystemPath` (`FileSystem.cpp`),
+  `fileSystemRepresentation` and `stringFromFileSystemRepresentation`
+  (`FileSystemPOSIX.cpp`) convert on `OS(AMIGA)`.
+- `0126-amiga-one-thread-decodes-pictures.patch`: one decoding thread for
+  every picture. Upstream's `ImageFrameWorkQueue` gives each picture a
+  thread of its own that waits until the picture goes, so the port had
+  asynchronous decoding off and decoded on the page's task. On `OS(AMIGA)`
+  the pictures share one `WorkQueue` and each request is one task on it.
+  With it the browser turns `LargeImageAsyncDecodingEnabled` on and paints
+  with `PaintBehavior::DefaultAsynchronousImageDecode`
+  (`src/webcore/AmigaWebView.cpp`): a large picture drawn for the first
+  time decodes off the page's task.
 
 `0001-amiga-m68k-jsconly.patch` is one combined patch. It holds:
 

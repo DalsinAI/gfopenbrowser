@@ -20,7 +20,7 @@
 #include <exec/memory.h>
 #include <dos/dos.h>
 #include <proto/exec.h>
-#include <libraries/openlayout.h>
+#include <libraries/gfopenlayout.h>
 
 #include "weblayout.h"
 

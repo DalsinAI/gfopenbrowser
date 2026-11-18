@@ -20,7 +20,12 @@
 #endif
 
 #include <JavaScriptCore/InitializeThreading.h>
+#include <JavaScriptCore/JSCJSValueInlines.h>
+#include <JavaScriptCore/JSLock.h>
 #include <JavaScriptCore/Options.h>
+#include <JavaScriptCore/SourceTaintedOrigin.h>
+#include <WebCore/DOMWrapperWorld.h>
+#include <WebCore/JSDOMGlobalObject.h>
 #include <WebCore/DocumentPage.h>
 #include <WebCore/DocumentView.h>
 #include <WebCore/FrameDestructionObserverInlines.h>
@@ -39,6 +44,7 @@
 #include <WebCore/PlatformKeyboardEvent.h>
 #include <WebCore/PlatformMouseEvent.h>
 #include <WebCore/PlatformWheelEvent.h>
+#include <WebCore/ScriptController.h>
 #include <WebCore/ScrollingCoordinatorTypes.h>
 #include <WebCore/WebCoreJITOperations.h>
 #include <WebCore/WindowsKeyboardCodes.h>
@@ -54,6 +60,7 @@
 #include <wtf/RunLoop.h>
 #include <wtf/TZoneMallocInlines.h>
 #include <wtf/text/MakeString.h>
+#include <wtf/text/StringBuilder.h>
 
 namespace WTF {
 // RunLoopGeneric.cpp (OS(AMIGA)): the next timer on the clock below, -1 for
@@ -333,6 +340,71 @@ int ob_webview_text(OBWebView* handle, char* buffer, int size)
         buffer[length] = 0;
     }
     return static_cast<int>(text.length());
+}
+
+template<typename Text> static int copyOut(const Text& text, char* buffer, int size)
+{
+    if (buffer && size > 0) {
+        int length = std::min<int>(text.length(), size - 1);
+        // not in the middle of a character
+        while (length > 0 && length < static_cast<int>(text.length()) && (text.data()[length] & 0xc0) == 0x80)
+            length--;
+        memcpy(buffer, text.data(), length);
+        buffer[length] = 0;
+    }
+    return static_cast<int>(text.length());
+}
+
+int ob_webview_source(OBWebView* handle, char* buffer, int size)
+{
+    auto* frame = handle->view->mainFrame();
+    RefPtr document = frame ? frame->document() : nullptr;
+    RefPtr root = document ? document->documentElement() : nullptr;
+    if (buffer && size > 0)
+        buffer[0] = 0;
+    if (!root)
+        return 0;
+    return copyOut(protect(*root)->outerHTML().utf8(), buffer, size);
+}
+
+int ob_webview_run_script(OBWebView* handle, const char* script, char* buffer, int size)
+{
+    if (buffer && size > 0)
+        buffer[0] = 0;
+    RefPtr frame = handle->view->mainFrame();
+    if (!frame || !script)
+        return 0;
+    if (!frame->script().canExecuteScripts(ReasonForCallingCanExecuteScripts::NotAboutToExecuteScript))
+        return -1;
+    // The script runs in a wrapper that catches what it throws (a syntax
+    // error too), so the caller hears why: "v" and the value, or "e" and
+    // the error.
+    StringBuilder source;
+    source.append("(function(){try{var v=(0,eval)(\""_s);
+    String text = String::fromUTF8(script);
+    for (unsigned i = 0; i < text.length(); i++) {
+        char16_t c = text[i];
+        switch (c) {
+        case '\\': source.append("\\\\"_s); break;
+        case '"': source.append("\\\""_s); break;
+        case '\n': source.append("\\n"_s); break;
+        case '\r': source.append("\\r"_s); break;
+        case 0x2028: source.append("\\u2028"_s); break;
+        case 0x2029: source.append("\\u2029"_s); break;
+        default: source.append(c);
+        }
+    }
+    source.append("\");return 'v'+(v===undefined||v===null?'':String(v));}catch(e){return 'e'+String(e);}})()"_s);
+    JSC::JSValue value = frame->script().executeScriptIgnoringException(source.toString(), JSC::SourceTaintedOrigin::Untainted);
+    auto* global = frame->script().globalObject(mainThreadNormalWorldSingleton());
+    if (!value || !value.isString() || !global) {
+        copyOut(String("the script could not run"_s).utf8(), buffer, size);
+        return 0;
+    }
+    JSC::JSLockHolder lock(global);
+    String answer = value.toWTFString(global);
+    copyOut(answer.substring(1).utf8(), buffer, size);
+    return answer.startsWith('v');
 }
 
 void ob_webview_report_display_list(OBWebView* handle, unsigned char* direct, unsigned char* replayed, int stride,

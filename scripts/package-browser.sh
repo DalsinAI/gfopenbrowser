@@ -65,9 +65,11 @@
 #                  takes JavaScriptCore from JavaScriptEngine, packed beside
 #                  it as Libs/JavaScript/JavaScriptEngine. 0: the engine
 #                  with its own JavaScriptCore (bin/WebBrowserEngine)
-#   EXTRAS         optional: a folder with Libs/javascript.library,
-#                  Libs/JavaScript/JavaScriptEngine, C/JS and
-#                  Libs/json.library, which the Installer offers
+#   JS_LIB_DIR     scripts/build-javascript-library.sh's output folder
+#                  (default build/javascript-library): javascript.library
+#                  and JS, packed with a jsimage engine, whose
+#                  JavaScriptEngine is the one the library runs. The
+#                  Installer puts them in LIBS: and C: when missing or older
 #
 # OUT_DIR/GFOpenBrowser/            the drawer: GFOpenBrowser (the launcher),
 #                                 Libs/ (webbrowser.library, GFOpenTLS,
@@ -76,14 +78,14 @@
 #                                 unicode.library, z.library and WebBrowser/: the engine with Fonts/,
 #                                 Tata.ads, Unicode/ and Network/, and
 #                                 with a jsimage engine JavaScript/
-#                                 JavaScriptEngine),
+#                                 JavaScriptEngine and javascript.library),
+#                                 C/JS (with a jsimage engine),
 #                                 Classes/DataTypes/ and Devs/DataTypes/
 #                                 (stream, gzip and brotli), S/GFOpenTLS/,
 #                                 Install, icons and readme
 # OUT_DIR/GFOpenBrowser.info        the drawer's icon
 # OUT_DIR/Install-GFOpenBrowser     the Installer script (SYS:System/Installer),
 # OUT_DIR/Install-GFOpenBrowser.info  and its icon: double-click to install
-# OUT_DIR/Extras/                 when EXTRAS is set
 # OUT_DIR.lha                     the archive, beside OUT_DIR
 #
 # One engine: WebBrowserEngine, which webbrowser.library starts and which has
@@ -109,6 +111,28 @@ for f in "$BIN/GFOpenBrowser" "$BIN/WebBrowserEngine" "$ICU_DATA" "$WBLIB" \
          "$OPENTLS_LIBS/gfopentls.library" "$OPENTLS_LIBS/gfopencrypto.library" "$CA_BUNDLE/ca-bundle.pem"; do
     [ -f "$f" ] || { echo "missing: $f" >&2; exit 1; }
 done
+# gfopencrypto.library 2.2 or newer: the engine takes its SHA digests from
+# it (src/webcore/ob_digest.c), and with an older one every digest is empty
+CRYPTOVER=$(LC_ALL=C grep -a -o '\$VER: gfopencrypto.library [0-9]*\.[0-9]*' "$OPENTLS_LIBS/gfopencrypto.library" | head -1 | sed 's/.* //')
+case "$CRYPTOVER" in
+    ''|0.*|1.*|2.0|2.1) echo "package-browser.sh: $OPENTLS_LIBS/gfopencrypto.library is ${CRYPTOVER:-of no version this can read}; the engine needs 2.2 or newer" >&2; exit 1 ;;
+esac
+# webbrowser.library not older than this tree's source: WEBBROWSER_LIB may
+# name a library built earlier, and an old one fails quietly (with 1.1 the
+# RUNSCRIPT=NO tool type does nothing, the switch came in 1.2)
+WBWANT=$(sed -n 's/.*\$VER: webbrowser.library \([0-9]*\.[0-9]*\).*/\1/p' "$HERE/src/webbrowser/wb_library.c" | head -1)
+WBVER=$(LC_ALL=C grep -a -o '\$VER: webbrowser.library [0-9]*\.[0-9]*' "$WBLIB" | head -1 | sed 's/.* //')
+case "$WBWANT" in
+    *.*) ;;
+    *) echo "package-browser.sh: src/webbrowser/wb_library.c gives no version" >&2; exit 1 ;;
+esac
+case "$WBVER" in
+    *.*) ;;
+    *) echo "package-browser.sh: $WBLIB is of no version this can read; the package needs webbrowser.library $WBWANT or newer" >&2; exit 1 ;;
+esac
+if [ "${WBVER%.*}" -lt "${WBWANT%.*}" ] || { [ "${WBVER%.*}" -eq "${WBWANT%.*}" ] && [ "${WBVER#*.}" -lt "${WBWANT#*.}" ]; }; then
+    echo "package-browser.sh: $WBLIB is $WBVER; the package needs webbrowser.library $WBWANT or newer (build src/webbrowser again)" >&2; exit 1
+fi
 rm -rf "$OUT"; mkdir -p "$OUT"
 D="$OUT/GFOpenBrowser"; E="$D/Libs/WebBrowser"
 mkdir -p "$D/S/GFOpenTLS" "$E/Fonts" "$E/Unicode"
@@ -126,14 +150,48 @@ if [ "${OB_JSIMAGE:-}" != 0 ] && [ -f "$JSI/WebBrowserEngine/WebBrowserEngine" ]
     "$STRIP" -o "$E/WebBrowserEngine" "$JSI/WebBrowserEngine/WebBrowserEngine"
     "$STRIP" -o "$D/Libs/JavaScript/JavaScriptEngine" "$JSI/JavaScriptEngine"
     echo "engine: jsimage client, with Libs/JavaScript/JavaScriptEngine"
+    # javascript.library (JavaScript for any program) and JS, its Shell
+    # command: the library runs the same JavaScriptEngine, so the package
+    # has all it needs. The Installer puts them in LIBS: and C:
+    JSLIBDIR=${JS_LIB_DIR:-"$HERE/build/javascript-library"}
+    for f in javascript.library JS; do
+        [ -f "$JSLIBDIR/$f" ] || { echo "package-browser.sh: no $JSLIBDIR/$f (scripts/build-javascript-library.sh, or set JS_LIB_DIR)" >&2; exit 2; }
+    done
+    mkdir -p "$D/C"
+    cp "$JSLIBDIR/javascript.library" "$D/Libs/javascript.library"
+    cp "$JSLIBDIR/JS" "$D/C/JS"
 elif [ "${OB_JSIMAGE:-}" = 1 ]; then
     echo "OB_JSIMAGE=1, but $JSI has no current client (build-webcore.sh jsimage)" >&2; exit 1
 else
     "$STRIP" -o "$E/WebBrowserEngine" "$BIN/WebBrowserEngine"
+    echo "engine: with its own JavaScriptCore; javascript.library is not packed (it needs the jsimage JavaScriptEngine)"
 fi
 cp "$WBLIB" "$D/Libs/"
 cp "$OB_FONTS"/*.ttf "$E/Fonts/"
 cp "$HERE/src/webcore/Tata.ads" "$E/"
+# the toolbar's pictures: the Chrome icon set's strips, which GFOpenGadTools
+# reads from PROGDIR:Images/Toolbar/ (then SYS:Prefs/Presets/Toolbar/). They
+# are built from gfopengadtools' sources (python3 with Pillow, numpy and
+# librsvg); without them the buttons show GFOpenGadTools' drawn icons, as
+# they do on a four-colour screen. OB_TOOLBAR_STRIPS names a folder of built
+# strips to take instead; OB_TOOLBAR_STRIPS=0 packs none.
+OGT=${GFOPENGADTOOLS_DIR:-"$HERE/../gfopengadtools"}
+STRIPS=${OB_TOOLBAR_STRIPS:-}
+if [ "$STRIPS" = 0 ]; then
+    echo "toolbar: no icon strips packed (OB_TOOLBAR_STRIPS=0); the buttons show the drawn icons"
+else
+    if [ -z "$STRIPS" ]; then
+        [ -f "$OGT/tools/iconset/make_iconset.py" ] || { echo "package-browser.sh: no tools/iconset/make_iconset.py in $OGT (set GFOPENGADTOOLS_DIR to gfopengadtools' checkout, or OB_TOOLBAR_STRIPS)" >&2; exit 2; }
+        STRIPS="$OUT/toolbar-strips"
+        rm -rf "$STRIPS"
+        python3 "$OGT/tools/iconset/make_iconset.py" --out "$STRIPS" >/dev/null ||
+            { echo "package-browser.sh: the icon strips did not build (python3 with Pillow, numpy and librsvg; OB_TOOLBAR_STRIPS=0 packs none)" >&2; exit 2; }
+    fi
+    ls "$STRIPS"/*.ilbm >/dev/null 2>&1 || { echo "package-browser.sh: no .ilbm strips in $STRIPS" >&2; exit 2; }
+    mkdir -p "$E/Images/Toolbar"
+    cp "$STRIPS"/*.ilbm "$E/Images/Toolbar/"
+    echo "toolbar: $(ls "$E/Images/Toolbar" | wc -l) icon strips in Libs/WebBrowser/Images/Toolbar"
+fi
 cp "$ICU_DATA" "$E/Unicode/icudt78b.dat"
 # the Public Suffix List for cookies and sites (WebKit patch 0070), read from
 # PROGDIR:Network/public-suffixes
@@ -207,9 +265,10 @@ fi
 cp "$CA_BUNDLE/ca-bundle.pem" "$D/S/GFOpenTLS/"
 [ -f "$CA_BUNDLE/ca-bundle.LICENSE" ] && cp "$CA_BUNDLE/ca-bundle.LICENSE" "$D/S/GFOpenTLS/"
 cp "$HERE/dist/GFOpenBrowser/Install" "$D/Install"
+mkdir -p "$D/Rexx"
+cp "$HERE/dist/GFOpenBrowser/Rexx/SpeedTest.rexx" "$D/Rexx/"
 cp "$HERE/icons/GFOpenBrowser.info" "$OUT/GFOpenBrowser.info"
 cp "$HERE/dist/Install-GFOpenBrowser" "$HERE/dist/Install-GFOpenBrowser.info" "$OUT/"
-if [ -n "${EXTRAS:-}" ]; then cp -R "$EXTRAS" "$OUT/Extras"; fi
 cp "$HERE/icons/GFOpenBrowser/GFOpenBrowser.info" "$HERE/icons/GFOpenBrowser/GFOpenBrowser.readme.info" "$D/"
 cp "$HERE/openbrowser.readme" "$D/GFOpenBrowser.readme"
 cp "$HERE/THIRD_PARTY_NOTICES.md" "$HERE/LICENSE" "$D/"
