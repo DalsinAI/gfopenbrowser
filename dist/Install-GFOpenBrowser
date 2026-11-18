@@ -2,7 +2,8 @@
 ; GFOpenBrowser's Installer script (SYS:System/Installer). Run it from its icon
 ; beside the GFOpenBrowser drawer; from a Shell, "Execute Install" in the drawer
 ; does the same without questions. Nothing is deleted: a file it would
-; replace is renamed, and the closing message says how to undo.
+; replace is renamed, and the closing message says how to undo. (One file is
+; replaced: LIBS:JavaScript/JavaScriptEngine, see step 5.)
 ; MIT, Copyright (c) 2026 AmiCradle Team.
 
 (set #version "0.9.0 RC4 (18.11.2026)")
@@ -40,15 +41,6 @@
 (if (< (getdiskspace #where) #need)
     (abort (cat #where " has " (/ (getdiskspace #where) 1048576) " MB free, and GFOpenBrowser needs about "
                 (/ #need 1048576) " MB. Choose another place, or make room, and run the Installer again.")))
-
-; The extras: libraries other programs can use. Not needed by the browser.
-(set #extras
-    (askoptions
-        (prompt "Also install these? GFOpenBrowser does not need them.")
-        (help (cat "javascript.library runs JavaScript for any program; it puts about 38 MB "
-                   "in LIBS:JavaScript. JS runs a script from the Shell."))
-        (choices "javascript.library and JS (about 38 MB in LIBS:)")
-        (default 0)))
 
 ; 1. The drawer and its icon. Over an older version's drawer: its engines
 ;    are renamed .before-<stamp> first (kept, not overwritten); 0.8.0 and
@@ -271,24 +263,44 @@
                 (abort "Could not rename LIBS:WebBrowser/WebBrowserEngine. Nothing else was changed in LIBS:WebBrowser."))
             (set #renamed 1))))
 
-; 5. The extras
-(if (bitand #extras 1)
+; 5. javascript.library 1.0 or newer in LIBS: and JS in C:, when missing or
+;    older (an older one is renamed .before-<stamp>): JavaScript for any
+;    program, and from the Shell. The library runs
+;    LIBS:JavaScript/JavaScriptEngine, the same file the browser's engine
+;    takes JavaScriptCore from (it looks there first, then in its drawer),
+;    so that file must be this package's: one of another size is replaced,
+;    not kept, as an older image is of no use to this engine. It is about
+;    21 MB: when LIBS: has no room for it and 2,000,000 bytes more, nothing
+;    of this step is installed and the browser uses its drawer's copy.
+(set #jse "LIBS:JavaScript/JavaScriptEngine")
+(set #jsenew "GFOpenBrowser/Libs/JavaScript/JavaScriptEngine")
+(if (and (exists "GFOpenBrowser/Libs/javascript.library") (exists #jsenew))
     (
-        (copyfiles (source "Extras/Libs/javascript.library") (dest "LIBS:") (nogauge))
-        (makedir "LIBS:JavaScript")
-        (copyfiles (source "Extras/Libs/JavaScript") (dest "LIBS:JavaScript") (all))
-        ; a browser engine that takes JavaScriptCore from JavaScriptEngine
-        ; looks in LIBS:JavaScript first: its own image goes there, so the
-        ; engine and javascript.library use one file
-        (if (exists "GFOpenBrowser/Libs/JavaScript/JavaScriptEngine")
-            (copyfiles (source "GFOpenBrowser/Libs/JavaScript/JavaScriptEngine") (dest "LIBS:JavaScript") (nogauge)))
-        ; JavaScriptEngine reads ICU's data from LOCALE:Unicode, or else
-        ; from its own drawer
-        (if (not (exists "LOCALE:Unicode/icudt78b.dat"))
+        (set #jsfree (getdiskspace "LIBS:"))
+        (set #jsneed (+ (getsize #jsenew) 2000000))
+        (set #jssame (and (exists #jse) (= (getsize #jse) (getsize #jsenew))))
+        (if (and (not #jssame) (> #jsfree 0) (<= #jsfree #jsneed))
             (
-                (makedir "LIBS:JavaScript/Unicode")
-                (copyfiles (source "GFOpenBrowser/Libs/WebBrowser/Unicode") (dest "LIBS:JavaScript/Unicode") (all) (nogauge))))
-        (copyfiles (source "Extras/C/JS") (dest "C:") (nogauge))))
+                (message (cat "LIBS: has " #jsfree " bytes free, and javascript.library's engine needs " #jsneed
+                              " (the file and 2,000,000 bytes more), so javascript.library and JS are not "
+                              "installed. GFOpenBrowser does not need them.") (all))
+                ; an image left from an older version would be the one the
+                ; browser's engine finds first: out of its way, kept
+                (if (exists #jse)
+                    (rename #jse (cat #jse ".before-" #stamp))))
+            (
+                (makedir "LIBS:JavaScript")
+                (if (not #jssame)
+                    (copyfiles (source #jsenew) (dest "LIBS:JavaScript") (nogauge)
+                        (prompt "Installing javascript.library's engine") (help @copyfiles-help)))
+                ; JavaScriptEngine reads ICU's data from LOCALE:Unicode, or else
+                ; from its own drawer
+                (if (not (exists "LOCALE:Unicode/icudt78b.dat"))
+                    (
+                        (makedir "LIBS:JavaScript/Unicode")
+                        (copyfiles (source "GFOpenBrowser/Libs/WebBrowser/Unicode") (dest "LIBS:JavaScript/Unicode") (all) (nogauge))))
+                (P_newer "LIBS:javascript.library" "GFOpenBrowser/Libs/javascript.library" "LIBS:" 65536)
+                (P_newer "C:JS" "GFOpenBrowser/C/JS" "C:" 65536)))))
 
 (if (not (exists "LIBS:bsdsocket.library"))
     (message (cat "There is no bsdsocket.library: GFOpenBrowser needs a network. "
