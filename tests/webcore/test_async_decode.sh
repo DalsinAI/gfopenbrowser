@@ -39,6 +39,17 @@ ok 'grep -q "view->setPaintBehavior(behavior | PaintBehavior::DefaultAsynchronou
 ok 'grep -A1 "view->setPaintBehavior(behavior | PaintBehavior::DefaultAsynchronousImageDecode);" "$V" | grep -q "view->paint(context, area);"' "around the window paint"
 ok 'grep -q "            view->setPaintBehavior(behavior);" "$V"' "and the behaviour is put back"
 ok '[ "$(grep -c "DefaultAsynchronousImageDecode" "$V")" -eq 1 ]' "the recording paint (paint report) stays synchronous"
+# the service decoder now runs on the decoding thread too: quitting must wait for a decode in flight
+M="$ROOT/src/webcore/ob_media.c"
+DEC=$(sed -n '/^static int serviceDecode/,/^}/p' "$M")
+CLO=$(sed -n '/^void ob_media_close/,/^}/p' "$M")
+ok 'echo "$DEC" | grep -q "ObtainSemaphoreShared(&decodeLock);"' "a decode holds the lock shared"
+ok '[ "$(echo "$DEC" | grep -c "ReleaseSemaphore(&decodeLock);")" -eq 1 ] && [ "$(echo "$DEC" | grep -c "return")" -eq 2 ]' "and lets go on its one way out"
+ok 'echo "$DEC" | sed -n "/ObtainSemaphoreShared/,\$p" | grep -q "if (opened"' "it looks for the open device with the lock held"
+ok 'echo "$CLO" | grep -q "    ObtainSemaphore(&decodeLock);"' "closing takes the lock alone"
+ok '[ "$(echo "$CLO" | grep -n "ObtainSemaphore(&decodeLock)" | cut -d: -f1)" -lt "$(echo "$CLO" | grep -n "CloseDevice" | cut -d: -f1)" ]' "before the device is closed"
+ok '[ "$(echo "$CLO" | grep -n "ReleaseSemaphore(&decodeLock)" | cut -d: -f1)" -gt "$(echo "$CLO" | grep -n "opened = NULL" | cut -d: -f1)" ]' "and lets go after the request is gone"
+ok 'grep -q "InitSemaphore(&decodeLock);" "$M"' "the lock is set up before the decoder is given out"
 ok '[ -f "$ROOT/tests/pages/async-decode.html" ] && grep -q "longest" "$ROOT/tests/pages/async-decode.html"' "the lab page is in tests/pages"
 
 echo "test_async_decode: $pass passed, $fail failed"

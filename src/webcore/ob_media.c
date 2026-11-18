@@ -11,6 +11,7 @@
 #include <string.h>
 #include <exec/types.h>
 #include <exec/io.h>
+#include <exec/semaphores.h>
 #include <proto/exec.h>
 
 #include "devices/gfopenservice.h"
@@ -33,6 +34,16 @@ extern void obdt_set_service_decoder(OBDTServiceDecoder);
 static struct MsgPort *openPort;
 static struct OSRequest *opened;
 static UWORD handle;
+
+/* Pictures are decoded on WebCore's decoding thread as well as on the
+ * page's task (WebKit patch 0126), and the program can be told to quit
+ * while a decode waits for the service. A decode holds this shared;
+ * ob_media_close() takes it alone, so it waits for decodes in flight
+ * before it closes the device and frees the request they copy from, and
+ * a decode that comes later finds nothing open and leaves the picture to
+ * the datatypes. */
+static struct SignalSemaphore decodeLock;
+static int decodeLockReady;
 
 static LONG call(UWORD op, const void *data, ULONG size, void *out, ULONG room, ULONG *result, ULONG *aux)
 {
@@ -67,32 +78,37 @@ static LONG call(UWORD op, const void *data, ULONG size, void *out, ULONG room, 
 static int serviceDecode(const void *data, unsigned long size, OBDTImage *out)
 {
     ULONG info[6], width, height, w, h;
-    unsigned char *pixels;
-    if (!opened || !size)
+    unsigned char *pixels = NULL;
+    int done = 0;
+    if (!size)
         return 0;
-    if (call(MD_PROBE, data, size, info, sizeof info, &width, &height) != OSERR_OK || info[0] != 1)
-        return 0;
-    w = info[4];
-    h = info[5];
-    if (!w || !h || w > MD_LARGEST || h > MD_LARGEST)
-        return 0;
-    pixels = malloc(w * h * 4);
-    if (!pixels)
-        return 0;
-    if (call(MD_DECODE, data, size, pixels, w * h * 4, &width, &height) != OSERR_OK || width != w || height != h) {
-        free(pixels);
-        return 0;
+    ObtainSemaphoreShared(&decodeLock);
+    if (opened
+        && call(MD_PROBE, data, size, info, sizeof info, &width, &height) == OSERR_OK && info[0] == 1) {
+        w = info[4];
+        h = info[5];
+        if (w && h && w <= MD_LARGEST && h <= MD_LARGEST && (pixels = malloc(w * h * 4)) != NULL) {
+            if (call(MD_DECODE, data, size, pixels, w * h * 4, &width, &height) == OSERR_OK && width == w && height == h) {
+                out->width = w;
+                out->height = h;
+                out->hasAlpha = info[2] & 1;
+                out->pixels = pixels;
+                done = 1;
+            } else
+                free(pixels);
+        }
     }
-    out->width = w;
-    out->height = h;
-    out->hasAlpha = info[2] & 1;
-    out->pixels = pixels;
-    return 1;
+    ReleaseSemaphore(&decodeLock);
+    return done;
 }
 
 int ob_media_open(void)
 {
     static const char name[] = "media.decode/1";
+    if (!decodeLockReady) {
+        InitSemaphore(&decodeLock);
+        decodeLockReady = 1;
+    }
     if (opened)
         return 1;
     openPort = CreateMsgPort();
@@ -124,6 +140,8 @@ void ob_media_close(void)
     if (!opened)
         return;
     obdt_set_service_decoder(NULL);
+    /* wait for every decode in flight (see decodeLock) */
+    ObtainSemaphore(&decodeLock);
     if (handle) {
         opened->os_Req.io_Command = OSCMD_CLOSE;
         opened->os_Service = handle;
@@ -135,4 +153,5 @@ void ob_media_close(void)
     opened = NULL;
     openPort = NULL;
     handle = 0;
+    ReleaseSemaphore(&decodeLock);
 }
