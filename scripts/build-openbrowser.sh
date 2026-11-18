@@ -4,8 +4,11 @@
 #
 # GFOpenBrowser Lite, the GadTools browser, for AmigaOS 3.2 on a 68040 with
 # its FPU (-m68040 -m68881; not an LC or EC040). Its page engine is
-# weblayout (src/weblayout) on GFOpenLayout (DalsinAI/gfopenlayout); TLS is
-# GFOpenTLS, whose API headers are in third_party/opentls (no AmiSSL).
+# weblayout.library 1 (src/weblayout, scripts/build-weblayout-library.sh),
+# which the program opens from LIBS: or its drawer's Libs and which opens
+# gfopenlayout.library (DalsinAI/gfopenlayout): neither is built into the
+# program. TLS is GFOpenTLS, whose API headers are in third_party/opentls
+# (no AmiSSL).
 #
 #   build-openbrowser.sh [OUT_DIR]          (default build/os3)
 #
@@ -15,12 +18,8 @@
 #                   (default ~/AmiCradle/stoves/os32-gcc16)
 #   NDK_INCLUDE     GFOpenNDK's Include_H (gfopensdk OpenNDK/Include_H); not
 #                   needed with a stove that carries the NDK
-#   OPENLAYOUT_SRC  a gfopenlayout checkout (default ../gfopenlayout)
-#   OPENLAYOUT      static (default: GFOpenLayout built in) or library (the
-#                   resident gfopenlayout.library 2, from LIBS:)
-#   WEBLAYOUT       linked (default: the engine built into the program) or
-#                   library (the program opens LIBS:weblayout.library 1; build
-#                   that with scripts/build-weblayout-library.sh)
+#   OPENLAYOUT_SRC  a gfopenlayout checkout, for its headers (default
+#                   ../gfopenlayout)
 #   TESTS           1: the Amiga test programs as well (OUT_DIR/tests)
 set -eu
 HERE=$(CDPATH= cd -- "$(dirname -- "$0")/.." && pwd)
@@ -37,37 +36,24 @@ OM="$HERE/third_party/openmail"
 OT="$HERE/third_party/opentls/include"
 WL="$HERE/src/weblayout"
 [ -x "$CC" ] || { echo "build-openbrowser.sh: no compiler at $CC (set TOOLCHAIN_DIR or STOVE)" >&2; exit 2; }
-[ -f "$OL/src/openlayout.c" ] || { echo "build-openbrowser.sh: no GFOpenLayout at $OL (set OPENLAYOUT_SRC)" >&2; exit 2; }
+[ -f "$OL/include/gfopenlayout.h" ] || { echo "build-openbrowser.sh: no GFOpenLayout at $OL (set OPENLAYOUT_SRC)" >&2; exit 2; }
 
 # 68040 with its FPU, libnix; address 0 is real memory on the Amiga
 CPU="-m68040 -m68881 -mcrt=nix20"
 CFLAGS="$CPU -std=gnu99 -O2 -fno-delete-null-pointer-checks -fno-common -Wall -Wextra -Werror"
-INC="-I$HERE/src -I$WL -I$OM -I$OT -I$OL/include"
+INC="-I$HERE/src -I$WL -I$WL/library/sdk/Include_H -I$OM -I$OT -I$OL/include"
 [ -n "${NDK_INCLUDE:-}" ] && INC="$INC -I$NDK_INCLUDE"
-case "${OPENLAYOUT:-static}" in
-    static)  LAYOUT="$OL/src/openlayout.c"; LDEF="" ;;
-    library) LAYOUT=""; LDEF="-DWL_USE_OPENLAYOUT_LIBRARY=1" ;;
-    *) echo "build-openbrowser.sh: OPENLAYOUT is static or library" >&2; exit 2 ;;
-esac
 # the engine's allocator and its own C library calls
 RT="$WL/wl_mem.c $WL/wl_libc.c"
 mkdir -p "$OUT"
 
-# GFOpenBrowserLite: the window (src/ob_main.c), HTTP (src/ob_http.c), weblayout,
-# GFOpenLayout and GFOpenMail's network layer
-case "${WEBLAYOUT:-linked}" in
-    linked)
-        "$CC" $CFLAGS $LDEF $INC \
-            "$HERE"/src/ob_main.c "$HERE"/src/ob_http.c "$WL"/*.c $LAYOUT "$OM"/*.c \
-            -lamiga -o "$OUT/GFOpenBrowserLite" ;;
-    library)
-        # weblayout and GFOpenLayout are in LIBS:; the program keeps only the
-        # address resolver its HTTP layer follows redirects with
-        "$CC" $CFLAGS -DOB_WEBLAYOUT_LIBRARY $INC -I"$WL/library/sdk/Include_H" \
-            "$HERE"/src/ob_main.c "$HERE"/src/ob_http.c "$WL/wl_url.c" $RT "$OM"/*.c \
-            -lamiga -o "$OUT/GFOpenBrowserLite" ;;
-    *) echo "build-openbrowser.sh: WEBLAYOUT is linked or library" >&2; exit 2 ;;
-esac
+# GFOpenBrowserLite: the window (src/ob_main.c), HTTP (src/ob_http.c) and
+# GFOpenMail's network layer. weblayout and GFOpenLayout are libraries; the
+# program keeps only the address resolver its HTTP layer follows redirects
+# with.
+"$CC" $CFLAGS $INC \
+    "$HERE"/src/ob_main.c "$HERE"/src/ob_http.c "$WL/wl_url.c" $RT "$OM"/*.c \
+    -lamiga -o "$OUT/GFOpenBrowserLite"
 echo "$OUT/GFOpenBrowserLite ($(wc -c < "$OUT/GFOpenBrowserLite") bytes)"
 
 # obfetch: the same HTTP/HTTPS engine from a Shell, without the window or
@@ -80,11 +66,6 @@ echo "$OUT/obfetch ($(wc -c < "$OUT/obfetch") bytes)"
 if [ "${TESTS:-0}" = 1 ]; then
     T="$OUT/tests"
     mkdir -p "$T"
-    # HTML Lite and CSS Lite on the Amiga (the same tests as tests/run-host-tests.sh)
-    "$CC" $CFLAGS $INC "$WL/wl_html.c" "$WL/wl_css.c" $RT "$OL/src/openlayout.c" \
-        "$HERE/tests/test_wl_html.c" -o "$T/HTMLLiteTest"
-    "$CC" $CFLAGS $INC "$WL/wl_css.c" $RT "$OL/src/openlayout.c" \
-        "$HERE/tests/test_wl_css.c" -o "$T/CSSLiteTest"
     # a picture through picture.datatype: DTImageTest <picture>
     "$CC" $CFLAGS $INC "$WL/wl_image_dt.c" "$HERE/tests/test_wl_image_dt.c" \
         -lamiga -o "$T/DTImageTest"

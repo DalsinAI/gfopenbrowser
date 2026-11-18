@@ -27,6 +27,9 @@ FLAGS="-O2 -std=c99 -Wall -Wextra -Werror -pedantic"
 [ "${SANITIZE:-0}" = 1 ] && FLAGS="$FLAGS -g -fsanitize=address,undefined -fno-sanitize-recover=all"
 mkdir -p "$OUT"
 RT="$WL/wl_mem.c $WL/wl_libc.c"     # weblayout's allocator and its own C library calls
+# GFOpenLayout's source, compiled in on the host only (there is no
+# gfopenlayout.library here); the Amiga programs open the library
+OLSRC="$OL/src/openlayout.c $OL/src/openlayout_css.c $OL/src/gfcss_parse.c $OL/src/gfcss_select.c $OL/src/gfcss_values.c"
 # the engine's frame loader client never calls back into HistoryController's restore
 sh "$HERE/tests/webcore/test_frame_loader_client.sh"
 sh "$HERE/tests/webcore/test_engine_allocator.sh"
@@ -37,16 +40,16 @@ OUT="$OUT/task-hooks-off" sh "$HERE/tests/webcore/test_task_hooks_off.sh"
 # webbrowser.library's wait for its engine: it stops when the engine's process ended with no engine
 "$CC" $FLAGS -I"$HERE/src/webbrowser" "$HERE/tests/test_wb_engine_wait.c" -o "$OUT/test_wb_engine_wait"
 "$OUT/test_wb_engine_wait"
-"$CC" $FLAGS -I"$WL" -I"$OL/include" "$WL/wl_html.c" "$WL/wl_css.c" $RT "$OL/src/openlayout.c" \
+"$CC" $FLAGS -I"$WL" -I"$OL/include" "$WL/wl_html.c" "$WL/wl_css.c" $RT $OLSRC \
     "$HERE/tests/test_wl_html.c" -o "$OUT/test_wl_html"
-"$CC" $FLAGS -I"$WL" -I"$OL/include" "$WL/wl_css.c" $RT "$OL/src/openlayout.c" \
+"$CC" $FLAGS -I"$WL" -I"$OL/include" "$WL/wl_css.c" $RT $OLSRC \
     "$HERE/tests/test_wl_css.c" -o "$OUT/test_wl_css"
 "$CC" $FLAGS -I"$WL" "$WL/wl_url.c" $RT "$HERE/tests/test_wl_url.c" -o "$OUT/test_wl_url"
 "$CC" $FLAGS -I"$WL" "$WL/wl_text.c" $RT "$HERE/tests/test_wl_libc.c" -o "$OUT/test_wl_libc"
 OM="$HERE/third_party/openmail"     # strncasecmp: POSIX
 "$CC" $FLAGS -D_DEFAULT_SOURCE -I"$HERE/tests/host" -I"$WL" -I"$OM" -I"$OL/include" \
     "$WL/wl_document.c" "$WL/wl_paint.c" "$WL/wl_html.c" "$WL/wl_css.c" "$WL/wl_url.c" \
-    "$WL/wl_text.c" $RT "$OL/src/openlayout.c" \
+    "$WL/wl_text.c" $RT $OLSRC \
     "$HERE/tests/test_wl_document.c" -o "$OUT/test_wl_document"
 "$CC" $FLAGS -D_DEFAULT_SOURCE -I"$OM" "$OM/oam_html.c" "$OM/oam_buf.c" \
     "$HERE/tests/test_oam_html.c" -o "$OUT/test_oam_html"

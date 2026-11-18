@@ -32,7 +32,7 @@ OL=${OPENLAYOUT_SRC:-"$HERE/../gfopenlayout"}
 WL="$HERE/src/weblayout"
 LIB="$WL/library"
 [ -x "$CC" ] || { echo "build-weblayout-library.sh: no compiler at $CC (set TOOLCHAIN_DIR or STOVE)" >&2; exit 2; }
-[ -f "$OL/include/libraries/openlayout.h" ] || { echo "build-weblayout-library.sh: no GFOpenLayout at $OL (set OPENLAYOUT_SRC)" >&2; exit 2; }
+[ -f "$OL/include/libraries/gfopenlayout.h" ] || { echo "build-weblayout-library.sh: no GFOpenLayout at $OL (set OPENLAYOUT_SRC)" >&2; exit 2; }
 
 if [ -n "${OPENSDK_SRC:-}" ]; then
     # the headers are made from the SFD; a stale one fails the build

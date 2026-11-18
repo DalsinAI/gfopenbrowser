@@ -55,8 +55,10 @@ TOOLCHAIN_DIR=... NDK_INCLUDE=.../OpenNDK/Include_H OPENLAYOUT_SRC=../gfopenlayo
     TESTS=1 scripts/build-openbrowser.sh
 ```
 
-(`build/os3/tests/HTMLLiteTest`; CI builds it on every change,
-`.github/workflows/lite.yml`.)
+(Until Lite 0.4.4 this made `build/os3/tests/HTMLLiteTest`, with
+GFOpenLayout's source compiled in. The Amiga programs now open the
+libraries, HTML Lite's tests run on the host (`tests/run-host-tests.sh`)
+and `WebLayoutLibTest` tests the library on the Amiga.)
 
 The first m68k test binary is 37,216 bytes and verifies:
 
