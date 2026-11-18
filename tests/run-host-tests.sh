@@ -47,6 +47,8 @@ sh "$HERE/tests/webcore/test_tls_headers_from_checkout.sh"
 OUT="$OUT/digest-library" sh "$HERE/tests/webcore/test_digest_library.sh"
 # the package carries javascript.library and JS, and the installers put them in LIBS: and C:
 sh "$HERE/tests/pack/test_ship_jslib.sh"
+# the packer refuses a webbrowser.library older than the source's
+sh "$HERE/tests/pack/test_webbrowser_lib_version.sh"
 # the engine has a blob registry (files from the file button, Blob, blob: addresses)
 sh "$HERE/tests/webcore/test_blob_registry.sh"
 # file names go to the filing system as ISO 8859-1, not UTF-8 (WebKit patch 0125)
