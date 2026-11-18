@@ -134,6 +134,29 @@ fi
 cp "$WBLIB" "$D/Libs/"
 cp "$OB_FONTS"/*.ttf "$E/Fonts/"
 cp "$HERE/src/webcore/Tata.ads" "$E/"
+# the toolbar's pictures: the Chrome icon set's strips, which GFOpenGadTools
+# reads from PROGDIR:Images/Toolbar/ (then SYS:Prefs/Presets/Toolbar/). They
+# are built from gfopengadtools' sources (python3 with Pillow, numpy and
+# librsvg); without them the buttons show GFOpenGadTools' drawn icons, as
+# they do on a four-colour screen. OB_TOOLBAR_STRIPS names a folder of built
+# strips to take instead; OB_TOOLBAR_STRIPS=0 packs none.
+OGT=${GFOPENGADTOOLS_DIR:-"$HERE/../gfopengadtools"}
+STRIPS=${OB_TOOLBAR_STRIPS:-}
+if [ "$STRIPS" = 0 ]; then
+    echo "toolbar: no icon strips packed (OB_TOOLBAR_STRIPS=0); the buttons show the drawn icons"
+else
+    if [ -z "$STRIPS" ]; then
+        [ -f "$OGT/tools/iconset/make_iconset.py" ] || { echo "package-browser.sh: no tools/iconset/make_iconset.py in $OGT (set GFOPENGADTOOLS_DIR to gfopengadtools' checkout, or OB_TOOLBAR_STRIPS)" >&2; exit 2; }
+        STRIPS="$OUT/toolbar-strips"
+        rm -rf "$STRIPS"
+        python3 "$OGT/tools/iconset/make_iconset.py" --out "$STRIPS" >/dev/null ||
+            { echo "package-browser.sh: the icon strips did not build (python3 with Pillow, numpy and librsvg; OB_TOOLBAR_STRIPS=0 packs none)" >&2; exit 2; }
+    fi
+    ls "$STRIPS"/*.ilbm >/dev/null 2>&1 || { echo "package-browser.sh: no .ilbm strips in $STRIPS" >&2; exit 2; }
+    mkdir -p "$E/Images/Toolbar"
+    cp "$STRIPS"/*.ilbm "$E/Images/Toolbar/"
+    echo "toolbar: $(ls "$E/Images/Toolbar" | wc -l) icon strips in Libs/WebBrowser/Images/Toolbar"
+fi
 cp "$ICU_DATA" "$E/Unicode/icudt78b.dat"
 # the Public Suffix List for cookies and sites (WebKit patch 0070), read from
 # PROGDIR:Network/public-suffixes

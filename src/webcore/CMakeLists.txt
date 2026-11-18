@@ -159,6 +159,26 @@ endif ()
 set_property(DIRECTORY APPEND PROPERTY CMAKE_CONFIGURE_DEPENDS "${OB_GFOPENLAYOUT_DIR}/include/inline/gfopenlayout.h")
 set_property(SOURCE ob_dialogs.c APPEND PROPERTY INCLUDE_DIRECTORIES "${OB_GFOPENLAYOUT_DIR}/include")
 
+# GFOpenGadTools (DalsinAI/gfopengadtools beside this repository, or
+# GFOPENGADTOOLS_DIR): the window's Back, Forward, Reload, Stop and Find
+# buttons are its toolbar with the Chrome icon set (ob_toolbar.c). It is a
+# link library: its files compile into the window's program as they do into
+# the office programs.
+set(OB_GFOPENGADTOOLS_DIR "$ENV{GFOPENGADTOOLS_DIR}")
+if (NOT EXISTS "${OB_GFOPENGADTOOLS_DIR}/lib/ogt_toolbar.c")
+    set(OB_GFOPENGADTOOLS_DIR "${CMAKE_CURRENT_SOURCE_DIR}/../../../gfopengadtools")
+endif ()
+if (NOT EXISTS "${OB_GFOPENGADTOOLS_DIR}/lib/ogt_toolbar.c" OR NOT EXISTS "${OB_GFOPENGADTOOLS_DIR}/lib/ogt_iconset.c")
+    message(FATAL_ERROR "gfopengadtools not found at ${OB_GFOPENGADTOOLS_DIR}: the window's toolbar is "
+        "GFOpenGadTools' (lib/ogt_toolbar.c, lib/ogt_iconset.c). Clone DalsinAI/gfopengadtools beside this "
+        "repository, or set GFOPENGADTOOLS_DIR.")
+endif ()
+set(OB_TOOLBAR_SOURCES ob_toolbar.c)
+foreach (ogt_file ogt_toolbar ogt_draw ogt_theme ogt_icons ogt_font ogt_look ogt_iconset ogt_iconfile)
+    list(APPEND OB_TOOLBAR_SOURCES "${OB_GFOPENGADTOOLS_DIR}/lib/${ogt_file}.c")
+endforeach ()
+set_property(SOURCE ob_toolbar.c ob_browser.c ob_browser_engine.c APPEND PROPERTY INCLUDE_DIRECTORIES "${OB_GFOPENGADTOOLS_DIR}/lib")
+
 set(OB_FRAMEWORKS
     JavaScriptCore
     PAL
@@ -282,6 +302,7 @@ set(WebBrowserEngine_SOURCES
     ob_filereq.c
     ob_dialogs.c
     ob_splash.c
+    ${OB_TOOLBAR_SOURCES}
 )
 set(WebBrowserEngine_FRAMEWORKS ${OB_FRAMEWORKS})
 set(WebBrowserEngine_PRIVATE_INCLUDE_DIRECTORIES ${OB_PRIVATE_INCLUDE_DIRECTORIES}
@@ -304,6 +325,7 @@ set(OpenBrowser_SOURCES
     ob_filereq.c
     ob_dialogs.c
     ob_splash.c
+    ${OB_TOOLBAR_SOURCES}
 )
 set(OpenBrowser_OUTPUT_NAME GFOpenBrowser.engine)
 set(OpenBrowser_FRAMEWORKS ${OB_FRAMEWORKS})

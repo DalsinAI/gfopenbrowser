@@ -12,6 +12,7 @@ gfopenservice   https://github.com/DalsinAI/gfopenservice.git          46ba68e9b
 gfopendatatypes https://github.com/DalsinAI/gfopendatatypes.git        ba3eb5b89f1bbaebf70ae1eeb8af0717ffde1399  stream/gzip/brotli, gif and png datatypes (OPENDATATYPES_DIR, DATATYPES_DIR)
 gfopenrtg       https://github.com/DalsinAI/gfopenrtg.git              b1a46724d3b060d9fba2e85b3274150f5edc6939  gfopengpu.library and its stream headers (OPENAMIGARTG_DIR, OPENGPU_LIB)
 gfopenlayout    https://github.com/DalsinAI/gfopenlayout.git           34472a128d90f0f20049fd1ca89993b38e697fba  gfopenlayout.library: the window's dialogs (GFOPENLAYOUT_DIR, OPENLAYOUT_LIB)
+gfopengadtools  https://github.com/DalsinAI/gfopengadtools.git         9aaa8d59d412471ac501c6e298add18744dd2e04  the window's icon buttons: GFOpenGadTools' toolbar, built in, and the Chrome icon set's strips (GFOPENGADTOOLS_DIR)
 gfopenfont      https://github.com/DalsinAI/gfopenfont.git             6afe55d19fed27dedd627434401667a6f26d2ece  gfopenfont.library 1.4+, its SDK, the CJK font fetch (OPENFONT_LIB, OPENFONT_SRC)
 gfopenxml       https://github.com/DalsinAI/gfopenxml.git              2f687ecd99da570e7c9cb9fe3cfdabcae97e6cd1  OXP, the XML parser (liboxp.a into OAB_DEPS)
 gfopensqlite    https://github.com/DalsinAI/gfopensqlite.git           cec8684ddd905d8739e719de8b05d3fe34a878db  SQLite (into OAB_DEPS)
