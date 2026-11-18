@@ -303,6 +303,15 @@ ok 'grep -q "OC_SHA1Blocks" "$S/ob_digest.c" && grep -q "OC_SHA256Blocks" "$S/ob
 # The installers put gfopencrypto.library 2.2 in when LIBS: has an older one.
 ok 'grep -q "(getversion \"LIBS:gfopencrypto.library\") 131074)" "$ROOT/dist/Install-GFOpenBrowser"' "Install-GFOpenBrowser wants gfopencrypto.library 2.2"
 ok 'grep -q "^Version gfopencrypto.library 2 2 " "$ROOT/dist/GFOpenBrowser/Install"' "the Shell Install script wants gfopencrypto.library 2.2"
+ok 'grep -q "gfopencrypto.library 2.2+" "$ROOT/openbrowser.readme"' "the readme says gfopencrypto.library 2.2"
+# The packer turns down an older library: its check, run here on made-up files.
+CHECK=$(sed -n '/^CRYPTOVER=/,/^esac/p' "$ROOT/scripts/package-browser.sh")
+packs() {
+    printf 'xx\0$VER: gfopencrypto.library %s (1.1.2026) test\0yy' "$1" > "$OUT/gfopencrypto.library"
+    (OPENTLS_LIBS="$OUT"; eval "$CHECK") 2>/dev/null
+}
+ok '[ -n "$CHECK" ] && packs 2.2 && packs 2.4 && packs 2.10 && packs 3.0' "the packer takes gfopencrypto.library 2.2, 2.4, 2.10 and 3.0"
+ok '! packs 2.1 && ! packs 2.0 && ! packs 1.9 && ! packs ""' "the packer turns down 2.1, 2.0, 1.9 and a file with no version"
 
 echo "test_digest_library: $pass passed, $fail failed"
 [ "$fail" -eq 0 ]

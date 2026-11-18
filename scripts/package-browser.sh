@@ -109,6 +109,12 @@ for f in "$BIN/GFOpenBrowser" "$BIN/WebBrowserEngine" "$ICU_DATA" "$WBLIB" \
          "$OPENTLS_LIBS/gfopentls.library" "$OPENTLS_LIBS/gfopencrypto.library" "$CA_BUNDLE/ca-bundle.pem"; do
     [ -f "$f" ] || { echo "missing: $f" >&2; exit 1; }
 done
+# gfopencrypto.library 2.2 or newer: the engine takes its SHA digests from
+# it (src/webcore/ob_digest.c), and with an older one every digest is empty
+CRYPTOVER=$(LC_ALL=C grep -a -o '\$VER: gfopencrypto.library [0-9]*\.[0-9]*' "$OPENTLS_LIBS/gfopencrypto.library" | head -1 | sed 's/.* //')
+case "$CRYPTOVER" in
+    ''|0.*|1.*|2.0|2.1) echo "package-browser.sh: $OPENTLS_LIBS/gfopencrypto.library is ${CRYPTOVER:-of no version this can read}; the engine needs 2.2 or newer" >&2; exit 1 ;;
+esac
 rm -rf "$OUT"; mkdir -p "$OUT"
 D="$OUT/GFOpenBrowser"; E="$D/Libs/WebBrowser"
 mkdir -p "$D/S/GFOpenTLS" "$E/Fonts" "$E/Unicode"
