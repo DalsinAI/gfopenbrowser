@@ -1,0 +1,39 @@
+<!doctype html>
+<meta charset="utf-8">
+<title>async-decode start</title>
+<p id="out">loading</p>
+<div id="pics"></div>
+<script>
+// Twelve large pictures (640x480: PNG, JPEG, WebP, GIF). While they load and
+// are drawn, a 20 ms timer measures how long the page thread was away: the
+// longest gap between two ticks, and the sum of every gap over 60 ms.
+// Put four 640x480 pictures beside this page under these names (any content).
+var names = ['zpic.png', 'zpic.jpg', 'zpic.webp', 'zpic.gif'];
+var total = 12, loaded = 0, failed = 0, start = performance.now();
+var last = start, longest = 0, away = 0, ticks = 0;
+var timer = setInterval(function () {
+  var now = performance.now(), gap = now - last;
+  last = now; ticks++;
+  if (gap > longest) longest = gap;
+  if (gap > 60) away += gap - 20;
+}, 20);
+function finish() {
+  // two more frames so that the pictures are drawn (decoded) before the count stops
+  setTimeout(function () {
+    clearInterval(timer);
+    var ms = Math.round(performance.now() - start);
+    var text = 'zdone pics=' + loaded + ' failed=' + failed + ' ms=' + ms + ' longest=' + Math.round(longest) + ' away=' + Math.round(away) + ' ticks=' + ticks;
+    document.getElementById('out').textContent = text;
+    document.title = text;
+  }, 1500);
+}
+function one() { if (loaded + failed === total) finish(); }
+for (var i = 0; i < total; i++) {
+  var img = new Image();
+  img.onload = function () { loaded++; one(); };
+  img.onerror = function () { failed++; one(); };
+  img.width = 320; img.height = 240;
+  img.src = names[i % names.length] + '?n=' + i + '&t=' + Date.now();
+  document.getElementById('pics').appendChild(img);
+}
+</script>

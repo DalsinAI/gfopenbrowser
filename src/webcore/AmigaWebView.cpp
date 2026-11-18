@@ -145,11 +145,13 @@ WebView::WebView(const OBWebViewCallbacks& callbacks, const IntSize& size)
     settings.setForcedPrefersReducedMotionAccessibilityValue(ForcedAccessibilityValue::On);
     settings.setLazyImageLoadingEnabled(true);
     settings.setDownloadableBinaryFontTrustedTypes(DownloadableBinaryFontTrustedTypes::None);
-    // Pictures decode when they are drawn, on this task. Decoding them on
-    // other threads gains nothing on one CPU, costs each picture a thread
-    // with a 2 MB stack, and those threads never end, so the program could
-    // not exit (libpthread waits for every thread at exit).
-    settings.setLargeImageAsyncDecodingEnabled(false);
+    // Large pictures decode off this task, on one decoding thread for all
+    // of them (WebKit patch 0126): the decoder's work is mostly a wait for
+    // the services card (media.decode/1), and the page stays alive while
+    // it waits. Small pictures still decode when they are drawn. Animated
+    // pictures stay on this task: upstream's way there is a thread a
+    // picture.
+    settings.setLargeImageAsyncDecodingEnabled(true);
     settings.setAnimatedImageAsyncDecodingEnabled(false);
     // No IndexedDB store yet: WebCore's empty database provider aborts the
     // moment a page opens one (youtube.com). Without the API, pages carry on.
@@ -298,8 +300,16 @@ bool WebView::paint(unsigned char* argb, int stride, const IntRect& rect, bool l
         context.translate(-area.x(), -area.y());
         if (!view || !paintsWholeArea(*view))
             context.fillRect(area, Color::white);
-        if (view)
+        if (view) {
+            // A large picture drawn for the first time starts its decode
+            // on the decoding thread and is drawn when it is ready (WebKit
+            // then asks for its area again); one that was drawn before
+            // decodes at once, so nothing flickers.
+            auto behavior = view->paintBehavior();
+            view->setPaintBehavior(behavior | PaintBehavior::DefaultAsynchronousImageDecode);
             view->paint(context, area);
+            view->setPaintBehavior(behavior);
+        }
     }
     m_paintMicroseconds += static_cast<unsigned long>((MonotonicTime::now() - start).microseconds());
     return true;

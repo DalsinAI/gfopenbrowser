@@ -1,0 +1,130 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: SacredTrees <121399723+SacredTrees@users.noreply.github.com>
+Date: Wed, 18 Nov 2026 13:50:00 +0000
+Subject: [PATCH] Amiga: one thread decodes every picture
+
+ImageFrameWorkQueue gives each picture a WorkQueue of its own: a thread
+that waits for decode requests until the picture goes. On the Amiga that
+is a thread and a stack for every large picture on a page, which is why
+the port had asynchronous decoding switched off and every picture was
+decoded on the page's own task while it was drawn.
+
+On OS(AMIGA) all pictures now share one WorkQueue. start() only names it;
+dispatch() sends it one task for each request, and the task takes that
+one request from the picture's request queue (or nothing, when stop()
+closed the queue). A picture with nothing to decode holds no thread.
+
+Since the queue is shared it no longer tells a stop() and a new start()
+apart, so the answer on the run loop compares the request queue, which
+stop() does replace.
+
+Other platforms compile the lines they had.
+
+Team 2
+---
+ 2 files changed, 45 insertions(+), 0 deletions(-)
+
+diff --git a/Source/WebCore/platform/graphics/ImageFrameWorkQueue.cpp b/Source/WebCore/platform/graphics/ImageFrameWorkQueue.cpp
+--- a/Source/WebCore/platform/graphics/ImageFrameWorkQueue.cpp
++++ b/Source/WebCore/platform/graphics/ImageFrameWorkQueue.cpp
+@@ -26,6 +26,10 @@
+ #include "config.h"
+ #include "ImageFrameWorkQueue.h"
+ 
++#if OS(AMIGA)
++#include <wtf/NeverDestroyed.h>
++#endif
++
+ #include "BitmapImageSource.h"
+ #include "ImageDecoder.h"
+ #include "Logging.h"
+@@ -52,6 +56,19 @@
+     return *m_requestQueue;
+ }
+ 
++#if OS(AMIGA)
++// One decoding thread for every picture. Upstream gives each picture a
++// WorkQueue of its own, which on the Amiga is a thread with its own stack
++// per picture that waits for requests until the picture goes. Here start()
++// only names the shared queue, and dispatch() sends it one task for each
++// request, so a picture with nothing to decode holds no thread.
++static WorkQueue& sharedDecodingQueue()
++{
++    static NeverDestroyed<Ref<WorkQueue>> queue = WorkQueue::create("org.webkit.ImageDecoder"_s, WorkQueue::QOS::Default);
++    return queue.get();
++}
++#endif
++
+ void ImageFrameWorkQueue::start()
+ {
+     if (m_workQueue)
+@@ -61,11 +78,27 @@
+     if (!decoder)
+         return;
+ 
++#if OS(AMIGA)
++    m_workQueue = sharedDecodingQueue();
++}
++
++void ImageFrameWorkQueue::decodeOneOnSharedQueue()
++{
++    RefPtr decoder = m_source.get()->decoder();
++    if (!m_workQueue || !decoder)
++        return;
++#else
+     m_workQueue = WorkQueue::create("org.webkit.ImageDecoder"_s, WorkQueue::QOS::Default);
++#endif
+ 
+     protect(m_workQueue)->dispatch([protectedThis = Ref { *this }, weakRunLoop = ThreadSafeWeakPtr { RunLoop::currentSingleton() }, protectedWorkQueue = Ref { *m_workQueue }, protectedSource = m_source.get(), protectedDecoder = Ref { *decoder }, protectedRequestQueue = Ref { requestQueue() }] () mutable {
+         Request request;
++#if OS(AMIGA)
++        // One request for each task; false when stop() closed the queue.
++        if (protectedRequestQueue->dequeue(request)) {
++#else
+         while (protectedRequestQueue->dequeue(request)) {
++#endif
+             TraceScope tracingScope(AsyncImageDecodeStart, AsyncImageDecodeEnd);
+ 
+             auto minimumDecodingDuration = protectedThis->minimumDecodingDurationForTesting();
+@@ -93,9 +126,15 @@
+ 
+             if (RefPtr protectedRunLoop = weakRunLoop.get()) {
+                 // Even if we fail to decode the frame, it is important to sync the creation thread with this result.
++#if OS(AMIGA)
++                // The queue is shared, so it does not tell a stop() and a new start() apart; the request queue does.
++                callOnRunLoop(*protectedRunLoop, [protectedThis, protectedWorkQueue, protectedRequestQueue, protectedSource, request, nativeImage = WTF::move(nativeImage)] () mutable {
++                    if (protectedRequestQueue.ptr() != protectedThis->m_requestQueue || protectedSource.ptr() != protectedThis->m_source.get().ptr()) {
++#else
+                 callOnRunLoop(*protectedRunLoop, [protectedThis, protectedWorkQueue, protectedSource, request, nativeImage = WTF::move(nativeImage)] () mutable {
+                     // The WorkQueue may have been recreated before the frame was decoded.
+                     if (protectedWorkQueue.ptr() != protectedThis->m_workQueue || protectedSource.ptr() != protectedThis->m_source.get().ptr()) {
++#endif
+                         LOG(Images, "AsyncImageDecoder::%s - %p. WorkQueue was recreated at index = %d.", __FUNCTION__, protectedThis.ptr(), request.index);
+                         return;
+                     }
+@@ -125,6 +164,9 @@
+     decodeQueue().append(request);
+ 
+     start();
++#if OS(AMIGA)
++    decodeOneOnSharedQueue();
++#endif
+ }
+ 
+ void ImageFrameWorkQueue::stop()
+diff --git a/Source/WebCore/platform/graphics/ImageFrameWorkQueue.h b/Source/WebCore/platform/graphics/ImageFrameWorkQueue.h
+--- a/Source/WebCore/platform/graphics/ImageFrameWorkQueue.h
++++ b/Source/WebCore/platform/graphics/ImageFrameWorkQueue.h
+@@ -71,6 +71,9 @@
+     using DecodeQueue = Deque<Request, BufferSize>;
+ 
+     RequestQueue& requestQueue();
++#if OS(AMIGA)
++    void decodeOneOnSharedQueue();
++#endif
+     DecodeQueue& decodeQueue() LIFETIME_BOUND { return m_decodeQueue; }
+ 
+     Seconds minimumDecodingDurationForTesting() const { return m_minimumDecodingDurationForTesting; }
+-- 
+2.43.0
+
