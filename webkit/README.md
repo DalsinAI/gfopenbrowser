@@ -604,6 +604,13 @@ The patches, in order:
   back. A program started from a Shell runs on the Shell's own
   process, which lives on: exec went on calling the hooks in the freed
   program, and the next program loaded there hung the machine.
+- `0123-amiga-websocket-no-channel-fails.patch`: a WebSocket with no
+  channel fails, it does not assert. The port gives pages no WebSocket
+  channel yet (`EmptySocketProvider`, patch 0071), and
+  `WebSocket::connect()` met `RELEASE_ASSERT(m_channel)`: a page that did
+  `new WebSocket(...)` stopped the whole browser. The connection now
+  fails as a blocked one does, with a console message and the error and
+  close events, and the page carries on.
 
 `0001-amiga-m68k-jsconly.patch` is one combined patch. It holds:
 

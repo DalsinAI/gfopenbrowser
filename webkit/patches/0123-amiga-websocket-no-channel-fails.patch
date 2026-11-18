@@ -1,0 +1,53 @@
+From 0000000000000000000000000000000000000123 Mon Sep 17 00:00:00 2001
+From: SacredTrees <121399723+SacredTrees@users.noreply.github.com>
+Date: Wed, 18 Nov 2026 04:10:00 +0000
+Subject: [PATCH] WebCore: a WebSocket with no channel fails, it does not
+ assert
+
+The Amiga port's pages are made with pageConfigurationWithEmptyClients(),
+whose EmptySocketProvider gives a WebSocket no channel (patch 0071).
+WebSocket::connect() then met RELEASE_ASSERT(m_channel): a page that did
+new WebSocket(...) stopped the whole browser, its window dead (found in
+the lab on 18 November 2026 with wss://echo.websocket.org).
+
+With no channel the connection now fails cleanly: a console message,
+then, after the constructor has returned, the error event and the close
+event (not clean, code 1006), so a page's onerror and onclose run and
+the page carries on, or falls back to another transport. WebKit's own
+failAsynchronously() sends the error event alone; pages that wait for
+close to fall back need both. Nothing changes where a channel exists.
+---
+ Source/WebCore/Modules/websockets/WebSocket.cpp | 18 ++++++++++++++++++
+ 1 file changed, 18 insertions(+)
+
+diff --git a/Source/WebCore/Modules/websockets/WebSocket.cpp b/Source/WebCore/Modules/websockets/WebSocket.cpp
+index 4803b8d5d..2e681a22a 100644
+--- a/Source/WebCore/Modules/websockets/WebSocket.cpp
++++ b/Source/WebCore/Modules/websockets/WebSocket.cpp
+@@ -300,6 +300,24 @@ ExceptionOr<void> WebSocket::connect(const String& url, const Vector<String>& pr
+     if (RefPtr provider = context->socketProvider())
+         m_channel = ThreadableWebSocketChannel::create(context.get(), *this, *provider);
+ 
++#if PLATFORM(AMIGA)
++    // The Amiga port gives a page no WebSocket channel yet
++    // (EmptySocketProvider, patch 0071): the connection fails after the
++    // constructor has returned, with the error event and then the close
++    // event (not clean, code 1006) that a page's fallback waits for, where
++    // the assertion below stopped the whole browser.
++    if (!m_channel) {
++        context->addConsoleMessage(MessageSource::JS, MessageLevel::Error, "WebSocket is not available in this browser yet"_s);
++        queueTaskKeepingObjectAlive(*this, TaskSource::WebSocket, [](auto& socket) {
++            socket.m_state = CLOSED;
++            socket.dispatchErrorEventIfNeeded();
++            socket.dispatchEvent(CloseEvent::create(false, ThreadableWebSocketChannel::CloseEventCodeAbnormalClosure, emptyString()));
++            socket.stop();
++        });
++        return { };
++    }
++#endif
++
+     // Every ScriptExecutionContext should have a SocketProvider.
+     RELEASE_ASSERT(m_channel);
+ 
+-- 
+2.43.0
