@@ -67,8 +67,10 @@ repository):
 
 - WebKit's WTF, bmalloc and JavaScriptCore (LGPL-2 / BSD);
 - ICU 78.3 (Unicode License v3);
-- zlib 1.3.1 (zlib licence: Copyright (C) 1995-2024 Jean-loup Gailly and
-  Mark Adler), from the tarball in `scripts/tarballs.lock`, built by gfopenimage;
+- no zlib: the engine is compiled against zlib 1.3.1's header (zlib licence:
+  Copyright (C) 1995-2024 Jean-loup Gailly and Mark Adler; from the tarball in
+  `scripts/tarballs.lock`, by gfopenimage) and its calls go to z.library when
+  it runs (`src/webcore/ob_zlib.c`), so no zlib code is in the programs;
 - SQLite 3.53.4, the amalgamation (public domain, no notice required), built
   by gfopensqlite (AmiCradle Team, MIT, its own patches);
 - OXP, the XML parser (gfopenxml, AmiCradle Team, MIT);
