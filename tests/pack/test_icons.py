@@ -7,7 +7,7 @@
 
 Reads each .info with its own small reader (no kit, no Pillow) and checks what Workbench needs from it:
 the DiskObject's magic and type, 64 x 64, both classic pictures, the default tool, tool types and stack the
-package relies on, a drawer's window, and the FORM ICON after them with a FACE of 64 x 64 and two IMAG
+package relies on, each icon's place in the drawer window, a drawer's window, and the FORM ICON after them with a FACE of 64 x 64 and two IMAG
 pictures, the chosen one differing from the one at rest. The pictures' look is for the eye: icons/preview.png.
 """
 import struct
@@ -18,10 +18,10 @@ ROOT = Path(__file__).resolve().parents[2]
 DRAWER, TOOL, PROJECT = 2, 3, 4
 WANT = {
     "icons/GFOpenBrowser.info": dict(type=DRAWER),
-    "icons/GFOpenBrowser/GFOpenBrowser.info": dict(type=TOOL, stack=65536),
-    "icons/GFOpenBrowser/GFOpenBrowser.readme.info": dict(type=PROJECT, tool=True),
+    "icons/GFOpenBrowser/GFOpenBrowser.info": dict(type=TOOL, stack=65536, at=(60, 12)),
+    "icons/GFOpenBrowser/GFOpenBrowser.readme.info": dict(type=PROJECT, tool=True, at=(220, 12)),
     "dist/Install-GFOpenBrowser.info": dict(type=PROJECT, tool="Installer",
-                                            tooltypes=["APPNAME=", "MINUSER=", "DEFUSER=", "LOGFILE="]),
+                                            tooltypes=["APPNAME=", "MINUSER=", "DEFUSER=", "LOGFILE="], at=(52, 12)),
 }
 passed = failed = 0
 
@@ -46,7 +46,7 @@ def read(b):
     w, h = struct.unpack_from(">hh", b, 12)
     render, select = struct.unpack_from(">LL", b, 22)
     kind, _, deftool, tts, _cx, _cy, drawer, toolwin, stack = struct.unpack_from(">BBLLllLLl", b, 48)
-    r = dict(magic=magic, version=version, width=w, height=h, type=kind, stack=stack, drawer=bool(drawer),
+    r = dict(at=(_cx, _cy), magic=magic, version=version, width=w, height=h, type=kind, stack=stack, drawer=bool(drawer),
              classic=[], tool=None, tooltypes=[])
     o = 78 + (56 if drawer else 0)
     for present in (render, select):
@@ -103,6 +103,8 @@ for name, want in WANT.items():
     ok(len(r["classic"]) == 2 and r["classic"][0][3] != r["classic"][1][3] and any(r["classic"][0][3]),
        f"{name}: the classic pictures are drawn, and the chosen one differs")
     ok(r["drawer"] == (want["type"] == DRAWER), f"{name}: a drawer window only on the drawer")
+    if "at" in want:
+        ok(r["at"] == want["at"], f"{name}: its place in the drawer window {want['at']} (got {r['at']})")
     if "stack" in want:
         ok(r["stack"] == want["stack"], f"{name}: stack {want['stack']} (got {r['stack']})")
     if want.get("tool") is True:

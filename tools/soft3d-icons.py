@@ -18,12 +18,13 @@ in the picture moves. Two drawings each: about five features for 64 px, about th
   Install-GFOpenBrowser    an open tray and the globe coming down into it on the blue arrow; chosen, it lands
 
 Each .info keeps what the icon it replaces says besides its pictures: its type, default tool, tool types,
-stack and drawer window. The kit comes from a gfopenup checkout and the .info writer from an amicradle-guest
+stack, drawer window and its place in the window. The kit comes from a gfopenup checkout and the .info writer from an amicradle-guest
 checkout (icons/openicons); neither is needed to build or package the browser, only to draw the icons again.
 """
 from __future__ import annotations
 
 import argparse
+import struct
 import sys
 from pathlib import Path
 
@@ -195,7 +196,9 @@ def info_bytes(name, guest: Path, old: bytes):
     errs = infofmt.validate(icon, data)
     if errs:
         raise infofmt.InfoError(f"{name}: " + "; ".join(errs))
-    return data
+    data = bytearray(data)
+    struct.pack_into(">ll", data, 58, *was["current"])          # do_CurrentX, do_CurrentY: where it sits in its window
+    return bytes(data)
 
 
 def write_all(root: Path, guest: Path):
