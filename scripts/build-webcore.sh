@@ -464,6 +464,10 @@ configure_engine() {
     # otherwise preprocess every C++ file a second time, uncached, to look
     # for them.
     set -- "$@" -DCMAKE_CXX_SCAN_FOR_MODULES=OFF
+    # WebKit's zlib is OBZ (src/webcore/ob_zlib.c, which calls z.library),
+    # for an existing folder too: a relink, nothing recompiles. zlib.h still
+    # comes from the deps' include folder.
+    set -- "$@" -DZLIB_LIBRARY_RELEASE="$BUILD/lib/libOBZ.a"
     # OB_ICU_DATA (default library): which ICU libraries the programs
     # link, set in the cache, for an existing folder too, so it switches
     # with a relink (the headers are the same ICU 78.3 in both folders).

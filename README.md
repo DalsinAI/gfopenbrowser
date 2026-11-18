@@ -104,8 +104,9 @@ The JavaScript engine:
 4. Run `WEBKIT_SOURCE=... scripts/build-jsc.sh`.
 
 GFOpenBrowser on WebCore needs, besides the compiler and ICU above, the
-libraries from the GFOpen ports (zlib from gfopenimage, SQLite from
-gfopensqlite, OXP from gfopenxml) built into one prefix. No cairo, pixman
+libraries from the GFOpen ports (SQLite from gfopensqlite, OXP from
+gfopenxml; from gfopenimage's zlib only the header, as the engine calls
+z.library when it runs) built into one prefix. No cairo, pixman
 or libpng: since WebKit patch 0094 the engine draws on GFOpenGPU. No curl,
 nghttp2, libpsl or AmiSSL: the network is openweb.fetch, so
 DalsinAI/gfopenservice and DalsinAI/gfopendatatypes must be checked out

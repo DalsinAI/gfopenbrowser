@@ -229,6 +229,22 @@ target_include_directories(OBCompat PRIVATE ${OB_COMPAT_DIR} ${CMAKE_CURRENT_SOU
 # patch 0075): openweb.fetch's native transport opens bsdsocket.library,
 # gfopentls.library and datatypes.library itself, so there is no network or
 # TLS library to link.
+# zlib is z.library (DalsinAI/gfopenzlib, in LIBS: from GFOpenUp), not code in
+# the engine: OBZ is ob_zlib.c, zlib's ten calls WebCore uses passed on to the
+# library. Its headers are GFOpenSDK's (checked out beside this repository, or
+# GFOPENSDK_DIR). build-webcore.sh gives WebKit this archive as its zlib
+# (ZLIB_LIBRARY_RELEASE), so no libz.a is on the link line.
+set(OB_GFOPENSDK_DIR "$ENV{GFOPENSDK_DIR}")
+if (NOT EXISTS "${OB_GFOPENSDK_DIR}/Include/proto/z.h")
+    set(OB_GFOPENSDK_DIR "${CMAKE_CURRENT_SOURCE_DIR}/../../../gfopensdk")
+endif ()
+if (NOT EXISTS "${OB_GFOPENSDK_DIR}/Include/proto/z.h")
+    message(FATAL_ERROR "gfopensdk not found at ${OB_GFOPENSDK_DIR}: the engine calls z.library "
+        "through its Include/proto/z.h. Check out DalsinAI/gfopensdk beside this repository or set GFOPENSDK_DIR.")
+endif ()
+add_library(OBZ STATIC ob_zlib.c)
+set_property(SOURCE ob_zlib.c APPEND PROPERTY INCLUDE_DIRECTORIES "${OB_GFOPENSDK_DIR}/Include")
+
 macro(OB_LINK _target)
     # OB_ICU_DATA=library: icui18n, icuuc and icudata are the library's stubs
     if (OB_ICU_DATA STREQUAL "library")
@@ -242,7 +258,7 @@ macro(OB_LINK _target)
     target_link_libraries(${_target} PRIVATE
         -Wl,--start-group
         OBCore WebCore PAL JavaScriptCore WTF bmalloc
-        z oxp sqlite3
+        OBZ oxp sqlite3
         icui18n icuuc icudata
         amiga pthread atomic stdc++ m
         OBCompat
