@@ -49,6 +49,8 @@ OUT="$OUT/digest-library" sh "$HERE/tests/webcore/test_digest_library.sh"
 sh "$HERE/tests/pack/test_ship_jslib.sh"
 # the engine has a blob registry (files from the file button, Blob, blob: addresses)
 sh "$HERE/tests/webcore/test_blob_registry.sh"
+# file names go to the filing system as ISO 8859-1, not UTF-8 (WebKit patch 0125)
+sh "$HERE/tests/webcore/test_file_names_latin1.sh"
 # webbrowser.library's wait for its engine: it stops when the engine's process ended with no engine
 "$CC" $FLAGS -I"$HERE/src/webbrowser" "$HERE/tests/test_wb_engine_wait.c" -o "$OUT/test_wb_engine_wait"
 "$OUT/test_wb_engine_wait"

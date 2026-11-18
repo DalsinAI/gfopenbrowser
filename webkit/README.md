@@ -620,6 +620,13 @@ The patches, in order:
   buffering and the padding. Without the library (2.2 or newer) a digest
   gives an empty hash. MD5 and SHA-1 inside WTF are upstream's classes and
   stay.
+- `0125-amiga-file-names-are-latin1.patch`: file names go to the filing
+  system as ISO 8859-1, not UTF-8. WTF passed every path as UTF-8, so a
+  file with an accent in its name ("Grün-café.txt") was not found: a
+  page that got it from a file button saw size 0 and FileReader failed.
+  `toStdFileSystemPath`, `fromStdFileSystemPath` (`FileSystem.cpp`),
+  `fileSystemRepresentation` and `stringFromFileSystemRepresentation`
+  (`FileSystemPOSIX.cpp`) convert on `OS(AMIGA)`.
 
 `0001-amiga-m68k-jsconly.patch` is one combined patch. It holds:
 
