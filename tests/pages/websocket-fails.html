@@ -1,0 +1,40 @@
+<!doctype html>
+<meta charset="utf-8">
+<title>WebSocket fails cleanly</title>
+<h1>WebSocket fails cleanly</h1>
+<p id="out">running</p>
+<p><a href="about:blank">A link, to show the page still answers</a></p>
+<script>
+// WebKit patch 0123: with no WebSocket channel in the port, new WebSocket()
+// must not stop the browser. The constructor returns, then error and close
+// arrive, and the page's timers go on. One console line, written when close
+// arrives (or after 1.5 s without it): OBTEST_WS ... PASS or FAIL for each check.
+(function () {
+    var seen = [], made = false, threw = "", said = false, code = 0, clean = true, w;
+    function check(name, good) { return name + (good ? " PASS" : " FAIL"); }
+    function say(timerRan) {
+        if (said)
+            return;
+        said = true;
+        var line = "OBTEST_WS " + [
+            check("constructor returned", made && !threw),
+            check("error event", seen.indexOf("error") >= 0),
+            check("close event after it", seen.indexOf("close") > seen.indexOf("error") && seen.indexOf("error") >= 0),
+            check("close code 1006, not clean", code === 1006 && clean === false),
+            check("never opened", seen.indexOf("open") < 0),
+            check("closed state", made && w.readyState === 3),
+            check("timers still run", timerRan)
+        ].join("; ");
+        document.getElementById("out").textContent = line;
+        console.log(line);
+    }
+    try {
+        w = new WebSocket("wss://echo.websocket.org");
+        made = true;
+        w.onopen = function () { seen.push("open"); };
+        w.onerror = function () { seen.push("error"); };
+        w.onclose = function (e) { seen.push("close"); code = e.code; clean = e.wasClean; setTimeout(function () { say(true); }, 0); };
+    } catch (e) { threw = String(e); }
+    setTimeout(function () { say(true); }, 1500);
+})();
+</script>

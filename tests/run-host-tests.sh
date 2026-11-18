@@ -37,6 +37,8 @@ sh "$HERE/tests/webcore/test_stdlib_assertions.sh"
 sh "$HERE/tests/webcore/test_optimize_js_layout.sh"
 # the hooks JavaScriptCore puts on a task come off again at exit (WebKit patch 0122)
 OUT="$OUT/task-hooks-off" sh "$HERE/tests/webcore/test_task_hooks_off.sh"
+# a WebSocket with no channel fails, it does not assert (WebKit patch 0123)
+sh "$HERE/tests/webcore/test_websocket_no_channel.sh"
 # the engine links no zlib: its ten calls go to z.library (src/webcore/ob_zlib.c)
 OUT="$OUT/zlib-library" sh "$HERE/tests/webcore/test_zlib_library.sh"
 # webbrowser.library's wait for its engine: it stops when the engine's process ended with no engine
