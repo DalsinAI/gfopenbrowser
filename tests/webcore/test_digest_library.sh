@@ -300,5 +300,9 @@ fi
 ok '! grep -q "rotr\|0x428a2f98" "$S/ob_digest.c"' "ob_digest.c has no round function either"
 ok 'grep -q "OC_SHA1Blocks" "$S/ob_digest.c" && grep -q "OC_SHA256Blocks" "$S/ob_digest.c" && grep -q "OC_SHA512Blocks" "$S/ob_digest.c"' "ob_digest.c calls the library's three block functions"
 
+# The installers put gfopencrypto.library 2.2 in when LIBS: has an older one.
+ok 'grep -q "(getversion \"LIBS:gfopencrypto.library\") 131074)" "$ROOT/dist/Install-GFOpenBrowser"' "Install-GFOpenBrowser wants gfopencrypto.library 2.2"
+ok 'grep -q "^Version gfopencrypto.library 2 2 " "$ROOT/dist/GFOpenBrowser/Install"' "the Shell Install script wants gfopencrypto.library 2.2"
+
 echo "test_digest_library: $pass passed, $fail failed"
 [ "$fail" -eq 0 ]

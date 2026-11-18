@@ -7,7 +7,7 @@
 ; Then reboot (or quit GFOpenBrowser first) and start GFOpenBrowser here.
 ;
 ; What it does; every step is checked, and it stops at the first failure:
-;  - LIBS:gfopentls.library 1.2 or newer and LIBS:gfopencrypto.library 2.1 or
+;  - LIBS:gfopentls.library 1.2 or newer and LIBS:gfopencrypto.library 2.2 or
 ;    newer: a missing one goes in; one Version shows to be older is renamed
 ;    .before-20261104 and the drawer's goes in; one whose version cannot be
 ;    read (not loaded, no $VER in the file) is kept: the Installer reads
@@ -77,7 +77,7 @@ EndIf
 Echo "Installed LIBS:gfopentls.library"
 Lab tlsdone
 
-Version gfopencrypto.library 2 1 >NIL:
+Version gfopencrypto.library 2 2 >NIL:
 Set vrc $RC
 If $vrc EQ 0 VAL
   Echo "LIBS:gfopencrypto.library is new enough, kept"
