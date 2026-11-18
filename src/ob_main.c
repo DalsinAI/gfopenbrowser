@@ -811,6 +811,19 @@ static void rexx_events(void)
     }
 }
 
+/* A start that can't go on: a requester, which shows from the icon as
+ * well as from a Shell (no window is open yet). */
+static void startup_fail(const char *text)
+{
+    struct EasyStruct es;
+    es.es_StructSize = sizeof es;
+    es.es_Flags = 0;
+    es.es_Title = (STRPTR)"GFOpenBrowser Lite";
+    es.es_TextFormat = (STRPTR)text;
+    es.es_GadgetFormat = (STRPTR)"OK";
+    EasyRequestArgs(NULL, &es, NULL, NULL);
+}
+
 /* weblayout's WL_Close, and the library */
 static void close_weblayout(void)
 {
@@ -827,17 +840,17 @@ static int browser_main(int argc, char **argv)
     if (!WebLayoutBase)
         WebLayoutBase = OpenLibrary((CONST_STRPTR)"PROGDIR:Libs/" WEBLAYOUT_NAME, WEBLAYOUT_VERSION);
     if (!WebLayoutBase) {
-        PutStr((STRPTR)"GFOpenBrowser needs weblayout.library 1 (in LIBS: or this drawer's Libs)\n"
-                       "and LIBS:gfopenlayout.library 2 or later (GFOpenUp installs it)\n");
+        startup_fail("GFOpenBrowser needs weblayout.library 1 (in LIBS: or this drawer's Libs)\n"
+                       "and LIBS:gfopenlayout.library 2 or later (GFOpenUp installs it)");
         return 20;
     }
     if (!WL_Open()) {
-        PutStr((STRPTR)"GFOpenBrowser needs gfopenlayout.library 2 or later\n");
+        startup_fail("GFOpenBrowser needs gfopenlayout.library 2 or later");
         close_weblayout();
         return 20;
     }
     if (!(GadToolsBase = OpenLibrary((STRPTR)"gadtools.library", 39))) {
-        PutStr((STRPTR)"GFOpenBrowser needs AmigaOS 3.0 or later (gadtools.library 39)\n");
+        startup_fail("GFOpenBrowser needs AmigaOS 3.0 or later (gadtools.library 39)");
         close_weblayout();
         return 20;
     }
@@ -849,7 +862,7 @@ static int browser_main(int argc, char **argv)
     }
     Permit();
     if (!open_window()) {
-        PutStr((STRPTR)"GFOpenBrowser: the window could not open\n");
+        startup_fail("GFOpenBrowser: the window could not open");
         close_window();
         if (rexx_port) { RemPort(rexx_port); DeleteMsgPort(rexx_port); }
         CloseLibrary(GadToolsBase);
