@@ -162,6 +162,7 @@ rm -rf "$OUT/httpcache"
 "$OUT/test_ob_clipboard"
 "$OUT/test_ob_toolbar"
 sh "$HERE/tests/webcore/test_script_cache_default.sh"
+python3 "$HERE/tests/pack/test_icons.py"
 "$OUT/test_public_suffixes" "$HERE/data/public-suffixes" "$HERE/tests/public-suffix-cases.txt"
 "$OUT/test_opengpu_paint"
 # a test's last line only, but its whole log and a failed run when it fails (a pipe into tail hid the failure).
