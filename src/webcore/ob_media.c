@@ -12,10 +12,13 @@
 #include <exec/types.h>
 #include <exec/io.h>
 #include <exec/semaphores.h>
+#include <dos/dos.h>
 #include <proto/exec.h>
+#include <proto/dos.h>
 
 #include "devices/gfopenservice.h"
 #include "ob_media.h"
+#include "ob_awake_wait.h"
 
 /* From WebCore's platform/image-decoders/amiga/DatatypesDecode.h. */
 typedef struct {
@@ -45,6 +48,24 @@ static UWORD handle;
 static struct SignalSemaphore decodeLock;
 static int decodeLockReady;
 
+/* The answer comes in a few milliseconds: the caller looks for it for up to
+ * this many 50ths of a second before it sleeps (ob_awake_wait.h). A whole
+ * tick at least, so 20 to 40 ms. */
+#define AWAKE_TICKS 2
+
+static int answered(void *io)
+{
+    return CheckIO((struct IORequest *)io) != NULL;
+}
+
+static unsigned long ticksNow(void *io)
+{
+    struct DateStamp now;
+    (void)io;
+    DateStamp(&now);
+    return (unsigned long)now.ds_Minute * (60 * TICKS_PER_SECOND) + (unsigned long)now.ds_Tick;
+}
+
 static LONG call(UWORD op, const void *data, ULONG size, void *out, ULONG room, ULONG *result, ULONG *aux)
 {
     struct MsgPort *port = CreateMsgPort();
@@ -64,7 +85,9 @@ static LONG call(UWORD op, const void *data, ULONG size, void *out, ULONG room, 
         io->os_Buf[0].ob_Length = size;
         io->os_Buf[1].ob_Data = out;
         io->os_Buf[1].ob_Length = room;
-        DoIO((struct IORequest *)io);
+        SendIO((struct IORequest *)io);
+        ob_awake_wait(answered, ticksNow, io, AWAKE_TICKS);
+        WaitIO((struct IORequest *)io);         /* at once when the answer is there */
         status = io->os_Req.io_Error ? OSERR_LOST : io->os_Status;
         *result = io->os_Result;
         *aux = io->os_Aux;
