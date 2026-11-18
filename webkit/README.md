@@ -600,7 +600,7 @@ The patches, in order:
 - `0122-jsc-m68k-thread-hooks-off-at-exit.patch`: the switch and launch
   hooks patch 0033 puts on each task that runs JavaScript come off again
   when the program ends (`jsc_m68k_detach_threads()`, called by a
-  destructor). A program started from a Shell runs on the Shell's own
+  destructor), and what the task had before them goes back. A program started from a Shell runs on the Shell's own
   process, which lives on: exec went on calling the hooks in the freed
   program, and the next program loaded there hung the machine.
 

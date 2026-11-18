@@ -28,10 +28,16 @@ body=$(awk '/^\+__attribute__\(\(destructor\)\) static void detachM68KThreadsAtE
             p && /^\+\}/ { exit } p' "$P" | tr -d ' \n')
 ok '[ "$body" = "+{+jsc_m68k_detach_threads();" ]' "a destructor calls it (body: $body)"
 
-# The patch's hunk counts its lines.
-n=$(awk '/^@@ / { split($3, a, ","); print a[2]; exit }' "$P")
-got=$(awk '/^@@ / { c = 1; next } c && /^-- $/ { exit } c && /^[+ ]/ { k++ } END { print k }' "$P")
-ok '[ "$n" = "$got" ]' "the hunk counts its lines ($n header, $got lines)"
+# What the task had before goes into the slot as the hooks go on.
+ok 'grep -q "^+    thread->switchBefore = task->tc_Switch;" "$P"' "the switch hook from before is kept"
+ok 'grep -q "^+    thread->launchBefore = task->tc_Launch;" "$P"' "the launch hook from before is kept"
+ok 'grep -q "^+    thread->flagsBefore = task->tc_Flags & (TF_SWITCH | TF_LAUNCH);" "$P"' "the two flags from before are kept"
+
+# Each of the patch's hunks counts its lines.
+bad=$(awk '/^@@ / { if (c && k != n) print "x"; split($3, a, ","); n = a[2]; k = 0; c = 1; next }
+           c && /^-- $/ { if (k != n) print "x"; c = 0 }
+           c && /^[+ ]/ { k++ }' "$P")
+ok '[ -z "$bad" ]' "each hunk counts its lines"
 
 cat > "$OUT/t.cpp" <<'EOF'
 #include <cstdio>
@@ -49,7 +55,13 @@ static void Enable() { depth--; }
 extern "C" void jsc_m68k_task_switch() { }
 extern "C" void jsc_m68k_task_launch() { }
 static void othersHook() { }
-struct M68KThreadRegisters { struct Task* task; unsigned long d[2]; };
+struct M68KThreadRegisters {
+    struct Task* task;
+    unsigned long d[2];
+    void (*switchBefore)();
+    void (*launchBefore)();
+    unsigned char flagsBefore;
+};
 static M68KThreadRegisters m68kThreads[32];
 static bool m68kTaskExists(struct Task* task)
 {
@@ -70,7 +82,12 @@ int main()
     Task other = { TF_SWITCH | TF_LAUNCH, othersHook, othersHook, true };
     /* a task that ended: its memory is not ours to write */
     Task gone = { TF_SWITCH | TF_LAUNCH, jsc_m68k_task_switch, jsc_m68k_task_launch, false };
+    /* a task that had a launch hook of its own before ours went on */
+    Task hooked = { TF_SWITCH | TF_LAUNCH | 2, jsc_m68k_task_switch, jsc_m68k_task_launch, true };
     m68kThreads[0].task = &shell;
+    m68kThreads[7].task = &hooked;
+    m68kThreads[7].launchBefore = othersHook;
+    m68kThreads[7].flagsBefore = TF_LAUNCH;
     m68kThreads[3].task = &other;
     m68kThreads[31].task = &gone;
 
@@ -78,6 +95,8 @@ int main()
 
     CHECK(!shell.tc_Switch && !shell.tc_Launch, "our hooks come off the task that lives on");
     CHECK(shell.tc_Flags == 1, "TF_SWITCH and TF_LAUNCH are cleared, other flags kept");
+    CHECK(!hooked.tc_Switch && hooked.tc_Launch == othersHook && hooked.tc_Flags == (TF_LAUNCH | 2),
+        "what a task had before our hooks is put back");
     CHECK(other.tc_Switch == othersHook && other.tc_Launch == othersHook
         && other.tc_Flags == (TF_SWITCH | TF_LAUNCH), "another's hooks are left alone");
     CHECK(gone.tc_Switch == jsc_m68k_task_switch && gone.tc_Launch == jsc_m68k_task_launch
