@@ -115,10 +115,20 @@ endif ()
 # OpenWebFetchAmiga.c is given the client's headers. The native transport
 # reaches gfopentls.library through GFOpenTLS's headers and the datatypes
 # through gfopendatatypes' (wfnet_amiga.c and wfnet_dec.c only).
+# GFOpenTLS's headers come from its own checkout (GFOPENTLS_DIR, or
+# gfopentls beside this repository); this repository keeps no copy.
+set(OB_GFOPENTLS_DIR "$ENV{GFOPENTLS_DIR}")
+if (NOT EXISTS "${OB_GFOPENTLS_DIR}/include/proto/gfopentls.h")
+    set(OB_GFOPENTLS_DIR "${CMAKE_CURRENT_SOURCE_DIR}/../../../gfopentls")
+endif ()
+if (NOT EXISTS "${OB_GFOPENTLS_DIR}/include/proto/gfopentls.h")
+    message(FATAL_ERROR "gfopentls not found at ${OB_GFOPENTLS_DIR}: openweb.fetch's native transport "
+        "needs its include/proto/gfopentls.h. Check out DalsinAI/gfopentls beside this repository or set GFOPENTLS_DIR.")
+endif ()
 file(GLOB OB_WFNET_SOURCES "${OB_OPENSERVICE_DIR}/src/wfnet*.c")
 list(APPEND OB_CORE_SOURCES "${OB_OPENSERVICE_DIR}/src/webfetch.c" ${OB_WFNET_SOURCES})
 set_property(SOURCE "${OB_OPENSERVICE_DIR}/src/wfnet_amiga.c" APPEND PROPERTY
-    INCLUDE_DIRECTORIES "${CMAKE_CURRENT_SOURCE_DIR}/../../third_party/gfopentls/include")
+    INCLUDE_DIRECTORIES "${OB_GFOPENTLS_DIR}/include")
 set_property(SOURCE "${OB_OPENSERVICE_DIR}/src/wfnet_amiga.c" "${OB_OPENSERVICE_DIR}/src/wfnet_dec.c" APPEND PROPERTY
     INCLUDE_DIRECTORIES "${OB_OPENDATATYPES_DIR}/Datatypes/include")
 set_property(SOURCE "${WEBCORE_DIR}/platform/network/amiga/OpenWebFetchAmiga.c" TARGET_DIRECTORY WebCore APPEND PROPERTY

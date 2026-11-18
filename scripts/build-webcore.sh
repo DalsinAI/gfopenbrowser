@@ -67,6 +67,9 @@
 #                   for the window's dialogs, find bar, downloads and
 #                   preferences (src/webcore/ob_dialogs.c; headers only,
 #                   required) (default ../gfopenlayout beside this repository)
+#   GFOPENTLS_DIR   gfopentls' checkout: gfopentls.library's headers, for the
+#                   native transport's https:// (headers only, required)
+#                   (default ../gfopentls beside this repository)
 #   GFOPENGADTOOLS_DIR
 #                   gfopengadtools' checkout: GFOpenGadTools' toolbar and
 #                   icons, built into the engine for the window's Back,
