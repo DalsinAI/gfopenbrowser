@@ -8,12 +8,17 @@
 #include "AmigaPlatformStrategies.h"
 
 #include <wtf/TZoneMalloc.h>
+#include <WebCore/BlobDataFileReference.h>
+#include <WebCore/BlobPart.h>
 #include <WebCore/BlobRegistry.h>
+#include <WebCore/BlobRegistryImpl.h>
 #include <WebCore/CachedResource.h>
 #include <WebCore/LoaderStrategy.h>
 #include <WebCore/PlatformStrategies.h>
+#include <WebCore/PolicyContainer.h>
 #include <WebCore/ResourceError.h>
 #include <WebCore/ResourceResponse.h>
+#include <WebCore/SecurityOriginData.h>
 #include <WebCore/SubresourceLoader.h>
 #include <wtf/CompletionHandler.h>
 #include <wtf/NeverDestroyed.h>
@@ -75,18 +80,55 @@ private:
     }
 };
 
-class EmptyBlobRegistry final : public BlobRegistry {
-    void registerInternalFileBlobURL(const URL&, Ref<BlobDataFileReference>&&, const String&, const String&) final { }
-    void registerInternalBlobURL(const URL&, Vector<BlobPart>&&, const String&) final { }
-    void registerBlobURL(const URL&, const URL&, const PolicyContainer&, const std::optional<SecurityOriginData>&) final { }
-    void registerInternalBlobURLOptionallyFileBacked(const URL&, const URL&, RefPtr<BlobDataFileReference>&&, const String&) final { }
-    void registerInternalBlobURLForSlice(const URL&, const URL&, long long, long long, const String&) final { }
-    void unregisterBlobURL(const URL&, const std::optional<SecurityOriginData>&) final { }
-    String blobType(const URL&) final { return emptyString(); }
-    unsigned long long blobSize(const URL&) final { return 0; }
-    void writeBlobsToTemporaryFilesForIndexedDB(const Vector<String>&, CompletionHandler<void(Vector<String>&&)>&& completionHandler) final { completionHandler({ }); }
-    void registerBlobURLHandle(const URL&, const std::optional<SecurityOriginData>&) final { }
-    void unregisterBlobURLHandle(const URL&, const std::optional<SecurityOriginData>&) final { }
+// Files and blobs: WebCore's own registry, in this process. Every File a page
+// gets from a file button, every Blob and every blob: address has its data
+// here; without a registry a chosen file is 0 bytes long and cannot be read.
+// BlobRegistryImpl also gives ResourceHandle its loader for blob: addresses
+// (it registers that itself at the first blob), which is why the registry
+// must hand it out with blobRegistryImpl(). Main thread only: WebCore's
+// ThreadableBlobRegistry brings a worker's calls here.
+class AmigaBlobRegistry final : public BlobRegistry {
+    void registerInternalFileBlobURL(const URL& url, Ref<BlobDataFileReference>&& file, const String&, const String& contentType) final
+    {
+        m_registry.registerInternalFileBlobURL(url, WTF::move(file), contentType);
+    }
+    void registerInternalBlobURL(const URL& url, Vector<BlobPart>&& parts, const String& contentType) final
+    {
+        m_registry.registerInternalBlobURL(url, WTF::move(parts), contentType);
+    }
+    void registerBlobURL(const URL& url, const URL& source, const PolicyContainer& policy, const std::optional<SecurityOriginData>& topOrigin) final
+    {
+        m_registry.registerBlobURL(url, source, policy, topOrigin);
+    }
+    void registerInternalBlobURLOptionallyFileBacked(const URL& url, const URL& source, RefPtr<BlobDataFileReference>&& file, const String& contentType) final
+    {
+        m_registry.registerInternalBlobURLOptionallyFileBacked(url, source, WTF::move(file), contentType, { });
+    }
+    void registerInternalBlobURLForSlice(const URL& url, const URL& source, long long start, long long end, const String& contentType) final
+    {
+        m_registry.registerInternalBlobURLForSlice(url, source, start, end, contentType);
+    }
+    void unregisterBlobURL(const URL& url, const std::optional<SecurityOriginData>& topOrigin) final
+    {
+        m_registry.unregisterBlobURL(url, topOrigin);
+    }
+    void registerBlobURLHandle(const URL& url, const std::optional<SecurityOriginData>& topOrigin) final
+    {
+        m_registry.registerBlobURLHandle(url, topOrigin);
+    }
+    void unregisterBlobURLHandle(const URL& url, const std::optional<SecurityOriginData>& topOrigin) final
+    {
+        m_registry.unregisterBlobURLHandle(url, topOrigin);
+    }
+    String blobType(const URL& url) final { return m_registry.blobType(url); }
+    unsigned long long blobSize(const URL& url) final { return m_registry.blobSize(url); }
+    void writeBlobsToTemporaryFilesForIndexedDB(const Vector<String>& blobURLs, CompletionHandler<void(Vector<String>&&)>&& completionHandler) final
+    {
+        m_registry.writeBlobsToTemporaryFilesForIndexedDB(blobURLs, WTF::move(completionHandler));
+    }
+    BlobRegistryImpl* blobRegistryImpl() final { return &m_registry; }
+
+    BlobRegistryImpl m_registry;
 };
 
 class AmigaPlatformStrategies final : public PlatformStrategies {
@@ -106,7 +148,7 @@ private:
     MediaStrategy* createMediaStrategy() final { return nullptr; }
     BlobRegistry* createBlobRegistry() final
     {
-        static NeverDestroyed<EmptyBlobRegistry> blobRegistry;
+        static NeverDestroyed<AmigaBlobRegistry> blobRegistry;
         return &blobRegistry.get();
     }
 #if ENABLE(DECLARATIVE_WEB_PUSH)

@@ -47,6 +47,8 @@ sh "$HERE/tests/webcore/test_tls_headers_from_checkout.sh"
 OUT="$OUT/digest-library" sh "$HERE/tests/webcore/test_digest_library.sh"
 # the package carries javascript.library and JS, and the installers put them in LIBS: and C:
 sh "$HERE/tests/pack/test_ship_jslib.sh"
+# the engine has a blob registry (files from the file button, Blob, blob: addresses)
+sh "$HERE/tests/webcore/test_blob_registry.sh"
 # webbrowser.library's wait for its engine: it stops when the engine's process ended with no engine
 "$CC" $FLAGS -I"$HERE/src/webbrowser" "$HERE/tests/test_wb_engine_wait.c" -o "$OUT/test_wb_engine_wait"
 "$OUT/test_wb_engine_wait"
