@@ -184,6 +184,7 @@ engine_env() {
         OPENSERVICE_DIR="$D/gfopenservice" OPENDATATYPES_DIR="$D/gfopendatatypes" \
         OPENAMIGARTG_DIR="$D/gfopenrtg" GFOPENLAYOUT_DIR="$D/gfopenlayout" \
         GFOPENGADTOOLS_DIR="$D/gfopengadtools" GFOPENSDK_DIR="$D/gfopensdk" \
+        GFOPENTLS_DIR="$D/gfopentls" \
         NDK_INCLUDE="$D/gfopensdk/OpenNDK/Include_H" OB_FONTS="$OB_FONTS" JOBS="$JOBS"
 }
 
