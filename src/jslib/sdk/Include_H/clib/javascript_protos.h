@@ -41,6 +41,7 @@ JSValue JS_Wrap(JSTask task, JSClass cls, APTR object);
 APTR JS_Unwrap(JSTask task, JSValue value, JSClass cls);
 JSValue JS_Throw(JSTask task, CONST_STRPTR message);
 LONG JS_ErrorText(JSTask task, STRPTR buffer, LONG size);
+JSValue JS_ClassPrototype(JSTask task, JSClass cls);
 
 #ifdef __cplusplus
 }
