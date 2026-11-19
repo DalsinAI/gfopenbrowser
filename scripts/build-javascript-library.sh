@@ -2,12 +2,14 @@
 # GFOpenBrowser (DalsinAI/gfopenbrowser)
 # Copyright (c) 2026 AmiCradle Team. MIT licence, see LICENSE.
 #
-# javascript.library 1 (src/jslib) and the JS command, for AmigaOS 3.2 on a
+# javascript.library v2 ABI (src/jslib) and the JS command, for AmigaOS 3.2 on a
 # 68040. The library is C with no C library, built for size (-Os); it holds
 # no engine. The engine, JavaScriptEngine, is built with JavaScriptCore by
 # scripts/build-javascript-engine.sh. JS is soft float
 # (toolchain/m68k-soft-m68040.specs). Lives here for now; it moves to its
-# own repository later.
+# own repository later. NOTE: DalsinAI/gfopenjavascript is now the standalone
+# release owner. This legacy browser build entry point is retained for
+# compatibility until standalone source migration and native RC1 qualification.
 #
 #   build-javascript-library.sh [OUT_DIR]     (default build/javascript-library)
 #

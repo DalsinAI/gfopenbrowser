@@ -49,7 +49,7 @@ stands, and the work in order. [docs/PHASE_PLAN.md](docs/PHASE_PLAN.md) has the 
 | `src/` | GFOpenBrowser Lite: the GadTools window (`ob_main.c`) and HTTP fetching (`ob_http.c`) |
 | `src/weblayout/` | weblayout, GFOpenBrowser Lite's page engine: HTML Lite, CSS Lite, painting, datatype pictures (`weblayout.h` is its whole interface) |
 | `src/jsonlib/` | json.library (GFOpenJSON): JSON parsed into one flat, relocatable block, a writer and a streaming reader, for native programs; here for now, its own repository later ([README](src/jsonlib/README.md)) |
-| `src/jslib/` | javascript.library: JavaScript (JavaScriptCore with the 68k JIT) for any program, which hands scripts its own objects as host classes; the JavaScriptEngine program behind it and the `JS` Shell command; here for now, its own repository later ([README](src/jslib/README.md)) |
+| `src/jslib/` | Existing in-tree javascript.library, JavaScriptEngine and `JS` sources, retained during the transition to [GFOpenJavaScript](https://github.com/DalsinAI/gfopenjavascript); see [the integration contract](docs/GFOPENJAVASCRIPT_INTEGRATION.md) and [library ABI](src/jslib/README.md) |
 | `src/webcore/` | GFOpenBrowser on WebCore: the window (`ob_browser.c`), the page layer (WebCore's clients, `ob_webview.h`), cookies and the network loader, and the test programs `obcore-dump` and `obcore-view` |
 | `third_party/openmail/` | Network, HTML-to-text and stack code shared with GFOpenMail (MIT, AmiCradle Team) |
 | `webkit/` | The pinned upstream revision and the AmigaOS/m68k patches for WebKit (JavaScriptCore and WebCore) |
@@ -62,6 +62,19 @@ stands, and the work in order. [docs/PHASE_PLAN.md](docs/PHASE_PLAN.md) has the 
 | `docs/` | Porting notes and the phase plan |
 
 No binaries are kept here, and no WebKit, ICU or AmigaOS files.
+
+## Shared JavaScript runtime ownership
+
+**GFOpenJavaScript is the independent release home** for `javascript.library` and
+its matching `JavaScriptEngine`: [DalsinAI/gfopenjavascript](https://github.com/DalsinAI/gfopenjavascript).
+GFOpenBrowser consumes the engine and remains responsible for its WebCore/browser
+integration and the shared pinned JavaScriptCore/WebKit build. No engine is moved
+or deleted until a tested standalone source/build transition is available.
+
+The v2 `JS_ClassPrototype` ABI is shared across GFOpenJavaScript and
+[GFOpenSDK](https://github.com/DalsinAI/gfopensdk). Do not ship a v2 loader
+with an unqualified old engine as if prototype support were available.
+See [integration and release gates](docs/GFOPENJAVASCRIPT_INTEGRATION.md).
 
 ## Building
 
