@@ -32,7 +32,7 @@
 #define REG(r, decl) register decl __asm(#r)
 #endif
 
-#define LIB_VERSION  1
+#define LIB_VERSION  2
 #define LIB_REVISION 0
 
 #define ENGINE_PATH "LIBS:JavaScript/JavaScriptEngine"
@@ -259,6 +259,15 @@ static JSValue L_JS_Throw(REG(a0, JSTask task), REG(a1, CONST_STRPTR message))
 { return task ? T(task)->Throw(task, message) : NULL; }
 static LONG L_JS_ErrorText(REG(a0, JSTask task), REG(a1, STRPTR buffer), REG(d0, LONG size))
 { return task ? T(task)->ErrorText(task, buffer, size) : 0; }
+/* ABI v2, appended vector only. Older JavaScriptEngine task tables use
+ * their original 1.0 prefix; jt_Size guards the new callback. */
+static JSValue L_JS_ClassPrototype(REG(a0, JSTask task), REG(a1, JSClass cls))
+{
+    if (!task || !cls || T(task)->jt_Size < sizeof(struct JSEngineTable))
+        return NULL;
+    return T(task)->ClassPrototype(task, cls);
+}
+
 
 /* sfd/javascript_lib.sfd's order, line for line (check_vectors.py) */
 static const APTR lib_vectors[] = {
@@ -293,6 +302,7 @@ static const APTR lib_vectors[] = {
     (APTR)L_JS_Unwrap,              /* -192 */
     (APTR)L_JS_Throw,               /* -198 */
     (APTR)L_JS_ErrorText,           /* -204 */
+    (APTR)L_JS_ClassPrototype,      /* -210: ABI v2, append-only */
     (APTR)-1
 };
 
