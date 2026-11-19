@@ -302,7 +302,7 @@ static const APTR lib_vectors[] = {
     (APTR)L_JS_Unwrap,              /* -192 */
     (APTR)L_JS_Throw,               /* -198 */
     (APTR)L_JS_ErrorText,           /* -204 */
-    (APTR)L_JS_ClassPrototype,      /* -210: ABI v2, append-only */
+    (APTR)L_JS_ClassPrototype,      /* -210 */ /* ABI v2, append-only */
     (APTR)-1
 };
 
