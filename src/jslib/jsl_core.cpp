@@ -1020,12 +1020,34 @@ static LONG eErrorText(JSTask jt, STRPTR buffer, LONG size)
     return length;
 }
 
+/* v2 append-only API: return the true, protected JSHostClass prototype.
+ * Avoid constructing a fake host wrapper merely to obtain .prototype.
+ * The engine verifies cls belongs to THIS task before dereferencing it;
+ * the returned JSValue is owned until the caller JS_Free's it. */
+static JSValue eClassPrototype(JSTask jt, JSClass cls)
+{
+    Task *t = task(jt);
+    JSValue result = nullptr;
+    if (!t || !cls)
+        return nullptr;
+    run(t, [&] {
+        for (ClassRec *rec = t->classes; rec; rec = rec->next) {
+            if (static_cast<JSClass>(rec) == cls) {
+                result = out(t, rec->proto);
+                break;
+            }
+        }
+    });
+    return result;
+}
+
 static const JSEngineTable table = {
     JSL_TABLE_VERSION, sizeof(JSEngineTable),
     eNewTask, eEndTask, eEvaluate, ePost, eUserData, eGlobal, eFree, eDup, eTypeOf,
     eNewLong, eNewDouble, eNewBool, eNewNull, eNewString, eNewObject, eNewFunction,
     eToLong, eToDouble, eToBool, eToString, eGetProp, eSetProp, eGetIndex, eSetIndex,
-    eCall, eRegisterClass, eWrap, eUnwrap, eThrow, eErrorText
+    eCall, eRegisterClass, eWrap, eUnwrap, eThrow, eErrorText,
+    eClassPrototype
 };
 
 CONST struct JSEngineTable *jsl_engine_table(void)
