@@ -39,5 +39,6 @@
 #pragma libcall JavaScriptBase JS_Unwrap c0 a9803
 #pragma libcall JavaScriptBase JS_Throw c6 9802
 #pragma libcall JavaScriptBase JS_ErrorText cc 09803
+#pragma libcall JavaScriptBase JS_ClassPrototype d2 9802
 
 #endif /* PRAGMAS_JAVASCRIPT_PRAGMAS_H */
