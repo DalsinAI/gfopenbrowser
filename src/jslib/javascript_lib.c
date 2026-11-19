@@ -55,7 +55,7 @@ int start(void) { return -1; }
 static const char lib_name[] = JAVASCRIPTNAME;
 static const char lib_id[] = "javascript.library 2.0 (19.11.2026) AmiCradle Team\r\n";
 static const char lib_ver[] __attribute__((used)) =
-    "\0$VER: javascript.library 1.0 (22.10.2026) AmiCradle Team";
+    "\0$VER: javascript.library 2.0 (19.11.2026) AmiCradle Team";
 
 /* ---- Library housekeeping -------------------------------------------------- */
 
