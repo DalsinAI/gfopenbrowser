@@ -67,6 +67,44 @@ DOS calls are fine. A slot function returns a new value (`JS_New*`,
 `JS_Dup`, `JS_Wrap`) or NULL for undefined, and throws with
 `return JS_Throw(task, "message");`.
 
+
+## Appendix: true host prototypes for source-level JS_InitClass compatibility
+
+Oolite's original JavaScript engine defines classes (Ship, Entity, Mission,
+Script, etc.) **before** any game object exists. `JS_Wrap` cannot be used to
+create dummy game-owned objects merely to expose their prototypes.
+
+`javascript.library` **version 2** adds exactly one append-only vector:
+
+```c
+JSValue JS_ClassPrototype(JSTask task, JSClass cls); /* -210 */
+```
+
+The class must have been registered with `JS_RegisterClass` on **the same**
+`JSTask`. The implementation looks up `cls` in that task's class registry,
+returns its genuine protected prototype as a newly owned `JSValue`, or
+`NULL` if it does not belong to the task. Callers `JS_Free(task, value)`
+after publishing the prototype; they must never pass another task's handles.
+The underlying prototype survives because it is protected by the class record.
+
+The existing 30 vectors (LVO -30 to -204) retain their meaning and order.
+The engine table appends its `ClassPrototype` callback and increases
+`jt_Size`, preserving the previous prefix and `JSL_TABLE_VERSION=1`.
+A v2 `javascript.library` paired with a **v1 JavaScriptEngine** checks
+`jt_Size` and returns `NULL` for only the new vector: no out-of-bounds
+callback invocation. All old calls remain operational. A client requiring the
+feature checks `lib_Version >= JAVASCRIPT_CLASS_PROTOTYPE_VERSION` and
+handles `NULL`; a v2 library alone does **not** prove that its separately
+deployed engine implements the callback.
+
+Regression additions in `tests/jslib/core_test.c`: prototype availability
+before any wrapper; true parent prototype inheritance; identity with later
+`JS_Wrap` objects; rejection of a `JSClass` from another JSTask.
+These tests require the patched JavaScriptCore JIT build to run.
+Oolite source glue is in `DalsinAI/amigaoolite`,
+`OOGFOSJSClassBootstrap`; **no binary SpiderMonkey JSAPI compatibility is
+claimed**.
+
 ## Building and testing
 
 - Library and JS: `scripts/build-javascript-library.sh` (os32-gcc16 or the

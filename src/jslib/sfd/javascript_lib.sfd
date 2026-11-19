@@ -43,4 +43,6 @@ APTR JS_Unwrap(JSTask task, JSValue value, JSClass cls) (a0,a1,a2)
 * Errors
 JSValue JS_Throw(JSTask task, CONST_STRPTR message) (a0,a1)
 LONG JS_ErrorText(JSTask task, STRPTR buffer, LONG size) (a0,a1,d0)
+* v2 appended host-class prototype access. Caller owns returned JSValue.
+JSValue JS_ClassPrototype(JSTask task, JSClass cls) (a0,a1)
 ==end

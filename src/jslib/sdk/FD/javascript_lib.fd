@@ -33,4 +33,5 @@ JS_Wrap(task,cls,object)(a0,a1,a2)
 JS_Unwrap(task,value,cls)(a0,a1,a2)
 JS_Throw(task,message)(a0,a1)
 JS_ErrorText(task,buffer,size)(a0,a1,d0)
+JS_ClassPrototype(task,cls)(a0,a1)
 ##end

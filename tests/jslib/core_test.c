@@ -466,12 +466,40 @@ int main(void)
         JSValue w1, w2;
         check(cls != NULL, "RegisterClass");
         check(E->RegisterClass(t, &pointClass) == cls, "a class registered twice is the same class");
+        /* Oolite JS_InitClass source compatibility: a caller must obtain
+         * the genuine host prototype BEFORE any Ship/Entity wrapper exists. */
+        {
+            JSValue proto=E->ClassPrototype(t,cls);
+            JSClass parent=E->RegisterClass(t,&shapeClass);
+            JSValue inherited=E->ClassPrototype(t,parent);
+            JSTask foreign=E->NewTask(NULL);
+            check(E->jt_Size==sizeof(struct JSEngineTable),
+                  "v2 engine table advertises its append-only size");
+            check(proto!=NULL && inherited!=NULL,
+                  "class prototypes available before any wrapper");
+            g=E->Global(t);
+            if(proto) E->SetProp(t,g,"pointPrototype",proto);
+            if(inherited) E->SetProp(t,g,"shapePrototype",inherited);
+            check(evalIs(t,"Object.getPrototypeOf(pointPrototype)===shapePrototype",
+                         "true"),"original OOJS parent class prototype is inherited");
+            if(foreign){
+                check(E->ClassPrototype(foreign,cls)==NULL,
+                      "foreign task may not unwrap another task's JSClass");
+                E->EndTask(foreign);
+            } else check(0,"other task for class handle ownership");
+            if(proto)E->Free(t,proto);
+            if(inherited)E->Free(t,inherited);
+            E->Free(t,g);
+        }
         w1 = E->Wrap(t, cls, &p);
         w2 = E->Wrap(t, cls, &p);
         g = E->Global(t);
         E->SetProp(t, g, (CONST_STRPTR)"p", w1);
         E->SetProp(t, g, (CONST_STRPTR)"p2", w2);
         check(evalIs(t, "p === p2", "true"), "one wrapper per object");
+        check(evalIs(t, "Object.getPrototypeOf(p)===pointPrototype", "true"),
+              "published prototype equals the actual host wrapper prototype");
+
         check(E->Unwrap(t, w1, cls) == &p, "Unwrap");
         check(evalIs(t, "p.x + ',' + p.y + ',' + p.length2()", "3,4,25"), "accessor, field and method");
         check(evalIs(t, "p.x = 10; p.x", "10") && p.x == 10, "an accessor's setter reaches the program");

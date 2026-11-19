@@ -70,7 +70,7 @@ jobs:
           G=$($D/m68k-amigaos-nm $L | awk '$2 ~ /^[bBcCdD]$/ {print $3}' | grep -v '^__' | sort | tr '\n' ' ')
           echo "writable globals: $G"
           [ "$G" = "_DOSBase _SysBase " ] || { echo "javascript.library has other writable globals"; exit 1; }
-          strings $L | grep '^\$VER: javascript.library 1\.'
+          strings $L | grep '^\$VER: javascript.library 2\.'
           echo "### javascript.library" >> "$GITHUB_STEP_SUMMARY"
           echo '```' >> "$GITHUB_STEP_SUMMARY"
           ls -l $L build/javascript-library/JS >> "$GITHUB_STEP_SUMMARY"

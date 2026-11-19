@@ -31,6 +31,8 @@ NM="$BIN/m68k-amigaos-nm"
 LIB="$HERE/src/jslib"
 [ -x "$CC" ] || { echo "build-javascript-library.sh: no compiler at $CC (set TOOLCHAIN_DIR or STOVE)" >&2; exit 2; }
 
+# GCC 16.2 vendor NDK inline/dos.h defines unused static varargs shims;
+# suppress only that header-noise warning, retaining all other -Werror gates.
 python3 "$LIB/check_vectors.py"
 if [ -n "${OPENSDK_SRC:-}" ]; then
     python3 "$OPENSDK_SRC/OpenNDK/tools/ndkgen.py" --check --out "$LIB/sdk" "$LIB/sfd/javascript_lib.sfd" ||
@@ -44,7 +46,7 @@ mkdir -p "$OUT"
 # The library: javascript_lib.c alone (its start() is the first code)
 "$CC" -m68040 -Os -std=gnu99 -fno-delete-null-pointer-checks -fno-common -fomit-frame-pointer \
     -fno-toplevel-reorder -fno-builtin -fno-tree-loop-distribute-patterns \
-    -Wall -Wextra -Werror -Wno-unused-parameter -nostartfiles -nostdlib $INC \
+    -Wall -Wextra -Werror -Wno-unused-parameter -Wno-unused-function -nostartfiles -nostdlib $INC \
     "$LIB/javascript_lib.c" -lgcc -Wl,-Map,"$OUT/javascript.library.map" -o "$OUT/javascript.library"
 und=$("$NM" -u "$OUT/javascript.library" || true)
 [ -z "$und" ] || { echo "build-javascript-library.sh: undefined in javascript.library: $und" >&2; exit 1; }
@@ -52,6 +54,6 @@ echo "$OUT/javascript.library ($(wc -c < "$OUT/javascript.library") bytes)"
 
 # JS: an ordinary program that opens the library from LIBS:
 "$CC" -m68040 -specs="$HERE/toolchain/m68k-soft-m68040.specs" -mcrt=nix20 -std=gnu99 -Os \
-    -fno-delete-null-pointer-checks -fno-common -Wall -Wextra -Werror -Wno-pointer-sign $INC \
+    -fno-delete-null-pointer-checks -fno-common -Wall -Wextra -Werror -Wno-pointer-sign -Wno-unused-function $INC \
     "$LIB/JS.c" -o "$OUT/JS"
 echo "$OUT/JS ($(wc -c < "$OUT/JS") bytes)"

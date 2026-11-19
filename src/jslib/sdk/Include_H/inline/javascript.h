@@ -550,4 +550,21 @@ __javascript_JS_ErrorText(void *__base, JSTask task, STRPTR buffer, LONG size)
 #define JS_ErrorText(task, buffer, size) __javascript_JS_ErrorText((JAVASCRIPT_BASE_NAME), (JSTask)(task), (STRPTR)(buffer), (LONG)(size))
 #define __JS_ErrorText_base(__in_base, task, buffer, size) __javascript_JS_ErrorText((__in_base), (JSTask)(task), (STRPTR)(buffer), (LONG)(size))
 
+static __inline__ JSValue
+__javascript_JS_ClassPrototype(void *__base, JSTask task, JSClass cls)
+{
+	register ULONG _a0 __asm("a0") = (ULONG)(task);
+	register ULONG _a1 __asm("a1") = (ULONG)(cls);
+	register void *_a6 __asm("a6") = __base;
+	register ULONG _d0 __asm("d0");
+	register ULONG _d1 __asm("d1");
+	__asm__ __volatile__ ("jsr -210(%/a6)"
+		: "=r" (_d0), "=r" (_d1), "+r" (_a0), "+r" (_a1)
+		: "r" (_a6)
+		: __OPENNDK_FPCLOBBER "cc", "memory");
+	return (JSValue)_d0;
+}
+#define JS_ClassPrototype(task, cls) __javascript_JS_ClassPrototype((JAVASCRIPT_BASE_NAME), (JSTask)(task), (JSClass)(cls))
+#define __JS_ClassPrototype_base(__in_base, task, cls) __javascript_JS_ClassPrototype((__in_base), (JSTask)(task), (JSClass)(cls))
+
 #endif /* INLINE_JAVASCRIPT_H */

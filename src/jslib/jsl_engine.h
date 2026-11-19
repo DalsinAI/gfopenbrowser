@@ -59,6 +59,9 @@ struct JSEngineTable {
     APTR (*Unwrap)(JSTask task, JSValue value, JSClass cls);
     JSValue (*Throw)(JSTask task, CONST_STRPTR message);
     LONG (*ErrorText)(JSTask task, STRPTR buffer, LONG size);
+    /* v2 append-only extension. jt_Size gates this pointer: a v1
+     * JavaScriptEngine still serves every existing library vector. */
+    JSValue (*ClassPrototype)(JSTask task, JSClass cls);
 };
 
 /* The head of every JSTask */
