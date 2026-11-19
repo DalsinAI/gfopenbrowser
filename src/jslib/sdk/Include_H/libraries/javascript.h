@@ -36,6 +36,10 @@
 
 #define JAVASCRIPTNAME    "javascript.library"
 #define JAVASCRIPTVERSION 1
+/* JS_ClassPrototype is the v2 appended vector (-210). Retain minimum v1
+ * for old clients; callers MUST OpenLibrary with version >= 2 before using
+ * the additional vector, and accept NULL with an older engine. */
+#define JAVASCRIPT_CLASS_PROTOTYPE_VERSION 2
 
 typedef APTR JSTask;
 typedef APTR JSValue;
