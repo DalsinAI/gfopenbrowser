@@ -35,7 +35,7 @@ env:
 jobs:
   host:
     # the Python tools' self-tests, and the pinned test262 slice fetched and checked
-    runs-on: ubuntu-latest
+    runs-on: [self-hosted, lumavault]
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
@@ -62,7 +62,7 @@ jobs:
 
   amiga:
     # obstamp, and obcore-view's source, for the 68040 with its FPU
-    runs-on: ubuntu-latest
+    runs-on: [self-hosted, lumavault]
     steps:
       - uses: actions/checkout@v4
       - uses: actions/checkout@v4

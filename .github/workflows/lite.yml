@@ -84,7 +84,7 @@ jobs:
     # GFOpenMail's HTML-to-text converter, the engine's malloc and its HTTP
     # disk cache with the host's compiler, and the engine's GFOpenGPU stream
     # writer (WebKit patches 0076, 0077 and 0078) on gfopenrtg's CPU core
-    runs-on: ubuntu-latest
+    runs-on: [self-hosted, lumavault]
     steps:
       - uses: actions/checkout@v4
       - uses: actions/checkout@v4
@@ -106,7 +106,7 @@ jobs:
 
   amiga:
     # GFOpenBrowser, obfetch and the Amiga test programs for the 68040 with its FPU
-    runs-on: ubuntu-latest
+    runs-on: [self-hosted, lumavault]
     steps:
       - uses: actions/checkout@v4
       - uses: actions/checkout@v4

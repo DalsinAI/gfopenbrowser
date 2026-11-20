@@ -18,7 +18,7 @@ on:
 
 jobs:
   qemu-m68040:
-    runs-on: ubuntu-latest
+    runs-on: [self-hosted, lumavault]
     steps:
       - uses: actions/checkout@v4
       - name: m68k cross compiler and qemu-m68k

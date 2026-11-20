@@ -38,7 +38,7 @@ env:
 
 jobs:
   host:
-    runs-on: ubuntu-latest
+    runs-on: [self-hosted, lumavault]
     steps:
       - uses: actions/checkout@v4
       - uses: actions/cache@v4
@@ -81,7 +81,7 @@ jobs:
 
   amiga:
     needs: host
-    runs-on: ubuntu-latest
+    runs-on: [self-hosted, lumavault]
     steps:
       - uses: actions/checkout@v4
       - uses: actions/checkout@v4
@@ -125,7 +125,7 @@ jobs:
             sh scripts/build-unicode-library.sh build/unicode-library
       - name: UnicodeTest in vamos (68040)
         run: |
-          pip install --quiet amitools==0.8.1 machine68k==0.3.0
+          python3 -m pip install --break-system-packages --quiet amitools==0.8.1 machine68k==0.3.0 && export PATH="$HOME/.local/bin:$PATH" && echo "$HOME/.local/bin" >> "$GITHUB_PATH"
           mkdir -p vam/libs/Unicode
           cp build/unicode-library/unicode.library vam/libs/
           cp build/unicode-library/Unicode/icudt78b.dat vam/libs/Unicode/
