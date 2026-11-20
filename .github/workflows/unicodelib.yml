@@ -38,7 +38,7 @@ env:
 
 jobs:
   host:
-    runs-on: ubuntu-latest
+    runs-on: [self-hosted, lumavault]
     steps:
       - uses: actions/checkout@v4
       - uses: actions/cache@v4
@@ -81,7 +81,7 @@ jobs:
 
   amiga:
     needs: host
-    runs-on: ubuntu-latest
+    runs-on: [self-hosted, lumavault]
     steps:
       - uses: actions/checkout@v4
       - uses: actions/checkout@v4

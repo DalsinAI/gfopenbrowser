@@ -28,7 +28,7 @@ env:
 
 jobs:
   tests:
-    runs-on: ubuntu-latest
+    runs-on: [self-hosted, lumavault]
     steps:
       - uses: actions/checkout@v4
       - uses: actions/checkout@v4
@@ -44,7 +44,7 @@ jobs:
         run: OPENSDK_SRC=$PWD/gfopensdk sh tests/jsonlib/run.sh
 
   amiga:
-    runs-on: ubuntu-latest
+    runs-on: [self-hosted, lumavault]
     steps:
       - uses: actions/checkout@v4
       - uses: actions/checkout@v4
