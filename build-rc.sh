@@ -22,6 +22,12 @@ if [ -z "${TARBALLS_FROM:-}" ]; then
     fi
     echo "build-rc: TARBALLS_FROM=${TARBALLS_FROM:-none}"
 fi
+# the fonts at fonts.sha256's pins (this machine's DejaVu is another build): the media repository's copy
+FT=/srv/samsung/media-repository/warehouse/sources/gfopenbrowser-fonts.tar
+if [ -z "${FONTS_FROM:-}" ] && [ -f "$FT" ]; then
+    rm -rf "$PACK_DIR/fonts-from"; mkdir -p "$PACK_DIR/fonts-from"; tar -xf "$FT" -C "$PACK_DIR/fonts-from"
+    export FONTS_FROM="$PACK_DIR/fonts-from"
+fi
 # the earlier try's hand-fed checkouts: fetched again from the mirror
 for n in gfopengadtools amicradle-guest; do
     if [ -f "$PACK_DIR/deps/$n/.git/FETCH_HEAD" ] && grep -q bundle "$PACK_DIR/deps/$n/.git/FETCH_HEAD"; then rm -rf "$PACK_DIR/deps/$n"; fi
