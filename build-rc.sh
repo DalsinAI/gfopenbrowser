@@ -9,27 +9,31 @@ export OS32_GCC16=${OS32_GCC16:-"$STOVES/os32-gcc16"}
 export PACK_DIR=${PACK_DIR:-"$HERE/pack"}
 export NICE=${NICE:-15}
 echo "build-rc: stove $OS32_GCC16, work folder $PACK_DIR, $(nproc) threads"
-# the two inputs GitHub will not give without a login: their pinned commits as bundles from the PC
-# that asked (RC_BUNDLES), checked out where fetch-deps.sh looks, so it finds them at their pins
-RC_BUNDLES=${RC_BUNDLES:-http://192.168.0.195:18977}
-for nb in gfopengadtools:gfopengadtools-9aaa8d59.bundle amicradle-guest:amicradle-guest-92494b82.bundle; do
-    n=${nb%%:*}; b=${nb#*:}; d="$PACK_DIR/deps/$n"
-    pin=$(awk -v n="$n" '$1 == n {print $3}' "$HERE/scripts/deps.lock")
-    [ "$(git -C "$d" rev-parse HEAD 2>/dev/null)" = "$pin" ] && continue
-    rm -rf "$d"                                   # a fetch that failed before (this build's own folder)
-    mkdir -p "$d"; curl -fsS -o "$PACK_DIR/$b" "$RC_BUNDLES/$b"
-    git -C "$d" init -q; git -C "$d" fetch -q "$PACK_DIR/$b" "$pin" 2>/dev/null || git -C "$d" fetch -q "$PACK_DIR/$b" refs/heads/fetched
-    git -C "$d" -c advice.detachedHead=false checkout -q "$pin"
-    echo "build-rc: $n at $pin from $b"
+# GitHub's addresses answered by bigguy's git mirror (no login; the nightly clones the same way)
+export GIT_CONFIG_COUNT=1 GIT_CONFIG_KEY_0="url.${RC_MIRROR:-http://127.0.0.1:8418}/DalsinAI/.insteadOf" GIT_CONFIG_VALUE_0=https://github.com/DalsinAI/
+# zlib.tar.gz has no public URL (scripts/tarballs.lock): the media repository's copy, sources/zlib.tar.gz
+if [ -z "${TARBALLS_FROM:-}" ]; then
+    for z in /srv/samsung/media-repository/warehouse/sources/zlib.tar.gz "$STOVES"/*/ports/zlib.tar.gz "$STOVES"/archive/*/ports/zlib.tar.gz; do
+        if [ -f "$z" ]; then export TARBALLS_FROM=$(dirname "$z"); break; fi
+    done
+    if [ -z "${TARBALLS_FROM:-}" ]; then
+        mkdir -p "$PACK_DIR/tarballs-from"
+        curl -fsS -o "$PACK_DIR/tarballs-from/zlib.tar.gz" "${RC_BUNDLES:-http://192.168.0.195:18977}/zlib.tar.gz" && export TARBALLS_FROM="$PACK_DIR/tarballs-from"
+    fi
+    echo "build-rc: TARBALLS_FROM=${TARBALLS_FROM:-none}"
+fi
+# the earlier try's hand-fed checkouts: fetched again from the mirror
+for n in gfopengadtools amicradle-guest; do
+    if [ -f "$PACK_DIR/deps/$n/.git/FETCH_HEAD" ] && grep -q bundle "$PACK_DIR/deps/$n/.git/FETCH_HEAD"; then rm -rf "$PACK_DIR/deps/$n"; fi
 done
 sh "$HERE/scripts/build-pack.sh"
 mkdir -p "$HERE/out"
 NAME=GFOpenBrowser-0.9.0-RC5
 rm -rf "$HERE/out/$NAME"; cp -R "$PACK_DIR/out" "$HERE/out/$NAME"
 (cd "$HERE/out" && tar czf "$NAME.tgz" "$NAME")
-[ -f "$PACK_DIR/out.lha" ] && cp "$PACK_DIR/out.lha" "$HERE/out/$NAME.lha"
+if [ -f "$PACK_DIR/out.lha" ]; then cp "$PACK_DIR/out.lha" "$HERE/out/$NAME.lha"; fi
 ls -la "$HERE/out"
 RC_UPLOAD=${RC_UPLOAD:-http://192.168.0.195:18991}
 for f in "$HERE/out/$NAME.tgz" "$HERE/out/$NAME.lha"; do
-    [ -f "$f" ] && { curl -fsS -m 600 -T "$f" "$RC_UPLOAD/$(basename "$f")" && echo "sent $(basename "$f")" || echo "could not send $(basename "$f")"; }
+    if [ -f "$f" ]; then curl -fsS -m 600 -T "$f" "$RC_UPLOAD/$(basename "$f")" && echo "sent $(basename "$f")" || echo "could not send $(basename "$f")"; fi
 done
