@@ -9,6 +9,18 @@ export OS32_GCC16=${OS32_GCC16:-"$STOVES/os32-gcc16"}
 export PACK_DIR=${PACK_DIR:-"$HERE/pack"}
 export NICE=${NICE:-15}
 echo "build-rc: stove $OS32_GCC16, work folder $PACK_DIR, $(nproc) threads"
+# unzip, which the kitchen lacks (gfopensqlite unpacks SQLite's zip with it): Python's zipfile does the same
+mkdir -p "$PACK_DIR/bin"
+if ! command -v unzip >/dev/null 2>&1; then
+    printf '%s\n' '#!/usr/bin/env python3' 'import sys, zipfile' \
+        'a = [x for x in sys.argv[1:] if not x.startswith("-")]' 'zipfile.ZipFile(a[0]).extractall(".")' > "$PACK_DIR/bin/unzip"
+    chmod +x "$PACK_DIR/bin/unzip"
+fi
+export PATH="$PACK_DIR/bin:$PATH"
+# the engine stage's tools, said at the start rather than an hour in
+missing=
+for t in cmake ninja perl ruby gperf python3 make patch g++; do command -v "$t" >/dev/null 2>&1 || missing="$missing $t"; done
+[ -z "$missing" ] || echo "build-rc: WARNING: not on this machine:$missing (the engine stage needs them)"
 # GitHub's addresses answered by bigguy's git mirror (no login; the nightly clones the same way)
 export GIT_CONFIG_COUNT=1 GIT_CONFIG_KEY_0="url.${RC_MIRROR:-http://127.0.0.1:8418}/DalsinAI/.insteadOf" GIT_CONFIG_VALUE_0=https://github.com/DalsinAI/
 # zlib.tar.gz has no public URL (scripts/tarballs.lock): the media repository's copy, sources/zlib.tar.gz
