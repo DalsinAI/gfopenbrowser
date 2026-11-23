@@ -428,6 +428,11 @@ static void armTimer(long wait)
         AbortIO((struct IORequest *)timerRequest);
         WaitIO((struct IORequest *)timerRequest);
         timerPending = 0;
+        /* The aborted request's reply set the timer port's signal, and WaitIO leaves it set: the
+         * next Wait() would return at once, "woken by the timer", and the pass after it abort
+         * the new request again. Every pass went round that way, 34,000 a second with the
+         * engine idle on about:blank (the 95 percent CPU of 23 Nov 2026; GFOpenBrowserTrace). */
+        SetSignal(0, 1UL << timerPort->mp_SigBit);
     }
     if (wait < 0 || wait > 1000000)
         wait = 1000000;                         /* the waits' time limits are checked each second */
