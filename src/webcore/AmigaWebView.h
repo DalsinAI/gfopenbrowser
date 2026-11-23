@@ -27,6 +27,8 @@ class ResourceError;
 
 namespace GFOpenBrowser {
 
+extern unsigned long amigaRenderingUpdates;
+
 class AmigaBackForwardList;
 
 class WebView {
