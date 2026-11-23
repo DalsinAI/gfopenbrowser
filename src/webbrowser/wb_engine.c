@@ -192,9 +192,44 @@ static void onFailed(void *context, const char *url, const char *description)
     v->failed = 1;
 }
 
+/* GFOpenBrowserTrace (23 Nov 2026: the engine at 95% of the CPU on a page that
+ * had loaded, about:blank too): with the variable set when the engine starts
+ * (SetEnv GFOpenBrowserTrace 1), every five seconds a line to
+ * T:GFOpenBrowser-trace.txt saying why this loop went round: its passes; those
+ * that went straight round because WebCore had tasks waiting or a timer due
+ * (and how late), and those that slept; what woke them (a message, WebCore's
+ * wake-up, the timer, the window); WebCore's wake-up calls and its rendering
+ * updates. */
+static int traceOn;
+static ULONG traceAt;
+static unsigned long tracePasses, traceSpins, traceWaits, traceByMessage, traceByWake, traceByTimer, traceByWindow, traceWakeUps;
+
+static void traceTick(void)
+{
+    struct ob_webcore_trace t;
+    BPTR f;
+    ULONG now = seconds();
+    if (!traceOn || now - traceAt < 5)
+        return;
+    traceAt = now;
+    ob_webcore_trace_take(&t);
+    f = Open((CONST_STRPTR)"T:GFOpenBrowser-trace.txt", MODE_READWRITE);
+    if (!f)
+        return;
+    Seek(f, 0, OFFSET_END);
+    FPrintf(f, (CONST_STRPTR)"%lu passes, %lu straight round (tasks %lu, timer due %lu, latest %lu us), %lu slept "
+        "(woken by a message %lu, wake-up %lu, timer %lu, window %lu); timer later %lu, none %lu; "
+        "wake-up calls %lu; rendering updates %lu\n",
+        tracePasses, traceSpins, t.pendingTasks, t.timerDue, (ULONG)t.mostLateMicros, traceWaits,
+        traceByMessage, traceByWake, traceByTimer, traceByWindow, t.timerLater, t.idle, traceWakeUps, t.renderingUpdates);
+    Close(f);
+    tracePasses = traceSpins = traceWaits = traceByMessage = traceByWake = traceByTimer = traceByWindow = traceWakeUps = 0;
+}
+
 static void wakeUp(void *context)
 {
     (void)context;
+    traceWakeUps++;
     Signal(engineTask, 1UL << wakeSignal);
 }
 
@@ -393,6 +428,11 @@ static void armTimer(long wait)
         AbortIO((struct IORequest *)timerRequest);
         WaitIO((struct IORequest *)timerRequest);
         timerPending = 0;
+        /* The aborted request's reply set the timer port's signal, and WaitIO leaves it set: the
+         * next Wait() would return at once, "woken by the timer", and the pass after it abort
+         * the new request again. Every pass went round that way, 34,000 a second with the
+         * engine idle on about:blank (the 95 percent CPU of 23 Nov 2026; GFOpenBrowserTrace). */
+        SetSignal(0, 1UL << timerPort->mp_SigBit);
     }
     if (wait < 0 || wait > 1000000)
         wait = 1000000;                         /* the waits' time limits are checked each second */
@@ -440,6 +480,11 @@ static int serve(int argc, char **argv)
     Permit();
     if (!port)
         return 20;
+    {
+        char v[8];
+        traceOn = GetVar((CONST_STRPTR)"GFOpenBrowserTrace", (STRPTR)v, sizeof v, 0) > 0;
+        traceAt = seconds();
+    }
 
     while (running) {
         struct WBMessage *m;
@@ -468,11 +513,24 @@ static int serve(int argc, char **argv)
         else if (idleLimit && seconds() - idleSince >= idleLimit)
             break;
         next = ob_webcore_next_timer_micros();
-        if (next == 0)
+        tracePasses++;
+        traceTick();
+        if (next == 0) {
+            traceSpins++;
             continue;
+        }
         armTimer(next);
         got = Wait((1UL << port->mp_SigBit) | (1UL << wakeSignal) | (1UL << timerPort->mp_SigBit) | obb_signals()
             | SIGBREAKF_CTRL_C);
+        traceWaits++;
+        if (got & (1UL << port->mp_SigBit))
+            traceByMessage++;
+        if (got & (1UL << wakeSignal))
+            traceByWake++;
+        if (got & (1UL << timerPort->mp_SigBit))
+            traceByTimer++;
+        if (got & obb_signals())
+            traceByWindow++;
         if (got & SIGBREAKF_CTRL_C)
             running = 0;
         if (timerPending && CheckIO((struct IORequest *)timerRequest)) {

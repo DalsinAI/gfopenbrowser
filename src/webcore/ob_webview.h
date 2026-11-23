@@ -82,6 +82,17 @@ void ob_webview_save_tls_sessions(const char *path);
 void ob_webcore_cycle(void);
 double ob_webcore_next_timer(void);
 long ob_webcore_next_timer_micros(void);
+/* What the main loop's passes found since the last take (GFOpenBrowserTrace,
+ * 23 Nov 2026: the engine at 95% of the CPU on a page that has loaded): how
+ * many cycles; how often the run loop had tasks waiting, its earliest timer
+ * already due (and the latest it was), a timer later, or nothing at all;
+ * WebCore's rendering updates since the start; the clock. Clears the counts. */
+struct ob_webcore_trace {
+    unsigned long cycles, pendingTasks, timerDue, timerLater, idle;
+    unsigned long long mostLateMicros, nowMicros;
+    unsigned long renderingUpdates;
+};
+void ob_webcore_trace_take(struct ob_webcore_trace *out);
 /* Called, from any thread, when work is queued for the main task. */
 void ob_webcore_set_wakeup(void (*wakeup)(void *context), void *context);
 

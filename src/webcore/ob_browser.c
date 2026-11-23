@@ -54,7 +54,7 @@
 #define TLS_SESSIONS "PROGDIR:TLSSessions"
 #include "oam_stack.h"
 
-static const char version[] __attribute__((used)) = "$VER: GFOpenBrowser 0.9.0 (17.11.2026)";
+static const char version[] __attribute__((used)) = "$VER: GFOpenBrowser 0.9.0 (22.11.2026)";
 
 #define HOME_PAGE "https://example.com/"
 
@@ -797,9 +797,42 @@ static void openPrefs(void)
 
 /* --- timers and wake-ups -------------------------------------------------- */
 
+/* GFOpenBrowserTrace (23 Nov 2026: the engine at 95% of the CPU on a page that
+ * had loaded, about:blank too): with the variable set (SetEnv GFOpenBrowserTrace
+ * 1 before the browser starts), every five seconds a line to
+ * T:GFOpenBrowser-trace.txt saying why the main loop went round: WebCore's
+ * run loop cycles, the passes that found tasks waiting or a timer due (and how
+ * late), those that slept until a timer or with nothing set, the wake-ups
+ * WebCore sent, the window's and ARexx's events, and the rendering updates. */
+static int traceOn;
+static ULONG traceAt;
+static unsigned long traceWakeUps, traceWaits, traceSpins, traceWindow, traceRexx, traceTimerFired;
+
+static void traceTick(void)
+{
+    struct ob_webcore_trace t;
+    BPTR f;
+    ULONG now = clockMicros();
+    if (!traceOn || now - traceAt < 5000000UL)
+        return;
+    traceAt = now;
+    ob_webcore_trace_take(&t);
+    f = Open((CONST_STRPTR)"T:GFOpenBrowser-trace.txt", MODE_READWRITE);
+    if (!f)
+        return;
+    Seek(f, 0, OFFSET_END);
+    FPrintf(f, (CONST_STRPTR)"%lu cycles %lu spins %lu waits: tasks %lu, timer due %lu (latest %lu us), timer later %lu, "
+        "nothing %lu; wake-ups %lu, timer fired %lu, window %lu, arexx %lu; rendering updates %lu\n",
+        t.cycles, traceSpins, traceWaits, t.pendingTasks, t.timerDue, (ULONG)t.mostLateMicros, t.timerLater, t.idle,
+        traceWakeUps, traceTimerFired, traceWindow, traceRexx, t.renderingUpdates);
+    Close(f);
+    traceWakeUps = traceWaits = traceSpins = traceWindow = traceRexx = traceTimerFired = 0;
+}
+
 static void wakeUp(void *context)
 {
     (void)context;
+    traceWakeUps++;
     Signal(mainTask, 1UL << wakeSignal);
 }
 
@@ -810,6 +843,11 @@ static void armTimer(long micros)
         AbortIO((struct IORequest *)timerRequest);
         WaitIO((struct IORequest *)timerRequest);
         timerPending = 0;
+        /* The aborted request's reply set the timer port's signal, and WaitIO leaves it set: the
+         * next Wait() would return at once, "woken by the timer", and the pass after it abort
+         * the new request again. Every pass went round that way, 34,000 a second with the
+         * engine idle on about:blank (the 95 percent CPU of 23 Nov 2026; GFOpenBrowserTrace). */
+        SetSignal(0, 1UL << timerPort->mp_SigBit);
     }
     if (micros < 0)
         return;
@@ -1732,6 +1770,11 @@ static int browserMain(int argc, char **argv)
     ob_webcore_set_wakeup(wakeUp, NULL);
     ob_splash("Opening the window", 90);
     openBrowserWindow(argc > 1 ? argv[1] : prefs.homePage, network);
+    {
+        char v[8];
+        traceOn = GetVar((CONST_STRPTR)"GFOpenBrowserTrace", (STRPTR)v, sizeof v, 0) > 0;
+        traceAt = clockMicros();
+    }
 
     while (!quitNow) {
         ULONG waitMask, got;
@@ -1740,8 +1783,10 @@ static int browserMain(int argc, char **argv)
         ob_webcore_cycle();
         updateWindow();
         next = ob_webcore_next_timer_micros();
+        traceTick();
         if (next == 0) {
             /* More is due at once: take any input, then go round again. */
+            traceSpins++;
             got = SetSignal(0, (1UL << window->UserPort->mp_SigBit) | (1UL << wakeSignal) | rexxSignal());
             if (got & rexxSignal())
                 rexxEvents();   /* STATUS and STOP are answered while a page keeps WebCore busy */
@@ -1753,9 +1798,15 @@ static int browserMain(int argc, char **argv)
         waitMask = (1UL << window->UserPort->mp_SigBit) | (1UL << wakeSignal) | (1UL << timerPort->mp_SigBit) | rexxSignal()
             | SIGBREAKF_CTRL_C;
         got = Wait(waitMask);
+        traceWaits++;
+        if (got & (1UL << window->UserPort->mp_SigBit))
+            traceWindow++;
+        if (got & rexxSignal())
+            traceRexx++;
         if (got & SIGBREAKF_CTRL_C)
             quitNow = 1;
         if (got & (1UL << timerPort->mp_SigBit)) {
+            traceTimerFired++;
             if (timerPending && CheckIO((struct IORequest *)timerRequest)) {
                 WaitIO((struct IORequest *)timerRequest);
                 timerPending = 0;

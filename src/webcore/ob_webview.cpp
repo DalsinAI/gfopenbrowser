@@ -232,21 +232,44 @@ void ob_webcore_shutdown(void)
     ob_network_close();
 }
 
+// Why the program went round again (ob_webview.h, ob_webcore_trace): the run
+// loop had tasks waiting, or its earliest timer was already due; and how late.
+static struct ob_webcore_trace obTrace;
+
 void ob_webcore_cycle(void)
 {
     resetFPCR();
+    obTrace.cycles++;
     RunLoop::cycle();
+}
+
+void ob_webcore_trace_take(struct ob_webcore_trace* out)
+{
+    obTrace.renderingUpdates = GFOpenBrowser::amigaRenderingUpdates;
+    obTrace.nowMicros = WTF::amigaMonotonicMicroseconds();
+    *out = obTrace;
+    obTrace = { };
 }
 
 long ob_webcore_next_timer_micros(void)
 {
     // Integers only: one clock reading, no floating point.
     int64_t next = WTF::amigaRunLoopNextFireMicroseconds();
-    if (next <= 0)
+    if (next <= 0) {
+        if (next < 0)
+            obTrace.idle++;
+        else
+            obTrace.pendingTasks++;
         return next < 0 ? -1 : 0;
+    }
     int64_t wait = next - static_cast<int64_t>(WTF::amigaMonotonicMicroseconds());
-    if (wait <= 0)
+    if (wait <= 0) {
+        obTrace.timerDue++;
+        if (static_cast<uint64_t>(-wait) > obTrace.mostLateMicros)
+            obTrace.mostLateMicros = static_cast<uint64_t>(-wait);
         return 0;
+    }
+    obTrace.timerLater++;
     return wait < std::numeric_limits<long>::max() ? static_cast<long>(wait) : std::numeric_limits<long>::max();
 }
 

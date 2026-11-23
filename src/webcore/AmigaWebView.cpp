@@ -59,6 +59,9 @@
 
 namespace GFOpenBrowser {
 
+// Every view's rendering updates, for the program's trace (ob_webcore_trace_take).
+unsigned long amigaRenderingUpdates;
+
 using namespace WebCore;
 
 class AmigaProgressTrackerClient final : public ProgressTrackerClient {
@@ -528,6 +531,7 @@ void WebView::renderingUpdateTimerFired()
     m_page->updateRendering();
     m_page->finalizeRenderingUpdate({ });
     m_renderingUpdates++;
+    amigaRenderingUpdates++;
     if (!m_deferReleased && !m_firstPaintAt) {
         m_firstPaintAt = MonotonicTime::now();
         m_deferTimer.startOneShot(1_s);
