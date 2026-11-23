@@ -55,6 +55,8 @@ sh "$HERE/tests/webcore/test_blob_registry.sh"
 sh "$HERE/tests/webcore/test_file_names_latin1.sh"
 # large pictures decode off the page's task, on one thread (WebKit patch 0126)
 sh "$HERE/tests/webcore/test_async_decode.sh"
+# pictures go to the datatypes from memory with datatypes.library 47.100+, through T: otherwise (WebKit patch 0127)
+OUT="$OUT/dt-memory-source" sh "$HERE/tests/webcore/test_dt_memory_source.sh"
 # webbrowser.library's wait for its engine: it stops when the engine's process ended with no engine
 "$CC" $FLAGS -I"$HERE/src/webbrowser" "$HERE/tests/test_wb_engine_wait.c" -o "$OUT/test_wb_engine_wait"
 "$OUT/test_wb_engine_wait"

@@ -101,10 +101,13 @@ not a tuned value.
 `fcntl()` and `pipe()`; on bsdsocket sockets they fail. curl is built to use
 `IoctlSocket(FIONBIO)` and a loopback socket pair.
 
-**Datatypes read files.** OS 3.2's picture datatypes reject memory sources
-(`DTST_MEMORY` gives `ERROR_OBJECT_WRONG_TYPE`), so the decoder passes each
-picture through a file in `T:`. PNG, GIF and BMP decode exactly as on Linux,
-including alpha and GIF transparency.
+**OS 3.2's datatypes read files.** OS 3.2's picture datatypes reject memory
+sources (`DTST_MEMORY` gives `ERROR_OBJECT_WRONG_TYPE`), so there the decoder
+passes each picture through a file in `T:`. With the open datatypes.library
+(47.100 and later) the datatype reads the picture from memory and nothing is
+written (WebKit patch 0127); a class that refuses memory still gets the file.
+PNG, GIF and BMP decode exactly as on Linux, including alpha and GIF
+transparency.
 
 **AmigaDOS paths.** fontconfig and SQLite treat names without a leading `/`
 as relative and rebuild them as POSIX paths. Both are patched to keep names
