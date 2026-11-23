@@ -219,8 +219,11 @@ def demangle(names):
     if not names:
         return {}
     cxxfilt = NM[:-2] + 'c++filt' if NM.endswith('nm') else 'c++filt'
-    r = subprocess.run([cxxfilt, '-n'], input='\n'.join(n[1:] if n.startswith('_') else n for n in names) + '\n',
-                       capture_output=True, text=True)
+    try:
+        r = subprocess.run([cxxfilt, '-n'], input='\n'.join(n[1:] if n.startswith('_') else n for n in names) + '\n',
+                           capture_output=True, text=True)
+    except OSError as e:
+        sys.exit(f'jsimage: cannot run {cxxfilt} ({e.strerror}): it comes with the stove, next to {NM}')
     out = r.stdout.splitlines()
     if r.returncode != 0 or len(out) != len(names):
         sys.exit(f'jsimage: {cxxfilt} -n failed (exit {r.returncode}, {len(out)} lines for {len(names)} names)')
