@@ -76,7 +76,7 @@ if [ ! -f "$HERE/src/webbrowser/bin/webbrowser.library" ]; then
 fi
 sh "$HERE/scripts/build-pack.sh" $STAGES
 mkdir -p "$HERE/out"
-NAME=${RC_NAME:-GFOpenBrowser-0.9.0-RC5-trace}
+NAME=${RC_NAME:-GFOpenBrowser-0.9.0-RC5}
 rm -rf "$HERE/out/$NAME"; cp -R "$PACK_DIR/out" "$HERE/out/$NAME"
 (cd "$HERE/out" && tar czf "$NAME.tgz" "$NAME")
 if [ -f "$PACK_DIR/out.lha" ]; then cp "$PACK_DIR/out.lha" "$HERE/out/$NAME.lha"; fi
