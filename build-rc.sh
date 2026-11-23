@@ -44,7 +44,28 @@ fi
 for n in gfopengadtools amicradle-guest; do
     if [ -f "$PACK_DIR/deps/$n/.git/FETCH_HEAD" ] && grep -q bundle "$PACK_DIR/deps/$n/.git/FETCH_HEAD"; then rm -rf "$PACK_DIR/deps/$n"; fi
 done
-sh "$HERE/scripts/build-pack.sh"
+# gperf (WebKit's generators need it) when this machine has none: GNU gperf 3.1 built here, for the build only
+if ! command -v gperf >/dev/null 2>&1; then
+    G="$PACK_DIR/gperf-3.1"
+    if [ ! -x "$PACK_DIR/bin/gperf" ]; then
+        curl -fsSL -o "$PACK_DIR/gperf-3.1.tar.gz" https://ftp.gnu.org/pub/gnu/gperf/gperf-3.1.tar.gz
+        echo "588546b945bba4b70b6a3a616e80b4ab466e3f33024a352fc2198112cdbb3ae2  $PACK_DIR/gperf-3.1.tar.gz" | sha256sum -c -
+        rm -rf "$G"; tar -xzf "$PACK_DIR/gperf-3.1.tar.gz" -C "$PACK_DIR"
+        (cd "$G" && ./configure --prefix="$PACK_DIR/gperf" >/dev/null && make -j"$(nproc)" >/dev/null && make install >/dev/null)
+        ln -sf "$PACK_DIR/gperf/bin/gperf" "$PACK_DIR/bin/gperf"
+    fi
+    echo "build-rc: gperf $("$PACK_DIR/bin/gperf" --version | head -1)"
+fi
+command -v ruby >/dev/null 2>&1 || echo "build-rc: WARNING: no ruby on this machine (WebKit's offlineasm needs it)"
+# only the stages not yet done (build-pack.sh logs each one's exit in pack.log); RC_STAGES overrides
+STAGES=${RC_STAGES:-}
+if [ -z "$STAGES" ]; then
+    for st in fetch tarballs fonts ca oab-deps libs engine package; do
+        if [ -f "$PACK_DIR/pack.log" ] && grep -q " $st: [0-9]* s, exit 0$" "$PACK_DIR/pack.log"; then :; else STAGES="$STAGES $st"; fi
+    done
+fi
+echo "build-rc: stages:$STAGES"
+sh "$HERE/scripts/build-pack.sh" $STAGES
 mkdir -p "$HERE/out"
 NAME=GFOpenBrowser-0.9.0-RC5
 rm -rf "$HERE/out/$NAME"; cp -R "$PACK_DIR/out" "$HERE/out/$NAME"
