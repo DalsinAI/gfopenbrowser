@@ -265,7 +265,7 @@ static char *obd_markup_download(int id, const char *name, const char *path)
 static void obd_prefs_defaults(obd_prefs *prefs)
 {
     memset(prefs, 0, sizeof *prefs);
-    obd_copy(prefs->homePage, sizeof prefs->homePage, "https://example.com/");
+    obd_copy(prefs->homePage, sizeof prefs->homePage, "https://aminet.net/");
     obd_copy(prefs->downloadFolder, sizeof prefs->downloadFolder, "RAM:");
     prefs->scripts = prefs->pictures = 1;
 }
@@ -341,7 +341,7 @@ static void obd_prefs_to_ui(olui *ui, const obd_prefs *prefs)
 static void obd_prefs_from_ui(olui *ui, obd_prefs *prefs)
 {
     const char *text = olui_get_text(olui_find(ui, "home"));
-    obd_copy(prefs->homePage, sizeof prefs->homePage, text && *text ? text : "https://example.com/");
+    obd_copy(prefs->homePage, sizeof prefs->homePage, text && *text ? text : "https://aminet.net/");
     text = olui_get_text(olui_find(ui, "folder"));
     obd_copy(prefs->downloadFolder, sizeof prefs->downloadFolder, text && *text ? text : "RAM:");
     prefs->scripts = olui_get_checked(olui_find(ui, "scripts"));
