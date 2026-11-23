@@ -56,7 +56,7 @@
 
 static const char version[] __attribute__((used)) = "$VER: GFOpenBrowser 0.9.0 (17.11.2026)";
 
-#define HOME_PAGE "https://example.com/"
+#define HOME_PAGE "https://aminet.net/"
 
 enum { GID_BACK = 1, GID_FORWARD, GID_RELOAD, GID_STOP, GID_URL, GID_STATUS, GID_COUNT };
 

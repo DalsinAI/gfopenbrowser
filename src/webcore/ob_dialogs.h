@@ -82,7 +82,7 @@ typedef struct {
     char downloadFolder[256];
     int scripts, pictures, webFonts, lite;
 } obd_prefs;
-/* The defaults: example.com, RAM:, JavaScript and pictures on. */
+/* The defaults: Aminet, RAM:, JavaScript and pictures on. */
 void obd_prefs_init(obd_prefs *prefs);
 /* Fills prefs from ENV: (or ENVARC:), keeping what's in it for anything
  * not there: 1 when a file was read. */

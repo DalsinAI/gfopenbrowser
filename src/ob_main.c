@@ -52,7 +52,7 @@ struct Library *GadToolsBase = NULL;
 #define VERSION_TEXT "GFOpenBrowserLite 0.4.4 (18.11.2026)"
 static const char version[] __attribute__((used)) = "$VER: " VERSION_TEXT;
 #define PORT_NAME "AMICRADLE.BROWSER"
-#define HOME_PAGE "http://example.com/"
+#define HOME_PAGE "https://aminet.net/"
 #define HISTORY_MAX 32
 
 enum { GID_BACK = 1, GID_RELOAD, GID_URL, GID_GO, GID_SCROLL, GID_LINKS, GID_STATUS, GID_COUNT };
