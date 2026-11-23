@@ -68,6 +68,12 @@ if [ -z "$STAGES" ]; then
     STAGES="$STAGES engine package"
 fi
 echo "build-rc: stages:$STAGES"
+# webbrowser.library is built by the libs stage into src/webbrowser/bin, in this checkout: a checkout copied
+# fresh after libs was done has none, and the package stage stopped on it (23 Nov 2026)
+if [ ! -f "$HERE/src/webbrowser/bin/webbrowser.library" ]; then
+    echo "build-rc: webbrowser.library not in this checkout: building it (src/webbrowser/build-library.sh)"
+    env OS32_GCC16="$OS32_GCC16" sh "$HERE/src/webbrowser/build-library.sh"
+fi
 sh "$HERE/scripts/build-pack.sh" $STAGES
 mkdir -p "$HERE/out"
 NAME=${RC_NAME:-GFOpenBrowser-0.9.0-RC5-trace}
