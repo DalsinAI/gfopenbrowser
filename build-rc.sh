@@ -60,14 +60,17 @@ command -v ruby >/dev/null 2>&1 || echo "build-rc: WARNING: no ruby on this mach
 # only the stages not yet done (build-pack.sh logs each one's exit in pack.log); RC_STAGES overrides
 STAGES=${RC_STAGES:-}
 if [ -z "$STAGES" ]; then
-    for st in fetch tarballs fonts ca oab-deps libs engine package; do
+    for st in fetch tarballs fonts ca oab-deps libs; do
         if [ -f "$PACK_DIR/pack.log" ] && grep -q " $st: [0-9]* s, exit 0$" "$PACK_DIR/pack.log"; then :; else STAGES="$STAGES $st"; fi
     done
+    # the engine and the package always: their sources are what changes between tries, and the
+    # engine's build is incremental (ninja, ccache)
+    STAGES="$STAGES engine package"
 fi
 echo "build-rc: stages:$STAGES"
 sh "$HERE/scripts/build-pack.sh" $STAGES
 mkdir -p "$HERE/out"
-NAME=GFOpenBrowser-0.9.0-RC5
+NAME=${RC_NAME:-GFOpenBrowser-0.9.0-RC5-trace}
 rm -rf "$HERE/out/$NAME"; cp -R "$PACK_DIR/out" "$HERE/out/$NAME"
 (cd "$HERE/out" && tar czf "$NAME.tgz" "$NAME")
 if [ -f "$PACK_DIR/out.lha" ]; then cp "$PACK_DIR/out.lha" "$HERE/out/$NAME.lha"; fi
