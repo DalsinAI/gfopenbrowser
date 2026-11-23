@@ -636,6 +636,17 @@ The patches, in order:
   with `PaintBehavior::DefaultAsynchronousImageDecode`
   (`src/webcore/AmigaWebView.cpp`): a large picture drawn for the first
   time decodes off the page's task.
+- `0127-amiga-pictures-to-datatypes-from-memory.patch`: pictures go to the
+  datatypes from memory, with no file in `T:`. Every picture the datatypes
+  decode, and every animated GIF, was first written to
+  `T:OpenBrowser-<task>-<n>.img`, because OS 3.2's picture datatypes read
+  files only. With datatypes.library 47.100 or later (the open one) the
+  datatype is given the bytes where they are (`DTST_MEMORY`,
+  `newPicture()` in `DatatypesDecode.c`), which gfopendatatypes' picture
+  classes read (GF-70). With an older library, or a class that refuses
+  memory, the picture goes through the file as before. The version rule is
+  in `DatatypesSource.h`, plain C, tested on the host
+  (`tests/webcore/test_dt_memory_source.sh`).
 
 `0001-amiga-m68k-jsconly.patch` is one combined patch. It holds:
 

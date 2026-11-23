@@ -1,0 +1,283 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: SacredTrees <121399723+SacredTrees@users.noreply.github.com>
+Date: Mon, 23 Nov 2026 12:20:00 +0000
+Subject: [PATCH] Amiga: pictures go to the datatypes from memory, no file in
+ T:
+
+Every picture the datatypes decode, and every animated GIF, was first
+written to T:OpenBrowser-<task>-<n>.img, because OS 3.2's picture
+datatypes read files only. The open datatypes.library (47.100 and later)
+takes a picture where it is, in memory (DTST_MEMORY), and gfopendatatypes'
+picture classes read that source (gfopendatatypes GF-70).
+
+newPicture() makes the datatype's object for both obdt_decode() and
+obdt_open_animation(). With datatypes.library 47.100 or later it asks for
+the picture from memory first, and nothing is written. When the library is
+older (OS 3.2), or the class refuses memory (a picture datatype from before
+that fix answers ERROR_OBJECT_WRONG_TYPE), the picture goes through the
+file in T: exactly as before. disposePicture() deletes the file only when
+there is one.
+
+The bytes handed over stay until the object has gone: an APNG's still
+copy and a GIF's first frame on its own are now freed after the decode,
+not after the file was written.
+
+DatatypesSource.h holds the version rule in plain C, so the host tests it
+(tests/webcore/test_dt_memory_source.sh).
+
+Team 2
+---
+ 2 files changed, 136 insertions(+), 32 deletions(-)
+
+diff --git a/Source/WebCore/platform/image-decoders/amiga/DatatypesDecode.c b/Source/WebCore/platform/image-decoders/amiga/DatatypesDecode.c
+--- a/Source/WebCore/platform/image-decoders/amiga/DatatypesDecode.c
++++ b/Source/WebCore/platform/image-decoders/amiga/DatatypesDecode.c
+@@ -24,6 +24,7 @@
+  */
+ 
+ #include "DatatypesDecode.h"
++#include "DatatypesSource.h"
+ 
+ #include <exec/types.h>
+ #include <exec/memory.h>
+@@ -44,6 +45,18 @@
+ #include <stdlib.h>
+ #include <string.h>
+ 
++/* V44's memory source: OS 3.2's NDK has no numbers for it, these are the
++ * open datatypes.library's (and OS 3.5's). */
++#ifndef DTST_MEMORY
++#define DTST_MEMORY 5
++#endif
++#ifndef DTA_SourceAddress
++#define DTA_SourceAddress (DTA_Dummy + 39)
++#endif
++#ifndef DTA_SourceSize
++#define DTA_SourceSize (DTA_Dummy + 40)
++#endif
++
+ /* Every thread decodes through the one library base; datatypes.library is
+  * a shared library, safe to call from any process. */
+ struct Library* DataTypesBase;
+@@ -74,10 +87,12 @@ static void openDataTypes(void)
+     resetFPCR();
+ }
+ 
++/* fileName: the picture's file in T:, or empty when it came from memory. */
+ static void disposePicture(Object* object, const char* fileName)
+ {
+     DisposeDTObject(object);
+-    DeleteFile((CONST_STRPTR)fileName);
++    if (fileName[0])
++        DeleteFile((CONST_STRPTR)fileName);
+     resetFPCR();
+ }
+ 
+@@ -227,7 +242,8 @@ static unsigned char* firstFrameGIF(const unsigned char* data, unsigned long siz
+ }
+ 
+ /* OS 3.2's picture datatypes read files, not memory (DTST_MEMORY gives
+- * ERROR_OBJECT_WRONG_TYPE), so the picture goes through a file in T:. */
++ * ERROR_OBJECT_WRONG_TYPE), so there the picture goes through a file in T:
++ * (newPicture() below). */
+ static void temporaryName(char* name, size_t nameSize, const char* extension)
+ {
+     static unsigned long s_counter;
+@@ -258,6 +274,49 @@ static int writeTemporaryFile(const void* data, unsigned long size, char* name,
+     return 1;
+ }
+ 
++/* The picture as a datatype object, or NULL with nothing left behind.
++ *
++ * With datatypes.library 47.100 or later (DatatypesSource.h) the datatype
++ * is given the bytes where they are (DTST_MEMORY): nothing is written, and
++ * fileName comes back empty. gfopendatatypes' classes copy the bytes while
++ * the object is made; the caller still keeps data until the object goes.
++ * When the library is older, or the class refuses memory (a picture
++ * datatype from before gfopendatatypes 0.2 does, with
++ * ERROR_OBJECT_WRONG_TYPE), the picture goes through a file in T: as it
++ * always has, and fileName names it for disposePicture(). */
++static Object* newPicture(const void* data, unsigned long size, char* fileName, size_t fileNameSize)
++{
++    Object* object;
++
++    fileName[0] = 0;
++    if (obdt_source_from_memory(DataTypesBase->lib_Version, DataTypesBase->lib_Revision)) {
++        object = NewDTObject(NULL,
++            DTA_SourceType, DTST_MEMORY,
++            DTA_SourceAddress, (ULONG)data,
++            DTA_SourceSize, (ULONG)size,
++            DTA_GroupID, GID_PICTURE,
++            PDTA_DestMode, PMODE_V43,
++            PDTA_Remap, FALSE,
++            TAG_DONE);
++        if (object)
++            return object;
++    }
++    if (!writeTemporaryFile(data, size, fileName, fileNameSize)) {
++        fileName[0] = 0;
++        return NULL;
++    }
++    object = NewDTObject((APTR)fileName,
++        DTA_GroupID, GID_PICTURE,
++        PDTA_DestMode, PMODE_V43,
++        PDTA_Remap, FALSE,
++        TAG_DONE);
++    if (!object) {
++        DeleteFile((CONST_STRPTR)fileName);
++        fileName[0] = 0;
++    }
++    return object;
++}
++
+ static OBDTServiceDecoder serviceDecoder;
+ 
+ void obdt_set_service_decoder(OBDTServiceDecoder decoder)
+@@ -279,18 +338,14 @@ int obdt_decode(const void* data, unsigned long size, OBDTImage* out)
+     return obdt_decode_datatypes(data, size, out);
+ }
+ 
++static int decodePicture(const void* data, unsigned long size, const GIFFirstFrame* gifFrame, OBDTImage* out);
++
+ static int obdt_decode_datatypes(const void* data, unsigned long size, OBDTImage* out)
+ {
+-    char fileName[64];
+-    Object* object;
+-    struct BitMapHeader* header = NULL;
+-    ULONG alphaChannel = FALSE;
+-    ULONG width, height, count, i;
+-    unsigned char* pixels;
+     unsigned char* changed = NULL;
+     unsigned long changedSize = 0;
+     GIFFirstFrame gif;
+-    int hasGIFFrame = 0, written;
++    int hasGIFFrame = 0, decoded;
+ 
+     memset(out, 0, sizeof *out);
+     pthread_once(&s_openOnce, openDataTypes);
+@@ -306,18 +361,27 @@ static int obdt_decode_datatypes(const void* data, unsigned long size, OBDTImage
+         changedSize = size;
+         hasGIFFrame = changed != NULL;
+     }
+-    written = changed ? writeTemporaryFile(changed, changedSize, fileName, sizeof fileName)
+-                      : writeTemporaryFile(data, size, fileName, sizeof fileName);
++    /* The bytes stay until the datatype's object has gone: from memory the
++     * datatype may read them for as long as it lives. */
++    decoded = changed ? decodePicture(changed, changedSize, hasGIFFrame ? &gif : NULL, out)
++                      : decodePicture(data, size, NULL, out);
+     free(changed);
+-    if (!written)
+-        return 0;
+-    object = NewDTObject((APTR)fileName,
+-        DTA_GroupID, GID_PICTURE,
+-        PDTA_DestMode, PMODE_V43,
+-        PDTA_Remap, FALSE,
+-        TAG_DONE);
++    return decoded;
++}
++
++/* data through the datatypes, as ARGB; gifFrame: where a GIF's partial
++ * first frame, decoded on its own, goes on the GIF's screen. */
++static int decodePicture(const void* data, unsigned long size, const GIFFirstFrame* gifFrame, OBDTImage* out)
++{
++    char fileName[64];
++    Object* object;
++    struct BitMapHeader* header = NULL;
++    ULONG alphaChannel = FALSE;
++    ULONG width, height, count, i;
++    unsigned char* pixels;
++
++    object = newPicture(data, size, fileName, sizeof fileName);
+     if (!object) {
+-        DeleteFile((CONST_STRPTR)fileName);
+         resetFPCR();
+         return 0;
+     }
+@@ -391,7 +455,7 @@ static int obdt_decode_datatypes(const void* data, unsigned long size, OBDTImage
+     out->width = width;
+     out->height = height;
+     out->pixels = pixels;
+-    if (hasGIFFrame && !gifPlaceFrame(&gif, out)) {
++    if (gifFrame && !gifPlaceFrame(gifFrame, out)) {
+         obdt_free(out);
+         return 0;
+     }
+@@ -500,20 +564,15 @@ int obdt_open_animation(const void* data, unsigned long size, OBDTAnimation* out
+     pthread_once(&s_openOnce, openDataTypes);
+     if (!DataTypesBase || !(animation = (OBDTAnimationObject*)calloc(1, sizeof *animation)))
+         return 0;
+-    /* The datatype reads the file when the object is made; the file stays
+-     * until the object goes (datatypes.library keeps it open). */
+-    if (!writeTemporaryFile(data, size, animation->fileName, sizeof animation->fileName)) {
+-        free(animation);
+-        return 0;
+-    }
+-    animation->object = NewDTObject((APTR)animation->fileName,
+-        DTA_GroupID, GID_PICTURE,
+-        PDTA_DestMode, PMODE_V43,
+-        PDTA_Remap, FALSE,
+-        TAG_DONE);
++    /* From memory (newPicture()), the datatype that gives frames
++     * (gfopengif.datatype) copies the GIF while the object is made, so the
++     * object does not need data after this call; any other datatype's
++     * object goes again below, before data does. From a file, the datatype
++     * reads it when the object is made and the file stays until the object
++     * goes (datatypes.library keeps it open). */
++    animation->object = newPicture(data, size, animation->fileName, sizeof animation->fileName);
+     resetFPCR();
+     if (!animation->object) {
+-        DeleteFile((CONST_STRPTR)animation->fileName);
+         free(animation);
+         return 0;
+     }
+diff --git a/Source/WebCore/platform/image-decoders/amiga/DatatypesSource.h b/Source/WebCore/platform/image-decoders/amiga/DatatypesSource.h
+new file mode 100644
+index 0000000..9350585
+--- /dev/null
++++ b/Source/WebCore/platform/image-decoders/amiga/DatatypesSource.h
+@@ -0,0 +1,45 @@
++/*
++ * Copyright (C) 2026 AmiCradle Team.
++ *
++ * Redistribution and use in source and binary forms, with or without
++ * modification, are permitted provided that the following conditions
++ * are met:
++ * 1. Redistributions of source code must retain the above copyright
++ *    notice, this list of conditions and the following disclaimer.
++ * 2. Redistributions in binary form must reproduce the above copyright
++ *    notice, this list of conditions and the following disclaimer in the
++ *    documentation and/or other materials provided with the distribution.
++ *
++ * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS ``AS IS''
++ * AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO,
++ * THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR
++ * PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDERS OR
++ * CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL,
++ * EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO,
++ * PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS;
++ * OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY,
++ * WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR
++ * OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF
++ * ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
++ */
++
++#pragma once
++
++/* Which way a picture's bytes go to the datatypes (DatatypesDecode.c), in
++ * plain C with no Amiga headers so the host can test it.
++ *
++ * datatypes.library 47.100 and later (the open one, gfopendatatypes) takes a
++ * picture straight from memory (DTST_MEMORY), and its picture classes copy
++ * the bytes; OS 3.2's library (47.x below 100) and its picture datatypes
++ * read files only, so there the picture goes through a file in T:. */
++#define OBDT_MEMORY_VERSION 47
++#define OBDT_MEMORY_REVISION 100
++
++/* 1 when a datatypes.library of this version and revision is asked for the
++ * picture from memory first; 0 when only a file is tried. */
++static inline int obdt_source_from_memory(unsigned version, unsigned revision)
++{
++    if (version != OBDT_MEMORY_VERSION)
++        return version > OBDT_MEMORY_VERSION;
++    return revision >= OBDT_MEMORY_REVISION;
++}
